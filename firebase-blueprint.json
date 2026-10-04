@@ -1,0 +1,107 @@
+{
+  "entities": {
+    "FeedbackItem": {
+      "title": "FeedbackItem",
+      "description": "A public feedback issue, bug report, or feature request",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "productId": { "type": "string" },
+        "productName": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "severity": { "type": "string" },
+        "status": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorHandle": { "type": "string" },
+        "authorAvatar": { "type": "string" },
+        "meTooCount": { "type": "number" },
+        "repostCount": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "officialResponse": { "type": "object" },
+        "comments": { "type": "array" }
+      },
+      "required": ["id", "productId", "title", "description", "category", "severity", "status", "authorName", "createdAt"]
+    },
+    "Company": {
+      "title": "Company",
+      "description": "An organization owning a suite of products",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "tagline": { "type": "string" },
+        "description": { "type": "string" },
+        "logo": { "type": "string" },
+        "hqLocation": { "type": "string" },
+        "domain": { "type": "string" },
+        "isClaimed": { "type": "boolean" },
+        "claimedById": { "type": "string" },
+        "claimedByName": { "type": "string" },
+        "verifiedMembers": { "type": "array" },
+        "websiteUrl": { "type": "string" }
+      },
+      "required": ["id", "name", "slug"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "A software product tracked on SignalPulse",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "tagline": { "type": "string" },
+        "description": { "type": "string" },
+        "logo": { "type": "string" },
+        "category": { "type": "string" },
+        "companyId": { "type": "string" },
+        "companyName": { "type": "string" },
+        "verifiedOwner": { "type": "boolean" },
+        "totalFeedbackCount": { "type": "number" },
+        "resolvedFeedbackCount": { "type": "number" }
+      },
+      "required": ["id", "name", "slug", "category"]
+    },
+    "NotificationItem": {
+      "title": "NotificationItem",
+      "description": "A real-time notification alert dispatched to a user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "actorName": { "type": "string" },
+        "actorAvatar": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string" },
+        "targetFeedbackId": { "type": "string" },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "title", "message", "type", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/feedback/{feedbackId}": {
+      "schema": { "$ref": "#/entities/FeedbackItem" },
+      "description": "Collection of community feedback, bugs, and feature requests"
+    },
+    "/companies/{companyId}": {
+      "schema": { "$ref": "#/entities/Company" },
+      "description": "Collection of organizations with claiming status and verified staff rosters"
+    },
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Collection of products tracked by the community"
+    },
+    "/notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/NotificationItem" },
+      "description": "Real-time user notification feed for shipped tickets and replies"
+    }
+  }
+}
