@@ -294,7 +294,7 @@ export const ProductPage: React.FC<ProductPageProps> = ({
                       type="button"
                       onClick={() => onOpenCompany(company)}
                       className="inline-flex items-center gap-1 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:underline transition-colors cursor-pointer group/comp font-medium"
-                      title={`View ${company.name} Company Page`}
+                      title={`View ${company.name} Organisation Page`}
                     >
                       <Building2 className="w-3 h-3 text-zinc-400 group-hover/comp:text-zinc-600 dark:group-hover/comp:text-zinc-200" />
                       <span>{company.name}</span>

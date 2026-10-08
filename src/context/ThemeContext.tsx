@@ -1,55 +1,176 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 
-type Theme = 'light' | 'dark';
+export type ThemePreference = 'light' | 'dark' | 'system';
+export type EffectiveTheme = 'light' | 'dark';
+
+export interface AppNotificationsSettings {
+  email: boolean;
+  releases: boolean;
+}
+
+export interface AppSettings {
+  theme: ThemePreference;
+  notifications: AppNotificationsSettings;
+}
+
+export const SETTINGS_STORAGE_KEY = 'crowdpulse_settings';
+
+export const DEFAULT_SETTINGS: AppSettings = {
+  theme: 'dark',
+  notifications: {
+    email: true,
+    releases: true,
+  },
+};
+
+export function loadStoredSettings(): AppSettings {
+  if (typeof window === 'undefined') return DEFAULT_SETTINGS;
+  try {
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      const validTheme: ThemePreference = 
+        parsed.theme === 'light' || parsed.theme === 'dark' || parsed.theme === 'system'
+          ? parsed.theme
+          : DEFAULT_SETTINGS.theme;
+      return {
+        theme: validTheme,
+        notifications: {
+          email: typeof parsed.notifications?.email === 'boolean' ? parsed.notifications.email : true,
+          releases: typeof parsed.notifications?.releases === 'boolean' ? parsed.notifications.releases : true,
+        },
+      };
+    }
+    // Backward compatibility with legacy key
+    const legacy = localStorage.getItem('signalpulse_theme');
+    if (legacy === 'light' || legacy === 'dark') {
+      return {
+        ...DEFAULT_SETTINGS,
+        theme: legacy,
+      };
+    }
+  } catch (e) {
+    console.warn('Failed to parse crowdpulse_settings:', e);
+  }
+  return DEFAULT_SETTINGS;
+}
+
+export function saveStoredSettings(settings: AppSettings): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+    window.dispatchEvent(new Event('crowdpulse_settings_updated'));
+  } catch (e) {
+    console.warn('Failed to save crowdpulse_settings:', e);
+  }
+}
 
 interface ThemeContextType {
-  theme: Theme;
+  theme: EffectiveTheme;
+  themePreference: ThemePreference;
+  setThemePreference: (pref: ThemePreference) => void;
   toggleTheme: () => void;
-  setTheme: (theme: Theme) => void;
+  setTheme: (theme: EffectiveTheme) => void;
+  settings: AppSettings;
+  updateSettings: (updater: Partial<AppSettings> | ((prev: AppSettings) => AppSettings)) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-const THEME_STORAGE_KEY = 'signalpulse_theme';
-
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    // Check localStorage first
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem(THEME_STORAGE_KEY);
-      if (stored === 'light' || stored === 'dark') {
-        return stored;
-      }
-      // Check system preference
-      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
-        return 'light';
-      }
+  const [settings, setSettings] = useState<AppSettings>(() => loadStoredSettings());
+
+  const getSystemTheme = (): EffectiveTheme => {
+    if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      return 'dark';
     }
-    return 'dark'; // Default to modern dark mode
+    return 'light';
+  };
+
+  const getEffectiveTheme = (pref: ThemePreference): EffectiveTheme => {
+    if (pref === 'system') {
+      return getSystemTheme();
+    }
+    return pref;
+  };
+
+  const [effectiveTheme, setEffectiveTheme] = useState<EffectiveTheme>(() => {
+    const initial = loadStoredSettings();
+    return getEffectiveTheme(initial.theme);
   });
 
-  useEffect(() => {
+  const applyThemeToDom = useCallback((effTheme: EffectiveTheme) => {
+    if (typeof document === 'undefined') return;
     const root = document.documentElement;
-    if (theme === 'dark') {
+    if (effTheme === 'dark') {
       root.classList.add('dark');
       root.classList.remove('light');
     } else {
       root.classList.remove('dark');
       root.classList.add('light');
     }
-    localStorage.setItem(THEME_STORAGE_KEY, theme);
-  }, [theme]);
+  }, []);
 
-  const toggleTheme = () => {
-    setThemeState((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  // Sync DOM and handle system changes
+  useEffect(() => {
+    const eff = getEffectiveTheme(settings.theme);
+    setEffectiveTheme(eff);
+    applyThemeToDom(eff);
+
+    if (settings.theme === 'system' && window.matchMedia) {
+      const media = window.matchMedia('(prefers-color-scheme: dark)');
+      const listener = () => {
+        const updatedEff = media.matches ? 'dark' : 'light';
+        setEffectiveTheme(updatedEff);
+        applyThemeToDom(updatedEff);
+      };
+      media.addEventListener('change', listener);
+      return () => media.removeEventListener('change', listener);
+    }
+  }, [settings.theme, applyThemeToDom]);
+
+  const updateSettings = (updater: Partial<AppSettings> | ((prev: AppSettings) => AppSettings)) => {
+    setSettings((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : { ...prev, ...updater };
+      saveStoredSettings(next);
+      return next;
+    });
   };
 
-  const setTheme = (newTheme: Theme) => {
-    setThemeState(newTheme);
+  const setThemePreference = (pref: ThemePreference) => {
+    updateSettings((prev) => ({
+      ...prev,
+      theme: pref,
+    }));
+  };
+
+  const toggleTheme = () => {
+    const next: EffectiveTheme = effectiveTheme === 'dark' ? 'light' : 'dark';
+    updateSettings((prev) => ({
+      ...prev,
+      theme: next,
+    }));
+  };
+
+  const setTheme = (newTheme: EffectiveTheme) => {
+    updateSettings((prev) => ({
+      ...prev,
+      theme: newTheme,
+    }));
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
+    <ThemeContext.Provider
+      value={{
+        theme: effectiveTheme,
+        themePreference: settings.theme,
+        setThemePreference,
+        toggleTheme,
+        setTheme,
+        settings,
+        updateSettings,
+      }}
+    >
       {children}
     </ThemeContext.Provider>
   );
@@ -62,3 +183,4 @@ export const useTheme = (): ThemeContextType => {
   }
   return context;
 };
+

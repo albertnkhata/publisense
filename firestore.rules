@@ -2,44 +2,44 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Global default-deny safety net
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
     function isValidId(id) {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
     // Feedback items: Publicly readable by all builders; creatable & updatable
     match /feedback/{feedbackId} {
-      allow read: if isValidId(feedbackId);
-      allow create: if isValidId(feedbackId)
-                    && request.resource.data.title is string
-                    && request.resource.data.title.size() <= 300
-                    && request.resource.data.description is string
-                    && request.resource.data.description.size() <= 10000;
-      allow update: if isValidId(feedbackId);
-      allow delete: if isValidId(feedbackId);
+      allow get, list: if true;
+      allow create, update, delete: if true;
     }
 
     // Companies: Publicly readable by all; updatable for claims & roster additions
     match /companies/{companyId} {
-      allow read: if isValidId(companyId);
-      allow create, update: if isValidId(companyId);
+      allow get, list: if true;
+      allow create, update: if true;
       allow delete: if false;
     }
 
     // Products: Publicly readable; updatable when subsumed or followed
     match /products/{productId} {
-      allow read: if isValidId(productId);
-      allow create, update: if isValidId(productId);
+      allow get, list: if true;
+      allow create, update: if true;
       allow delete: if false;
     }
 
     // Notifications: Publicly readable / writable for user alerts
     match /notifications/{notificationId} {
-      allow read, write: if isValidId(notificationId);
+      allow get, list, create, update, delete: if true;
+    }
+
+    // Waitlist submissions for Coming Soon launch
+    match /waitlist/{waitlistId} {
+      allow get, list, create, update: if true;
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow get, list: if true;
+      allow create, update: if true;
     }
   }
 }

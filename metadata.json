@@ -1,6 +1,6 @@
 {
   "name": "CrowdPulse — Public Product Feedback & Voice",
-  "description": "A centralized, crowd-signal product feedback platform for modern products. Upvote with 'Me Too', track company responses, and eliminate duplicate feature requests.",
+  "description": "A centralized, crowd-signal product feedback platform for modern products. Upvote with 'Me Too', track organisation responses, and eliminate duplicate feature requests.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

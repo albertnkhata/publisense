@@ -58,7 +58,8 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({
   onInviteMember,
   onAddProductToOrg,
 }) => {
-  const [activeTab, setActiveTab] = useState<'products' | 'feedback' | 'team' | 'shipped'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'team'>('products');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'shipped'>('all');
   const [selectedProductFilter, setSelectedProductFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'trending' | 'top' | 'newest'>('trending');
@@ -69,6 +70,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('Product Manager');
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
+  const [inviteError, setInviteError] = useState<string | null>(null);
 
   const isOrgOwnerOrPM = Boolean(
     currentUser && (
@@ -107,9 +109,9 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({
     return companyFeedback.filter((item) => item.status === 'shipped');
   }, [companyFeedback]);
 
-  // Filtered feedback for tab 2
+  // Filtered feedback for always-on Company Signals section
   const displayedFeedback = useMemo(() => {
-    let items = activeTab === 'shipped' ? shippedFeedback : companyFeedback;
+    let items = statusFilter === 'shipped' ? shippedFeedback : companyFeedback;
 
     if (selectedProductFilter !== 'all') {
       items = items.filter((item) => item.productId === selectedProductFilter);
@@ -128,7 +130,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({
         return b.id.localeCompare(a.id);
       }
     });
-  }, [activeTab, shippedFeedback, companyFeedback, selectedProductFilter, categoryFilter, sortBy]);
+  }, [statusFilter, shippedFeedback, companyFeedback, selectedProductFilter, categoryFilter, sortBy]);
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 animate-in fade-in duration-150">
@@ -149,7 +151,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({
         </span>
       </nav>
 
-      {/* Company Hero Card */}
+      {/* Organisation Hero Card */}
       <div className="p-6 sm:p-7 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 shadow-xs mb-8">
         <div className="flex flex-col sm:flex-row items-start justify-between gap-5">
           <div className="flex items-start gap-4">
@@ -165,12 +167,12 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({
                 </h1>
 
                 {company.isClaimed ? (
-                  <span title="Claimed & Verified Organization" className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                  <span title="Claimed & Verified Organisation" className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                     <span>Claimed Org</span>
                   </span>
                 ) : (
-                  <span title="Unclaimed Organization" className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                  <span title="Unclaimed Organisation" className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
                     <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
                     <span>Unclaimed Org</span>
                   </span>
@@ -186,7 +188,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({
                 {company.description}
               </p>
 
-              {/* Company Metadata Row */}
+              {/* Organisation Metadata Row */}
               <div className="flex items-center gap-3.5 pt-1 text-xs text-zinc-400 flex-wrap">
                 <div className="flex items-center gap-1">
                   <MapPin className="w-3 h-3 text-zinc-400" />
@@ -328,7 +330,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({
           </div>
         </div>
 
-        {/* Company Responsiveness & Suite Scorecard */}
+        {/* Organisation Responsiveness & Suite Scorecard */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-5 border-t border-zinc-100 dark:border-zinc-800 text-center">
           <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-850/60 border border-zinc-100 dark:border-zinc-800/80">
             <p className="text-lg sm:text-xl font-bold text-zinc-900 dark:text-white">
@@ -387,10 +389,11 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({
         </div>
       )}
 
-      {/* Tabs */}
+      {/* Top Suite & Governance Tabs */}
       <div className="space-y-4">
         <div className="flex items-center gap-1 border-b border-zinc-200 dark:border-zinc-800 pb-3 overflow-x-auto scrollbar-none text-xs">
           <button
+            type="button"
             onClick={() => setActiveTab('products')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${
               activeTab === 'products'
@@ -403,30 +406,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({
           </button>
 
           <button
-            onClick={() => setActiveTab('feedback')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${
-              activeTab === 'feedback'
-                ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 font-semibold'
-                : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-            }`}
-          >
-            <Clock className="w-3.5 h-3.5" />
-            <span>Company Signals ({companyFeedback.length})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('shipped')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${
-              activeTab === 'shipped'
-                ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 font-semibold'
-                : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-            }`}
-          >
-            <Check className="w-3.5 h-3.5" />
-            <span>Shipped Solutions ({shippedFeedback.length})</span>
-          </button>
-
-          <button
+            type="button"
             onClick={() => setActiveTab('team')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${
               activeTab === 'team'
@@ -526,82 +506,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({
           </div>
         )}
 
-        {/* Tab 2 & 3: Unified Company Feedback or Shipped */}
-        {(activeTab === 'feedback' || activeTab === 'shipped') && (
-          <div className="space-y-4">
-            {/* Filter controls */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 text-xs pb-1">
-              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
-                <span className="text-zinc-400 text-[11px]">Product:</span>
-                <button
-                  onClick={() => setSelectedProductFilter('all')}
-                  className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${
-                    selectedProductFilter === 'all'
-                      ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
-                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
-                  }`}
-                >
-                  All Products
-                </button>
-                {companyProducts.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => setSelectedProductFilter(p.id)}
-                    className={`px-2 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
-                      selectedProductFilter === p.id
-                        ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
-                        : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
-                    }`}
-                  >
-                    {p.name}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex items-center justify-end gap-2">
-                <FilterDropdown
-                  label="Type"
-                  selectedValue={categoryFilter}
-                  onSelect={setCategoryFilter}
-                  options={[
-                    { id: 'all', label: 'All Types' },
-                    { id: 'bug', label: 'Bugs' },
-                    { id: 'ux', label: 'UX' },
-                    { id: 'feature', label: 'Features' },
-                    { id: 'performance', label: 'Performance' },
-                  ]}
-                />
-              </div>
-            </div>
-
-            {/* List */}
-            {displayedFeedback.length === 0 ? (
-              <div className="py-16 text-center rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-xs text-zinc-400">
-                No feedback items found for this filter.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {displayedFeedback.map((item) => {
-                  const itemProduct = products.find((p) => p.id === item.productId);
-                  return (
-                    <FeedbackCard
-                      key={item.id}
-                      item={item}
-                      product={itemProduct}
-                      onVote={onVote}
-                      onOpenDetails={onOpenDetails}
-                      onOpenShare={onOpenShare}
-                      onOpenProfile={onOpenProfile}
-                      onOpenProduct={onOpenProduct}
-                    />
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Tab 4: Verified Team Roster & Security Contacts */}
+        {/* Tab 2: Verified Team Roster & Security Contacts */}
         {activeTab === 'team' && (
           <div className="space-y-5">
             {!company.isClaimed ? (
@@ -653,7 +558,19 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
+                      setInviteError(null);
                       if (!inviteName.trim() || !inviteEmail.trim()) return;
+
+                      // Validate work email domain if company domain is configured
+                      if (company.domain) {
+                        const emailDomain = inviteEmail.split('@')[1]?.toLowerCase();
+                        const orgDomain = company.domain.toLowerCase();
+                        if (emailDomain && !emailDomain.includes(orgDomain.split('.')[0])) {
+                          setInviteError(`Work email domain mismatch. Expected @${company.domain}`);
+                          return;
+                        }
+                      }
+
                       if (onInviteMember) {
                         onInviteMember(company.id, {
                           name: inviteName.trim(),
@@ -661,17 +578,24 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({
                           roleTitle: inviteRole.trim() || 'Product Manager',
                         });
                       }
-                      setInviteSuccess(`Invited ${inviteName.trim()} (${inviteEmail.trim()}) to verified roster!`);
+                      setInviteSuccess(`Invited ${inviteName.trim()} (${inviteEmail.trim()}) to verified PM roster!`);
                       setInviteName('');
                       setInviteEmail('');
                       setTimeout(() => setInviteSuccess(null), 4000);
                     }}
-                    className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-850/80 border border-zinc-200 dark:border-zinc-700 space-y-3"
+                    className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-855/80 border border-zinc-200 dark:border-zinc-700 space-y-3"
                   >
                     <h4 className="text-xs font-bold text-zinc-900 dark:text-white flex items-center gap-1.5">
                       <UserPlus className="w-3.5 h-3.5 text-indigo-500" />
                       <span>Invite Verified Colleague to {company.name}</span>
                     </h4>
+
+                    {inviteError && (
+                      <div className="p-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 flex items-center gap-1.5">
+                        <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span>{inviteError}</span>
+                      </div>
+                    )}
 
                     {inviteSuccess && (
                       <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
@@ -781,6 +705,128 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({
           </div>
         )}
       </div>
+
+      {/* ALWAYS-ON ORGANISATION SIGNALS SECTION */}
+      <section className="mt-10 pt-8 border-t border-zinc-200 dark:border-zinc-850 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                Organisation Signals
+              </h3>
+              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
+                {companyFeedback.length}
+              </span>
+            </div>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+              Live community feedback, bugs, and feature requests across all {company.name} products
+            </p>
+          </div>
+
+          {/* Quick status pill toggle */}
+          <div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-850 rounded-xl text-xs self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={() => setStatusFilter('all')}
+              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                statusFilter === 'all'
+                  ? 'bg-white dark:bg-zinc-750 text-zinc-900 dark:text-white shadow-2xs font-semibold'
+                  : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white'
+              }`}
+            >
+              All Signals ({companyFeedback.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('shipped')}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                statusFilter === 'shipped'
+                  ? 'bg-emerald-600 text-white font-semibold shadow-2xs'
+                  : 'text-zinc-500 hover:text-emerald-600 dark:text-zinc-400 dark:hover:text-emerald-400'
+              }`}
+            >
+              <Check className="w-3.5 h-3.5" />
+              <span>Shipped ({shippedFeedback.length})</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Filter controls toolbar: Product pills & Category filter */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 text-xs pb-1">
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1">
+            <span className="text-zinc-400 text-[11px] font-medium flex-shrink-0">Product:</span>
+            <button
+              type="button"
+              onClick={() => setSelectedProductFilter('all')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer flex-shrink-0 ${
+                selectedProductFilter === 'all'
+                  ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
+                  : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-zinc-600 dark:text-zinc-400'
+              }`}
+            >
+              All Products
+            </button>
+            {companyProducts.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setSelectedProductFilter(p.id)}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors whitespace-nowrap cursor-pointer flex-shrink-0 ${
+                  selectedProductFilter === p.id
+                    ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
+                    : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-zinc-600 dark:text-zinc-400'
+                }`}
+              >
+                <img src={p.logo} alt={p.name} className="w-3.5 h-3.5 rounded-full object-cover" />
+                <span>{p.name}</span>
+                {p.totalFeedbackCount > 0 && (
+                  <span className="text-[10px] opacity-70">({p.totalFeedbackCount})</span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-end gap-2 flex-shrink-0">
+            <FilterDropdown
+              label="Type"
+              selectedValue={categoryFilter}
+              onSelect={setCategoryFilter}
+              options={[
+                { id: 'all', label: 'All Types' },
+                { id: 'bug', label: 'Bugs' },
+                { id: 'ux', label: 'UX' },
+                { id: 'feature', label: 'Features' },
+                { id: 'performance', label: 'Performance' },
+              ]}
+            />
+          </div>
+        </div>
+
+        {/* Live List */}
+        {displayedFeedback.length === 0 ? (
+          <div className="py-14 text-center rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-xs text-zinc-400">
+            No feedback items found matching this filter.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {displayedFeedback.map((item) => {
+              const itemProduct = products.find((p) => p.id === item.productId);
+              return (
+                <FeedbackCard
+                  key={item.id}
+                  item={item}
+                  product={itemProduct}
+                  onVote={onVote}
+                  onOpenDetails={onOpenDetails}
+                  onOpenShare={onOpenShare}
+                  onOpenProfile={onOpenProfile}
+                  onOpenProduct={onOpenProduct}
+                />
+              );
+            })}
+          </div>
+        )}
+      </section>
     </div>
   );
 };

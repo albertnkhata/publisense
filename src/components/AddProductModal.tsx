@@ -249,10 +249,10 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
             </div>
           </div>
 
-          {/* Company Name */}
+          {/* Organisation Name */}
           <div>
             <label className="font-medium text-zinc-700 dark:text-zinc-300 block mb-1">
-              Company or Creator Name (optional)
+              Organisation or Creator Name (optional)
             </label>
             <div className="relative flex items-center">
               <Building2 className="absolute left-2.5 w-3.5 h-3.5 text-zinc-400" />

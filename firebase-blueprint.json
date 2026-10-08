@@ -21,6 +21,8 @@
         "repostCount": { "type": "number" },
         "createdAt": { "type": "string" },
         "updatedAt": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "images": { "type": "array" },
         "officialResponse": { "type": "object" },
         "comments": { "type": "array" }
       },
@@ -84,6 +86,39 @@
         "createdAt": { "type": "string" }
       },
       "required": ["id", "userId", "title", "message", "type", "createdAt"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "A user profile stored from Firebase Auth or demo personas",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "handle": { "type": "string" },
+        "avatar": { "type": "string" },
+        "role": { "type": "string" },
+        "roleTitle": { "type": "string" },
+        "bio": { "type": "string" },
+        "companyOrOrg": { "type": "string" },
+        "companyId": { "type": "string" },
+        "location": { "type": "string" },
+        "joinedDate": { "type": "string" },
+        "followerCount": { "type": "number" },
+        "followingCount": { "type": "number" }
+      },
+      "required": ["id", "name", "email", "handle", "role"]
+    },
+    "WaitlistEntry": {
+      "title": "WaitlistEntry",
+      "description": "Early access submission from Coming Soon page",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "email", "createdAt"]
     }
   },
   "firestore": {
@@ -102,6 +137,14 @@
     "/notifications/{notificationId}": {
       "schema": { "$ref": "#/entities/NotificationItem" },
       "description": "Real-time user notification feed for shipped tickets and replies"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Registered user accounts and permissions"
+    },
+    "/waitlist/{waitlistId}": {
+      "schema": { "$ref": "#/entities/WaitlistEntry" },
+      "description": "Waitlist requests for public beta release"
     }
   }
 }

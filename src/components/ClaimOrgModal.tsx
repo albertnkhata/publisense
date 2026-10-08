@@ -32,7 +32,7 @@ export const ClaimOrgModal: React.FC<ClaimOrgModalProps> = ({
 }) => {
   if (!isOpen || !company) return null;
 
-  const expectedDomain = company.domain || (company.websiteUrl ? company.websiteUrl.replace(/^https?:\/\/(www\.)?/, '').split('/')[0] : 'company.com');
+  const expectedDomain = company.domain || (company.websiteUrl ? company.websiteUrl.replace(/^https?:\/\/(www\.)?/, '').split('/')[0] : 'organisation.com');
   const defaultDemoEmail = currentUser?.email && currentUser.email.includes('@' + expectedDomain)
     ? currentUser.email
     : `alex@${expectedDomain}`;

@@ -4,9 +4,11 @@ import {
   MessageSquare, 
   CheckCircle2, 
   ChevronUp,
-  ArrowUpRight
+  ArrowUpRight,
+  Image as ImageIcon
 } from 'lucide-react';
 import { FeedbackItem, Product, FeedbackStatus } from '../types';
+import { formatRelativeTime } from '../lib/timeUtils';
 
 interface FeedbackCardProps {
   item: FeedbackItem;
@@ -143,6 +145,29 @@ export const FeedbackCard: React.FC<FeedbackCardProps> = ({
         {item.experienceDescription}
       </p>
 
+      {/* Screenshot / Image Preview if present */}
+      {(item.imageUrl || (item.images && item.images.length > 0)) && (
+        <div 
+          onClick={() => onOpenDetails(item)}
+          className="mt-2.5 inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200/80 dark:border-zinc-700/60 hover:border-zinc-300 dark:hover:border-zinc-600 cursor-pointer transition-colors group/img"
+        >
+          <div className="w-8 h-8 rounded-md overflow-hidden bg-zinc-100 dark:bg-zinc-700 flex-shrink-0 flex items-center justify-center border border-zinc-200 dark:border-zinc-700">
+            <img
+              src={item.imageUrl || item.images?.[0]}
+              alt="Attached screenshot preview"
+              className="w-full h-full object-cover group-hover/img:scale-105 transition-transform"
+            />
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-300">
+            <ImageIcon className="w-3.5 h-3.5 text-zinc-400 group-hover/img:text-zinc-700 dark:group-hover/img:text-zinc-200" />
+            <span className="font-medium group-hover/img:underline">View screenshot attachment</span>
+            {item.images && item.images.length > 1 && (
+              <span className="text-[10px] text-zinc-400">+{item.images.length - 1} more</span>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Official Team Update (if present, quiet and tasteful) */}
       {item.statusUpdateNote && (
         <div className="mt-3 p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-700/60 text-xs text-zinc-700 dark:text-zinc-300 flex items-start gap-2">
@@ -224,7 +249,7 @@ export const FeedbackCard: React.FC<FeedbackCardProps> = ({
             <span>{item.authorName}</span>
           )}
           <span>•</span>
-          <span>{item.createdAt}</span>
+          <span>{formatRelativeTime(item.createdAt, item.id)}</span>
         </div>
       </div>
     </article>

@@ -21,6 +21,8 @@ export interface Comment {
   type: 'general' | 'workaround' | 'system_info' | 'official_response';
   likes: number;
   hasLiked?: boolean;
+  isEdited?: boolean;
+  editedAt?: string;
 }
 
 export interface FeedbackItem {
@@ -45,7 +47,12 @@ export interface FeedbackItem {
   authorHandle: string;
   authorAvatar: string;
   tags: string[];
+  imageUrl?: string;
+  images?: string[];
   similarDuplicateCount?: number;
+  isEdited?: boolean;
+  editedAt?: string;
+  isWithdrawn?: boolean;
 }
 
 export interface Product {
@@ -102,6 +109,7 @@ export interface Company {
   claimedById?: string;
   claimedByName?: string;
   claimedAt?: string;
+  pendingInvites?: { email: string; invitedBy: string; invitedAt: string; roleTitle?: string }[];
 }
 
 export type ViewMode = 'feed' | 'leaderboard';

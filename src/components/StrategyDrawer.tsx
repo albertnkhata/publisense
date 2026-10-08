@@ -79,10 +79,10 @@ export const StrategyDrawer: React.FC<StrategyDrawerProps> = ({
           </p>
         </div>
 
-        {/* Section 4: Closed-Loop Company Incentive */}
+        {/* Section 4: Closed-Loop Organisation Incentive */}
         <div className="space-y-2 text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-900 dark:text-zinc-100">
-            4. Why Companies Will Participate
+            4. Why Organisations Will Participate
           </h3>
           <p>
             The Radar score (responsiveness rate) creates public accountability. When product teams change status to "Planned" or "Shipped", all backing users are notified, turning dissatisfied complainers into loyal brand champions.

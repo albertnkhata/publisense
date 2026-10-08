@@ -4,11 +4,38 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CrowdPulse — Public Product Feedback &amp; Voice</title>
-    <meta name="description" content="A centralized, crowd-signal product feedback platform for modern products. Upvote with 'Me Too', track company responses, and eliminate duplicate feature requests." />
+    <meta name="description" content="A centralized, crowd-signal product feedback platform for modern products. Upvote canonical issues, track organisation responses, and eliminate duplicate feature requests." />
     <meta property="og:title" content="CrowdPulse — Public Product Feedback &amp; Voice" />
-    <meta property="og:description" content="A centralized, crowd-signal product feedback platform for modern products. Upvote with 'Me Too', track company responses, and eliminate duplicate feature requests." />
+    <meta property="og:description" content="A centralized, crowd-signal product feedback platform for modern products. Upvote canonical issues, track organisation responses, and eliminate duplicate feature requests." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
+    <script>
+      (function() {
+        try {
+          var raw = localStorage.getItem('crowdpulse_settings');
+          var isDark = true;
+          if (raw) {
+            var parsed = JSON.parse(raw);
+            if (parsed.theme === 'light') isDark = false;
+            else if (parsed.theme === 'dark') isDark = true;
+            else if (parsed.theme === 'system') {
+              isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            }
+          } else {
+            var legacy = localStorage.getItem('signalpulse_theme');
+            if (legacy === 'light') isDark = false;
+            else if (legacy === 'dark') isDark = true;
+          }
+          if (isDark) {
+            document.documentElement.classList.add('dark');
+            document.documentElement.classList.remove('light');
+          } else {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.classList.add('light');
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

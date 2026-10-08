@@ -7,7 +7,8 @@ import {
   TrendingUp, 
   ArrowRight,
   Plus,
-  Globe
+  Globe,
+  Layers
 } from 'lucide-react';
 import { Product } from '../types';
 
@@ -237,10 +238,24 @@ export const ProductHeader: React.FC<ProductHeaderProps> = ({
           )}
         </div>
 
-        {/* Trending / Popular Products Row (Only real trending products, no weird "All Products" chip) */}
+        {/* Trending / Popular Products Row */}
         <div className="flex items-center justify-between gap-2 overflow-x-auto scrollbar-none text-xs">
           <div className="flex items-center gap-1.5 flex-1 min-w-0">
-            <span className="text-[11px] font-medium text-zinc-400 flex items-center gap-1 mr-1 flex-shrink-0">
+            {/* All Products pill */}
+            <button
+              onClick={() => handleSelectProduct('all')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium whitespace-nowrap transition-colors cursor-pointer ${
+                selectedProductId === 'all'
+                  ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 font-semibold shadow-2xs'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/80'
+              }`}
+              title="View all feedback across all products"
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>All Products</span>
+            </button>
+
+            <span className="text-[11px] font-medium text-zinc-400 flex items-center gap-1 mx-1 flex-shrink-0">
               <TrendingUp className="w-3 h-3 text-zinc-400" />
               <span>Trending:</span>
             </span>

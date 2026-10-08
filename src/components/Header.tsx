@@ -1,27 +1,33 @@
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Activity, 
   Sun, 
   Moon, 
   LogIn
 } from 'lucide-react';
-import { UserProfile, UserRole } from '../types';
+import { UserProfile } from '../types';
 import { useTheme } from '../context/ThemeContext';
 import { ProfileDropdown } from './ProfileDropdown';
 import { NotificationDropdown } from './NotificationDropdown';
 import { RealtimeNotification } from '../lib/firebase';
+import { getStoredProfile, getHandleFromProfileRoute } from '../lib/profileStorage';
 
 interface HeaderProps {
   currentUser: UserProfile | null;
   notifications?: RealtimeNotification[];
   onSelectNotificationFeedback?: (id: string) => void;
   onClearNotifications?: () => void;
+  onMarkNotificationRead?: (id: string) => void;
+  onMarkAllNotificationsRead?: () => void;
+  onDismissNotification?: (id: string) => void;
   onOpenLogin: () => void;
-  onRoleChange: (newRole: UserRole) => void;
   onLogout: () => void;
   onOpenSubmit?: () => void;
   onLogoClick: () => void;
   onViewProfile?: () => void;
+  onOpenSettings?: () => void;
+  onOpenInternalDocs?: () => void;
+  onOpenAdminConsole?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -29,14 +35,61 @@ export const Header: React.FC<HeaderProps> = ({
   notifications = [],
   onSelectNotificationFeedback,
   onClearNotifications,
+  onMarkNotificationRead,
+  onMarkAllNotificationsRead,
+  onDismissNotification,
   onOpenLogin,
-  onRoleChange,
   onLogout,
   onOpenSubmit,
   onLogoClick,
   onViewProfile,
+  onOpenSettings,
+  onOpenInternalDocs,
+  onOpenAdminConsole,
 }) => {
   const { theme, toggleTheme } = useTheme();
+  const [profileSyncTick, setProfileSyncTick] = useState(0);
+
+  useEffect(() => {
+    const handleProfileUpdate = () => {
+      setProfileSyncTick((t) => t + 1);
+    };
+    window.addEventListener('crowdpulse_profile_updated', handleProfileUpdate);
+    window.addEventListener('storage', handleProfileUpdate);
+    window.addEventListener('hashchange', handleProfileUpdate);
+    return () => {
+      window.removeEventListener('crowdpulse_profile_updated', handleProfileUpdate);
+      window.removeEventListener('storage', handleProfileUpdate);
+      window.removeEventListener('hashchange', handleProfileUpdate);
+    };
+  }, []);
+
+  const effectiveUser = useMemo(() => {
+    if (!currentUser) return null;
+    const cleanHandle = currentUser.handle.replace(/^@/, '');
+    const stored = getStoredProfile(cleanHandle);
+
+    if (stored) {
+      return {
+        ...currentUser,
+        name: stored.name || currentUser.name,
+        companyOrOrg: stored.org !== undefined ? stored.org : currentUser.companyOrOrg,
+        bio: stored.bio !== undefined ? stored.bio : currentUser.bio,
+        avatar: stored.avatar || currentUser.avatar,
+      };
+    }
+
+    if (cleanHandle === 'albert') {
+      return {
+        ...currentUser,
+        name: currentUser.name || 'Albert N.',
+        companyOrOrg: currentUser.companyOrOrg || 'CrowdPulse',
+        bio: currentUser.bio || 'Platform Administrator and Founder at CrowdPulse.',
+      };
+    }
+
+    return currentUser;
+  }, [currentUser, profileSyncTick]);
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200/90 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 transition-colors">
@@ -65,6 +118,9 @@ export const Header: React.FC<HeaderProps> = ({
               notifications={notifications}
               onSelectFeedback={onSelectNotificationFeedback}
               onClearNotifications={onClearNotifications}
+              onMarkRead={onMarkNotificationRead}
+              onMarkAllRead={onMarkAllNotificationsRead}
+              onDismissNotification={onDismissNotification}
             />
 
             {/* Dark Mode Toggle */}
@@ -82,12 +138,14 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
 
             {/* Profile or Sign In */}
-            {currentUser ? (
+            {effectiveUser ? (
               <ProfileDropdown
-                user={currentUser}
-                onRoleChange={onRoleChange}
+                user={effectiveUser}
                 onLogout={onLogout}
                 onViewProfile={onViewProfile || (() => {})}
+                onOpenSettings={onOpenSettings}
+                onOpenInternalDocs={onOpenInternalDocs}
+                onOpenAdminConsole={onOpenAdminConsole}
               />
             ) : (
               <button

@@ -1,27 +1,31 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   User, 
-  Building2, 
   ShieldCheck,
   CheckCircle2,
-  Check,
   LogOut, 
-  ChevronDown
+  ChevronDown,
+  BookOpen,
+  Settings
 } from 'lucide-react';
-import { UserProfile, UserRole } from '../types';
+import { UserProfile } from '../types';
 
 interface ProfileDropdownProps {
   user: UserProfile;
-  onRoleChange: (newRole: UserRole) => void;
   onLogout: () => void;
   onViewProfile: () => void;
+  onOpenSettings?: () => void;
+  onOpenInternalDocs?: () => void;
+  onOpenAdminConsole?: () => void;
 }
 
 export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
   user,
-  onRoleChange,
   onLogout,
   onViewProfile,
+  onOpenSettings,
+  onOpenInternalDocs,
+  onOpenAdminConsole,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -101,6 +105,11 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
                 <p className="text-[11px] text-zinc-400 font-mono truncate mt-0.5">
                   {user.handle}
                 </p>
+                {user.email && (
+                  <p className="text-[10px] text-zinc-500 font-mono truncate mt-0.5" title={user.email}>
+                    {user.email}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -118,73 +127,48 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
               <User className="w-3.5 h-3.5 text-zinc-400" />
               <span>Your profile</span>
             </button>
-          </div>
 
-          {/* Role Switcher Section */}
-          <div className="py-1.5 px-2 border-b border-zinc-100 dark:border-zinc-800">
-            <div className="px-2 py-1 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
-              Switch Role
-            </div>
+            {onOpenSettings && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOpen(false);
+                  onOpenSettings();
+                }}
+                className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer"
+              >
+                <Settings className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Settings</span>
+              </button>
+            )}
 
-            {/* Member */}
-            <button
-              type="button"
-              onClick={() => {
-                onRoleChange('user');
-                setIsOpen(false);
-              }}
-              className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
-                user.role === 'user'
-                  ? 'bg-zinc-100 dark:bg-zinc-800 font-semibold text-zinc-900 dark:text-white'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/60'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <User className="w-3.5 h-3.5 text-zinc-400" />
-                <span>Member</span>
-              </div>
-              {user.role === 'user' && <Check className="w-3.5 h-3.5 text-zinc-900 dark:text-white" />}
-            </button>
+            {isAdmin && onOpenAdminConsole && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOpen(false);
+                  onOpenAdminConsole();
+                }}
+                className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40 transition-colors cursor-pointer font-semibold"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                <span>Admin Console</span>
+              </button>
+            )}
 
-            {/* PM */}
-            <button
-              type="button"
-              onClick={() => {
-                onRoleChange('company_pm');
-                setIsOpen(false);
-              }}
-              className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
-                user.role === 'company_pm'
-                  ? 'bg-emerald-50 dark:bg-emerald-950/40 font-semibold text-emerald-800 dark:text-emerald-300'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/60'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Building2 className="w-3.5 h-3.5 text-emerald-500" />
-                <span>Product Manager</span>
-              </div>
-              {user.role === 'company_pm' && <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />}
-            </button>
-
-            {/* Admin */}
-            <button
-              type="button"
-              onClick={() => {
-                onRoleChange('admin');
-                setIsOpen(false);
-              }}
-              className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
-                user.role === 'admin'
-                  ? 'bg-purple-50 dark:bg-purple-950/40 font-semibold text-purple-800 dark:text-purple-300'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/60'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-3.5 h-3.5 text-purple-500" />
-                <span>Platform Admin</span>
-              </div>
-              {user.role === 'admin' && <Check className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />}
-            </button>
+            {isAdmin && onOpenInternalDocs && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOpen(false);
+                  onOpenInternalDocs();
+                }}
+                className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40 transition-colors cursor-pointer font-medium"
+              >
+                <BookOpen className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                <span>Internal Docs & Roadmap</span>
+              </button>
+            )}
           </div>
 
           {/* Sign out */}

@@ -13,21 +13,44 @@ import {
   User,
   ShieldCheck,
   ArrowRight,
-  Trash2
+  Trash2,
+  Edit3,
+  Ban,
+  Check,
+  X,
+  Image as ImageIcon,
+  ZoomIn
 } from 'lucide-react';
-import { FeedbackItem, Product, UserRole, FeedbackStatus, Comment } from '../types';
+import { FeedbackItem, Product, UserRole, FeedbackStatus, Comment, UserProfile, FeedbackCategory, Severity } from '../types';
+import { EditFeedbackModal } from './EditFeedbackModal';
+import { DeleteFeedbackModal } from './DeleteFeedbackModal';
+import { formatRelativeTime } from '../lib/timeUtils';
 
 interface FeedbackDetailPageProps {
   item: FeedbackItem;
   product?: Product;
   userRole: UserRole;
+  currentUser?: UserProfile | null;
   onBack: () => void;
   onVote: (id: string) => void;
   onOpenShare: (item: FeedbackItem) => void;
   onAddComment: (itemId: string, text: string, type: Comment['type']) => void;
   onUpdateStatus?: (itemId: string, newStatus: FeedbackStatus, note: string) => void;
   onDeleteFeedback?: (itemId: string) => void;
+  onEditFeedback?: (
+    itemId: string,
+    updates: {
+      title: string;
+      experienceDescription: string;
+      desiredChange?: string;
+      category: FeedbackCategory;
+      severity: Severity;
+      tags: string[];
+    }
+  ) => void;
+  onWithdrawFeedback?: (itemId: string) => void;
   onDeleteComment?: (itemId: string, commentId: string) => void;
+  onEditComment?: (itemId: string, commentId: string, newText: string) => void;
   onOpenProfile?: (handle: string, name: string, avatar: string) => void;
   onOpenProduct?: (product: Product) => void;
   onOpenCompany?: (companyNameOrId: string) => void;
@@ -37,13 +60,17 @@ export const FeedbackDetailPage: React.FC<FeedbackDetailPageProps> = ({
   item,
   product,
   userRole,
+  currentUser,
   onBack,
   onVote,
   onOpenShare,
   onAddComment,
   onUpdateStatus,
   onDeleteFeedback,
+  onEditFeedback,
+  onWithdrawFeedback,
   onDeleteComment,
+  onEditComment,
   onOpenProfile,
   onOpenProduct,
   onOpenCompany,
@@ -52,6 +79,20 @@ export const FeedbackDetailPage: React.FC<FeedbackDetailPageProps> = ({
   const [isEditingStatus, setIsEditingStatus] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<FeedbackStatus>(item.status);
   const [statusNote, setStatusNote] = useState(item.statusUpdateNote || '');
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [commentToDelete, setCommentToDelete] = useState<{ id: string; text: string } | null>(null);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentText, setEditingCommentText] = useState('');
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+
+  const isAuthor = Boolean(
+    currentUser &&
+    (currentUser.handle === item.authorHandle || 
+     (currentUser.handle === '@you' && item.authorHandle === '@you') ||
+     (currentUser.handle === '@albert' && item.authorHandle === '@albert'))
+  );
+  const canManagePost = isAuthor || userRole === 'admin';
 
   const handleCommentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -204,7 +245,7 @@ export const FeedbackDetailPage: React.FC<FeedbackDetailPageProps> = ({
               onClick={() => onOpenProduct && onOpenProduct(product)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-xs font-semibold text-zinc-800 dark:text-zinc-200 transition-colors cursor-pointer"
             >
-              <span>Product Hub</span>
+              <span>Product Page</span>
               <ArrowRight className="w-3.5 h-3.5 text-zinc-400" />
             </button>
           </div>
@@ -268,38 +309,90 @@ export const FeedbackDetailPage: React.FC<FeedbackDetailPageProps> = ({
             </h1>
 
             {/* Author bar */}
-            <div className="flex items-center gap-2.5 text-xs text-zinc-500 border-b border-zinc-200 dark:border-zinc-800/80 pb-4">
-              <button
-                type="button"
-                onClick={() => onOpenProfile && onOpenProfile(item.authorHandle, item.authorName, item.authorAvatar)}
-                className="cursor-pointer"
-              >
-                <img
-                  src={item.authorAvatar}
-                  alt={item.authorName}
-                  className="w-6 h-6 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 hover:opacity-80 transition-opacity"
-                />
-              </button>
-              <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="flex items-center justify-between gap-3 text-xs text-zinc-500 border-b border-zinc-200 dark:border-zinc-800/80 pb-4">
+              <div className="flex items-center gap-2.5 min-w-0">
                 <button
                   type="button"
                   onClick={() => onOpenProfile && onOpenProfile(item.authorHandle, item.authorName, item.authorAvatar)}
-                  className="font-semibold text-zinc-900 dark:text-zinc-200 hover:underline cursor-pointer"
+                  className="cursor-pointer flex-shrink-0"
                 >
-                  {item.authorName}
+                  <img
+                    src={item.authorAvatar}
+                    alt={item.authorName}
+                    className="w-6 h-6 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 hover:opacity-80 transition-opacity"
+                  />
                 </button>
-                <span className="text-zinc-400">{item.authorHandle}</span>
-                <span className="text-zinc-300 dark:text-zinc-700">•</span>
-                <span>{item.createdAt}</span>
-                {item.similarDuplicateCount && item.similarDuplicateCount > 0 ? (
-                  <>
-                    <span className="text-zinc-300 dark:text-zinc-700">•</span>
-                    <span className="text-zinc-400 font-medium">{item.similarDuplicateCount} merged duplicate reports</span>
-                  </>
-                ) : null}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => onOpenProfile && onOpenProfile(item.authorHandle, item.authorName, item.authorAvatar)}
+                    className="font-semibold text-zinc-900 dark:text-zinc-200 hover:underline cursor-pointer"
+                  >
+                    {item.authorName}
+                  </button>
+                  <span className="text-zinc-400">{item.authorHandle}</span>
+                  {isAuthor && (
+                    <span className="px-1.5 py-0.2 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 font-semibold rounded text-[10px]">
+                      You
+                    </span>
+                  )}
+                  <span className="text-zinc-300 dark:text-zinc-700">•</span>
+                  <span>{formatRelativeTime(item.createdAt, item.id)}</span>
+                  {item.isEdited && (
+                    <>
+                      <span className="text-zinc-300 dark:text-zinc-700">•</span>
+                      <span className="text-zinc-400 italic text-[11px]" title={item.editedAt ? `Edited ${item.editedAt}` : 'Edited'}>
+                        (edited)
+                      </span>
+                    </>
+                  )}
+                  {item.similarDuplicateCount && item.similarDuplicateCount > 0 ? (
+                    <>
+                      <span className="text-zinc-300 dark:text-zinc-700">•</span>
+                      <span className="text-zinc-400 font-medium">{item.similarDuplicateCount} merged duplicate reports</span>
+                    </>
+                  ) : null}
+                </div>
               </div>
+
+              {/* Author / Admin Post Actions */}
+              {canManagePost && (
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditModalOpen(true)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-zinc-100 hover:bg-zinc-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-750 transition-colors cursor-pointer"
+                    title={isAuthor ? 'Edit your feedback' : 'Edit feedback (Admin)'}
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>Edit</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsDeleteModalOpen(true)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
+                    title={isAuthor ? 'Withdraw or delete your feedback' : 'Delete feedback (Admin)'}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
+
+          {/* Withdrawn Notice Banner */}
+          {item.isWithdrawn && (
+            <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-900/40 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2.5 shadow-2xs">
+              <Ban className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-semibold">Withdrawn by author</p>
+                <p className="mt-0.5 text-[11px] leading-relaxed">
+                  The author has marked this feedback request as retracted. It remains visible for public reference, audit trail, and existing community workarounds.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Feedback Detail Body */}
           <div className="p-4 sm:p-5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 space-y-4">
@@ -322,6 +415,37 @@ export const FeedbackDetailPage: React.FC<FeedbackDetailPageProps> = ({
                 </p>
               </div>
             ) : null}
+
+            {/* Attached Screenshots & Images */}
+            {(item.imageUrl || (item.images && item.images.length > 0)) && (
+              <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
+                <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                  <ImageIcon className="w-3.5 h-3.5" />
+                  <span>Attached Screenshots & Mockups</span>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  {[item.imageUrl, ...(item.images || [])].filter((img, idx, arr): img is string => Boolean(img) && arr.indexOf(img) === idx).map((url, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => setZoomedImage(url)}
+                      className="group relative rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-500 cursor-zoom-in transition-all max-w-sm"
+                    >
+                      <img
+                        src={url}
+                        alt={`Attachment ${idx + 1}`}
+                        className="max-h-64 object-contain rounded-xl group-hover:scale-[1.02] transition-transform duration-150"
+                      />
+                      <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <span className="p-1.5 rounded-lg bg-zinc-900/80 text-white text-xs flex items-center gap-1 shadow-md">
+                          <ZoomIn className="w-3.5 h-3.5" />
+                          <span>Expand image</span>
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Official Team Update (if present or PM mode) */}
@@ -486,6 +610,11 @@ export const FeedbackDetailPage: React.FC<FeedbackDetailPageProps> = ({
                               {c.authorName}
                             </button>
                             <span className="text-[11px] text-zinc-400">{c.authorHandle}</span>
+                            {c.authorHandle === item.authorHandle && (
+                              <span className="px-1.5 py-0.2 rounded bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-[10px] font-semibold border border-blue-200/60 dark:border-blue-800/40">
+                                Author
+                              </span>
+                            )}
                             {c.roleBadge === 'admin_verified' && (
                               <span title="Platform Admin" className="inline-flex items-center">
                                 <ShieldCheck className="w-3.5 h-3.5 text-purple-500" />
@@ -509,18 +638,36 @@ export const FeedbackDetailPage: React.FC<FeedbackDetailPageProps> = ({
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-[11px] text-zinc-400 whitespace-nowrap">
-                          {c.createdAt}
+                          {formatRelativeTime(c.createdAt, c.id)}
                         </span>
-                        {userRole === 'admin' && (
+                        {c.isEdited && (
+                          <span className="text-[10px] text-zinc-400 italic">
+                            (edited)
+                          </span>
+                        )}
+
+                        {/* Comment Author Edit */}
+                        {currentUser && currentUser.handle === c.authorHandle && editingCommentId !== c.id && (
                           <button
                             type="button"
                             onClick={() => {
-                              if (confirm('Delete this comment as administrator?')) {
-                                onDeleteComment && onDeleteComment(item.id, c.id);
-                              }
+                              setEditingCommentId(c.id);
+                              setEditingCommentText(c.text);
                             }}
+                            className="p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded transition-colors cursor-pointer"
+                            title="Edit comment"
+                          >
+                            <Edit3 className="w-3 h-3" />
+                          </button>
+                        )}
+
+                        {/* Comment Author or Admin Delete */}
+                        {(userRole === 'admin' || (currentUser && currentUser.handle === c.authorHandle)) && (
+                          <button
+                            type="button"
+                            onClick={() => setCommentToDelete({ id: c.id, text: c.text })}
                             className="p-1 text-zinc-400 hover:text-red-500 rounded transition-colors cursor-pointer"
-                            title="Delete comment (Admin)"
+                            title={userRole === 'admin' ? "Delete comment (Admin)" : "Delete your comment"}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -528,9 +675,42 @@ export const FeedbackDetailPage: React.FC<FeedbackDetailPageProps> = ({
                       </div>
                     </div>
 
-                    <p className="text-zinc-800 dark:text-zinc-200 text-xs sm:text-sm leading-relaxed whitespace-pre-line pl-8">
-                      {c.text}
-                    </p>
+                    {editingCommentId === c.id ? (
+                      <div className="mt-2 pl-8 space-y-2">
+                        <textarea
+                          rows={2}
+                          value={editingCommentText}
+                          onChange={(e) => setEditingCommentText(e.target.value)}
+                          className="w-full p-2.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white resize-y"
+                        />
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (editingCommentText.trim() && onEditComment) {
+                                onEditComment(item.id, c.id, editingCommentText.trim());
+                              }
+                              setEditingCommentId(null);
+                            }}
+                            className="inline-flex items-center gap-1 px-3 py-1 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-lg text-xs font-semibold cursor-pointer"
+                          >
+                            <Check className="w-3 h-3" />
+                            <span>Save</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingCommentId(null)}
+                            className="px-2.5 py-1 text-xs text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-zinc-800 dark:text-zinc-200 text-xs sm:text-sm leading-relaxed whitespace-pre-line pl-8">
+                        {c.text}
+                      </p>
+                    )}
                   </div>
                 ))
               )}
@@ -574,6 +754,37 @@ export const FeedbackDetailPage: React.FC<FeedbackDetailPageProps> = ({
             </p>
           </div>
 
+          {/* Author Controls Card (Industry standard) */}
+          {isAuthor && (
+            <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-850/60 border border-zinc-200 dark:border-zinc-800 space-y-2.5 shadow-2xs">
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
+                <h3 className="text-xs font-semibold text-zinc-900 dark:text-white">
+                  Author Controls
+                </h3>
+              </div>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-normal">
+                You created this report. You can update description, solutions, or withdraw it.
+              </p>
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(true)}
+                  className="flex-1 py-1.5 px-3 bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-750 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-medium text-zinc-800 dark:text-zinc-200 transition-colors cursor-pointer text-center"
+                >
+                  Edit Post
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsDeleteModalOpen(true)}
+                  className="py-1.5 px-3 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg text-xs font-medium transition-colors cursor-pointer"
+                >
+                  Withdraw
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Admin Moderation Panel */}
           {userRole === 'admin' && (
             <div className="p-4 rounded-xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/60 shadow-2xs space-y-3">
@@ -588,12 +799,8 @@ export const FeedbackDetailPage: React.FC<FeedbackDetailPageProps> = ({
               </p>
               <button
                 type="button"
-                onClick={() => {
-                  if (confirm('Are you sure you want to permanently delete this feedback report?')) {
-                    onDeleteFeedback && onDeleteFeedback(item.id);
-                  }
-                }}
-                className="w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-medium transition-colors cursor-pointer"
+                onClick={() => setIsDeleteModalOpen(true)}
+                className="w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-medium transition-colors cursor-pointer shadow-xs"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Delete Feedback (Admin)</span>
@@ -676,7 +883,7 @@ export const FeedbackDetailPage: React.FC<FeedbackDetailPageProps> = ({
                 onClick={() => onOpenProduct && onOpenProduct(product)}
                 className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
               >
-                <span>View {product.name} Hub</span>
+                <span>View {product.name} Page</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -762,6 +969,78 @@ export const FeedbackDetailPage: React.FC<FeedbackDetailPageProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Edit Feedback Modal for Author & Admin */}
+      <EditFeedbackModal
+        isOpen={isEditModalOpen}
+        item={item}
+        product={product}
+        onClose={() => setIsEditModalOpen(false)}
+        onSave={(itemId, updates) => {
+          if (onEditFeedback) {
+            onEditFeedback(itemId, updates);
+          }
+        }}
+      />
+
+      {/* Delete / Withdraw Modal for Author & Admin */}
+      <DeleteFeedbackModal
+        isOpen={isDeleteModalOpen}
+        item={item}
+        userRole={userRole}
+        isAuthor={isAuthor}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirmDelete={(itemId) => {
+          if (onDeleteFeedback) {
+            onDeleteFeedback(itemId);
+          }
+        }}
+        onConfirmWithdraw={(itemId) => {
+          if (onWithdrawFeedback) {
+            onWithdrawFeedback(itemId);
+          }
+        }}
+      />
+
+      {/* Delete Comment Modal for Author & Admin */}
+      <DeleteFeedbackModal
+        isOpen={Boolean(commentToDelete)}
+        comment={commentToDelete}
+        userRole={userRole}
+        isAuthor={true}
+        onClose={() => setCommentToDelete(null)}
+        onConfirmDelete={(commentId) => {
+          if (onDeleteComment) {
+            onDeleteComment(item.id, commentId);
+          }
+          setCommentToDelete(null);
+        }}
+      />
+
+      {/* Lightbox Modal for full image inspection */}
+      {zoomedImage && (
+        <div 
+          onClick={() => setZoomedImage(null)}
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
+        >
+          <div className="relative max-w-4xl max-h-[90vh] flex flex-col items-center">
+            <button
+              type="button"
+              onClick={() => setZoomedImage(null)}
+              className="absolute -top-10 right-0 p-1.5 text-white/80 hover:text-white rounded-full bg-white/10 hover:bg-white/20 transition-colors cursor-pointer"
+              title="Close image view"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <img
+              src={zoomedImage}
+              alt="Full size screenshot"
+              className="max-h-[85vh] max-w-full rounded-xl object-contain shadow-2xl border border-white/10"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
