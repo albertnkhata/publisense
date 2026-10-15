@@ -1,4 +1,5 @@
-export const STORAGE_PREFIX = 'crowdpulse_profile_';
+export const STORAGE_PREFIX = 'publisense_profile_';
+export const LEGACY_STORAGE_PREFIX = 'crowdpulse_profile_';
 
 export interface StoredProfile {
   name?: string;
@@ -17,7 +18,7 @@ export interface StoredProfile {
 export function loadProfile(handle: string): StoredProfile | null {
   try {
     if (typeof window === 'undefined' || !window.localStorage) return null;
-    const raw = localStorage.getItem(STORAGE_PREFIX + handle);
+    const raw = localStorage.getItem(STORAGE_PREFIX + handle) || localStorage.getItem(LEGACY_STORAGE_PREFIX + handle);
     if (!raw) return null;
     return JSON.parse(raw);
   } catch (err) {
@@ -58,7 +59,10 @@ export function saveProfile(
       ...(profile.role !== undefined ? { role: profile.role } : {}),
       updatedAt: Date.now(),
     };
-    localStorage.setItem(STORAGE_PREFIX + handle, JSON.stringify(record));
+    const serialized = JSON.stringify(record);
+    localStorage.setItem(STORAGE_PREFIX + handle, serialized);
+    localStorage.setItem(LEGACY_STORAGE_PREFIX + handle, serialized);
+    window.dispatchEvent(new CustomEvent('publisense_profile_updated'));
     window.dispatchEvent(new CustomEvent('crowdpulse_profile_updated'));
   } catch (err) {
     console.warn('Failed to save profile to localStorage:', err);
@@ -103,6 +107,8 @@ export function clearStoredProfile(handle: string): void {
     if (typeof window === 'undefined' || !window.localStorage) return;
     const cleanHandle = (handle || '').replace(/^@/, '');
     localStorage.removeItem(STORAGE_PREFIX + cleanHandle);
+    localStorage.removeItem(LEGACY_STORAGE_PREFIX + cleanHandle);
+    window.dispatchEvent(new CustomEvent('publisense_profile_updated'));
     window.dispatchEvent(new CustomEvent('crowdpulse_profile_updated'));
   } catch (err) {
     console.warn('Failed to clear profile from localStorage:', err);

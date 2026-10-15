@@ -1217,18 +1217,18 @@ export default function App() {
     const userObj: UserProfile = {
       id: `usr-${cleanKey}`,
       name: name || cleanKey.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-      email: `${cleanKey}@community.crowdpulse.dev`,
+      email: `${cleanKey}@community.publisense.dev`,
       handle: cleanHandle,
       avatar: avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=128&auto=format&fit=crop&q=80',
       role: isAdmin ? 'admin' : (isPM ? 'company_pm' : 'user'),
       roleTitle: isAdmin ? 'Platform Administrator' : (isPM ? 'Product Manager' : undefined),
-      companyOrOrg: isAdmin ? (isPulseClaimed ? 'CrowdPulse' : '') : (isPM ? 'Verified Partner' : ''),
+      companyOrOrg: isAdmin ? (isPulseClaimed ? 'Publisense' : '') : (isPM ? 'Verified Partner' : ''),
       companyId: isAdmin ? (isPulseClaimed ? 'comp-crowdpulse' : undefined) : undefined,
       bio: isAdmin
-        ? (isPulseClaimed ? 'Platform Administrator and Founder at CrowdPulse.' : 'Platform Administrator and community feedback coordinator.')
+        ? (isPulseClaimed ? 'Platform Administrator and Founder at Publisense.' : 'Platform Administrator and community feedback coordinator.')
         : isPM 
         ? 'Official Product Team member reviewing feedback and deploying improvements.'
-        : 'Active builder & community member testing dev tools and sharing feedback.',
+        : 'Active builder & community member testing dev tools and sharing feedback on Publisense.',
       location: 'San Francisco, CA',
       joinedDate: 'October 2026',
       followerCount: 0,
@@ -1382,7 +1382,7 @@ export default function App() {
     setActiveToast({
       id: `toast-${Date.now()}`,
       userId: 'guest',
-      actorName: 'SignalPulse',
+      actorName: 'Publisense',
       actorAvatar: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100&h=100&fit=crop&crop=faces',
       type: 'system',
       title: 'Account deleted',
@@ -2140,7 +2140,7 @@ export default function App() {
           setActiveToast({
             id: `toast-${Date.now()}`,
             userId: 'guest',
-            actorName: 'SignalPulse',
+            actorName: 'Publisense',
             actorAvatar: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100&h=100&fit=crop&crop=faces',
             type: 'system',
             title: 'Signed out',

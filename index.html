@@ -16,7 +16,7 @@
     <script>
       (function() {
         try {
-          var raw = localStorage.getItem('crowdpulse_settings');
+          var raw = localStorage.getItem('publisense_settings') || localStorage.getItem('crowdpulse_settings');
           var isDark = true;
           if (raw) {
             var parsed = JSON.parse(raw);

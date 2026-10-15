@@ -13,7 +13,8 @@ export interface AppSettings {
   notifications: AppNotificationsSettings;
 }
 
-export const SETTINGS_STORAGE_KEY = 'crowdpulse_settings';
+export const SETTINGS_STORAGE_KEY = 'publisense_settings';
+export const LEGACY_SETTINGS_KEY = 'crowdpulse_settings';
 
 export const DEFAULT_SETTINGS: AppSettings = {
   theme: 'dark',
@@ -26,7 +27,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
 export function loadStoredSettings(): AppSettings {
   if (typeof window === 'undefined') return DEFAULT_SETTINGS;
   try {
-    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY) || localStorage.getItem(LEGACY_SETTINGS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       const validTheme: ThemePreference = 
@@ -50,7 +51,7 @@ export function loadStoredSettings(): AppSettings {
       };
     }
   } catch (e) {
-    console.warn('Failed to parse crowdpulse_settings:', e);
+    console.warn('Failed to parse publisense_settings:', e);
   }
   return DEFAULT_SETTINGS;
 }
@@ -59,9 +60,11 @@ export function saveStoredSettings(settings: AppSettings): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+    localStorage.setItem(LEGACY_SETTINGS_KEY, JSON.stringify(settings));
+    window.dispatchEvent(new Event('publisense_settings_updated'));
     window.dispatchEvent(new Event('crowdpulse_settings_updated'));
   } catch (e) {
-    console.warn('Failed to save crowdpulse_settings:', e);
+    console.warn('Failed to save publisense_settings:', e);
   }
 }
 

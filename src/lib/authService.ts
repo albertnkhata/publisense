@@ -5,7 +5,9 @@ import { UserProfile, UserRole, FeedbackItem, Company } from '../types';
 import { clearStoredProfile } from './profileStorage';
 
 export const TAKEN_SEED_HANDLES = new Set([
-  'albert'
+  'albert',
+  'publisense',
+  'crowdpulse'
 ]);
 
 const AVATAR_SEEDS = [
@@ -127,7 +129,7 @@ export async function signUpWithEmail(options: {
   const salt = generateSalt();
   const passwordHash = await hashPassword(password, salt);
 
-  const isAdmin = cleanEmail === 'albertnkhata.s@gmail.com' || cleanEmail.endsWith('@crowdpulse.dev');
+  const isAdmin = cleanEmail === 'albertnkhata.s@gmail.com' || cleanEmail.endsWith('@publisense.dev') || cleanEmail.endsWith('@crowdpulse.dev');
   const userId = `usr-${cleanEmail.replace(/[^a-z0-9]/g, '_')}-${Date.now().toString(36)}`;
 
   const userRole: UserRole = isAdmin ? 'admin' : 'user';
@@ -225,26 +227,34 @@ export async function signInWithEmail(email: string, pass: string): Promise<User
       return albertProfile;
     }
 
-    if (cleanEmail === 'admin@crowdpulse.dev' || cleanEmail.startsWith('crowdpulse@') || cleanEmail.endsWith('@crowdpulse.dev')) {
+    if (
+      cleanEmail === 'admin@publisense.dev' || 
+      cleanEmail.startsWith('publisense@') || 
+      cleanEmail.endsWith('@publisense.dev') ||
+      cleanEmail === 'admin@crowdpulse.dev' || 
+      cleanEmail.startsWith('crowdpulse@') || 
+      cleanEmail.endsWith('@crowdpulse.dev')
+    ) {
       const stored = getPersistedActiveUser();
-      const crowdpulseProfile: UserProfile = {
-        id: 'usr-crowdpulse',
-        name: stored?.name || 'CrowdPulse Team',
+      const isLegacyPulse = cleanEmail.includes('crowdpulse');
+      const publisenseProfile: UserProfile = {
+        id: isLegacyPulse ? 'usr-crowdpulse' : 'usr-publisense',
+        name: stored?.name || 'Publisense Team',
         email: cleanEmail,
-        handle: stored?.handle || '@crowdpulse',
+        handle: stored?.handle || (isLegacyPulse ? '@crowdpulse' : '@publisense'),
         avatar: stored?.avatar || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=128&auto=format&fit=crop&q=80',
         role: stored?.role || 'user',
         roleTitle: stored?.roleTitle,
-        companyOrOrg: stored?.companyOrOrg,
-        companyId: stored?.companyId,
-        bio: stored?.bio || 'Community contributor and active product feedback participant.',
+        companyOrOrg: stored?.companyOrOrg || 'Publisense',
+        companyId: stored?.companyId || 'comp-crowdpulse',
+        bio: stored?.bio || 'Publisense community coordinator and active product feedback participant.',
         joinedDate: 'October 2026',
         followerCount: 0,
         followingCount: 0,
         authProvider: 'password',
       };
-      persistActiveUser(crowdpulseProfile);
-      return crowdpulseProfile;
+      persistActiveUser(publisenseProfile);
+      return publisenseProfile;
     }
 
     throw new Error('No account found for this email. Please check your spelling or create an account.');

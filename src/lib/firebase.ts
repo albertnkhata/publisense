@@ -416,7 +416,7 @@ export async function signInWithGoogle(): Promise<UserProfile> {
     desiredHandle = `${desiredHandle}_${Date.now().toString(36).slice(-3)}`;
   }
 
-  const isAdmin = userEmail === 'albertnkhata.s@gmail.com' || userEmail.endsWith('@crowdpulse.dev');
+  const isAdmin = userEmail === 'albertnkhata.s@gmail.com' || userEmail.endsWith('@publisense.dev') || userEmail.endsWith('@crowdpulse.dev');
 
   const profile: UserProfile = {
     id: user.uid,
@@ -426,11 +426,11 @@ export async function signInWithGoogle(): Promise<UserProfile> {
     avatar: user.photoURL || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=128&auto=format&fit=crop&q=80',
     role: isAdmin ? 'admin' : 'user',
     roleTitle: isAdmin ? 'Platform Administrator' : undefined,
-    companyOrOrg: isAdmin ? 'CrowdPulse' : undefined,
+    companyOrOrg: isAdmin ? 'Publisense' : undefined,
     companyId: isAdmin ? 'comp-crowdpulse' : undefined,
     bio: isAdmin 
-      ? 'Platform Administrator and Founder at CrowdPulse.' 
-      : 'Active builder testing dev tools and sharing feedback on CrowdPulse.',
+      ? 'Platform Administrator and Founder at Publisense.' 
+      : 'Active builder testing dev tools and sharing feedback on Publisense.',
     joinedDate: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
     followerCount: 0,
     followingCount: 0,
@@ -493,22 +493,28 @@ export function subscribeToAuthUser(onUserChanged: (user: UserProfile | null) =>
         const handle = `@${rawName.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
         const cleanEmail = (firebaseUser.email || '').toLowerCase().trim();
         const isAdmin = cleanEmail === 'albertnkhata.s@gmail.com';
-        const isCrowdPulse = handle.toLowerCase() === '@crowdpulse' || cleanEmail.startsWith('crowdpulse@') || cleanEmail.endsWith('@crowdpulse.dev');
+        const isPublisense = 
+          handle.toLowerCase() === '@publisense' || 
+          handle.toLowerCase() === '@crowdpulse' || 
+          cleanEmail.startsWith('publisense@') || 
+          cleanEmail.endsWith('@publisense.dev') ||
+          cleanEmail.startsWith('crowdpulse@') || 
+          cleanEmail.endsWith('@crowdpulse.dev');
         const profile: UserProfile = {
           id: firebaseUser.uid,
           name: rawName,
           email: firebaseUser.email || '',
           handle,
           avatar: firebaseUser.photoURL || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=128&auto=format&fit=crop&q=80',
-          role: isAdmin ? 'admin' : (isCrowdPulse ? 'company_pm' : 'user'),
+          role: isAdmin ? 'admin' : (isPublisense ? 'company_pm' : 'user'),
           roleTitle: isAdmin 
             ? 'Platform Administrator' 
-            : (isCrowdPulse ? 'Organization Admin & Product Lead' : undefined),
-          companyOrOrg: (isAdmin || isCrowdPulse) ? 'CrowdPulse' : undefined,
-          companyId: (isAdmin || isCrowdPulse) ? 'comp-crowdpulse' : undefined,
+            : (isPublisense ? 'Organization Admin & Product Lead' : undefined),
+          companyOrOrg: (isAdmin || isPublisense) ? 'Publisense' : undefined,
+          companyId: (isAdmin || isPublisense) ? 'comp-crowdpulse' : undefined,
           bio: isAdmin 
-            ? 'Platform Administrator and Founder at CrowdPulse.' 
-            : (isCrowdPulse ? 'Organization Admin overseeing CrowdPulse feedback and product radar.' : undefined),
+            ? 'Platform Administrator and Founder at Publisense.' 
+            : (isPublisense ? 'Organization Admin overseeing Publisense feedback and product radar.' : undefined),
           joinedDate: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
           followerCount: 0,
           followingCount: 0,

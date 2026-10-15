@@ -87,7 +87,7 @@ export const AdminConsoleModal: React.FC<AdminConsoleModalProps> = ({
       avatar: currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=128&auto=format&fit=crop&q=80',
       role: 'admin',
       roleTitle: currentUser?.roleTitle || 'Platform Administrator (Root)',
-      companyOrOrg: currentUser?.companyOrOrg || 'CrowdPulse',
+      companyOrOrg: currentUser?.companyOrOrg || 'Publisense',
       companyId: currentUser?.companyId || 'comp-crowdpulse',
       bio: currentUser?.bio || 'Platform Administrator and Root Creator.',
       joinedDate: currentUser?.joinedDate || 'October 2026',
@@ -145,7 +145,7 @@ export const AdminConsoleModal: React.FC<AdminConsoleModalProps> = ({
     const updates: Partial<UserProfile> = {
       role: nextRole,
       roleTitle: nextRole === 'admin' ? 'Platform Administrator' : undefined,
-      companyOrOrg: nextRole === 'admin' ? 'CrowdPulse' : undefined,
+      companyOrOrg: nextRole === 'admin' ? 'Publisense' : undefined,
     };
 
     setUsersList(prev => prev.map(u => u.id === targetUser.id ? { ...u, ...updates } : u));
