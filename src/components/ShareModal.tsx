@@ -27,7 +27,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
   const currentUrl = window.location.href.split('#')[0] + `#feedback-${item.id}`;
   const tweetText = encodeURIComponent(
-    `Upvoted "${item.title}" for ${product?.name || 'this tool'} on CrowdPulse (${item.meTooCount} upvotes): ${currentUrl}`
+    `Upvoted "${item.title}" for ${product?.name || 'this tool'} on Publisense (${item.meTooCount} upvotes): ${currentUrl}`
   );
   const twitterShareUrl = `https://twitter.com/intent/tweet?text=${tweetText}`;
 

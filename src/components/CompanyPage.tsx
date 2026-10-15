@@ -21,7 +21,8 @@ import {
   Briefcase,
   UserPlus,
   Plus,
-  AlertCircle
+  AlertCircle,
+  ShieldOff
 } from 'lucide-react';
 import { Company, Product, FeedbackItem, UserProfile } from '../types';
 import { FeedbackCard } from './FeedbackCard';
@@ -39,6 +40,7 @@ interface CompanyPageProps {
   onOpenShare: (item: FeedbackItem) => void;
   onOpenProfile?: (handle: string, name: string, avatar: string) => void;
   onClaimOrg?: (company: Company) => void;
+  onUnclaimOrg?: (company: Company) => void;
   onInviteMember?: (companyId: string, member: { name: string; email: string; roleTitle: string }) => void;
   onAddProductToOrg?: (company: Company) => void;
 }
@@ -55,6 +57,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({
   onOpenShare,
   onOpenProfile,
   onClaimOrg,
+  onUnclaimOrg,
   onInviteMember,
   onAddProductToOrg,
 }) => {
@@ -73,11 +76,40 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({
   const [inviteError, setInviteError] = useState<string | null>(null);
 
   const isOrgOwnerOrPM = Boolean(
+    company.isClaimed &&
     currentUser && (
       currentUser.role === 'admin' ||
-      currentUser.companyId === company.id ||
-      (currentUser.companyOrOrg && currentUser.companyOrOrg.toLowerCase() === company.name.toLowerCase())
+      company.claimedById === currentUser.id ||
+      company.verifiedMembers?.some((m) =>
+        m.id === currentUser.id ||
+        (m.handle && m.handle.toLowerCase() === currentUser.handle?.toLowerCase()) ||
+        (m.email && currentUser.email && m.email.toLowerCase() === currentUser.email.toLowerCase()) ||
+        (m.email && currentUser.workEmail && m.email.toLowerCase() === currentUser.workEmail.toLowerCase())
+      )
     )
+  );
+
+  const canUnclaimOrg = Boolean(
+    company.isClaimed &&
+    currentUser && (
+      currentUser.role === 'admin' ||
+      (company.claimedById && currentUser.id === company.claimedById) ||
+      company.verifiedMembers?.some((m) =>
+        (m.id === company.claimedById || m.role === 'org_admin') &&
+        (m.id === currentUser.id ||
+         (m.email && currentUser.email && m.email.toLowerCase() === currentUser.email.toLowerCase()) ||
+         (currentUser.workEmail && m.email && m.email.toLowerCase() === currentUser.workEmail.toLowerCase()) ||
+         (m.handle && m.handle.toLowerCase() === currentUser.handle?.toLowerCase()))
+      )
+    )
+  );
+
+  const userEmail = currentUser?.email?.toLowerCase().trim() || '';
+  const userDomain = userEmail.includes('@') ? userEmail.split('@')[1] : '';
+  const isUserCorporateDomain = Boolean(
+    company.domain &&
+    (userDomain === company.domain.toLowerCase() ||
+      (company.allowedDomains || []).some((d) => userDomain === d.toLowerCase()))
   );
 
   // Products belonging to this company
@@ -167,14 +199,13 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({
                 </h1>
 
                 {company.isClaimed ? (
-                  <span title="Claimed & Verified Organisation" className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                    <span>Claimed Org</span>
+                  <span title="Verified Organisation" className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Verified</span>
                   </span>
                 ) : (
-                  <span title="Unclaimed Organisation" className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                    <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Unclaimed Org</span>
+                  <span title="Unverified Organisation" className="inline-flex items-center gap-1 text-xs text-zinc-400">
+                    <span>Unverified</span>
                   </span>
                 )}
 
@@ -296,34 +327,46 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({
             </div>
           </div>
 
-          {/* Right Action: Claim Org or Invite Staff */}
+          {/* Right Action: Claim Org, Invite Staff, or Unclaim */}
           <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto flex-shrink-0">
             {company.isClaimed ? (
-              isOrgOwnerOrPM ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('team');
-                    setIsInviting(true);
-                  }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>Invite PM / Engineer</span>
-                </button>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-xs text-zinc-600 dark:text-zinc-400 font-medium">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-xs text-zinc-700 dark:text-zinc-300 font-medium border border-zinc-200/80 dark:border-zinc-700/80 shadow-2xs">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>Official Org Active</span>
+                  <span>Verified Organization</span>
                 </span>
-              )
+                {isOrgOwnerOrPM && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab('team');
+                      setIsInviting(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>Invite Team</span>
+                  </button>
+                )}
+                {canUnclaimOrg && onUnclaimOrg && (
+                  <button
+                    type="button"
+                    onClick={() => onUnclaimOrg(company)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/60 hover:bg-rose-100/80 dark:bg-rose-950/20 dark:hover:bg-rose-950/50 text-rose-700 dark:text-rose-400 text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                    title={`Unclaim ${company.name} and release ownership`}
+                  >
+                    <ShieldOff className="w-3.5 h-3.5" />
+                    <span>Unclaim</span>
+                  </button>
+                )}
+              </div>
             ) : (
               <button
                 type="button"
                 onClick={() => onClaimOrg && onClaimOrg(company)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer animate-pulse hover:animate-none"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
               >
-                <ShieldCheck className="w-4 h-4" />
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
                 <span>Claim {company.name}</span>
               </button>
             )}
@@ -362,29 +405,82 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({
         </div>
       </div>
 
+      {/* Org Admin Active Management Portal Banner */}
+      {company.isClaimed && isOrgOwnerOrPM && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-900/40 mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3.5">
+            <div className="p-2.5 rounded-xl mt-0.5 flex-shrink-0 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-xs sm:text-sm font-bold text-emerald-950 dark:text-emerald-200">
+                  You are managing {company.name} as Organization Admin
+                </h3>
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                  Full Org Admin Rights
+                </span>
+              </div>
+              <p className="text-xs text-emerald-800/90 dark:text-emerald-400/90 mt-1 max-w-xl leading-relaxed">
+                You have verified management access over official product signals, team member invites, status updates across all {companyProducts.length} suite products, and security controls.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-end sm:self-auto flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('team');
+                setIsInviting(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>Invite Colleague</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('team')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white border border-zinc-200 dark:border-zinc-700 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Manage Team ({company.verifiedMembers.length})</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Unclaimed Org Callout Banner */}
       {!company.isClaimed && (
-        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-transparent border border-indigo-200 dark:border-indigo-900/60 mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="p-4 sm:p-5 rounded-2xl bg-zinc-50 dark:bg-zinc-850/60 border border-zinc-200/80 dark:border-zinc-800 mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className="p-2 rounded-xl bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 mt-0.5 flex-shrink-0">
-              <Sparkles className="w-4 h-4" />
+            <div className={`p-2 rounded-xl mt-0.5 flex-shrink-0 ${
+              isUserCorporateDomain 
+                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400' 
+                : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'
+            }`}>
+              <ShieldCheck className="w-4 h-4" />
             </div>
             <div>
               <h3 className="text-xs sm:text-sm font-bold text-zinc-900 dark:text-white">
-                Claim {company.name} to Subsume All {companyProducts.length} Products
+                {isUserCorporateDomain 
+                  ? `Your account is eligible to claim ${company.name}` 
+                  : `Claim ${company.name} to Manage All ${companyProducts.length} Products`}
               </h3>
               <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5 max-w-xl">
-                Verifying your corporate email (<code>@{company.domain || 'work-email'}</code>) instantly activates verified product team management, roadmap controls, and official response badges across all products in this suite.
+                {isUserCorporateDomain 
+                  ? `Authenticated with ${currentUser?.email}. Verify your domain to activate Organization Admin controls and product triage.`
+                  : `Requires authenticated corporate email (@${company.domain || 'work-email'}). Verifying corporate domain grants Organization Admin ownership across all suite products.`}
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={() => onClaimOrg && onClaimOrg(company)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-semibold shadow-xs transition-colors cursor-pointer whitespace-nowrap"
           >
             <ShieldCheck className="w-4 h-4" />
-            <span>Claim Organization</span>
+            <span>{isUserCorporateDomain ? `Verify & Claim ${company.name}` : `Claim Organization`}</span>
           </button>
         </div>
       )}
@@ -491,8 +587,8 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({
                           <CheckCircle2 className="w-3 h-3" /> Subsumed & Verified
                         </span>
                       ) : (
-                        <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Unclaimed Product
+                        <span className="text-zinc-400 flex items-center gap-1">
+                          Unverified
                         </span>
                       )}
                     </span>
@@ -511,19 +607,19 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({
           <div className="space-y-5">
             {!company.isClaimed ? (
               <div className="p-8 text-center rounded-2xl bg-zinc-50 dark:bg-zinc-850/60 border border-dashed border-zinc-300 dark:border-zinc-700 space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 mx-auto flex items-center justify-center">
+                <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 mx-auto flex items-center justify-center">
                   <ShieldCheck className="w-6 h-6" />
                 </div>
                 <h4 className="text-sm font-bold text-zinc-900 dark:text-white">
                   No Verified Team Members Yet
                 </h4>
                 <p className="text-xs text-zinc-500 max-w-sm mx-auto">
-                  {company.name} has not yet been claimed. Verify your corporate email to become the Lead PM, claim this organization, and build your verified staff roster.
+                  {company.name} has not yet been verified. Verify your corporate email to become the Lead PM, manage this organization, and build your verified staff roster.
                 </p>
                 <button
                   type="button"
                   onClick={() => onClaimOrg && onClaimOrg(company)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
                 >
                   <ShieldCheck className="w-4 h-4" />
                   <span>Claim {company.name}</span>
@@ -598,8 +694,8 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({
                     )}
 
                     {inviteSuccess && (
-                      <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
-                        <Check className="w-3.5 h-3.5" />
+                      <div className="p-2.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
+                        <Check className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />
                         <span>{inviteSuccess}</span>
                       </div>
                     )}
@@ -665,17 +761,26 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({
                         className="w-12 h-12 rounded-xl object-cover border border-zinc-200 dark:border-zinc-700 shadow-2xs group-hover:scale-105 transition-transform"
                       />
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="font-semibold text-xs text-zinc-900 dark:text-white group-hover:underline truncate">
                             {member.name}
                           </span>
-                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                          <ShieldCheck className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" />
+                          {(member.role === 'org_admin' || member.id === company.claimedById) ? (
+                            <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-zinc-900 text-white dark:bg-white dark:text-zinc-900">
+                              Org Admin
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.2 rounded text-[10px] font-medium bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+                              Team Member
+                            </span>
+                          )}
                         </div>
                         <p className="text-[11px] text-zinc-500 truncate">
                           {member.roleTitle}
                         </p>
                         <p className="text-[10px] text-zinc-400 font-mono mt-0.5">
-                          {member.handle}
+                          {member.handle} {member.joinedAt && `• Joined ${member.joinedAt}`}
                         </p>
                       </div>
                       <ArrowRight className="w-3.5 h-3.5 text-zinc-400 group-hover:translate-x-0.5 transition-transform" />
@@ -702,6 +807,28 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({
                 .
               </p>
             </div>
+
+            {/* Danger Zone: Unclaim Organization */}
+            {company.isClaimed && canUnclaimOrg && onUnclaimOrg && (
+              <div className="p-4 rounded-xl bg-rose-50/40 dark:bg-rose-950/20 border border-rose-200/70 dark:border-rose-900/40 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <h4 className="font-semibold text-rose-900 dark:text-rose-200 flex items-center gap-1.5">
+                    <ShieldOff className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                    <span>Relinquish Organization Ownership</span>
+                  </h4>
+                  <p className="text-zinc-600 dark:text-zinc-400 text-[11px] max-w-xl">
+                    Unclaim {company.name} to release verified badges, revert official team members to standard community members, and open the domain for future claim.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onUnclaimOrg(company)}
+                  className="px-3.5 py-1.5 rounded-lg border border-rose-300 dark:border-rose-800 bg-white dark:bg-zinc-900 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-700 dark:text-rose-300 font-semibold text-xs transition-colors cursor-pointer whitespace-nowrap flex-shrink-0"
+                >
+                  Unclaim Organization
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -714,7 +841,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({
               <h3 className="text-base font-bold text-zinc-900 dark:text-white">
                 Organisation Signals
               </h3>
-              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
+              <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
                 {companyFeedback.length}
               </span>
             </div>
@@ -741,8 +868,8 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({
               onClick={() => setStatusFilter('shipped')}
               className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
                 statusFilter === 'shipped'
-                  ? 'bg-emerald-600 text-white font-semibold shadow-2xs'
-                  : 'text-zinc-500 hover:text-emerald-600 dark:text-zinc-400 dark:hover:text-emerald-400'
+                  ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-semibold shadow-2xs'
+                  : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white'
               }`}
             >
               <Check className="w-3.5 h-3.5" />

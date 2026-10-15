@@ -86,6 +86,8 @@ export function saveStoredProfile(
     name: string; 
     org: string; 
     bio: string;
+    avatar?: string;
+    handle?: string;
     location?: string;
     joinedAt?: string;
     followers?: number;
@@ -95,4 +97,16 @@ export function saveStoredProfile(
 ): void {
   saveProfile(handle, profile);
 }
+
+export function clearStoredProfile(handle: string): void {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    const cleanHandle = (handle || '').replace(/^@/, '');
+    localStorage.removeItem(STORAGE_PREFIX + cleanHandle);
+    window.dispatchEvent(new CustomEvent('crowdpulse_profile_updated'));
+  } catch (err) {
+    console.warn('Failed to clear profile from localStorage:', err);
+  }
+}
+
 

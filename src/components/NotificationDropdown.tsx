@@ -15,9 +15,12 @@ import {
 } from 'lucide-react';
 import { RealtimeNotification } from '../lib/firebase';
 import { formatRelativeTime } from '../lib/timeUtils';
+import { UserProfile } from '../types';
 
 interface NotificationDropdownProps {
   notifications: RealtimeNotification[];
+  currentUser?: UserProfile | null;
+  onOpenLogin?: () => void;
   onSelectFeedback?: (feedbackId: string) => void;
   onClearNotifications?: () => void;
   onMarkRead?: (notificationId: string) => void;
@@ -27,6 +30,8 @@ interface NotificationDropdownProps {
 
 export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
   notifications,
+  currentUser = null,
+  onOpenLogin,
   onSelectFeedback,
   onClearNotifications,
   onMarkRead,
@@ -106,7 +111,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
                 Live Signal Alerts
               </span>
               {unreadCount > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[10px] font-semibold">
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
                   {unreadCount} new
                 </span>
               )}
@@ -169,11 +174,31 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
 
           <div className="max-h-80 overflow-y-auto divide-y divide-zinc-100 dark:divide-zinc-850">
             {displayedNotifications.length === 0 ? (
-              <div className="p-8 text-center text-xs text-zinc-400">
-                <Bell className="w-6 h-6 mx-auto mb-2 text-zinc-300 dark:text-zinc-600" />
-                {filterMode === 'unread'
-                  ? 'No unread alerts! You are all caught up.'
-                  : "No alerts. You'll receive real-time updates when PMs change status, ship features, or comments are posted!"}
+              <div className="p-8 text-center text-xs text-zinc-400 space-y-2.5">
+                <Bell className="w-6 h-6 mx-auto text-zinc-300 dark:text-zinc-600" />
+                {!currentUser ? (
+                  <>
+                    <p className="leading-relaxed">
+                      Sign in to receive personal real-time alerts when your reported issues change status or get replies.
+                    </p>
+                    {onOpenLogin && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsOpen(false);
+                          onOpenLogin();
+                        }}
+                        className="mt-1 px-3 py-1.5 bg-zinc-900 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-100 text-white dark:text-zinc-900 rounded-lg text-xs font-semibold cursor-pointer shadow-2xs transition-colors inline-block"
+                      >
+                        Sign in for alerts
+                      </button>
+                    )}
+                  </>
+                ) : filterMode === 'unread' ? (
+                  <p>No unread alerts! You are all caught up.</p>
+                ) : (
+                  <p>No alerts. You'll receive real-time updates when PMs change status, ship features, or comments are posted!</p>
+                )}
               </div>
             ) : (
               displayedNotifications.map((notif) => (

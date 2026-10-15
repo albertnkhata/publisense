@@ -83,6 +83,9 @@ export interface VerifiedTeamMember {
   handle: string;
   avatar: string;
   roleTitle: string;
+  role?: 'org_admin' | 'team_member';
+  joinedAt?: string;
+  email?: string;
 }
 
 export interface Company {
@@ -106,6 +109,7 @@ export interface Company {
   verifiedMembers: VerifiedTeamMember[];
   isClaimed?: boolean;
   domain?: string;
+  allowedDomains?: string[];
   claimedById?: string;
   claimedByName?: string;
   claimedAt?: string;
@@ -114,11 +118,13 @@ export interface Company {
 
 export type ViewMode = 'feed' | 'leaderboard';
 export type UserRole = 'user' | 'company_pm' | 'admin';
+export type AuthProviderType = 'google' | 'password' | 'seed';
 
 export interface UserProfile {
   id: string;
   name: string;
   email: string;
+  workEmail?: string;
   handle: string;
   avatar: string;
   role: UserRole;
@@ -131,4 +137,6 @@ export interface UserProfile {
   upvotedItemIds?: string[];
   followerCount?: number;
   followingCount?: number;
+  authProvider?: AuthProviderType;
+  googleUid?: string;
 }

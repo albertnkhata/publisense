@@ -28,10 +28,6 @@ export function getUserUpvotedIds(userIdOrHandle: string): Set<string> {
     const key = getStorageKey('upvotes', userIdOrHandle);
     const raw = localStorage.getItem(key);
     if (!raw) {
-      // Seed initial showcase state ONLY for default Albert account
-      if (isAlbertAccount(userIdOrHandle)) {
-        return new Set(['fb-3', 'fb-5', 'fb-7', 'fb-1791434654029']);
-      }
       return new Set();
     }
     const parsed = JSON.parse(raw);
@@ -141,9 +137,6 @@ export function getUserFollowedUsers(userIdOrHandle: string): string[] {
     const key = getStorageKey('followed_users', userIdOrHandle);
     const raw = localStorage.getItem(key);
     if (!raw) {
-      if (isAlbertAccount(userIdOrHandle)) {
-        return ['@sarah_pm', '@alex_admin'];
-      }
       return [];
     }
     const parsed = JSON.parse(raw);

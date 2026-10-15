@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   ArrowLeft, 
   ChevronRight, 
@@ -9,16 +9,38 @@ import {
   Mail, 
   Sparkles, 
   Check, 
-  Sliders
+  Sliders,
+  Trash2,
+  AlertTriangle,
+  ShieldAlert
 } from 'lucide-react';
 import { useTheme, ThemePreference } from '../context/ThemeContext';
+import { UserProfile } from '../types';
+import { deleteUserAccount } from '../lib/authService';
+import { DeleteAccountModal } from './DeleteAccountModal';
 
 interface SettingsPageProps {
   onBack: () => void;
+  currentUser?: UserProfile | null;
+  onDeleteAccountSuccess?: () => void;
+  onRequireAuth?: (promptMessage?: string) => void;
 }
 
-export const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
+export const SettingsPage: React.FC<SettingsPageProps> = ({ 
+  onBack,
+  currentUser = null,
+  onDeleteAccountSuccess,
+  onRequireAuth,
+}) => {
   const { themePreference, setThemePreference, settings, updateSettings } = useTheme();
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+  const handleConfirmDeleteAccount = async (user: UserProfile) => {
+    await deleteUserAccount(user);
+    if (onDeleteAccountSuccess) {
+      onDeleteAccountSuccess();
+    }
+  };
 
   const handleToggleNotification = (key: 'email' | 'releases') => {
     updateSettings((prev) => ({
@@ -97,11 +119,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
                 Theme Preference
               </h2>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                Choose how CrowdPulse looks on your screen.
+                Choose how Publisense looks on your screen.
               </p>
             </div>
-            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
-              <Check className="w-3 h-3" />
+            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded border border-zinc-200 dark:border-zinc-700">
+              <Check className="w-3 h-3 text-zinc-500 dark:text-zinc-400" />
               <span>Auto-saved</span>
             </span>
           </div>
@@ -226,7 +248,70 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
             </div>
           </div>
         </div>
+
+        {/* Section 3: Danger Zone */}
+        {currentUser ? (
+          <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-red-200/90 dark:border-red-950/60 shadow-xs">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400">
+                  <AlertTriangle className="w-4 h-4" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-semibold text-red-900 dark:text-red-300">
+                    Danger Zone
+                  </h2>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                    Permanent and irreversible account actions.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-red-100 dark:border-red-950/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="max-w-xl">
+                <h3 className="text-xs font-semibold text-zinc-900 dark:text-white">
+                  Delete your account
+                </h3>
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 leading-relaxed">
+                  Permanently delete your login credentials, email associations, and personal profile information. To maintain community discussions and roadmap continuity, public feedback and comments will be anonymized to <span className="font-semibold text-zinc-700 dark:text-zinc-300">Deleted User</span>.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsDeleteModalOpen(true)}
+                className="flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 hover:bg-red-600 hover:text-white dark:hover:bg-red-600 dark:hover:text-white border border-red-200 dark:border-red-900/60 transition-all cursor-pointer whitespace-nowrap flex-shrink-0 shadow-2xs"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Account</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 sm:p-5 rounded-2xl bg-zinc-50/70 dark:bg-zinc-900/40 border border-dashed border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 flex items-center justify-between gap-3">
+            <span>You are currently browsing as a guest visitor.</span>
+            {onRequireAuth && (
+              <button
+                type="button"
+                onClick={() => onRequireAuth('Sign in to manage your account and security settings.')}
+                className="font-medium text-zinc-900 dark:text-white hover:underline cursor-pointer"
+              >
+                Sign in
+              </button>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Delete Account Confirmation Modal */}
+      <DeleteAccountModal
+        isOpen={isDeleteModalOpen}
+        currentUser={currentUser}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirmDelete={handleConfirmDeleteAccount}
+      />
     </div>
   );
 };
+

@@ -32,6 +32,7 @@ import {
   getUserFollowedUsers, 
   setUserFollowedUsers 
 } from '../lib/userInteractionStorage';
+import { resolveUserOrgAffiliation } from '../lib/orgAffiliation';
 
 interface ProfilePageProps {
   profile: UserProfile;
@@ -46,11 +47,14 @@ interface ProfilePageProps {
   onUpdateProfile?: (updated: Partial<UserProfile>) => void;
   onOpenProduct?: (product: Product) => void;
   onOpenCompany?: (company: Company | string) => void;
+  onClaimOrg?: (company: Company) => void;
   isFollowing?: boolean;
   onToggleFollow?: () => void;
   onOpenInternalDocs?: () => void;
   onOpenAdminConsole?: () => void;
   onOpenProfile?: (handle: string, name: string, avatar: string) => void;
+  currentUser?: UserProfile | null;
+  onRequireAuth?: (promptMessage?: string) => void;
 }
 
 export const ProfilePage: React.FC<ProfilePageProps> = ({
@@ -66,11 +70,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   onUpdateProfile,
   onOpenProduct,
   onOpenCompany,
+  onClaimOrg,
   isFollowing = false,
   onToggleFollow,
   onOpenInternalDocs,
   onOpenAdminConsole,
   onOpenProfile,
+  currentUser = null,
+  onRequireAuth,
 }) => {
   // Derive handle from route (e.g. /#profile-albert -> "albert")
   const routeHandle = useMemo(() => {
@@ -102,14 +109,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
   const [activeTab, setActiveTab] = useState<'submissions' | 'upvoted' | 'activity' | 'followers' | 'following'>('submissions');
   const [internalFollowingSet, setInternalFollowingSet] = useState<Set<string>>(() => {
-    if (isAlbert) {
-      return new Set(['sarah_pm', 'alex_admin', 'kavita_ui', 'kevin_openai', 'claire_codes']);
-    }
     const followed = getUserFollowedUsers(cleanProfileKey);
     return new Set(followed.map((h) => h.replace(/^@/, '')));
   });
 
   const toggleUserFollow = (targetHandle: string) => {
+    if (!currentUser) {
+      if (onRequireAuth) {
+        onRequireAuth('Sign in to follow builders and track their activity.');
+      }
+      return;
+    }
     const cleanTarget = targetHandle.replace(/^@/, '');
     setInternalFollowingSet((prev) => {
       const next = new Set(prev);
@@ -135,15 +145,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const collectTakenHandles = (): Set<string> => {
-    // (a) the app's mock/seed users
-    const taken = new Set<string>([
-      'albert', 'alex_admin', 'sarah_pm', 'arivera_dev', 'claire_codes',
-      'devon_builds', 'dk_devops', 'elena_ai', 'elena_code', 'jsparks_design',
-      'kavita_ui', 'kevin_openai', 'liam_oc', 'mateo_alvarez', 'mchen_tech',
-      'npalmer', 'openai_eng', 'rami_ops', 'sjenkins_ux', 'sophia_ml',
-      'tariqh_ai', 'dario_anthropic', 'mtruell', 'jordan_pulse', 'rauchg',
-      'qasignup', 'retestuser'
-    ]);
+    // (a) Reserved system admin handles
+    const taken = new Set<string>(['albert']);
     feedbackItems.forEach((item) => {
       const h = item.authorHandle.replace(/^@/, '').toLowerCase().trim();
       if (h && h !== 'you') taken.add(h);
@@ -267,7 +270,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   // Follow State
   const [activeFollowing, setActiveFollowing] = useState(isFollowing);
   const [followerCount, setFollowerCount] = useState(
-    profile.followerCount ?? (isAlbert ? 28 : 0)
+    profile.followerCount ?? 0
   );
 
   useEffect(() => {
@@ -275,6 +278,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   }, [isFollowing]);
 
   const handleToggleFollow = () => {
+    if (!currentUser) {
+      if (onRequireAuth) {
+        onRequireAuth('Sign in to follow builders and track their activity.');
+      }
+      return;
+    }
     const next = !activeFollowing;
     setActiveFollowing(next);
     setFollowerCount((prev) => (next ? prev + 1 : Math.max(0, prev - 1)));
@@ -343,17 +352,39 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     const finalAvatar = editAvatar || displayAvatar;
     const finalHandle = cleanNewHandle || routeHandle;
 
+    // Strict Invariant: Only associate with an organization if it is actively claimed AND user is a verified member or claimant
+    const matchedClaimedComp = companies.find(
+      (c) =>
+        c.isClaimed &&
+        (c.name.toLowerCase() === finalOrg.toLowerCase() || c.slug.toLowerCase() === finalOrg.toLowerCase() || c.id === finalOrg) &&
+        (c.claimedById === profile.id || c.verifiedMembers?.some((m) => m.id === profile.id || (profile.email && m.email && m.email.toLowerCase() === profile.email.toLowerCase()) || m.handle?.toLowerCase() === `@${finalHandle}`.toLowerCase()))
+    );
+    const verifiedOrg = matchedClaimedComp ? matchedClaimedComp.name : '';
+
     saveProfile(routeHandle, {
       name: finalName,
-      org: finalOrg,
+      org: verifiedOrg,
       bio: finalBio,
       avatar: finalAvatar,
       handle: finalHandle,
     });
 
+    if (finalHandle !== routeHandle) {
+      saveProfile(finalHandle, {
+        name: finalName,
+        org: verifiedOrg,
+        bio: finalBio,
+        avatar: finalAvatar,
+        handle: finalHandle,
+      });
+      if (typeof window !== 'undefined') {
+        window.location.hash = `#profile-${finalHandle}`;
+      }
+    }
+
     setStoredData({
       name: finalName,
-      org: finalOrg,
+      org: verifiedOrg,
       bio: finalBio,
       avatar: finalAvatar,
       handle: finalHandle,
@@ -365,7 +396,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         name: finalName,
         bio: finalBio,
         location: editLocation.trim(),
-        companyOrOrg: finalOrg,
+        companyOrOrg: verifiedOrg || undefined,
+        companyId: matchedClaimedComp?.id || undefined,
         avatar: finalAvatar,
         handle: `@${finalHandle}`,
       });
@@ -376,45 +408,33 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const isPM = profile.role === 'company_pm';
   const isAdmin = profile.role === 'admin';
 
-  // Match profile with company (e.g. Sarah Chen -> Anysphere)
-  const userCompany = useMemo(() => {
-    if (!companies || companies.length === 0) return null;
-    if (profile.companyId) {
-      const match = companies.find((c) => c.id === profile.companyId || c.slug === profile.companyId);
-      if (match) return match;
-    }
-    if (displayCompany) {
-      const q = displayCompany.toLowerCase();
-      const match = companies.find((c) => c.name.toLowerCase() === q || c.slug.toLowerCase() === q);
-      if (match) return match;
-    }
-    // Check if user's handle is in verifiedMembers of any company
-    const memberMatch = companies.find((c) => 
-      c.verifiedMembers.some((m) => m.handle.toLowerCase() === profile.handle.toLowerCase())
-    );
-    if (memberMatch) return memberMatch;
+  // Derive canonical organization affiliation
+  const effectiveProfile = useMemo(() => {
+    return {
+      ...profile,
+      name: displayName,
+      companyOrOrg: displayCompany,
+      bio: displayBio,
+      avatar: displayAvatar,
+      handle: displayHandle,
+    };
+  }, [profile, displayName, displayCompany, displayBio, displayAvatar, displayHandle]);
 
-    return null;
-  }, [companies, profile.companyId, displayCompany, profile.handle]);
+  const affiliation = useMemo(() => {
+    return resolveUserOrgAffiliation(effectiveProfile, companies);
+  }, [effectiveProfile, companies]);
 
-  // Member role title from company verifiedMembers if available
-  const companyRoleTitle = useMemo(() => {
-    if (profile.roleTitle) return profile.roleTitle;
-    if (userCompany) {
-      const member = userCompany.verifiedMembers.find((m) => m.handle.toLowerCase() === profile.handle.toLowerCase());
-      if (member) return member.roleTitle;
-      if (isPM) return 'Product Manager';
-    }
-    return isPM ? 'Product Manager' : undefined;
-  }, [profile.roleTitle, userCompany, profile.handle, isPM]);
+  const isVerifiedOrgAffiliation = affiliation.isAffiliated && affiliation.isClaimed && affiliation.isVerifiedMember;
+  const userCompany = affiliation.isAffiliated ? affiliation.company : null;
+  const companyRoleTitle = affiliation.effectiveRoleTitle;
 
-  // Products belonging to user's company
+  // Products belonging to user's company (strictly when verified and affiliated)
   const managedProducts = useMemo(() => {
-    if (!userCompany) return [];
+    if (!affiliation.isAffiliated || !affiliation.company) return [];
     return products.filter(
-      (p) => p.companyId === userCompany.id || (p.companyName && p.companyName.toLowerCase() === userCompany.name.toLowerCase())
+      (p) => p.companyId === affiliation.company!.id || (p.companyName && p.companyName.toLowerCase() === affiliation.company!.name.toLowerCase())
     );
-  }, [products, userCompany]);
+  }, [products, affiliation]);
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 animate-in fade-in duration-150">
@@ -445,24 +465,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 alt={displayName}
                 className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 border-zinc-200 dark:border-zinc-700 shadow-sm"
               />
-              <span
-                className={`absolute -bottom-1 -right-1 p-1 rounded-full border-2 border-white dark:border-zinc-900 ${
-                  isAdmin
-                    ? 'bg-purple-600 text-white'
-                    : isPM
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-zinc-800 text-white dark:bg-zinc-200 dark:text-zinc-900'
-                }`}
-                title={isAdmin ? 'Platform Admin' : isPM ? 'Verified Product Team' : 'Community Member'}
-              >
-                {isAdmin ? (
-                  <ShieldCheck className="w-3 h-3" />
-                ) : isPM ? (
-                  <CheckCircle2 className="w-3 h-3" />
-                ) : (
-                  <UserCheck className="w-3 h-3" />
-                )}
-              </span>
             </div>
 
             <div className="space-y-1">
@@ -471,43 +473,41 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   {displayName}
                 </h1>
                 {isAdmin ? (
-                  <span title="Platform Admin" className="inline-flex items-center">
-                    <ShieldCheck className="w-4 h-4 text-purple-500" />
+                  <span title="Platform Admin" className="inline-flex items-center text-zinc-400">
+                    <ShieldCheck className="w-4 h-4" />
                   </span>
-                ) : isPM ? (
-                  <span title="Verified PM" className="inline-flex items-center">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                ) : isPM && isVerifiedOrgAffiliation ? (
+                  <span title="Verified PM" className="inline-flex items-center text-zinc-400">
+                    <CheckCircle2 className="w-4 h-4" />
                   </span>
                 ) : null}
               </div>
 
-              {/* Organization & PM Title Affiliation */}
-              {userCompany ? (
+              {/* Organization & Verified Title Affiliation (Strictly Claimed & Verified Only) */}
+              {affiliation.isAffiliated && affiliation.company && (
                 <div className="pt-0.5 flex items-center gap-1.5 flex-wrap text-xs">
-                  <span className="text-zinc-600 dark:text-zinc-400 font-medium">
-                    {companyRoleTitle} at
-                  </span>
+                  {companyRoleTitle && (
+                    <span className="text-zinc-600 dark:text-zinc-400 font-medium">
+                      {companyRoleTitle} at
+                    </span>
+                  )}
                   <button
                     type="button"
-                    onClick={() => onOpenCompany && onOpenCompany(userCompany)}
+                    onClick={() => onOpenCompany && onOpenCompany(affiliation.company!)}
                     className="inline-flex items-center gap-1.5 font-semibold text-zinc-900 dark:text-white hover:underline cursor-pointer group/comp"
                   >
                     <img
-                      src={userCompany.logo}
-                      alt={userCompany.name}
+                      src={affiliation.company.logo}
+                      alt={affiliation.company.name}
                       className="w-4 h-4 rounded-md object-cover border border-zinc-200 dark:border-zinc-700 group-hover/comp:scale-105 transition-transform"
                     />
-                    <span>{userCompany.name}</span>
+                    <span>{affiliation.company.name}</span>
                     <span title="Verified Organization" className="inline-flex items-center">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                     </span>
                   </button>
                 </div>
-              ) : displayCompany ? (
-                <div className="pt-0.5 text-xs text-zinc-600 dark:text-zinc-400 font-medium">
-                  {companyRoleTitle ? `${companyRoleTitle} at ` : ''}{displayCompany}
-                </div>
-              ) : null}
+              )}
 
               <p className="text-xs text-zinc-500 font-mono">
                 {displayHandle}
@@ -520,25 +520,26 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               )}
 
               <div className="flex flex-wrap items-center gap-3 pt-2 text-[11px] text-zinc-400">
-                {userCompany ? (
+                {affiliation.isAffiliated && affiliation.company && (
                   <button
                     type="button"
-                    onClick={() => onOpenCompany && onOpenCompany(userCompany)}
+                    onClick={() => onOpenCompany && onOpenCompany(affiliation.company!)}
                     className="flex items-center gap-1 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer group/link"
                   >
                     <Building2 className="w-3 h-3 text-zinc-400 group-hover/link:text-zinc-600 dark:group-hover/link:text-zinc-200" />
-                    <span className="group-hover/link:underline">{userCompany.name}</span>
+                    <span className="group-hover/link:underline">{affiliation.company.name}</span>
                   </button>
-                ) : displayCompany ? (
-                  <div className="flex items-center gap-1">
-                    <Building2 className="w-3 h-3" />
-                    <span>{displayCompany}</span>
-                  </div>
-                ) : null}
+                )}
                 {profile.location && (
                   <div className="flex items-center gap-1">
                     <MapPin className="w-3 h-3" />
                     <span>{profile.location}</span>
+                  </div>
+                )}
+                {profile.workEmail && (
+                  <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium" title={`Verified Corporate Work Email: ${profile.workEmail}`}>
+                    <Mail className="w-3 h-3" />
+                    <span>{profile.workEmail}</span>
                   </div>
                 )}
                 <div className="flex items-center gap-1">
@@ -579,15 +580,15 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           {/* Action buttons */}
           {isCurrentUser ? (
             <div className="flex sm:flex-col items-center sm:items-end gap-2 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-100 dark:border-zinc-800">
-              {isAdmin && onOpenAdminConsole && (
+              {(isAdmin || (isPM && isVerifiedOrgAffiliation)) && onOpenAdminConsole && (
                 <button
                   type="button"
                   onClick={() => onOpenAdminConsole()}
-                  className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
+                  className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
                   title="Open Admin Console for User & Company RBAC management"
                 >
                   <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>Admin Console</span>
+                  <span>{isAdmin ? 'Admin Console' : 'Organization Console'}</span>
                 </button>
               )}
 
@@ -595,10 +596,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 <button
                   type="button"
                   onClick={() => onOpenInternalDocs && onOpenInternalDocs()}
-                  className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
+                  className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-medium transition-colors cursor-pointer shadow-2xs"
                   title="View internal features directory, behavioral functions & roadmap"
                 >
-                  <BookOpen className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                  <BookOpen className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
                   <span>Internal Docs</span>
                 </button>
               )}
@@ -628,10 +629,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 <button
                   type="button"
                   onClick={() => onOpenInternalDocs && onOpenInternalDocs()}
-                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-medium transition-colors cursor-pointer shadow-2xs"
                   title="View internal features directory, behavioral functions & roadmap"
                 >
-                  <BookOpen className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                  <BookOpen className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
                   <span>Internal Docs</span>
                 </button>
               )}
@@ -820,7 +821,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       </div>
 
       {/* Official Org & Managed Products Card for Verified PMs */}
-      {userCompany && (
+      {userCompany && isVerifiedOrgAffiliation && (
         <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 shadow-2xs mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-start sm:items-center gap-3.5 min-w-0">
             <img
@@ -881,9 +882,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
       {/* Admin Operations & Internal Documentation Banner */}
       {isAdmin && (
-        <div className="p-4 sm:p-5 rounded-2xl bg-purple-50/60 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/60 shadow-2xs mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="p-4 sm:p-5 rounded-2xl bg-zinc-50 dark:bg-zinc-850/60 border border-zinc-200/80 dark:border-zinc-800 shadow-2xs mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-start sm:items-center gap-3.5 min-w-0">
-            <div className="w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-300 flex items-center justify-center flex-shrink-0 shadow-2xs">
+            <div className="w-12 h-12 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center justify-center flex-shrink-0 shadow-2xs">
               <BookOpen className="w-6 h-6" />
             </div>
             <div className="min-w-0 space-y-1">
@@ -891,7 +892,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 <h3 className="font-bold text-sm text-zinc-900 dark:text-white">
                   Internal Product Documentation & Technical Specs
                 </h3>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300">
+                <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">
                   Platform Admin Portal
                 </span>
               </div>
@@ -905,7 +906,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             <button
               type="button"
               onClick={() => onOpenInternalDocs && onOpenInternalDocs()}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
             >
               <BookOpen className="w-3.5 h-3.5" />
               <span>Open Internal Docs</span>
@@ -1079,159 +1080,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               <span className="font-semibold text-zinc-900 dark:text-white">{followerCount} total</span>
             </div>
 
-            {followerCount === 0 ? (
-              <div className="py-12 text-center rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-xs text-zinc-400">
-                <Users className="w-8 h-8 mx-auto text-zinc-400 mb-2 opacity-60" />
-                <p className="font-medium text-zinc-800 dark:text-zinc-200">No followers yet</p>
-                <p className="text-zinc-500 mt-1 max-w-sm mx-auto">
-                  Share product feedback and participate in discussions to build your community reputation.
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {[
-                {
-                  handle: 'sarah_pm',
-                  name: 'Sarah Chen',
-                  avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=128&auto=format&fit=crop&q=80',
-                  role: 'company_pm',
-                  roleTitle: 'Lead Product Manager at Anysphere (Cursor)',
-                  bio: 'Guiding developer workflows, AI Composer mode, and compiler extensions for Cursor.',
-                },
-                {
-                  handle: 'alex_admin',
-                  name: 'Alex Vance',
-                  avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=128&auto=format&fit=crop&q=80',
-                  role: 'admin',
-                  roleTitle: 'Platform Administrator at CrowdPulse',
-                  bio: 'Stewarding open community product intelligence, triage transparency, and feedback pipelines.',
-                },
-                {
-                  handle: 'elena_ai',
-                  name: 'Elena Rostova',
-                  avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=128&auto=format&fit=crop&q=80',
-                  role: 'user',
-                  roleTitle: 'ML Research Engineer',
-                  bio: 'Benchmarking context window evictions and reasoning speed across modern LLM interfaces.',
-                },
-                {
-                  handle: 'devon_builds',
-                  name: 'Devon Ross',
-                  avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=128&auto=format&fit=crop&q=80',
-                  role: 'user',
-                  roleTitle: 'Fullstack Systems Architect',
-                  bio: 'Profiling monorepos, docker volume mount speeds, and turbo workspace tooling.',
-                },
-                {
-                  handle: 'kavita_ui',
-                  name: 'Kavita Raman',
-                  avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=128&auto=format&fit=crop&q=80',
-                  role: 'user',
-                  roleTitle: 'Design Technologist',
-                  bio: 'Crafting responsive UI systems, micro-interactions, and component bundle budgets.',
-                },
-                {
-                  handle: 'tariqh_ai',
-                  name: 'Tariq Hassan',
-                  avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=128&auto=format&fit=crop&q=80',
-                  role: 'user',
-                  roleTitle: 'Staff AI Engineer',
-                  bio: 'Building autonomous code generation pipelines and multi-agent coordination.',
-                },
-              ].map((member) => {
-                const isMemberFollowed = internalFollowingSet.has(member.handle);
-                return (
-                  <div
-                    key={member.handle}
-                    className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-all flex flex-col justify-between gap-3 shadow-2xs"
-                  >
-                    <div className="flex items-start gap-3">
-                      <img
-                        src={member.avatar}
-                        alt={member.name}
-                        onClick={() => {
-                          if (onOpenProfile) {
-                            onOpenProfile(member.handle, member.name, member.avatar);
-                          } else {
-                            window.location.hash = `#profile-${member.handle}`;
-                          }
-                        }}
-                        className="w-10 h-10 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 cursor-pointer flex-shrink-0 hover:opacity-90"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (onOpenProfile) {
-                                onOpenProfile(member.handle, member.name, member.avatar);
-                              } else {
-                                window.location.hash = `#profile-${member.handle}`;
-                              }
-                            }}
-                            className="font-semibold text-xs text-zinc-900 dark:text-white hover:underline cursor-pointer truncate"
-                          >
-                            {member.name}
-                          </button>
-                          {member.role === 'admin' ? (
-                            <span title="Admin" className="inline-flex items-center">
-                              <ShieldCheck className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" />
-                            </span>
-                          ) : member.role === 'company_pm' ? (
-                            <span title="Verified PM" className="inline-flex items-center">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
-                            </span>
-                          ) : null}
-                        </div>
-                        <p className="text-[11px] text-zinc-400 font-mono">@{member.handle}</p>
-                        <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1 line-clamp-2 leading-relaxed">
-                          {member.bio}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-2 border-t border-zinc-100 dark:border-zinc-800/80 text-xs">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (onOpenProfile) {
-                            onOpenProfile(member.handle, member.name, member.avatar);
-                          } else {
-                            window.location.hash = `#profile-${member.handle}`;
-                          }
-                        }}
-                        className="text-zinc-500 hover:text-zinc-900 dark:hover:text-white font-medium cursor-pointer"
-                      >
-                        View profile
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => toggleUserFollow(member.handle)}
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                          isMemberFollowed
-                            ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-200/80'
-                            : 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 hover:bg-zinc-800'
-                        }`}
-                      >
-                        {isMemberFollowed ? (
-                          <>
-                            <Check className="w-3 h-3 text-emerald-500" />
-                            <span>Following</span>
-                          </>
-                        ) : (
-                          <>
-                            <UserPlus className="w-3 h-3" />
-                            <span>Follow</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="py-12 text-center rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-xs text-zinc-400">
+              <Users className="w-8 h-8 mx-auto text-zinc-400 mb-2 opacity-60" />
+              <p className="font-medium text-zinc-800 dark:text-zinc-200">No followers yet</p>
+              <p className="text-zinc-500 mt-1 max-w-sm mx-auto">
+                Share product feedback and participate in discussions to build your community reputation.
+              </p>
             </div>
-            )}
           </div>
         )}
 
@@ -1241,11 +1096,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             <div className="flex items-center justify-between text-xs text-zinc-500 mb-1">
               <span>Teams, builders, and verified PMs {displayName} follows</span>
               <span className="font-semibold text-zinc-900 dark:text-white">
-                {profile.followingCount ?? (isAlbert ? 14 : internalFollowingSet.size)} total
+                {internalFollowingSet.size} total
               </span>
             </div>
 
-            {(profile.followingCount ?? (isAlbert ? 14 : internalFollowingSet.size)) === 0 ? (
+            {internalFollowingSet.size === 0 ? (
               <div className="py-12 text-center rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-xs text-zinc-400">
                 <UserCheck className="w-8 h-8 mx-auto text-zinc-400 mb-2 opacity-60" />
                 <p className="font-medium text-zinc-800 dark:text-zinc-200">Not following anyone yet</p>
@@ -1255,148 +1110,31 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {[
-                {
-                  handle: 'sarah_pm',
-                  name: 'Sarah Chen',
-                  avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=128&auto=format&fit=crop&q=80',
-                  role: 'company_pm',
-                  roleTitle: 'Lead Product Manager at Anysphere (Cursor)',
-                  bio: 'Guiding developer workflows, AI Composer mode, and compiler extensions for Cursor.',
-                },
-                {
-                  handle: 'alex_admin',
-                  name: 'Alex Vance',
-                  avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=128&auto=format&fit=crop&q=80',
-                  role: 'admin',
-                  roleTitle: 'Platform Administrator at CrowdPulse',
-                  bio: 'Stewarding open community product intelligence, triage transparency, and feedback pipelines.',
-                },
-                {
-                  handle: 'kevin_openai',
-                  name: 'Kevin Weil',
-                  avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=128&auto=format&fit=crop&q=80',
-                  role: 'company_pm',
-                  roleTitle: 'Product Lead at OpenAI',
-                  bio: 'Building consumer and enterprise conversational intelligence platforms.',
-                },
-                {
-                  handle: 'claire_codes',
-                  name: 'Claire Chen',
-                  avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=128&auto=format&fit=crop&q=80',
-                  role: 'user',
-                  roleTitle: 'Mobile & Web Developer',
-                  bio: 'Offline-first database synchronization, PWA engineering, and cross-platform apps.',
-                },
-                {
-                  handle: 'liam_oc',
-                  name: 'Liam O’Connor',
-                  avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=128&auto=format&fit=crop&q=80',
-                  role: 'user',
-                  roleTitle: 'Frontend Engineer at Vercel / v0',
-                  bio: 'Next.js server-client architecture and AI-assisted generative UI scaffolds.',
-                },
-                {
-                  handle: 'mateo_alvarez',
-                  name: 'Mateo Alvarez',
-                  avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=128&auto=format&fit=crop&q=80',
-                  role: 'user',
-                  roleTitle: 'DevOps & Tooling Architect',
-                  bio: 'Managing Turbo monorepos, CI pipelines, and high-performance development containers.',
-                },
-              ].map((member) => {
-                const isMemberFollowed = internalFollowingSet.has(member.handle);
-                return (
+                {Array.from(internalFollowingSet).map((handle) => (
                   <div
-                    key={member.handle}
-                    className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-all flex flex-col justify-between gap-3 shadow-2xs"
+                    key={handle}
+                    className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-all flex items-center justify-between gap-3 shadow-2xs"
                   >
-                    <div className="flex items-start gap-3">
-                      <img
-                        src={member.avatar}
-                        alt={member.name}
-                        onClick={() => {
-                          if (onOpenProfile) {
-                            onOpenProfile(member.handle, member.name, member.avatar);
-                          } else {
-                            window.location.hash = `#profile-${member.handle}`;
-                          }
-                        }}
-                        className="w-10 h-10 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 cursor-pointer flex-shrink-0 hover:opacity-90"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (onOpenProfile) {
-                                onOpenProfile(member.handle, member.name, member.avatar);
-                              } else {
-                                window.location.hash = `#profile-${member.handle}`;
-                              }
-                            }}
-                            className="font-semibold text-xs text-zinc-900 dark:text-white hover:underline cursor-pointer truncate"
-                          >
-                            {member.name}
-                          </button>
-                          {member.role === 'admin' ? (
-                            <span title="Admin" className="inline-flex items-center">
-                              <ShieldCheck className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" />
-                            </span>
-                          ) : member.role === 'company_pm' ? (
-                            <span title="Verified PM" className="inline-flex items-center">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
-                            </span>
-                          ) : null}
-                        </div>
-                        <p className="text-[11px] text-zinc-400 font-mono">@{member.handle}</p>
-                        <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1 line-clamp-2 leading-relaxed">
-                          {member.bio}
-                        </p>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-9 h-9 rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-300 font-bold text-xs flex items-center justify-center border border-purple-200 dark:border-purple-800/50">
+                        @{handle.slice(0, 1).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-xs font-semibold text-zinc-900 dark:text-white truncate block">
+                          @{handle}
+                        </span>
                       </div>
                     </div>
-
-                    <div className="flex items-center justify-between pt-2 border-t border-zinc-100 dark:border-zinc-800/80 text-xs">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (onOpenProfile) {
-                            onOpenProfile(member.handle, member.name, member.avatar);
-                          } else {
-                            window.location.hash = `#profile-${member.handle}`;
-                          }
-                        }}
-                        className="text-zinc-500 hover:text-zinc-900 dark:hover:text-white font-medium cursor-pointer"
-                      >
-                        View profile
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => toggleUserFollow(member.handle)}
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                          isMemberFollowed
-                            ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-200/80'
-                            : 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 hover:bg-zinc-800'
-                        }`}
-                      >
-                        {isMemberFollowed ? (
-                          <>
-                            <Check className="w-3 h-3 text-emerald-500" />
-                            <span>Following</span>
-                          </>
-                        ) : (
-                          <>
-                            <UserPlus className="w-3 h-3" />
-                            <span>Follow</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => toggleUserFollow(handle)}
+                      className="text-xs font-medium px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
+                    >
+                      Unfollow
+                    </button>
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
             )}
           </div>
         )}

@@ -166,7 +166,7 @@ const INITIAL_ROADMAP: RoadmapItem[] = [
     phase: 'next',
     phaseLabel: 'Upcoming (Q1 2027)',
     title: 'Bidirectional Jira, Linear & GitHub Webhooks',
-    description: 'Automatically transition CrowdPulse statuses to "Shipped" or "In Progress" when corresponding pull requests merge or Linear tickets close.',
+    description: 'Automatically transition Publisense statuses to "Shipped" or "In Progress" when corresponding pull requests merge or Linear tickets close.',
     category: 'Integration',
     eta: 'Jan 2027',
     isShipped: false
@@ -196,7 +196,7 @@ const INITIAL_ROADMAP: RoadmapItem[] = [
     phase: 'future',
     phaseLabel: 'Future Horizon (Q2-Q3 2027)',
     title: 'Embeddable In-App "Public Radar" Widget',
-    description: 'Drop-in <script> tag enabling SaaS developers to embed their CrowdPulse live signal radar directly in their web apps.',
+    description: 'Drop-in <script> tag enabling SaaS developers to embed their Publisense live signal radar directly in their web apps.',
     category: 'Developer Platform',
     eta: 'Q2 2027',
     isShipped: false
@@ -206,7 +206,7 @@ const INITIAL_ROADMAP: RoadmapItem[] = [
     phase: 'future',
     phaseLabel: 'Future Horizon (Q2-Q3 2027)',
     title: 'Public Changelog & Product Release Feed',
-    description: 'Dedicated changelog engine linking shipped CrowdPulse customer signals directly to release notes and user notifications.',
+    description: 'Dedicated changelog engine linking shipped Publisense customer signals directly to release notes and user notifications.',
     category: 'Analytics',
     eta: 'Q3 2027',
     isShipped: false
@@ -314,7 +314,7 @@ export const InternalDocsPage: React.FC<InternalDocsPageProps> = ({ onBack }) =>
       <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 shadow-xs mb-8">
         <div className="flex flex-col sm:flex-row items-start justify-between gap-6">
           <div className="flex items-start gap-4">
-            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-purple-100 dark:bg-purple-950/80 text-purple-600 dark:text-purple-400 flex items-center justify-center shadow-xs flex-shrink-0">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center justify-center shadow-xs flex-shrink-0">
               <BookOpen className="w-7 h-7 sm:w-8 sm:h-8" />
             </div>
 
@@ -323,14 +323,14 @@ export const InternalDocsPage: React.FC<InternalDocsPageProps> = ({ onBack }) =>
                 <h1 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white">
                   Internal Product Documentation & Technical Specs
                 </h1>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5" />
+                <span className="px-2.5 py-0.5 rounded text-xs font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
                   Admin Governance
                 </span>
               </div>
 
               <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 max-w-2xl leading-relaxed">
-                Comprehensive living specifications of CrowdPulse systems, recorded behavioral functions, role-based access rules, and the multi-phase engineering roadmap.
+                Comprehensive living specifications of Publisense systems, recorded behavioral functions, role-based access rules, and the multi-phase engineering roadmap.
               </p>
             </div>
           </div>
@@ -486,8 +486,8 @@ export const InternalDocsPage: React.FC<InternalDocsPageProps> = ({ onBack }) =>
                         <span className="px-2.5 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
                           {feat.category}
                         </span>
-                        <span className="px-2.5 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" />
+                        <span className="px-2.5 py-0.5 rounded-md text-[10px] font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-750 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-zinc-500" />
                           {feat.status.replace('_', ' ')}
                         </span>
                       </div>
@@ -497,7 +497,7 @@ export const InternalDocsPage: React.FC<InternalDocsPageProps> = ({ onBack }) =>
                         {feat.userRoles.map((role) => (
                           <span
                             key={role}
-                            className="px-2.5 py-1 rounded-md text-[11px] bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 font-medium border border-purple-200/60 dark:border-purple-900/60"
+                            className="px-2.5 py-1 rounded-md text-[11px] bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-medium border border-zinc-200/60 dark:border-zinc-700/60"
                           >
                             {role}
                           </span>
@@ -545,7 +545,7 @@ export const InternalDocsPage: React.FC<InternalDocsPageProps> = ({ onBack }) =>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h2 className="text-base font-bold text-zinc-900 dark:text-white">
-                  CrowdPulse Engineering Roadmap
+                  Publisense Engineering Roadmap
                 </h2>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
                   Phased rollout milestones tracking automated issue sync, enterprise SAML SSO, and AI duplicate clustering.
@@ -574,7 +574,7 @@ export const InternalDocsPage: React.FC<InternalDocsPageProps> = ({ onBack }) =>
                 <button
                   type="button"
                   onClick={() => setIsAddingRoadmap(!isAddingRoadmap)}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-semibold shadow-2xs transition-colors cursor-pointer whitespace-nowrap"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 rounded-lg text-xs font-semibold shadow-2xs transition-colors cursor-pointer whitespace-nowrap"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Record Milestone</span>
@@ -586,11 +586,11 @@ export const InternalDocsPage: React.FC<InternalDocsPageProps> = ({ onBack }) =>
             {isAddingRoadmap && (
               <form
                 onSubmit={handleCreateRoadmapItem}
-                className="p-5 rounded-2xl bg-purple-50/60 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/60 space-y-4"
+                className="p-5 rounded-2xl bg-zinc-50 dark:bg-zinc-850/60 border border-zinc-200/80 dark:border-zinc-800 space-y-4"
               >
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-bold text-purple-950 dark:text-purple-200 flex items-center gap-1.5">
-                    <Milestone className="w-4 h-4 text-purple-600" />
+                  <h3 className="text-xs font-bold text-zinc-900 dark:text-white flex items-center gap-1.5">
+                    <Milestone className="w-4 h-4 text-zinc-500" />
                     <span>Record New Roadmap Objective</span>
                   </h3>
                   <button
@@ -688,7 +688,7 @@ export const InternalDocsPage: React.FC<InternalDocsPageProps> = ({ onBack }) =>
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-semibold cursor-pointer shadow-2xs"
+                    className="px-4 py-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 rounded-lg text-xs font-semibold cursor-pointer shadow-2xs"
                   >
                     Save Milestone
                   </button>
@@ -705,13 +705,7 @@ export const InternalDocsPage: React.FC<InternalDocsPageProps> = ({ onBack }) =>
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-2.5 flex-wrap">
-                      <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider ${
-                        item.phase === 'now'
-                          ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
-                          : item.phase === 'next'
-                          ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800'
-                          : 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800'
-                      }`}>
+                      <span className="px-2.5 py-0.5 rounded-md text-[10px] font-medium uppercase tracking-wider bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
                         {item.phaseLabel}
                       </span>
 
@@ -822,7 +816,7 @@ export const InternalDocsPage: React.FC<InternalDocsPageProps> = ({ onBack }) =>
                       Invite Verified Team Members
                     </td>
                     <td className="py-3 px-4 text-zinc-400">Restricted</td>
-                    <td className="py-3 px-4 text-emerald-600 font-medium">Permitted (Claimed Org)</td>
+                    <td className="py-3 px-4 text-zinc-700 dark:text-zinc-300 font-medium">Permitted (Verified Org)</td>
                     <td className="py-3 px-4 text-purple-600 font-semibold">Global Management</td>
                   </tr>
                   <tr>
@@ -859,26 +853,26 @@ export const InternalDocsPage: React.FC<InternalDocsPageProps> = ({ onBack }) =>
                 </div>
 
                 {/* 2. PM Elevation */}
-                <div className="p-4 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-900/50 space-y-2">
-                  <div className="flex items-center gap-1.5 font-bold text-emerald-800 dark:text-emerald-300">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-850/60 border border-zinc-200/80 dark:border-zinc-800 space-y-2">
+                  <div className="flex items-center gap-1.5 font-bold text-zinc-900 dark:text-white">
+                    <CheckCircle2 className="w-4 h-4 text-zinc-500" />
                     <span>2. PM Rights: Work Email & Invites</span>
                   </div>
                   <ul className="text-zinc-600 dark:text-zinc-400 leading-relaxed text-[11px] space-y-1">
-                    <li>• <strong>Domain Verification:</strong> Claiming an organization verifies corporate email against <code>company.domain</code> (e.g. <code>@cursor.sh</code>).</li>
+                    <li>• <strong>Domain Verification:</strong> Verifying an organization verifies corporate email against <code>company.domain</code> (e.g. <code>@cursor.sh</code>).</li>
                     <li>• <strong>Team Invites:</strong> Verified PMs invite colleagues directly to their verified roster.</li>
                     <li>• <strong>Scoped Scope:</strong> PM authority is strictly restricted to their company's subsumed products.</li>
                   </ul>
                 </div>
 
                 {/* 3. Admin Elevation */}
-                <div className="p-4 rounded-xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200/80 dark:border-purple-900/50 space-y-2">
-                  <div className="flex items-center gap-1.5 font-bold text-purple-800 dark:text-purple-300">
-                    <ShieldCheck className="w-4 h-4 text-purple-600" />
+                <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-850/60 border border-zinc-200/80 dark:border-zinc-800 space-y-2">
+                  <div className="flex items-center gap-1.5 font-bold text-zinc-900 dark:text-white">
+                    <ShieldCheck className="w-4 h-4 text-zinc-500" />
                     <span>3. Admin Rights: Seeding & Console</span>
                   </div>
                   <ul className="text-zinc-600 dark:text-zinc-400 leading-relaxed text-[11px] space-y-1">
-                    <li>• <strong>Root Seeding:</strong> Bootstrap accounts (<code>albertnkhata.s@gmail.com</code> & <code>@crowdpulse.dev</code>) are automatically recognized as root admins.</li>
+                    <li>• <strong>Root Seeding:</strong> Bootstrap accounts (<code>albertnkhata.s@gmail.com</code> & <code>@publisense.dev</code>) are automatically recognized as root admins.</li>
                     <li>• <strong>Admin Console:</strong> Additional admins are promoted exclusively through the internal Admin Console by an existing administrator.</li>
                   </ul>
                 </div>
@@ -941,7 +935,7 @@ export const InternalDocsPage: React.FC<InternalDocsPageProps> = ({ onBack }) =>
                 <span>Auditing & Safe Retraction Protocol</span>
               </h3>
               <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                When a report author withdraws feedback, CrowdPulse applies <code className="font-mono bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-900 dark:text-zinc-200">isWithdrawn: true</code> with an author note rather than purging documents. This protects the comments and upvotes contributed by other community members while respecting the author's desire to retract the proposal.
+                When a report author withdraws feedback, Publisense applies <code className="font-mono bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-900 dark:text-zinc-200">isWithdrawn: true</code> with an author note rather than purging documents. This protects the comments and upvotes contributed by other community members while respecting the author's desire to retract the proposal.
               </p>
             </div>
           </div>

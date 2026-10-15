@@ -165,26 +165,26 @@ export const ProductPage: React.FC<ProductPageProps> = ({
       </nav>
 
       {/* Unclaimed Product / Org Callout */}
-      {(!product.verifiedOwner || (company && !company.isClaimed)) && (
-        <div className="mb-6 p-3.5 rounded-xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-transparent border border-indigo-200 dark:border-indigo-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+      {(!product.verifiedOwner && (!company || !company.isClaimed)) && (
+        <div className="mb-6 p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-850/60 border border-zinc-200/80 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2.5">
-            <Sparkles className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+            <ShieldCheck className="w-4 h-4 text-zinc-500 flex-shrink-0" />
             <div>
               <span className="font-semibold text-zinc-900 dark:text-white">
-                Unclaimed Product
+                Unverified Product
               </span>
               <span className="text-zinc-600 dark:text-zinc-400 ml-1.5">
                 {company 
                   ? `Claim ${company.name} to automatically verify and manage ${product.name} alongside the full suite.`
-                  : `Claim the parent organization to verify ${product.name} and manage roadmaps.`}
+                  : `Claim the parent organization to manage ${product.name} and track roadmap updates.`}
               </span>
             </div>
           </div>
-          {company && onOpenCompany && (
+          {company && !company.isClaimed && onOpenCompany && (
             <button
               type="button"
               onClick={() => onOpenCompany(company)}
-              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-semibold transition-colors cursor-pointer whitespace-nowrap self-end sm:self-auto shadow-xs"
+              className="px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 rounded-lg font-semibold transition-colors cursor-pointer whitespace-nowrap self-end sm:self-auto shadow-xs"
             >
               Claim {company.name}
             </button>
@@ -194,14 +194,14 @@ export const ProductPage: React.FC<ProductPageProps> = ({
 
       {/* Admin Moderation Banner */}
       {userRole === 'admin' && (
-        <div className="mb-6 p-3.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div className="mb-6 p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-850/60 border border-zinc-200/80 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-purple-600 dark:text-purple-400 flex-shrink-0" />
+            <ShieldCheck className="w-4 h-4 text-zinc-500 dark:text-zinc-400 flex-shrink-0" />
             <div>
-              <span className="font-semibold text-purple-900 dark:text-purple-200 mr-1.5">
+              <span className="font-semibold text-zinc-900 dark:text-white mr-1.5">
                 Admin Controls
               </span>
-              <span className="text-purple-700/80 dark:text-purple-300/80">
+              <span className="text-zinc-500 dark:text-zinc-400">
                 Manage verification and curation for this product listing
               </span>
             </div>
@@ -210,7 +210,7 @@ export const ProductPage: React.FC<ProductPageProps> = ({
             <button
               type="button"
               onClick={() => onToggleVerifyProduct && onToggleVerifyProduct(product.id)}
-              className="px-3 py-1.5 bg-white dark:bg-zinc-800 border border-purple-200 dark:border-purple-700 hover:bg-purple-50 dark:hover:bg-zinc-700 text-purple-900 dark:text-purple-200 rounded-lg font-medium transition-colors cursor-pointer"
+              className="px-3 py-1.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-750 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium transition-colors cursor-pointer"
             >
               {product.verifiedOwner ? 'Revoke Verification' : 'Verify Team'}
             </button>
@@ -368,16 +368,16 @@ export const ProductPage: React.FC<ProductPageProps> = ({
             onClick={() => setStatusFilter(statusFilter === 'planned' ? 'all' : 'planned')}
             className={`p-3 rounded-xl transition-all cursor-pointer text-center group border ${
               statusFilter === 'planned'
-                ? 'bg-purple-50/80 dark:bg-purple-950/40 border-purple-400 dark:border-purple-600 shadow-2xs ring-1 ring-purple-400 dark:ring-purple-600'
-                : 'bg-zinc-50 dark:bg-zinc-850/60 border-zinc-100 dark:border-zinc-800/80 hover:border-purple-300 dark:hover:border-purple-800'
+                ? 'bg-zinc-100 dark:bg-zinc-800 border-zinc-900 dark:border-white shadow-2xs ring-1 ring-zinc-900 dark:ring-white'
+                : 'bg-zinc-50 dark:bg-zinc-850/60 border-zinc-100 dark:border-zinc-800/80 hover:border-zinc-300 dark:hover:border-zinc-700'
             }`}
             title="Filter by Planned status"
           >
             <div className="flex items-center justify-center gap-1.5 mb-1">
-              <span className="w-2 h-2 rounded-full bg-purple-500" />
-              <p className="text-[11px] font-medium text-purple-700 dark:text-purple-400">Planned</p>
+              <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+              <p className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400">Planned</p>
             </div>
-            <p className="text-xl sm:text-2xl font-bold text-purple-700 dark:text-purple-400">
+            <p className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white">
               {plannedCount}
             </p>
           </button>
@@ -388,16 +388,16 @@ export const ProductPage: React.FC<ProductPageProps> = ({
             onClick={() => setStatusFilter(statusFilter === 'in_progress' ? 'all' : 'in_progress')}
             className={`p-3 rounded-xl transition-all cursor-pointer text-center group border ${
               statusFilter === 'in_progress'
-                ? 'bg-blue-50/80 dark:bg-blue-950/40 border-blue-400 dark:border-blue-600 shadow-2xs ring-1 ring-blue-400 dark:ring-blue-600'
-                : 'bg-zinc-50 dark:bg-zinc-850/60 border-zinc-100 dark:border-zinc-800/80 hover:border-blue-300 dark:hover:border-blue-800'
+                ? 'bg-zinc-100 dark:bg-zinc-800 border-zinc-900 dark:border-white shadow-2xs ring-1 ring-zinc-900 dark:ring-white'
+                : 'bg-zinc-50 dark:bg-zinc-850/60 border-zinc-100 dark:border-zinc-800/80 hover:border-zinc-300 dark:hover:border-zinc-700'
             }`}
             title="Filter by In Progress status"
           >
             <div className="flex items-center justify-center gap-1.5 mb-1">
-              <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-              <p className="text-[11px] font-medium text-blue-700 dark:text-blue-400">In Progress</p>
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+              <p className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400">In Progress</p>
             </div>
-            <p className="text-xl sm:text-2xl font-bold text-blue-700 dark:text-blue-400">
+            <p className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white">
               {inProgressCount}
             </p>
           </button>
@@ -408,16 +408,16 @@ export const ProductPage: React.FC<ProductPageProps> = ({
             onClick={() => setStatusFilter(statusFilter === 'shipped' ? 'all' : 'shipped')}
             className={`p-3 rounded-xl transition-all cursor-pointer text-center group border ${
               statusFilter === 'shipped'
-                ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-400 dark:border-emerald-600 shadow-2xs ring-1 ring-emerald-400 dark:ring-emerald-600'
-                : 'bg-zinc-50 dark:bg-zinc-850/60 border-zinc-100 dark:border-zinc-800/80 hover:border-emerald-300 dark:hover:border-emerald-800'
+                ? 'bg-zinc-100 dark:bg-zinc-800 border-zinc-900 dark:border-white shadow-2xs ring-1 ring-zinc-900 dark:ring-white'
+                : 'bg-zinc-50 dark:bg-zinc-850/60 border-zinc-100 dark:border-zinc-800/80 hover:border-zinc-300 dark:hover:border-zinc-700'
             }`}
             title="Filter by Shipped status"
           >
             <div className="flex items-center justify-center gap-1.5 mb-1">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400">Shipped</p>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <p className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400">Shipped</p>
             </div>
-            <p className="text-xl sm:text-2xl font-bold text-emerald-700 dark:text-emerald-400">
+            <p className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white">
               {shippedCount}
             </p>
           </button>

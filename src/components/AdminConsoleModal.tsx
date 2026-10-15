@@ -17,7 +17,8 @@ import {
   Info,
   RefreshCw,
   Plus,
-  AlertCircle
+  AlertCircle,
+  ShieldOff
 } from 'lucide-react';
 import { UserProfile, Company, UserRole } from '../types';
 import { fetchAllUsers, updateUserRoleInDb } from '../lib/firebase';
@@ -29,6 +30,7 @@ interface AdminConsoleModalProps {
   onClose: () => void;
   onUpdateCompany: (company: Company) => void;
   onUpdateCurrentUser: (user: UserProfile) => void;
+  onUnclaimCompany?: (company: Company) => void;
 }
 
 export const AdminConsoleModal: React.FC<AdminConsoleModalProps> = ({
@@ -38,91 +40,87 @@ export const AdminConsoleModal: React.FC<AdminConsoleModalProps> = ({
   onClose,
   onUpdateCompany,
   onUpdateCurrentUser,
+  onUnclaimCompany,
 }) => {
-  const [activeTab, setActiveTab] = useState<'users' | 'orgs' | 'policy'>('users');
+  const isAdmin = currentUser?.role === 'admin';
+  const [activeTab, setActiveTab] = useState<'users' | 'orgs' | 'policy'>(
+    isAdmin ? 'users' : 'orgs'
+  );
+  const effectiveTab = isAdmin ? activeTab : 'orgs';
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [selectedUserForPM, setSelectedUserForPM] = useState<UserProfile | null>(null);
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string>(companies[0]?.id || '');
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>(
+    currentUser?.companyId || companies[0]?.id || ''
+  );
   const [customRoleTitle, setCustomRoleTitle] = useState('Lead Product Manager');
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-  // Fallback demo users to guarantee immediate utility even if database is fresh
+  const sortedCompanies = useMemo(() => {
+    return [...companies].sort((a, b) => {
+      if (a.id === currentUser?.companyId) return -1;
+      if (b.id === currentUser?.companyId) return 1;
+      return 0;
+    });
+  }, [companies, currentUser?.companyId]);
+
+  const visibleCompanies = useMemo(() => {
+    if (isAdmin) {
+      return sortedCompanies;
+    }
+    // Company PM is strictly isolated to their own claimed organisation
+    return sortedCompanies.filter(c => 
+      c.id === currentUser?.companyId || 
+      (currentUser?.companyOrOrg && c.name.toLowerCase() === currentUser.companyOrOrg.toLowerCase()) ||
+      c.claimedById === currentUser?.id
+    );
+  }, [isAdmin, sortedCompanies, currentUser]);
+
+  // Root admin account
   const defaultDemoUsers: UserProfile[] = useMemo(() => [
     {
-      id: 'usr-admin',
-      name: 'Alex Vance',
-      email: 'alex.admin@crowdpulse.dev',
-      handle: '@alex_admin',
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=128&auto=format&fit=crop&q=80',
+      id: currentUser?.id || 'usr-albert',
+      name: currentUser?.name || 'Admin',
+      email: currentUser?.email || 'albertnkhata.s@gmail.com',
+      handle: currentUser?.handle || '@albert',
+      avatar: currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=128&auto=format&fit=crop&q=80',
       role: 'admin',
-      roleTitle: 'Platform Administrator',
-      companyOrOrg: 'CrowdPulse',
-      companyId: 'comp-crowdpulse',
-      bio: 'Platform Administrator and Founder at CrowdPulse.',
-      joinedDate: 'March 2024',
-      followerCount: 154,
-      followingCount: 32,
-    },
-    {
-      id: 'usr-pm',
-      name: 'Sarah Chen',
-      email: 'sarah.pm@cursor.sh',
-      handle: '@sarah_pm',
-      avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=128&auto=format&fit=crop&q=80',
-      role: 'company_pm',
-      roleTitle: 'Lead Product Manager',
-      companyOrOrg: 'Anysphere',
-      companyId: 'comp-anysphere',
-      bio: 'Lead Product Manager at Anysphere, shaping the future of Cursor.',
-      joinedDate: 'March 2024',
-      followerCount: 342,
-      followingCount: 48,
-    },
-    {
-      id: 'usr-albert',
-      name: 'Albert N.',
-      email: 'albertnkhata.s@gmail.com',
-      handle: '@albert',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=128&auto=format&fit=crop&q=80',
-      role: 'admin',
-      roleTitle: 'Platform Administrator (Root)',
-      companyOrOrg: 'CrowdPulse',
-      companyId: 'comp-crowdpulse',
-      bio: 'Platform Administrator and Root Creator.',
-      joinedDate: 'October 2026',
-      followerCount: 88,
-      followingCount: 20,
-    },
-    {
-      id: 'usr-member',
-      name: 'Elena Rostova',
-      email: 'elena.dev@example.com',
-      handle: '@elena_dev',
-      avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=128&auto=format&fit=crop&q=80',
-      role: 'user',
-      bio: 'Fullstack developer & open-source contributor.',
-      joinedDate: 'April 2024',
-      followerCount: 45,
-      followingCount: 12,
+      roleTitle: currentUser?.roleTitle || 'Platform Administrator (Root)',
+      companyOrOrg: currentUser?.companyOrOrg || 'CrowdPulse',
+      companyId: currentUser?.companyId || 'comp-crowdpulse',
+      bio: currentUser?.bio || 'Platform Administrator and Root Creator.',
+      joinedDate: currentUser?.joinedDate || 'October 2026',
+      followerCount: currentUser?.followerCount || 0,
+      followingCount: currentUser?.followingCount || 0,
     }
-  ], []);
+  ], [currentUser]);
 
   const loadUsers = async () => {
     setIsLoadingUsers(true);
     try {
       const dbUsers = await fetchAllUsers();
       if (dbUsers.length > 0) {
-        // Merge with current user if not in list
-        const merged = [...dbUsers];
-        if (currentUser && !merged.find(u => u.id === currentUser.id || u.email === currentUser.email)) {
-          merged.unshift(currentUser);
+        // Enforce strict single-account-per-email
+        const uniqueMap = new Map<string, UserProfile>();
+        for (const u of dbUsers) {
+          const emailKey = (u.email || '').toLowerCase().trim();
+          if (emailKey && !uniqueMap.has(emailKey)) {
+            uniqueMap.set(emailKey, u);
+          } else if (!emailKey && !uniqueMap.has(u.id)) {
+            uniqueMap.set(u.id, u);
+          }
         }
-        setUsersList(merged);
+        if (currentUser) {
+          const currentEmail = (currentUser.email || '').toLowerCase().trim();
+          if (currentEmail && !uniqueMap.has(currentEmail)) {
+            uniqueMap.set(currentEmail, currentUser);
+          }
+        }
+        setUsersList(Array.from(uniqueMap.values()));
       } else {
         // Populate with seed users
-        const seed = currentUser && !defaultDemoUsers.find(u => u.email === currentUser.email)
+        const seed = currentUser && !defaultDemoUsers.find(u => u.email?.toLowerCase() === currentUser.email?.toLowerCase())
           ? [currentUser, ...defaultDemoUsers]
           : defaultDemoUsers;
         setUsersList(seed);
@@ -135,10 +133,10 @@ export const AdminConsoleModal: React.FC<AdminConsoleModalProps> = ({
   };
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && isAdmin) {
       loadUsers();
     }
-  }, [isOpen]);
+  }, [isOpen, isAdmin]);
 
   if (!isOpen) return null;
 
@@ -177,13 +175,13 @@ export const AdminConsoleModal: React.FC<AdminConsoleModalProps> = ({
     await updateUserRoleInDb(targetUser.id, updates);
 
     // Also add to company verifiedMembers if not already present
-    const memberExists = targetComp.verifiedMembers.some(m => m.id === targetUser.id || m.handle === targetUser.handle);
+    const memberExists = targetComp.verifiedMembers?.some(m => m.id === targetUser.id || m.handle === targetUser.handle);
     if (!memberExists) {
       const updatedCompany: Company = {
         ...targetComp,
         isClaimed: true,
         verifiedMembers: [
-          ...targetComp.verifiedMembers,
+          ...(targetComp.verifiedMembers || []),
           {
             id: targetUser.id,
             name: targetUser.name,
@@ -220,20 +218,22 @@ export const AdminConsoleModal: React.FC<AdminConsoleModalProps> = ({
         {/* Header */}
         <div className="p-5 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-850/30">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-600/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center justify-center">
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold text-zinc-900 dark:text-white">
-                  Admin Console
+                  {currentUser.role === 'admin' ? 'Admin Console' : `${currentUser.companyOrOrg || 'Organization'} Console`}
                 </h2>
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
-                  Access & RBAC Controls
+                <span className="text-[10px] px-2 py-0.5 rounded font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">
+                  {currentUser.role === 'admin' ? 'Access & RBAC Controls' : 'Team & Suite Management'}
                 </span>
               </div>
               <p className="text-xs text-zinc-500">
-                Grant elevated rights, audit company claims, and manage verified PM rosters
+                {currentUser.role === 'admin' 
+                  ? 'Grant elevated rights, audit company claims, and manage verified PM rosters' 
+                  : `Manage team roster, verified members, and suite products for ${currentUser.companyOrOrg || 'your organisation'}`}
               </p>
             </div>
           </div>
@@ -248,54 +248,63 @@ export const AdminConsoleModal: React.FC<AdminConsoleModalProps> = ({
 
         {/* Status Toast */}
         {statusMessage && (
-          <div className="px-5 py-2.5 bg-emerald-50 dark:bg-emerald-950/40 border-b border-emerald-200 dark:border-emerald-900/50 flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-300 animate-in fade-in">
-            <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+          <div className="px-5 py-2.5 bg-zinc-100 dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700 flex items-center gap-2 text-xs text-zinc-800 dark:text-zinc-200 animate-in fade-in">
+            <CheckCircle2 className="w-4 h-4 text-zinc-600 dark:text-zinc-400 flex-shrink-0" />
             <span>{statusMessage}</span>
           </div>
         )}
 
         {/* Tab Switcher */}
-        <div className="px-5 border-b border-zinc-100 dark:border-zinc-800 flex gap-4 text-xs font-semibold">
-          <button
-            onClick={() => setActiveTab('users')}
-            className={`py-3 border-b-2 flex items-center gap-2 cursor-pointer transition-colors ${
-              activeTab === 'users'
-                ? 'border-purple-600 text-purple-600 dark:border-purple-400 dark:text-purple-400'
-                : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>User Accounts ({usersList.length})</span>
-          </button>
+        {isAdmin ? (
+          <div className="px-5 border-b border-zinc-100 dark:border-zinc-800 flex gap-4 text-xs font-semibold">
+            <button
+              onClick={() => setActiveTab('users')}
+              className={`py-3 border-b-2 flex items-center gap-2 cursor-pointer transition-colors ${
+                effectiveTab === 'users'
+                  ? 'border-zinc-900 text-zinc-900 dark:border-white dark:text-white font-bold'
+                  : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span>User Accounts ({usersList.length})</span>
+            </button>
 
-          <button
-            onClick={() => setActiveTab('orgs')}
-            className={`py-3 border-b-2 flex items-center gap-2 cursor-pointer transition-colors ${
-              activeTab === 'orgs'
-                ? 'border-purple-600 text-purple-600 dark:border-purple-400 dark:text-purple-400'
-                : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
-            }`}
-          >
-            <Building2 className="w-4 h-4" />
-            <span>Organisations & PM Roster ({companies.length})</span>
-          </button>
+            <button
+              onClick={() => setActiveTab('orgs')}
+              className={`py-3 border-b-2 flex items-center gap-2 cursor-pointer transition-colors ${
+                effectiveTab === 'orgs'
+                  ? 'border-zinc-900 text-zinc-900 dark:border-white dark:text-white font-bold'
+                  : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
+              }`}
+            >
+              <Building2 className="w-4 h-4" />
+              <span>Organisations & PM Roster ({companies.length})</span>
+            </button>
 
-          <button
-            onClick={() => setActiveTab('policy')}
-            className={`py-3 border-b-2 flex items-center gap-2 cursor-pointer transition-colors ${
-              activeTab === 'policy'
-                ? 'border-purple-600 text-purple-600 dark:border-purple-400 dark:text-purple-400'
-                : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
-            }`}
-          >
-            <Lock className="w-4 h-4" />
-            <span>RBAC Policy</span>
-          </button>
-        </div>
+            <button
+              onClick={() => setActiveTab('policy')}
+              className={`py-3 border-b-2 flex items-center gap-2 cursor-pointer transition-colors ${
+                effectiveTab === 'policy'
+                  ? 'border-zinc-900 text-zinc-900 dark:border-white dark:text-white font-bold'
+                  : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
+              }`}
+            >
+              <Lock className="w-4 h-4" />
+              <span>RBAC Policy</span>
+            </button>
+          </div>
+        ) : (
+          <div className="px-5 border-b border-zinc-100 dark:border-zinc-800 flex gap-4 text-xs font-semibold">
+            <div className="py-3 border-b-2 border-zinc-900 text-zinc-900 dark:border-white dark:text-white font-bold flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <span>Organisation Management ({visibleCompanies[0]?.name || currentUser.companyOrOrg || 'Your Organisation'})</span>
+            </div>
+          </div>
+        )}
 
         {/* Tab Content */}
         <div className="p-5 flex-1 overflow-y-auto space-y-4">
-          {activeTab === 'users' && (
+          {isAdmin && effectiveTab === 'users' && (
             <div className="space-y-4">
               {/* Search & Actions Bar */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -342,17 +351,17 @@ export const AdminConsoleModal: React.FC<AdminConsoleModalProps> = ({
                                 {u.name}
                               </span>
                               {u.role === 'admin' ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300">
-                                  <ShieldCheck className="w-3 h-3" />
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
+                                  <ShieldCheck className="w-3 h-3 text-zinc-500 dark:text-zinc-400" />
                                   <span>{isRootAdmin ? 'Root Admin' : 'Admin'}</span>
                                 </span>
                               ) : u.role === 'company_pm' ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
-                                  <CheckCircle2 className="w-3 h-3" />
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
+                                  <CheckCircle2 className="w-3 h-3 text-zinc-500 dark:text-zinc-400" />
                                   <span>PM ({u.companyOrOrg || 'Partner'})</span>
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-normal bg-zinc-100/60 dark:bg-zinc-800/60 text-zinc-500">
                                   <span>User</span>
                                 </span>
                               )}
@@ -384,17 +393,17 @@ export const AdminConsoleModal: React.FC<AdminConsoleModalProps> = ({
 
                           {/* Promote/Demote Admin (with Root protection) */}
                           {isRootAdmin ? (
-                            <span className="px-2.5 py-1.5 text-[11px] font-semibold text-purple-600 dark:text-purple-400">
+                            <span className="px-2.5 py-1.5 text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
                               Seeded Root
                             </span>
                           ) : (
                             <button
                               type="button"
                               onClick={() => handlePromoteAdmin(u)}
-                              className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer ${
+                              className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors cursor-pointer ${
                                 u.role === 'admin'
                                   ? 'bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900'
-                                  : 'bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
+                                  : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700'
                               }`}
                             >
                               {u.role === 'admin' ? 'Demote to User' : 'Promote to Admin'}
@@ -462,7 +471,7 @@ export const AdminConsoleModal: React.FC<AdminConsoleModalProps> = ({
                       <button
                         type="button"
                         onClick={() => handleAssignPM(selectedUserForPM, selectedCompanyId, customRoleTitle)}
-                        className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white shadow-xs"
+                        className="px-4 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-xs font-semibold text-white dark:text-zinc-900 shadow-xs"
                       >
                         Confirm PM Assignment
                       </button>
@@ -473,48 +482,91 @@ export const AdminConsoleModal: React.FC<AdminConsoleModalProps> = ({
             </div>
           )}
 
-          {activeTab === 'orgs' && (
+          {effectiveTab === 'orgs' && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {companies.map((company) => (
-                  <div
-                    key={company.id}
-                    className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-3"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <img
-                          src={company.logo}
-                          alt={company.name}
-                          className="w-8 h-8 rounded-lg object-cover border border-zinc-200 dark:border-zinc-700"
-                        />
-                        <div>
-                          <h4 className="font-bold text-xs text-zinc-900 dark:text-white">
-                            {company.name}
-                          </h4>
-                          <p className="text-[11px] text-zinc-400 font-mono">
-                            @{company.domain || 'domain.com'}
-                          </p>
-                        </div>
-                      </div>
+                {visibleCompanies.length === 0 ? (
+                  <div className="col-span-full p-8 text-center bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-800 rounded-xl space-y-2">
+                    <AlertCircle className="w-8 h-8 text-zinc-400 mx-auto" />
+                    <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                      No affiliated organisation found
+                    </p>
+                    <p className="text-[11px] text-zinc-500">
+                      Your account is currently not associated with an active claimed organisation.
+                    </p>
+                  </div>
+                ) : (
+                  visibleCompanies.map((company) => {
+                    const isUserOrg = company.id === currentUser?.companyId || (currentUser?.companyOrOrg && currentUser.companyOrOrg.toLowerCase() === company.name.toLowerCase());
+                    const canUnclaimThisOrg = Boolean(
+                      isAdmin ||
+                      (company.claimedById && currentUser?.id === company.claimedById) ||
+                      (currentUser?.companyId === company.id) ||
+                      (currentUser?.companyOrOrg && company.name.toLowerCase() === currentUser.companyOrOrg.toLowerCase())
+                    );
+                    return (
+                      <div
+                        key={company.id}
+                        className={`p-4 rounded-xl border space-y-3 ${
+                          isUserOrg
+                            ? 'border-emerald-300 dark:border-emerald-800/80 bg-emerald-50/20 dark:bg-emerald-950/10 shadow-xs'
+                            : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2.5">
+                            <img
+                              src={company.logo}
+                              alt={company.name}
+                              className="w-8 h-8 rounded-lg object-cover border border-zinc-200 dark:border-zinc-750"
+                            />
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <h4 className="font-bold text-xs text-zinc-900 dark:text-white">
+                                  {company.name}
+                                </h4>
+                                {isUserOrg && (
+                                  <span className="text-[9px] px-1.5 py-0.2 rounded font-semibold bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                                    Your Managed Org
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-zinc-400 font-mono">
+                                @{company.domain || 'domain.com'}
+                              </p>
+                            </div>
+                          </div>
 
-                      {company.isClaimed ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
-                          <CheckCircle2 className="w-3 h-3" />
-                          <span>Claimed</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-500">
-                          <span>Unclaimed</span>
-                        </span>
-                      )}
+                          {company.isClaimed ? (
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Verified</span>
+                            </span>
+                            {onUnclaimCompany && canUnclaimThisOrg && (
+                              <button
+                                type="button"
+                                onClick={() => onUnclaimCompany(company)}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 transition-colors cursor-pointer"
+                                title={`Unclaim ${company.name}`}
+                              >
+                                <ShieldOff className="w-3 h-3" />
+                                <span>Unclaim</span>
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] text-zinc-400">
+                            <span>Unverified</span>
+                          </span>
+                        )}
                     </div>
 
                     <div className="text-xs text-zinc-500 border-t border-zinc-100 dark:border-zinc-800 pt-2.5 space-y-1.5">
                       <div className="flex items-center justify-between text-[11px]">
                         <span>Verified PM Staff:</span>
                         <span className="font-semibold text-zinc-900 dark:text-white">
-                          {company.verifiedMembers.length} member(s)
+                          {(company.verifiedMembers?.length || 0)} member(s)
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-[11px]">
@@ -541,20 +593,21 @@ export const AdminConsoleModal: React.FC<AdminConsoleModalProps> = ({
                       </div>
                     )}
                   </div>
-                ))}
-              </div>
+                );
+              }))}
+            </div>
             </div>
           )}
 
-          {activeTab === 'policy' && (
+          {isAdmin && effectiveTab === 'policy' && (
             <div className="space-y-4">
-              <div className="p-4 rounded-xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/60 space-y-2">
-                <div className="flex items-center gap-2 text-purple-700 dark:text-purple-300 font-bold text-xs">
-                  <ShieldCheck className="w-4 h-4" />
+              <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-850/60 border border-zinc-200/80 dark:border-zinc-800 space-y-2">
+                <div className="flex items-center gap-2 text-zinc-800 dark:text-zinc-200 font-bold text-xs">
+                  <ShieldCheck className="w-4 h-4 text-zinc-500" />
                   <span>Principle of Least Privilege (Zero-Trust Standard)</span>
                 </div>
                 <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                  Every user starts strictly with regular permissions (<code className="text-purple-600 dark:text-purple-300">role: 'user'</code>). 
+                  Every user starts strictly with regular permissions (<code>role: 'user'</code>). 
                   Elevated rights are granted strictly through verification channels.
                 </p>
               </div>

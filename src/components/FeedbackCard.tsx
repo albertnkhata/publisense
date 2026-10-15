@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { FeedbackItem, Product, FeedbackStatus } from '../types';
 import { formatRelativeTime } from '../lib/timeUtils';
+import { loadProfile } from '../lib/profileStorage';
 
 interface FeedbackCardProps {
   item: FeedbackItem;
@@ -174,7 +175,7 @@ export const FeedbackCard: React.FC<FeedbackCardProps> = ({
           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
           <div className="min-w-0">
             <span className="font-medium text-zinc-900 dark:text-white">
-              {item.statusUpdatedBy || 'Official Team'}:
+              {product?.companyName || item.statusUpdatedBy || 'Official Team'}:
             </span>{' '}
             <span className="text-zinc-600 dark:text-zinc-400">{item.statusUpdateNote}</span>
           </div>
@@ -233,24 +234,34 @@ export const FeedbackCard: React.FC<FeedbackCardProps> = ({
         </div>
 
         {/* Author info */}
-        <div className="flex items-center gap-1.5 text-zinc-400 text-xs">
-          {onOpenProfile ? (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenProfile(item.authorHandle, item.authorName, item.authorAvatar);
-              }}
-              className="text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white font-medium hover:underline cursor-pointer"
-            >
-              {item.authorName}
-            </button>
-          ) : (
-            <span>{item.authorName}</span>
-          )}
-          <span>•</span>
-          <span>{formatRelativeTime(item.createdAt, item.id)}</span>
-        </div>
+        {(() => {
+          const isDeletedUser = (item.authorHandle || '').toLowerCase() === '@deleted' || item.authorName === 'Deleted User';
+          const storedAuthor = isDeletedUser ? null : loadProfile((item.authorHandle || '').replace(/^@/, ''));
+          const effectiveAuthorName = isDeletedUser ? 'Deleted User' : (storedAuthor?.name || item.authorName);
+          const effectiveAuthorAvatar = isDeletedUser ? item.authorAvatar : (storedAuthor?.avatar || item.authorAvatar);
+          return (
+            <div className="flex items-center gap-1.5 text-zinc-400 text-xs">
+              {onOpenProfile && !isDeletedUser ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenProfile(item.authorHandle, effectiveAuthorName, effectiveAuthorAvatar);
+                  }}
+                  className="text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white font-medium hover:underline cursor-pointer"
+                >
+                  {effectiveAuthorName}
+                </button>
+              ) : (
+                <span className={isDeletedUser ? "text-zinc-400 italic" : "text-zinc-600 dark:text-zinc-300 font-medium"}>
+                  {effectiveAuthorName}
+                </span>
+              )}
+              <span>•</span>
+              <span>{formatRelativeTime(item.createdAt, item.id)}</span>
+            </div>
+          );
+        })()}
       </div>
     </article>
   );

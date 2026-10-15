@@ -236,8 +236,8 @@ export const SubmitFeedbackModal: React.FC<SubmitFeedbackModalProps> = ({
                           {selectedProduct.name}
                         </span>
                         {selectedProduct.verifiedOwner && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800/60">
-                            <CheckCircle2 className="w-3 h-3" />
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-750">
+                            <CheckCircle2 className="w-3 h-3 text-zinc-500 dark:text-zinc-400" />
                             Verified Team
                           </span>
                         )}

@@ -25,6 +25,7 @@ import { FeedbackItem, Product, UserRole, FeedbackStatus, Comment, UserProfile, 
 import { EditFeedbackModal } from './EditFeedbackModal';
 import { DeleteFeedbackModal } from './DeleteFeedbackModal';
 import { formatRelativeTime } from '../lib/timeUtils';
+import { loadProfile } from '../lib/profileStorage';
 
 interface FeedbackDetailPageProps {
   item: FeedbackItem;
@@ -54,13 +55,14 @@ interface FeedbackDetailPageProps {
   onOpenProfile?: (handle: string, name: string, avatar: string) => void;
   onOpenProduct?: (product: Product) => void;
   onOpenCompany?: (companyNameOrId: string) => void;
+  onRequireAuth?: (promptMessage?: string) => void;
 }
 
 export const FeedbackDetailPage: React.FC<FeedbackDetailPageProps> = ({
   item,
   product,
   userRole,
-  currentUser,
+  currentUser = null,
   onBack,
   onVote,
   onOpenShare,
@@ -74,6 +76,7 @@ export const FeedbackDetailPage: React.FC<FeedbackDetailPageProps> = ({
   onOpenProfile,
   onOpenProduct,
   onOpenCompany,
+  onRequireAuth,
 }) => {
   const [commentText, setCommentText] = useState('');
   const [isEditingStatus, setIsEditingStatus] = useState(false);
@@ -94,14 +97,61 @@ export const FeedbackDetailPage: React.FC<FeedbackDetailPageProps> = ({
   );
   const canManagePost = isAuthor || userRole === 'admin';
 
+  const isDeletedAuthor = (item.authorHandle || '').toLowerCase() === '@deleted' || item.authorName === 'Deleted User';
+  const storedAuthor = isDeletedAuthor ? null : loadProfile((item.authorHandle || '').replace(/^@/, ''));
+  const effectiveAuthorName = isDeletedAuthor ? 'Deleted User' : (storedAuthor?.name || (isAuthor && currentUser?.name ? currentUser.name : item.authorName));
+  const effectiveAuthorAvatar = isDeletedAuthor ? item.authorAvatar : (storedAuthor?.avatar || (isAuthor && currentUser?.avatar ? currentUser.avatar : item.authorAvatar));
+
+  const getCommentAuthor = (c: Comment) => {
+    const isDeletedCommentAuthor = (c.authorHandle || '').toLowerCase() === '@deleted' || c.authorName === 'Deleted User';
+    const storedCommentAuthor = isDeletedCommentAuthor ? null : loadProfile((c.authorHandle || '').replace(/^@/, ''));
+    const isThisCommentAuthor = Boolean(
+      currentUser && !isDeletedCommentAuthor && (
+        currentUser.handle === c.authorHandle || 
+        (currentUser.role === 'admin' && c.authorHandle === '@albert')
+      )
+    );
+    const authorName = isDeletedCommentAuthor ? 'Deleted User' : (storedCommentAuthor?.name || (isThisCommentAuthor && currentUser?.name ? currentUser.name : c.authorName));
+    const authorAvatar = isDeletedCommentAuthor ? c.authorAvatar : (storedCommentAuthor?.avatar || (isThisCommentAuthor && currentUser?.avatar ? currentUser.avatar : c.authorAvatar));
+    return { authorName, authorAvatar, isDeletedCommentAuthor };
+  };
+
   const handleCommentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentUser) {
+      if (onRequireAuth) {
+        onRequireAuth('Sign in to post comments and join the builder conversation.');
+      }
+      return;
+    }
     if (!commentText.trim()) return;
     onAddComment(item.id, commentText.trim(), 'general');
     setCommentText('');
   };
 
+  // Only platform admin or verified PM of this product's organization can update feedback status & notes
+  const isAuthorizedToUpdateStatus = Boolean(
+    currentUser && (
+      userRole === 'admin' ||
+      (
+        userRole === 'company_pm' &&
+        product &&
+        (
+          (currentUser.companyId && product.companyId && currentUser.companyId === product.companyId) ||
+          (currentUser.companyOrOrg && product.companyName && currentUser.companyOrOrg.trim().toLowerCase() === product.companyName.trim().toLowerCase())
+        )
+      ) ||
+      (
+        currentUser.companyId && product?.companyId && currentUser.companyId === product.companyId
+      )
+    )
+  );
+
   const handleSaveStatus = () => {
+    if (!isAuthorizedToUpdateStatus) {
+      setIsEditingStatus(false);
+      return;
+    }
     if (onUpdateStatus) {
       onUpdateStatus(item.id, selectedStatus, statusNote);
       setIsEditingStatus(false);
@@ -311,27 +361,41 @@ export const FeedbackDetailPage: React.FC<FeedbackDetailPageProps> = ({
             {/* Author bar */}
             <div className="flex items-center justify-between gap-3 text-xs text-zinc-500 border-b border-zinc-200 dark:border-zinc-800/80 pb-4">
               <div className="flex items-center gap-2.5 min-w-0">
-                <button
-                  type="button"
-                  onClick={() => onOpenProfile && onOpenProfile(item.authorHandle, item.authorName, item.authorAvatar)}
-                  className="cursor-pointer flex-shrink-0"
-                >
-                  <img
-                    src={item.authorAvatar}
-                    alt={item.authorName}
-                    className="w-6 h-6 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 hover:opacity-80 transition-opacity"
-                  />
-                </button>
-                <div className="flex items-center gap-1.5 flex-wrap">
+                {!isDeletedAuthor && onOpenProfile ? (
                   <button
                     type="button"
-                    onClick={() => onOpenProfile && onOpenProfile(item.authorHandle, item.authorName, item.authorAvatar)}
-                    className="font-semibold text-zinc-900 dark:text-zinc-200 hover:underline cursor-pointer"
+                    onClick={() => onOpenProfile(item.authorHandle, effectiveAuthorName, effectiveAuthorAvatar)}
+                    className="cursor-pointer flex-shrink-0"
                   >
-                    {item.authorName}
+                    <img
+                      src={effectiveAuthorAvatar}
+                      alt={effectiveAuthorName}
+                      className="w-6 h-6 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 hover:opacity-80 transition-opacity"
+                    />
                   </button>
+                ) : (
+                  <img
+                    src={effectiveAuthorAvatar}
+                    alt={effectiveAuthorName}
+                    className="w-6 h-6 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 flex-shrink-0"
+                  />
+                )}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {!isDeletedAuthor && onOpenProfile ? (
+                    <button
+                      type="button"
+                      onClick={() => onOpenProfile(item.authorHandle, effectiveAuthorName, effectiveAuthorAvatar)}
+                      className="font-semibold text-zinc-900 dark:text-zinc-200 hover:underline cursor-pointer"
+                    >
+                      {effectiveAuthorName}
+                    </button>
+                  ) : (
+                    <span className={isDeletedAuthor ? "font-medium text-zinc-500 italic" : "font-semibold text-zinc-900 dark:text-zinc-200"}>
+                      {effectiveAuthorName}
+                    </span>
+                  )}
                   <span className="text-zinc-400">{item.authorHandle}</span>
-                  {isAuthor && (
+                  {isAuthor && !isDeletedAuthor && (
                     <span className="px-1.5 py-0.2 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 font-semibold rounded text-[10px]">
                       You
                     </span>
@@ -454,13 +518,13 @@ export const FeedbackDetailPage: React.FC<FeedbackDetailPageProps> = ({
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 <span className="font-semibold text-zinc-900 dark:text-white">
-                  {item.statusUpdatedBy || 'Official Team Response'}
+                  {product?.companyName || item.statusUpdatedBy || 'Official Team'}
                 </span>
                 <span className="text-zinc-300 dark:text-zinc-700">•</span>
                 {renderStatus(item.status)}
               </div>
 
-              {(userRole === 'company_pm' || userRole === 'admin') && (
+              {isAuthorizedToUpdateStatus && (
                 <button
                   onClick={() => setIsEditingStatus(!isEditingStatus)}
                   className="text-xs text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white underline cursor-pointer"
@@ -524,7 +588,9 @@ export const FeedbackDetailPage: React.FC<FeedbackDetailPageProps> = ({
               </p>
             ) : (
               <p className="text-zinc-400 italic text-xs">
-                No official team note posted yet. Upvote this issue to bring it to the team's attention.
+                {userRole === 'company_pm' && !isAuthorizedToUpdateStatus
+                  ? `No official team note posted yet. (Official status notes are restricted to verified ${product?.companyName || 'owning organisation'} PMs)`
+                  : 'No official team note posted yet. Upvote this issue to bring it to the team\'s attention.'}
               </p>
             )}
           </div>
@@ -544,32 +610,57 @@ export const FeedbackDetailPage: React.FC<FeedbackDetailPageProps> = ({
             </div>
 
             {/* Comment Composer */}
-            <form
-              onSubmit={handleCommentSubmit}
-              className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-3"
-            >
-              <textarea
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                placeholder="Share your thoughts, context, or reproduction details..."
-                rows={3}
-                className="w-full bg-zinc-50 dark:bg-zinc-800/70 border border-zinc-200 dark:border-zinc-700/80 rounded-lg p-3 text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 transition-colors"
-              />
-
-              <div className="flex items-center justify-between pt-1">
-                <p className="text-[11px] text-zinc-400">
-                  Keep it constructive and reproducible.
-                </p>
+            {!currentUser ? (
+              <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-850 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center text-zinc-500 shrink-0">
+                    <User className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+                      Join the discussion
+                    </p>
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      Sign in to post replies, share reproduction workarounds, or ask questions.
+                    </p>
+                  </div>
+                </div>
                 <button
-                  type="submit"
-                  disabled={!commentText.trim()}
-                  className="flex items-center gap-1.5 px-4 py-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 disabled:opacity-40 text-white dark:text-zinc-900 text-xs font-medium rounded-lg transition-all cursor-pointer"
+                  type="button"
+                  onClick={() => onRequireAuth?.('Sign in to post comments and join the builder conversation.')}
+                  className="px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-semibold rounded-lg transition-colors cursor-pointer shrink-0 self-start sm:self-auto shadow-2xs"
                 >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>Reply</span>
+                  Sign in to reply
                 </button>
               </div>
-            </form>
+            ) : (
+              <form
+                onSubmit={handleCommentSubmit}
+                className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-3"
+              >
+                <textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  placeholder="Share your thoughts, context, or reproduction details..."
+                  rows={3}
+                  className="w-full bg-zinc-50 dark:bg-zinc-800/70 border border-zinc-200 dark:border-zinc-700/80 rounded-lg p-3 text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 transition-colors"
+                />
+
+                <div className="flex items-center justify-between pt-1">
+                  <p className="text-[11px] text-zinc-400">
+                    Keep it constructive and reproducible.
+                  </p>
+                  <button
+                    type="submit"
+                    disabled={!commentText.trim()}
+                    className="flex items-center gap-1.5 px-4 py-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 disabled:opacity-40 text-white dark:text-zinc-900 text-xs font-medium rounded-lg transition-all cursor-pointer"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Reply</span>
+                  </button>
+                </div>
+              </form>
+            )}
 
             {/* Comments Thread */}
             <div className="space-y-3 pt-2">
@@ -578,64 +669,80 @@ export const FeedbackDetailPage: React.FC<FeedbackDetailPageProps> = ({
                   No comments yet. Have you encountered this or found a workaround? Be the first to share.
                 </div>
               ) : (
-                item.comments.map((c) => (
-                  <div
-                    key={c.id}
-                    className={`p-4 rounded-xl border text-xs transition-colors ${
-                      c.type === 'workaround'
-                        ? 'bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/80 dark:border-amber-900/40'
-                        : 'bg-white dark:bg-zinc-900 border-zinc-200/80 dark:border-zinc-800'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => onOpenProfile && onOpenProfile(c.authorHandle, c.authorName, c.authorAvatar)}
-                          className="cursor-pointer"
-                        >
-                          <img
-                            src={c.authorAvatar}
-                            alt={c.authorName}
-                            className="w-6 h-6 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 hover:opacity-80 transition-opacity"
-                          />
-                        </button>
-                        <div>
-                          <div className="flex items-center gap-1.5 flex-wrap">
+                item.comments.map((c) => {
+                  const { authorName: commentAuthorName, authorAvatar: commentAuthorAvatar, isDeletedCommentAuthor } = getCommentAuthor(c);
+                  return (
+                    <div
+                      key={c.id}
+                      className={`p-4 rounded-xl border text-xs transition-colors ${
+                        c.type === 'workaround'
+                          ? 'bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/80 dark:border-amber-900/40'
+                          : 'bg-white dark:bg-zinc-900 border-zinc-200/80 dark:border-zinc-800'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="flex items-center gap-2">
+                          {!isDeletedCommentAuthor && onOpenProfile ? (
                             <button
                               type="button"
-                              onClick={() => onOpenProfile && onOpenProfile(c.authorHandle, c.authorName, c.authorAvatar)}
-                              className="font-semibold text-zinc-900 dark:text-white hover:underline cursor-pointer"
+                              onClick={() => onOpenProfile(c.authorHandle, commentAuthorName, commentAuthorAvatar)}
+                              className="cursor-pointer flex-shrink-0"
                             >
-                              {c.authorName}
+                              <img
+                                src={commentAuthorAvatar}
+                                alt={commentAuthorName}
+                                className="w-6 h-6 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 hover:opacity-80 transition-opacity"
+                              />
                             </button>
-                            <span className="text-[11px] text-zinc-400">{c.authorHandle}</span>
-                            {c.authorHandle === item.authorHandle && (
-                              <span className="px-1.5 py-0.2 rounded bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-[10px] font-semibold border border-blue-200/60 dark:border-blue-800/40">
-                                Author
-                              </span>
-                            )}
-                            {c.roleBadge === 'admin_verified' && (
-                              <span title="Platform Admin" className="inline-flex items-center">
-                                <ShieldCheck className="w-3.5 h-3.5 text-purple-500" />
-                              </span>
-                            )}
-                            {c.roleBadge === 'team_verified' && (
-                              <span title="Verified Team" className="inline-flex items-center">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                              </span>
-                            )}
-                            {c.type === 'workaround' && (
-                              <>
-                                <span className="text-zinc-300 dark:text-zinc-700">•</span>
-                                <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400">
-                                  Workaround
+                          ) : (
+                            <img
+                              src={commentAuthorAvatar}
+                              alt={commentAuthorName}
+                              className="w-6 h-6 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 flex-shrink-0"
+                            />
+                          )}
+                          <div>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {!isDeletedCommentAuthor && onOpenProfile ? (
+                                <button
+                                  type="button"
+                                  onClick={() => onOpenProfile(c.authorHandle, commentAuthorName, commentAuthorAvatar)}
+                                  className="font-semibold text-zinc-900 dark:text-white hover:underline cursor-pointer"
+                                >
+                                  {commentAuthorName}
+                                </button>
+                              ) : (
+                                <span className={isDeletedCommentAuthor ? "font-medium text-zinc-500 italic" : "font-semibold text-zinc-900 dark:text-white"}>
+                                  {commentAuthorName}
                                 </span>
-                              </>
-                            )}
+                              )}
+                              <span className="text-[11px] text-zinc-400">{c.authorHandle}</span>
+                              {c.authorHandle === item.authorHandle && !isDeletedCommentAuthor && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200/80 dark:border-zinc-700/80">
+                                  Author
+                                </span>
+                              )}
+                              {!isDeletedCommentAuthor && c.roleBadge === 'admin_verified' && (
+                                <span title="Platform Admin" className="inline-flex items-center text-zinc-400">
+                                  <ShieldCheck className="w-3.5 h-3.5" />
+                                </span>
+                              )}
+                              {!isDeletedCommentAuthor && c.roleBadge === 'team_verified' && (
+                                <span title="Verified Team" className="inline-flex items-center text-zinc-400">
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                </span>
+                              )}
+                              {c.type === 'workaround' && (
+                                <>
+                                  <span className="text-zinc-300 dark:text-zinc-700">•</span>
+                                  <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400">
+                                    Workaround
+                                  </span>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
                       <div className="flex items-center gap-2">
                         <span className="text-[11px] text-zinc-400 whitespace-nowrap">
                           {formatRelativeTime(c.createdAt, c.id)}
@@ -712,7 +819,8 @@ export const FeedbackDetailPage: React.FC<FeedbackDetailPageProps> = ({
                       </p>
                     )}
                   </div>
-                ))
+                );
+              })
               )}
             </div>
           </div>
@@ -787,14 +895,14 @@ export const FeedbackDetailPage: React.FC<FeedbackDetailPageProps> = ({
 
           {/* Admin Moderation Panel */}
           {userRole === 'admin' && (
-            <div className="p-4 rounded-xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/60 shadow-2xs space-y-3">
+            <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-850/60 border border-zinc-200/80 dark:border-zinc-800 shadow-2xs space-y-3">
               <div className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                <h3 className="text-xs font-semibold text-purple-900 dark:text-purple-200">
+                <ShieldCheck className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+                <h3 className="text-xs font-semibold text-zinc-900 dark:text-white">
                   Admin Moderation
                 </h3>
               </div>
-              <p className="text-[11px] text-purple-700/80 dark:text-purple-300/80 leading-normal">
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-normal">
                 You have platform moderation permissions to delete, curate, and override statuses.
               </p>
               <button

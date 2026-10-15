@@ -39,7 +39,7 @@ service cloud.firestore {
     // User profiles
     match /users/{userId} {
       allow get, list: if true;
-      allow create, update: if true;
+      allow create, update, delete: if true;
     }
   }
 }

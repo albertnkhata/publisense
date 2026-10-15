@@ -105,7 +105,7 @@ export async function bootstrapFirestoreData() {
       const compRef = doc(db, 'companies', comp.id);
       const snap = await getDoc(compRef);
       if (!snap.exists()) {
-        await setDoc(compRef, comp);
+        await setDoc(compRef, cleanFirestoreData(comp));
       }
     }
 
@@ -114,7 +114,7 @@ export async function bootstrapFirestoreData() {
       const prodRef = doc(db, 'products', prod.id);
       const snap = await getDoc(prodRef);
       if (!snap.exists()) {
-        await setDoc(prodRef, prod);
+        await setDoc(prodRef, cleanFirestoreData(prod));
       }
     }
 
@@ -123,7 +123,7 @@ export async function bootstrapFirestoreData() {
       const fbRef = doc(db, 'feedback', item.id);
       const snap = await getDoc(fbRef);
       if (!snap.exists()) {
-        await setDoc(fbRef, item);
+        await setDoc(fbRef, cleanFirestoreData(item));
       }
     }
 
@@ -132,9 +132,12 @@ export async function bootstrapFirestoreData() {
       const notifRef = doc(db, 'notifications', notif.id);
       const snap = await getDoc(notifRef);
       if (!snap.exists()) {
-        await setDoc(notifRef, notif);
+        await setDoc(notifRef, cleanFirestoreData(notif));
       }
     }
+
+    // 5. Reconcile user affiliations: ensure no user remains affiliated with an unclaimed company
+    await reconcileUnclaimedUserAffiliations();
   } catch (err) {
     console.warn('Firestore bootstrap notice (continuing):', err);
   }
@@ -149,7 +152,7 @@ export interface RealtimeNotification {
   actorAvatar: string;
   title: string;
   message: string;
-  type: 'status_shipped' | 'status_progress' | 'reply' | 'claim' | 'new_signal' | 'vote';
+  type: 'status_shipped' | 'status_progress' | 'reply' | 'claim' | 'new_signal' | 'vote' | 'system';
   targetFeedbackId?: string;
   targetProductId?: string;
   isRead: boolean;
@@ -228,21 +231,10 @@ export function subscribeToNotifications(
           const nUserId = (n.userId || '').toLowerCase().replace(/^@/, '');
           
           // Direct match with user ID or user handle
-          const isDirectlyForUser = 
+          return Boolean(
             (cleanTargetId && nUserId === cleanTargetId) || 
-            (targetHandle && nUserId === targetHandle);
-          
-          if (isDirectlyForUser) {
-            return true;
-          }
-
-          // Explicit broadcast notifications
-          if (n.userId === 'broadcast') {
-            const actorHandle = (n.actorHandle || '').toLowerCase().replace(/^@/, '');
-            return actorHandle !== targetHandle;
-          }
-
-          return false;
+            (targetHandle && nUserId === targetHandle)
+          );
         })
         .sort((a, b) => {
           const timeA = a.timestamp || parseInt(a.id.replace(/\D/g, ''), 10) || 0;
@@ -258,11 +250,30 @@ export function subscribeToNotifications(
   );
 }
 
+// Clean undefined values before writing to Firestore
+export function cleanFirestoreData<T extends Record<string, any>>(data: T): Record<string, any> {
+  if (data === null || typeof data !== 'object') return data;
+  if (Array.isArray(data)) {
+    return data.map((item) => (item !== null && typeof item === 'object' ? cleanFirestoreData(item) : item));
+  }
+  const cleaned: Record<string, any> = {};
+  for (const [key, val] of Object.entries(data)) {
+    if (val !== undefined) {
+      if (val !== null && typeof val === 'object' && !(val instanceof Date)) {
+        cleaned[key] = cleanFirestoreData(val);
+      } else {
+        cleaned[key] = val;
+      }
+    }
+  }
+  return cleaned;
+}
+
 // Database Mutation APIs
 export async function syncFeedbackDoc(item: FeedbackItem) {
   const path = 'feedback';
   try {
-    await setDoc(doc(db, path, item.id), item);
+    await setDoc(doc(db, path, item.id), cleanFirestoreData(item));
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `${path}/${item.id}`);
   }
@@ -280,7 +291,7 @@ export async function deleteFeedbackDoc(itemId: string) {
 export async function syncCompanyDoc(company: Company) {
   const path = 'companies';
   try {
-    await setDoc(doc(db, path, company.id), company);
+    await setDoc(doc(db, path, company.id), cleanFirestoreData(company));
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `${path}/${company.id}`);
   }
@@ -289,7 +300,7 @@ export async function syncCompanyDoc(company: Company) {
 export async function syncProductDoc(product: Product) {
   const path = 'products';
   try {
-    await setDoc(doc(db, path, product.id), product);
+    await setDoc(doc(db, path, product.id), cleanFirestoreData(product));
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `${path}/${product.id}`);
   }
@@ -304,7 +315,7 @@ export async function dispatchRealtimeNotification(notification: RealtimeNotific
       createdAt: notification.createdAt || 'Just now',
       isRead: false,
     };
-    await setDoc(doc(db, path, notification.id), payload);
+    await setDoc(doc(db, path, notification.id), cleanFirestoreData(payload));
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `${path}/${notification.id}`);
   }
@@ -348,22 +359,70 @@ export async function clearAllNotificationsInDb(userId: string = 'all'): Promise
 export async function signInWithGoogle(): Promise<UserProfile> {
   const result = await signInWithPopup(auth, googleAuthProvider);
   const user = result.user;
-  const userRef = doc(db, 'users', user.uid);
-  const snap = await getDoc(userRef);
+  const userEmail = (user.email || '').trim().toLowerCase();
 
-  if (snap.exists()) {
-    return snap.data() as UserProfile;
+  if (!userEmail) {
+    throw new Error('Could not retrieve an email address from your Google account.');
   }
 
-  const rawName = user.displayName || user.email?.split('@')[0] || 'User';
-  const handle = `@${rawName.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
-  const isAdmin = user.email === 'albertnkhata.s@gmail.com' || user.email?.endsWith('@crowdpulse.dev');
+  // Check all existing users in Firestore by email
+  const snap = await getDocs(collection(db, 'users'));
+  const allUsers = snap.docs.map((d) => ({
+    docId: d.id,
+    ...(d.data() as UserProfile & { authProvider?: string; googleUid?: string }),
+  }));
+
+  const existingByEmail = allUsers.find((u) => u.email?.toLowerCase() === userEmail);
+
+  if (existingByEmail) {
+    // Original Auth Method Precedence Check:
+    // If the account was originally registered with Email/Password, reject Google signup/login!
+    if (existingByEmail.authProvider === 'password' && !existingByEmail.googleUid) {
+      await signOut(auth);
+      throw new Error(
+        `An account with ${userEmail} was originally registered using Email & Password. The original authentication method takes precedence. Please sign in using your email and password.`
+      );
+    }
+
+    // Account exists as Google or verified platform profile: reuse and link to avoid duplicate documents!
+    const targetDocId = existingByEmail.id || existingByEmail.docId;
+    const updatedProfile: UserProfile = {
+      ...existingByEmail,
+      id: targetDocId,
+      authProvider: 'google',
+      googleUid: user.uid,
+      avatar: existingByEmail.avatar || user.photoURL || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=128&auto=format&fit=crop&q=80',
+    };
+
+    try {
+      await setDoc(doc(db, 'users', targetDocId), updatedProfile, { merge: true });
+    } catch (err) {
+      console.warn('Could not update user record with Google UID:', err);
+    }
+
+    return updatedProfile;
+  }
+
+  // Brand new account via Google
+  const rawName = user.displayName || userEmail.split('@')[0] || 'User';
+  let desiredHandle = `@${rawName.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 20)}`;
+  if (!desiredHandle || desiredHandle === '@') {
+    desiredHandle = `@user_${Date.now().toString(36)}`;
+  }
+
+  // Verify handle uniqueness
+  const handleTaken = allUsers.some((u) => (u.handle || '').toLowerCase() === desiredHandle.toLowerCase());
+  if (handleTaken) {
+    desiredHandle = `${desiredHandle}_${Date.now().toString(36).slice(-3)}`;
+  }
+
+  const isAdmin = userEmail === 'albertnkhata.s@gmail.com' || userEmail.endsWith('@crowdpulse.dev');
 
   const profile: UserProfile = {
     id: user.uid,
     name: rawName,
-    email: user.email || '',
-    handle,
+    email: userEmail,
+    handle: desiredHandle,
     avatar: user.photoURL || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=128&auto=format&fit=crop&q=80',
     role: isAdmin ? 'admin' : 'user',
     roleTitle: isAdmin ? 'Platform Administrator' : undefined,
@@ -375,9 +434,11 @@ export async function signInWithGoogle(): Promise<UserProfile> {
     joinedDate: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
     followerCount: 0,
     followingCount: 0,
+    authProvider: 'google',
+    googleUid: user.uid,
   };
 
-  await setDoc(userRef, profile);
+  await setDoc(doc(db, 'users', user.uid), profile);
   return profile;
 }
 
@@ -389,32 +450,73 @@ export function subscribeToAuthUser(onUserChanged: (user: UserProfile | null) =>
   return onAuthStateChanged(auth, async (firebaseUser) => {
     if (firebaseUser) {
       try {
+        const userEmail = (firebaseUser.email || '').trim().toLowerCase();
+        
+        // First check direct UID doc
         const userRef = doc(db, 'users', firebaseUser.uid);
         const snap = await getDoc(userRef);
         if (snap.exists()) {
           onUserChanged(snap.data() as UserProfile);
-        } else {
-          const rawName = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User';
-          const handle = `@${rawName.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
-          const isAdmin = firebaseUser.email === 'albertnkhata.s@gmail.com' || firebaseUser.email?.endsWith('@crowdpulse.dev');
-          const profile: UserProfile = {
-            id: firebaseUser.uid,
-            name: rawName,
-            email: firebaseUser.email || '',
-            handle,
-            avatar: firebaseUser.photoURL || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=128&auto=format&fit=crop&q=80',
-            role: isAdmin ? 'admin' : 'user',
-            roleTitle: isAdmin ? 'Platform Administrator' : undefined,
-            companyOrOrg: isAdmin ? 'CrowdPulse' : undefined,
-            companyId: isAdmin ? 'comp-crowdpulse' : undefined,
-            bio: isAdmin ? 'Platform Administrator and Founder at CrowdPulse.' : undefined,
-            joinedDate: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-            followerCount: 0,
-            followingCount: 0,
-          };
-          await setDoc(userRef, profile);
-          onUserChanged(profile);
+          return;
         }
+
+        // If direct UID doc doesn't exist, search existing docs by email
+        if (userEmail) {
+          const usersSnap = await getDocs(collection(db, 'users'));
+          const existing = usersSnap.docs
+            .map((d) => ({ docId: d.id, ...(d.data() as UserProfile & { authProvider?: string; googleUid?: string }) }))
+            .find((u) => u.email?.toLowerCase() === userEmail);
+
+          if (existing) {
+            // Check original auth method precedence
+            if (existing.authProvider === 'password' && !existing.googleUid) {
+              await signOut(auth);
+              onUserChanged(null);
+              return;
+            }
+
+            const targetId = existing.id || existing.docId;
+            const updatedProfile: UserProfile = {
+              ...existing,
+              id: targetId,
+              authProvider: 'google',
+              googleUid: firebaseUser.uid,
+            };
+            await setDoc(doc(db, 'users', targetId), updatedProfile, { merge: true });
+            onUserChanged(updatedProfile);
+            return;
+          }
+        }
+
+        // Only create new doc if genuinely not found anywhere
+        const rawName = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User';
+        const handle = `@${rawName.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+        const cleanEmail = (firebaseUser.email || '').toLowerCase().trim();
+        const isAdmin = cleanEmail === 'albertnkhata.s@gmail.com';
+        const isCrowdPulse = handle.toLowerCase() === '@crowdpulse' || cleanEmail.startsWith('crowdpulse@') || cleanEmail.endsWith('@crowdpulse.dev');
+        const profile: UserProfile = {
+          id: firebaseUser.uid,
+          name: rawName,
+          email: firebaseUser.email || '',
+          handle,
+          avatar: firebaseUser.photoURL || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=128&auto=format&fit=crop&q=80',
+          role: isAdmin ? 'admin' : (isCrowdPulse ? 'company_pm' : 'user'),
+          roleTitle: isAdmin 
+            ? 'Platform Administrator' 
+            : (isCrowdPulse ? 'Organization Admin & Product Lead' : undefined),
+          companyOrOrg: (isAdmin || isCrowdPulse) ? 'CrowdPulse' : undefined,
+          companyId: (isAdmin || isCrowdPulse) ? 'comp-crowdpulse' : undefined,
+          bio: isAdmin 
+            ? 'Platform Administrator and Founder at CrowdPulse.' 
+            : (isCrowdPulse ? 'Organization Admin overseeing CrowdPulse feedback and product radar.' : undefined),
+          joinedDate: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+          followerCount: 0,
+          followingCount: 0,
+          authProvider: 'google',
+          googleUid: firebaseUser.uid,
+        };
+        await setDoc(userRef, cleanFirestoreData(profile));
+        onUserChanged(profile);
       } catch (err) {
         console.warn('Auth sync notice:', err);
       }
@@ -426,10 +528,162 @@ export function subscribeToAuthUser(onUserChanged: (user: UserProfile | null) =>
 
 export async function syncUserProfileDoc(profile: UserProfile): Promise<void> {
   try {
-    await setDoc(doc(db, 'users', profile.id), profile);
+    await setDoc(doc(db, 'users', profile.id), cleanFirestoreData(profile));
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, `users/${profile.id}`);
   }
+}
+
+export async function updateUserProfileEverywhere(
+  currentUser: UserProfile,
+  updates: Partial<UserProfile>
+): Promise<UserProfile> {
+  const updatedUser: UserProfile = {
+    ...currentUser,
+    ...updates,
+  };
+
+  const oldName = currentUser.name;
+  const newName = updatedUser.name;
+  const oldHandle = currentUser.handle;
+  const newHandle = updatedUser.handle;
+  const newAvatar = updatedUser.avatar;
+
+  // 1. Update user document in Firestore users collection
+  try {
+    const targetDocId = currentUser.id || `usr-${currentUser.handle.replace(/^@/, '')}`;
+    const cleaned = cleanFirestoreData(updatedUser);
+    await setDoc(doc(db, 'users', targetDocId), cleaned, { merge: true });
+    if (currentUser.id && currentUser.id !== targetDocId) {
+      await setDoc(doc(db, 'users', currentUser.id), cleaned, { merge: true });
+    }
+  } catch (err) {
+    console.warn('Error updating user document in Firestore:', err);
+  }
+
+  // 2. Cascade author name & avatar changes to all feedback items in Firestore
+  try {
+    const fbSnap = await getDocs(collection(db, 'feedback'));
+    const isUserAuthor = (data: any) => {
+      return (
+        data.authorHandle === oldHandle ||
+        data.authorHandle === newHandle ||
+        data.authorId === currentUser.id ||
+        (currentUser.role === 'admin' && (data.authorHandle === '@albert' || data.authorName === oldName))
+      );
+    };
+
+    for (const docSnap of fbSnap.docs) {
+      const data = docSnap.data();
+      let changed = false;
+      const updatesToDoc: any = {};
+
+      if (isUserAuthor(data)) {
+        if (data.authorName !== newName) {
+          updatesToDoc.authorName = newName;
+          updatesToDoc.author = newName;
+          changed = true;
+        }
+        if (newAvatar && data.authorAvatar !== newAvatar) {
+          updatesToDoc.authorAvatar = newAvatar;
+          changed = true;
+        }
+        if (newHandle && data.authorHandle !== newHandle) {
+          updatesToDoc.authorHandle = newHandle;
+          changed = true;
+        }
+      }
+
+      // Check comments inside this feedback item
+      if (Array.isArray(data.comments) && data.comments.length > 0) {
+        let commentsChanged = false;
+        const updatedComments = data.comments.map((c: any) => {
+          if (
+            c.authorHandle === oldHandle ||
+            c.authorHandle === newHandle ||
+            c.authorId === currentUser.id ||
+            (currentUser.role === 'admin' && (c.authorName === oldName || c.authorHandle === '@albert'))
+          ) {
+            commentsChanged = true;
+            return {
+              ...c,
+              authorName: newName,
+              author: newName,
+              authorAvatar: newAvatar || c.authorAvatar,
+              authorHandle: newHandle || c.authorHandle,
+            };
+          }
+          return c;
+        });
+
+        if (commentsChanged) {
+          updatesToDoc.comments = updatedComments;
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        await updateDoc(doc(db, 'feedback', docSnap.id), updatesToDoc);
+      }
+    }
+  } catch (err) {
+    console.warn('Error updating feedback author details in Firestore:', err);
+  }
+
+  // 3. Cascade updates to company claims and verified members
+  try {
+    const compSnap = await getDocs(collection(db, 'companies'));
+    for (const compDoc of compSnap.docs) {
+      const compData = compDoc.data();
+      let changed = false;
+      const compUpdates: any = {};
+
+      if (
+        compData.claimedById === currentUser.id ||
+        compData.claimedByName === oldName ||
+        (currentUser.role === 'admin' && compDoc.id === 'comp-crowdpulse')
+      ) {
+        if (compData.claimedByName !== newName) {
+          compUpdates.claimedByName = newName;
+          changed = true;
+        }
+      }
+
+      if (Array.isArray(compData.verifiedMembers)) {
+        let membersChanged = false;
+        const nextMembers = compData.verifiedMembers.map((m: any) => {
+          if (
+            m.handle === oldHandle ||
+            m.handle === newHandle ||
+            m.id === currentUser.id ||
+            m.name === oldName ||
+            (currentUser.role === 'admin' && m.handle === '@albert')
+          ) {
+            membersChanged = true;
+            return {
+              ...m,
+              name: newName,
+              handle: newHandle || m.handle,
+              avatar: newAvatar || m.avatar,
+            };
+          }
+          return m;
+        });
+        if (membersChanged) {
+          compUpdates.verifiedMembers = nextMembers;
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        await updateDoc(doc(db, 'companies', compDoc.id), compUpdates);
+      }
+    }
+  } catch (err) {
+    console.warn('Error updating company members in Firestore:', err);
+  }
+
+  return updatedUser;
 }
 
 export async function signInWithEmailPassword(email: string, pass: string): Promise<UserProfile> {
@@ -488,7 +742,7 @@ export async function signInWithEmailPassword(email: string, pass: string): Prom
         // Continue with local generator
       }
 
-      const rawName = cleanEmail === 'albertnkhata.s@gmail.com' ? 'Albert N.' : cleanEmail.split('@')[0];
+      const rawName = cleanEmail === 'albertnkhata.s@gmail.com' ? 'Admin' : cleanEmail.split('@')[0];
       const handle = cleanEmail === 'albertnkhata.s@gmail.com' ? '@albert' : `@${rawName.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
       const isAdmin = cleanEmail === 'albertnkhata.s@gmail.com' || cleanEmail.endsWith('@crowdpulse.dev');
       const fallbackId = `usr-${cleanEmail.replace(/[^a-z0-9]/g, '_')}`;
@@ -503,9 +757,9 @@ export async function signInWithEmailPassword(email: string, pass: string): Prom
           : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=128&auto=format&fit=crop&q=80',
         role: isAdmin ? 'admin' : 'user',
         roleTitle: isAdmin ? 'Platform Administrator' : undefined,
-        companyOrOrg: isAdmin ? 'CrowdPulse' : undefined,
-        companyId: isAdmin ? 'comp-crowdpulse' : undefined,
-        bio: isAdmin ? 'Platform Administrator and Founder at CrowdPulse.' : undefined,
+        companyOrOrg: undefined,
+        companyId: undefined,
+        bio: isAdmin ? 'Platform Administrator and Founder.' : undefined,
         joinedDate: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
         followerCount: isAdmin ? 28 : 0,
         followingCount: isAdmin ? 14 : 0,
@@ -548,7 +802,7 @@ export async function signUpWithEmailPassword(email: string, pass: string, displ
     };
 
     const userRef = doc(db, 'users', user.uid);
-    await setDoc(userRef, profile);
+    await setDoc(userRef, cleanFirestoreData(profile));
     return profile;
   } catch (err: unknown) {
     const errorObj = err as { code?: string; message?: string };
@@ -572,7 +826,7 @@ export async function signUpWithEmailPassword(email: string, pass: string, displ
         // Continue with local generator
       }
 
-      const rawName = displayName?.trim() || (cleanEmail === 'albertnkhata.s@gmail.com' ? 'Albert N.' : cleanEmail.split('@')[0]);
+      const rawName = displayName?.trim() || (cleanEmail === 'albertnkhata.s@gmail.com' ? 'Admin' : cleanEmail.split('@')[0]);
       const handle = cleanEmail === 'albertnkhata.s@gmail.com' ? '@albert' : `@${rawName.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
       const isAdmin = cleanEmail === 'albertnkhata.s@gmail.com' || cleanEmail.endsWith('@crowdpulse.dev');
       const fallbackId = `usr-${cleanEmail.replace(/[^a-z0-9]/g, '_')}`;
@@ -587,16 +841,16 @@ export async function signUpWithEmailPassword(email: string, pass: string, displ
           : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=128&auto=format&fit=crop&q=80',
         role: isAdmin ? 'admin' : 'user',
         roleTitle: isAdmin ? 'Platform Administrator' : undefined,
-        companyOrOrg: isAdmin ? 'CrowdPulse' : undefined,
-        companyId: isAdmin ? 'comp-crowdpulse' : undefined,
-        bio: isAdmin ? 'Platform Administrator and Founder at CrowdPulse.' : undefined,
+        companyOrOrg: undefined,
+        companyId: undefined,
+        bio: isAdmin ? 'Platform Administrator and Founder.' : undefined,
         joinedDate: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
         followerCount: isAdmin ? 28 : 0,
         followingCount: isAdmin ? 14 : 0,
       };
 
       try {
-        await setDoc(doc(db, 'users', fallbackId), profile);
+        await setDoc(doc(db, 'users', fallbackId), cleanFirestoreData(profile));
       } catch {
         // Firestore rules fallback
       }
@@ -624,3 +878,82 @@ export async function updateUserRoleInDb(userId: string, updates: Partial<UserPr
     handleFirestoreError(err, OperationType.WRITE, `users/${userId}`);
   }
 }
+
+/**
+ * Disassociates all users from a specific company when that company is unclaimed.
+ * Reverts company_pm roles to standard user roles and clears companyId/companyOrOrg.
+ * Preserves platform admin privileges while removing company affiliation.
+ */
+export async function disassociateUsersFromCompany(companyId: string, companyName?: string): Promise<void> {
+  try {
+    const snap = await getDocs(collection(db, 'users'));
+    for (const userDoc of snap.docs) {
+      const u = userDoc.data() as UserProfile;
+      const isAffiliated =
+        u.companyId === companyId ||
+        (companyName && u.companyOrOrg && u.companyOrOrg.toLowerCase() === companyName.toLowerCase());
+
+      if (isAffiliated) {
+        const isPlatformAdmin = u.role === 'admin' || u.email === 'albertnkhata.s@gmail.com';
+        const updates: Partial<UserProfile> = {
+          companyId: undefined,
+          companyOrOrg: '',
+          role: isPlatformAdmin ? 'admin' : 'user',
+          roleTitle: isPlatformAdmin ? 'Platform Administrator' : undefined,
+        };
+        await setDoc(doc(db, 'users', userDoc.id), cleanFirestoreData(updates), { merge: true });
+      }
+    }
+  } catch (err) {
+    console.warn('Error disassociating users from unclaimed company in Firestore:', err);
+  }
+}
+
+/**
+ * Validates that any user record in Firestore with a companyId or companyOrOrg
+ * points to an actively claimed company. If the company is unclaimed or missing,
+ * automatically disassociates the user and reverts PM roles.
+ */
+export async function reconcileUnclaimedUserAffiliations(): Promise<void> {
+  try {
+    const [companiesSnap, usersSnap] = await Promise.all([
+      getDocs(collection(db, 'companies')),
+      getDocs(collection(db, 'users')),
+    ]);
+
+    const claimedCompanyIds = new Set<string>();
+    const claimedCompanyNames = new Set<string>();
+
+    companiesSnap.docs.forEach((d) => {
+      const comp = d.data() as Company;
+      if (comp.isClaimed) {
+        claimedCompanyIds.add(comp.id);
+        if (comp.slug) claimedCompanyIds.add(comp.slug);
+        if (comp.name) claimedCompanyNames.add(comp.name.toLowerCase());
+      }
+    });
+
+    for (const userDoc of usersSnap.docs) {
+      const u = userDoc.data() as UserProfile;
+      if (u.companyId || u.companyOrOrg) {
+        const hasValidClaimedOrg =
+          (u.companyId && claimedCompanyIds.has(u.companyId)) ||
+          (u.companyOrOrg && claimedCompanyNames.has(u.companyOrOrg.toLowerCase()));
+
+        if (!hasValidClaimedOrg) {
+          const isPlatformAdmin = u.role === 'admin' || u.email === 'albertnkhata.s@gmail.com';
+          const updates: Partial<UserProfile> = {
+            companyId: undefined,
+            companyOrOrg: '',
+            role: isPlatformAdmin ? 'admin' : 'user',
+            roleTitle: isPlatformAdmin ? 'Platform Administrator' : undefined,
+          };
+          await setDoc(doc(db, 'users', userDoc.id), cleanFirestoreData(updates), { merge: true });
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Error reconciling unclaimed user affiliations in Firestore:', err);
+  }
+}
+
