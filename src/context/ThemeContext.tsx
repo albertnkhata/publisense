@@ -42,7 +42,8 @@ export function loadStoredSettings(): AppSettings {
         },
       };
     }
-    // Backward compatibility with legacy key
+    // Backward compatibility with the legacy pre-rebrand key. Retained deliberately so
+    // users who set their theme before the Publisense rename keep it. Do not rename.
     const legacy = localStorage.getItem('signalpulse_theme');
     if (legacy === 'light' || legacy === 'dark') {
       return {

@@ -51,7 +51,7 @@
     },
     "Product": {
       "title": "Product",
-      "description": "A software product tracked on SignalPulse",
+      "description": "A software product tracked on Publisense",
       "type": "object",
       "properties": {
         "id": { "type": "string" },

@@ -26,6 +26,8 @@
               isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
             }
           } else {
+            // Legacy pre-rebrand key: retained deliberately so users who set their
+            // theme before the Publisense rename keep it. Do not rename or remove.
             var legacy = localStorage.getItem('signalpulse_theme');
             if (legacy === 'light') isDark = false;
             else if (legacy === 'dark') isDark = true;
