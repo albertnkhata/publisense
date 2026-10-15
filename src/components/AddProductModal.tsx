@@ -77,7 +77,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
       (p) => p.name.toLowerCase() === trimmedName.toLowerCase()
     );
     if (isDuplicate) {
-      setError(`A product named "${trimmedName}" already exists on SignalPulse.`);
+      setError(`A product named "${trimmedName}" already exists on Publisense.`);
       return;
     }
 

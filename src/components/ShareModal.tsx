@@ -75,7 +75,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
               "{item.title}"
             </p>
             <span className="text-zinc-500 text-[11px] mt-1 block">
-              {item.meTooCount} upvotes on SignalPulse
+              {item.meTooCount} upvotes on Publisense
             </span>
           </div>
 

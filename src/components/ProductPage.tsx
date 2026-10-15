@@ -217,7 +217,7 @@ export const ProductPage: React.FC<ProductPageProps> = ({
             <button
               type="button"
               onClick={() => {
-                if (confirm(`Are you sure you want to permanently delete "${product.name}" and remove it from SignalPulse?`)) {
+                if (confirm(`Are you sure you want to permanently delete "${product.name}" and remove it from Publisense?`)) {
                   onDeleteProduct && onDeleteProduct(product.id);
                 }
               }}

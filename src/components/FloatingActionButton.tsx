@@ -95,7 +95,7 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
                 Add Product
               </div>
               <div className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
-                List a new tool or app on SignalPulse
+                List a new tool or app on Publisense
               </div>
             </div>
           </button>
