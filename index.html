@@ -1,43 +1,26 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Publisense — Product Feedback Intelligence &amp; Community Sensing</title>
-    <meta name="description" content="Publisense is a centralized product feedback intelligence and community sensing platform. Upvote canonical issues, track verified organisation responses, and eliminate duplicate feature requests." />
-    <meta property="og:title" content="Publisense — Product Feedback Intelligence &amp; Community Sensing" />
-    <meta property="og:description" content="Publisense is a centralized product feedback intelligence and community sensing platform. Upvote canonical issues, track verified organisation responses, and eliminate duplicate feature requests." />
-    <meta property="og:site_name" content="Publisense" />
-    <meta property="og:type" content="website" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Publisense — Product Feedback Intelligence &amp; Community Sensing" />
-    <meta name="twitter:description" content="Publisense is a centralized product feedback intelligence and community sensing platform. Upvote canonical issues, track verified organisation responses, and eliminate duplicate feature requests." />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b5cf6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.9 19.1C1 15.2 1 8.8 4.9 4.9'/%3E%3Cpath d='M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5'/%3E%3Ccircle cx='12' cy='12' r='2'/%3E%3Cpath d='M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5'/%3E%3Cpath d='M19.1 4.9C23 8.8 23 15.1 19.1 19'/%3E%3C/svg%3E" />
+    <title>Publisense — The Public Ledger for Product Feedback &amp; Ideas</title>
+    <meta name="description" content="Crowdsourced product feedback & discovery. Log bugs, share wishlists, discover community workarounds, and see which teams actually listen." />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2310b981' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.9 19.1C1 15.2 1 8.8 4.9 4.9'/%3E%3Cpath d='M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5'/%3E%3Ccircle cx='12' cy='12' r='2'/%3E%3Cpath d='M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5'/%3E%3Cpath d='M19.1 4.9C23 8.8 23 15.1 19.1 19'/%3E%3C/svg%3E" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
     <script>
       (function() {
         try {
-          var raw = localStorage.getItem('publisense_settings') || localStorage.getItem('crowdpulse_settings');
-          var isDark = true;
-          if (raw) {
-            var parsed = JSON.parse(raw);
-            if (parsed.theme === 'light') isDark = false;
-            else if (parsed.theme === 'dark') isDark = true;
-            else if (parsed.theme === 'system') {
-              isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-            }
-          } else {
-            // Legacy pre-rebrand key: retained deliberately so users who set their
-            // theme before the Publisense rename keep it. Do not rename or remove.
-            var legacy = localStorage.getItem('signalpulse_theme');
-            if (legacy === 'light') isDark = false;
-            else if (legacy === 'dark') isDark = true;
-          }
-          if (isDark) {
-            document.documentElement.classList.add('dark');
-            document.documentElement.classList.remove('light');
-          } else {
+          var theme = localStorage.getItem('publisense_theme') || 'dark';
+          if (theme === 'light') {
             document.documentElement.classList.remove('dark');
             document.documentElement.classList.add('light');
+            document.documentElement.setAttribute('data-theme', 'light');
+          } else {
+            document.documentElement.classList.add('dark');
+            document.documentElement.classList.remove('light');
+            document.documentElement.removeAttribute('data-theme');
           }
         } catch (e) {}
       })();
@@ -48,4 +31,3 @@
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-
