@@ -123,6 +123,10 @@ interface StoreContextValue {
   toggleFollowProduct: (productId: string) => Promise<void>;
   toggleFollowUser: (targetUserId: string) => Promise<void>;
   createProduct: (input: CreateProductInput) => Promise<Product>;
+  claimProductBoard: (
+    productId: string,
+    input: { workEmail: string; roleTitle?: string; verificationMethod?: 'email_domain' | 'dns_txt' }
+  ) => Promise<{ error?: string }>;
   markNotificationRead: (notifId: string) => void;
   markAllNotificationsRead: () => void;
   resetLocalDemoData: () => void;
@@ -1519,6 +1523,116 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [currentUser]
   );
 
+  const claimProductBoard = useCallback(
+    async (
+      productId: string,
+      input: {
+        workEmail: string;
+        roleTitle?: string;
+        verificationMethod?: 'email_domain' | 'dns_txt';
+      }
+    ): Promise<{ error?: string }> => {
+      if (!currentUser) {
+        openAuthModal('Sign in to claim and verify this product board.');
+        return { error: 'Not signed in' };
+      }
+
+      const prod = store.products.find((p) => p.id === productId);
+      if (!prod) return { error: 'Product board not found.' };
+
+      const cleanEmail = input.workEmail.trim().toLowerCase();
+      if (!cleanEmail || !cleanEmail.includes('@')) {
+        return { error: 'Please enter a valid company domain email address.' };
+      }
+
+      let targetOrgId = prod.orgId;
+      let newlyCreatedOrg: Organization | null = null;
+
+      // If this product was under the shared community-index org, spin out its own verified org
+      const existingOrg = store.organizations.find((o) => o.id === prod.orgId);
+      if (!existingOrg || existingOrg.slug === 'community-index' || prod.orgId === 'org-community') {
+        targetOrgId = `org-${prod.slug}`;
+        const alreadyHasDedicatedOrg = store.organizations.find((o) => o.id === targetOrgId);
+        if (!alreadyHasDedicatedOrg) {
+          newlyCreatedOrg = {
+            id: targetOrgId,
+            slug: prod.slug,
+            name: `${prod.name} Team`,
+            tagline: `Verified makers of ${prod.name}`,
+            logoUrl: prod.logoUrl,
+            websiteUrl: prod.websiteUrl,
+            isVerified: true,
+          };
+        }
+      }
+
+      const nextRoleTitle = input.roleTitle?.trim() || `${prod.name} Maintainer`;
+
+      setStore((prev) => ({
+        ...prev,
+        organizations: newlyCreatedOrg
+          ? [...prev.organizations, newlyCreatedOrg]
+          : prev.organizations.map((o) =>
+              o.id === targetOrgId ? { ...o, isVerified: true } : o
+            ),
+        products: prev.products.map((p) =>
+          p.id === productId
+            ? { ...p, orgId: targetOrgId, isVerified: true, responsivenessRate: Math.max(p.responsivenessRate, 92) }
+            : p
+        ),
+        profiles: prev.profiles.map((u) =>
+          u.id === currentUser.id
+            ? {
+                ...u,
+                role: u.role === 'admin' ? 'admin' : 'maintainer',
+                managedOrgId: targetOrgId,
+                roleTitle: nextRoleTitle,
+              }
+            : u
+        ),
+      }));
+
+      if (supabase) {
+        if (newlyCreatedOrg) {
+          await supabase.from('organizations').upsert({
+            id: newlyCreatedOrg.id,
+            slug: newlyCreatedOrg.slug,
+            name: newlyCreatedOrg.name,
+            tagline: newlyCreatedOrg.tagline,
+            logo_url: newlyCreatedOrg.logoUrl,
+            website_url: newlyCreatedOrg.websiteUrl,
+            is_verified: true,
+          });
+        } else {
+          await supabase
+            .from('organizations')
+            .update({ is_verified: true })
+            .eq('id', targetOrgId);
+        }
+
+        await supabase
+          .from('products')
+          .update({
+            org_id: targetOrgId,
+            is_verified: true,
+          })
+          .eq('id', productId);
+
+        await supabase
+          .from('profiles')
+          .update({
+            role: currentUser.role === 'admin' ? 'admin' : 'maintainer',
+            managed_org_id: targetOrgId,
+            role_title: nextRoleTitle,
+          })
+          .eq('id', currentUser.id);
+      }
+
+      return {};
+    },
+    [currentUser, openAuthModal, store.products, store.organizations]
+  );
+
   const markNotificationRead = useCallback((notifId: string) => {
     setStore((prev) => ({
       ...prev,
@@ -1605,6 +1719,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     toggleFollowProduct,
     toggleFollowUser,
     createProduct,
+    claimProductBoard,
     markNotificationRead,
     markAllNotificationsRead,
     resetLocalDemoData,

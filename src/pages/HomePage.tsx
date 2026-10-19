@@ -61,12 +61,23 @@ export const HomePage: React.FC = () => {
     toggleRepost,
     createPost,
     createProduct,
+    claimProductBoard,
+    canManageProduct,
     isFollowingProduct,
     toggleFollowProduct,
     openAuthModal,
   } = useStore();
 
   const activeProduct = slug ? getProductBySlug(slug) : undefined;
+  const isManagingActiveProduct = activeProduct ? canManageProduct(activeProduct.id) : false;
+
+  // Phase 3.1: Domain-Verified Board Claiming state
+  const [isClaimDrawerOpen, setIsClaimDrawerOpen] = useState(false);
+  const [claimEmail, setClaimEmail] = useState('');
+  const [claimRoleTitle, setClaimRoleTitle] = useState('');
+  const [claimMethod, setClaimMethod] = useState<'email_domain' | 'dns_txt'>('email_domain');
+  const [claimError, setClaimError] = useState<string | null>(null);
+  const [claimSuccess, setClaimSuccess] = useState(false);
 
   // Right Rail Accordion State
   const [openCategories, setOpenCategories] = useState<ProductCategory[]>([
@@ -103,6 +114,9 @@ export const HomePage: React.FC = () => {
     if (activeProduct) {
       setComposerProductId(activeProduct.id);
       setIsInlineNewProduct(false);
+      setIsClaimDrawerOpen(false);
+      setClaimSuccess(false);
+      setClaimError(null);
       setOpenCategories((prev) =>
         prev.includes(activeProduct.category) ? prev : [...prev, activeProduct.category]
       );
@@ -496,12 +510,60 @@ export const HomePage: React.FC = () => {
                     <span className="p-route-badge mono">
                       {activeCategoryMeta?.label || 'Product'}
                     </span>
+                    {activeProduct.isVerified && (
+                      <span
+                        className="callout-badge badge-builder mono"
+                        style={{ textTransform: 'none', fontSize: '11px', padding: '2px 7px' }}
+                        title="Verified Product Team on Publisense"
+                      >
+                        ✓ Verified Team
+                      </span>
+                    )}
+                    {isManagingActiveProduct && (
+                      <span
+                        className="callout-badge badge-workaround mono"
+                        style={{ textTransform: 'none', fontSize: '11px', padding: '2px 7px' }}
+                      >
+                        ⚙ Maintainer Access
+                      </span>
+                    )}
                   </div>
                   <p className="p-desc">{activeProduct.tagline || activeProduct.description}</p>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                {!isManagingActiveProduct && (
+                  <button
+                    type="button"
+                    className="btn-ghost mono"
+                    style={{
+                      color: 'var(--accent-emerald)',
+                      borderColor: 'var(--accent-emerald-border)',
+                      background: isClaimDrawerOpen ? 'var(--accent-emerald-bg)' : undefined,
+                    }}
+                    onClick={() => {
+                      if (!currentUser) {
+                        openAuthModal(`Sign in to claim and verify the ${activeProduct.name} board.`);
+                        return;
+                      }
+                      const defaultDomain = (() => {
+                        try {
+                          return new URL(activeProduct.websiteUrl).hostname.replace(/^www\./, '');
+                        } catch {
+                          return `${activeProduct.slug}.com`;
+                        }
+                      })();
+                      if (!claimEmail) {
+                        setClaimEmail(`${currentUser.handle}@${defaultDomain}`);
+                      }
+                      setIsClaimDrawerOpen((prev) => !prev);
+                    }}
+                  >
+                    ⚡ Claim Board
+                  </button>
+                )}
+
                 <button
                   type="button"
                   className="btn-ghost mono"
@@ -511,6 +573,127 @@ export const HomePage: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {/* Phase 3.1: Domain-Verified Board Claiming Drawer */}
+            {isClaimDrawerOpen && (
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setClaimError(null);
+                  const res = await claimProductBoard(activeProduct.id, {
+                    workEmail: claimEmail,
+                    roleTitle: claimRoleTitle || `${activeProduct.name} Product Team`,
+                    verificationMethod: claimMethod,
+                  });
+                  if (res.error) {
+                    setClaimError(res.error);
+                  } else {
+                    setClaimSuccess(true);
+                    setTimeout(() => {
+                      setIsClaimDrawerOpen(false);
+                    }, 1200);
+                  }
+                }}
+                style={{
+                  marginBottom: '18px',
+                  padding: '16px 18px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--accent-emerald-border)',
+                  background: 'var(--bg-surface)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                  <div className="mono" style={{ fontSize: '11px', color: 'var(--accent-emerald)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    ⚡ Claim /p/{activeProduct.slug} · Domain Verification
+                  </div>
+                  <div className="type-selector">
+                    <button
+                      type="button"
+                      className={`type-btn ${claimMethod === 'email_domain' ? 'active' : ''}`}
+                      onClick={() => setClaimMethod('email_domain')}
+                    >
+                      Work Email Domain
+                    </button>
+                    <button
+                      type="button"
+                      className={`type-btn ${claimMethod === 'dns_txt' ? 'active' : ''}`}
+                      onClick={() => setClaimMethod('dns_txt')}
+                    >
+                      DNS TXT Record
+                    </button>
+                  </div>
+                </div>
+
+                {claimMethod === 'dns_txt' && (
+                  <div
+                    className="mono"
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      background: 'var(--bg-elevated)',
+                      border: '1px solid var(--border-hairline)',
+                      fontSize: '11px',
+                      color: 'var(--text-secondary)',
+                    }}
+                  >
+                    Add TXT record on <strong>{activeProduct.websiteUrl.replace(/^https?:\/\//, '')}</strong>:{' '}
+                    <code style={{ color: 'var(--accent-emerald)' }}>
+                      publisense-verify={activeProduct.slug}-{activeProduct.id.slice(-4)}
+                    </code>
+                  </div>
+                )}
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                  <input
+                    type="email"
+                    required
+                    className="select-pill mono"
+                    value={claimEmail}
+                    onChange={(e) => setClaimEmail(e.target.value)}
+                    placeholder={`you@${activeProduct.slug}.com`}
+                  />
+                  <input
+                    type="text"
+                    className="select-pill"
+                    value={claimRoleTitle}
+                    onChange={(e) => setClaimRoleTitle(e.target.value)}
+                    placeholder={`Role Title (e.g. ${activeProduct.name} Maintainer)`}
+                  />
+                </div>
+
+                {claimError && (
+                  <div className="mono" style={{ fontSize: '11px', color: 'var(--accent-rose)' }}>
+                    {claimError}
+                  </div>
+                )}
+                {claimSuccess && (
+                  <div className="mono" style={{ fontSize: '11px', color: 'var(--accent-emerald)' }}>
+                    ✓ Board claimed & verified! Inline Maintainer Triage Controls (`⚙ Triage`) are now unlocked below.
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                  <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                    Unlocks inline status triage (`Planned`, `In Progress`, `Shipped`) & official emerald Builder Notes.
+                  </span>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      type="button"
+                      className="btn-ghost mono"
+                      onClick={() => setIsClaimDrawerOpen(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button type="submit" className="btn-primary mono">
+                      Verify & Claim Board ↵
+                    </button>
+                  </div>
+                </div>
+              </form>
+            )}
 
             <div className="p-stats-grid mono">
               <div className="p-stat-cell">
@@ -926,6 +1109,74 @@ export const HomePage: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Phase 3.3: Changelog & "Shipped" Rollup Banner when Shipped tab is active */}
+          {activeTab === 'shipped' && (
+            <div
+              style={{
+                padding: '16px 28px',
+                borderBottom: '1px solid var(--border-hairline)',
+                background: 'var(--accent-emerald-bg)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '16px',
+                flexWrap: 'wrap',
+              }}
+            >
+              <div>
+                <div
+                  className="mono"
+                  style={{
+                    fontSize: '10.5px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                    color: 'var(--accent-emerald)',
+                    marginBottom: '3px',
+                  }}
+                >
+                  ● Official Shipped Rollup & Community Changelog
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: 500 }}>
+                  {activeProduct
+                    ? `Community requests resolved & shipped by ${activeProduct.name}`
+                    : 'Community-requested features and friction points resolved across indexed products'}
+                </div>
+              </div>
+
+              <div
+                className="mono"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '18px',
+                  fontSize: '11.5px',
+                }}
+              >
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>Responsiveness: </span>
+                  <strong style={{ color: 'var(--accent-emerald)' }}>
+                    {activeProduct ? `${activeProduct.responsivenessRate}%` : '91%'}
+                  </strong>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>Avg Triage: </span>
+                  <strong style={{ color: 'var(--text-primary)' }}>
+                    {activeProduct?.avgResponseTime || '< 18h'}
+                  </strong>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>Votes Closed: </span>
+                  <strong style={{ color: 'var(--accent-emerald)' }}>
+                    ▲{' '}
+                    {scopedPosts
+                      .filter((p) => p.status === 'shipped')
+                      .reduce((acc, p) => acc + p.upvoteCount, 0)}
+                  </strong>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Live Signal Stream */}
           <div className="signal-list">

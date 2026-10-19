@@ -1,6 +1,14 @@
 import React, { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { FeedbackPost, FeedbackComment, PostRepost, PRODUCT_CATEGORIES, CommentKind } from '../types';
+import {
+  FeedbackPost,
+  FeedbackComment,
+  PostRepost,
+  PRODUCT_CATEGORIES,
+  FEEDBACK_STATUSES,
+  FeedbackStatus,
+  CommentKind,
+} from '../types';
 import { useStore } from '../context/StoreContext';
 import { formatRelativeTime } from '../lib/time';
 
@@ -32,10 +40,12 @@ export const SignalCard: React.FC<SignalCardProps> = ({ post, defaultExpanded = 
     hasUserVoted,
     hasUserReposted,
     hasUserLikedComment,
+    canManageProduct,
     toggleUpvote,
     toggleRepost,
     addComment,
     toggleCommentLike,
+    updatePostStatus,
   } = useStore();
 
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
@@ -43,6 +53,13 @@ export const SignalCard: React.FC<SignalCardProps> = ({ post, defaultExpanded = 
   const [replyKind, setReplyKind] = useState<CommentKind>('discussion');
   const [copied, setCopied] = useState(false);
   const replyInputRef = useRef<HTMLInputElement>(null);
+
+  // Phase 3.2: Inline Maintainer Triage Controls state
+  const isMaintainer = canManageProduct(post.productId);
+  const [isTriageOpen, setIsTriageOpen] = useState(false);
+  const [triageStatus, setTriageStatus] = useState<FeedbackStatus>(post.status);
+  const [triageNote, setTriageNote] = useState(post.officialNote || '');
+  const [triageSaved, setTriageSaved] = useState(false);
 
   const product = getProductById(post.productId);
   const author = getProfileById(post.authorId);
@@ -261,6 +278,76 @@ export const SignalCard: React.FC<SignalCardProps> = ({ post, defaultExpanded = 
           </div>
         )}
 
+        {/* Phase 3.2: Inline Maintainer Triage Controls directly inside SignalCard */}
+        {isMaintainer && isTriageOpen && (
+          <div
+            className="signal-callout callout-builder"
+            style={{ marginTop: '12px' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="callout-header" style={{ marginBottom: '6px' }}>
+              <div className="callout-id">
+                <span className="callout-badge badge-builder mono">
+                  ⚙ Maintainer Triage · {product?.name}
+                </span>
+                {triageSaved && (
+                  <span className="mono" style={{ fontSize: '10.5px', color: 'var(--accent-emerald)' }}>
+                    ✓ Saved & notified backers
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                className="action-btn mono"
+                onClick={() => setIsTriageOpen(false)}
+              >
+                ✕ Close
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
+              <span className="mono" style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                Status:
+              </span>
+              {FEEDBACK_STATUSES.map((st) => (
+                <button
+                  key={st.id}
+                  type="button"
+                  className={`filter-chip mono ${triageStatus === st.id ? 'active' : ''}`}
+                  onClick={() => setTriageStatus(st.id)}
+                >
+                  {st.label}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <input
+                type="text"
+                className="reply-input"
+                style={{ flex: 1 }}
+                value={triageNote}
+                onChange={(e) => setTriageNote(e.target.value)}
+                placeholder={`Official Builder Note from @${product?.slug || 'team'} (optional)...`}
+              />
+              <button
+                type="button"
+                className="btn-primary mono"
+                onClick={async () => {
+                  await updatePostStatus(post.id, triageStatus, triageNote);
+                  setTriageSaved(true);
+                  setTimeout(() => {
+                    setTriageSaved(false);
+                    setIsTriageOpen(false);
+                  }, 900);
+                }}
+              >
+                Save Update ↵
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Hairline Bottom Bar + Tactile Upvote Pill Bar */}
         <div className="card-bottom-bar">
           <div className="card-actions-left mono">
@@ -303,6 +390,27 @@ export const SignalCard: React.FC<SignalCardProps> = ({ post, defaultExpanded = 
             >
               <span>🛠 + Workaround</span>
             </button>
+
+            {isMaintainer && (
+              <button
+                type="button"
+                className="pill-action mono"
+                style={{
+                  color: 'var(--accent-emerald)',
+                  borderColor: 'var(--accent-emerald-border)',
+                  background: isTriageOpen ? 'var(--accent-emerald-bg)' : undefined,
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setTriageStatus(post.status);
+                  setTriageNote(post.officialNote || '');
+                  setIsTriageOpen((prev) => !prev);
+                }}
+                title="Maintainer Triage: Update status or post an official Builder Note"
+              >
+                <span>⚙ Triage</span>
+              </button>
+            )}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }} className="mono">
@@ -428,11 +536,15 @@ export const SignalCard: React.FC<SignalCardProps> = ({ post, defaultExpanded = 
         <form className="reply-box" onSubmit={handleReplySubmit}>
           <button
             type="button"
-            className={`filter-chip mono ${replyKind === 'workaround' ? 'active' : ''}`}
+            className={`filter-chip mono ${replyKind !== 'discussion' ? 'active' : ''}`}
             onClick={() =>
-              setReplyKind((prev) => (prev === 'workaround' ? 'discussion' : 'workaround'))
+              setReplyKind((prev) => {
+                if (prev === 'discussion') return 'workaround';
+                if (prev === 'workaround' && isMaintainer) return 'official';
+                return 'discussion';
+              })
             }
-            title="Toggle whether this reply is a Community Workaround"
+            title="Cycle reply type (Reply / Workaround / Official Builder Note)"
             style={
               replyKind === 'workaround'
                 ? {
@@ -440,10 +552,20 @@ export const SignalCard: React.FC<SignalCardProps> = ({ post, defaultExpanded = 
                     borderColor: 'var(--accent-indigo-border)',
                     background: 'var(--accent-indigo-bg)',
                   }
+                : replyKind === 'official'
+                ? {
+                    color: 'var(--accent-emerald)',
+                    borderColor: 'var(--accent-emerald-border)',
+                    background: 'var(--accent-emerald-bg)',
+                  }
                 : undefined
             }
           >
-            {replyKind === 'workaround' ? '🛠 Workaround' : '💬 Reply'}
+            {replyKind === 'workaround'
+              ? '🛠 Workaround'
+              : replyKind === 'official'
+              ? '✓ Builder Note'
+              : '💬 Reply'}
           </button>
 
           <input
@@ -455,6 +577,8 @@ export const SignalCard: React.FC<SignalCardProps> = ({ post, defaultExpanded = 
             placeholder={
               replyKind === 'workaround'
                 ? `Share a community workaround for ${product?.name || 'this issue'}...`
+                : replyKind === 'official'
+                ? `Write an official Builder Note from ${product?.name || 'the team'}...`
                 : `Share a workaround, +1 context, or reply to ${product?.name || 'thread'}...`
             }
           />
