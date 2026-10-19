@@ -1,15 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import {
-  MapPin,
-  Calendar,
-  Edit3,
-  Check,
-  Building2,
-  Repeat2,
-  ChevronUp,
-  MessageSquare,
-} from 'lucide-react';
+import { PRODUCT_CATEGORIES } from '../types';
 import { useStore } from '../context/StoreContext';
 import { SignalCard } from '../components/SignalCard';
 import { formatRelativeTime } from '../lib/time';
@@ -17,14 +8,15 @@ import { formatRelativeTime } from '../lib/time';
 export const ProfilePage: React.FC = () => {
   const { handle = '' } = useParams<{ handle: string }>();
   const {
-    getProfileByHandle,
-    getOrgById,
+    products,
     posts,
     votes,
     reposts,
     comments,
     follows,
     currentUser,
+    getProfileByHandle,
+    getOrgById,
     isFollowingUser,
     toggleFollowUser,
     updateCurrentProfile,
@@ -34,41 +26,76 @@ export const ProfilePage: React.FC = () => {
   const isMe = Boolean(currentUser && profile && currentUser.id === profile.id);
   const managedOrg = profile?.managedOrgId ? getOrgById(profile.managedOrgId) : undefined;
 
-  const [activeTab, setActiveTab] = useState<'signals' | 'boosts' | 'upvoted' | 'comments'>('signals');
+  const [activeTab, setActiveTab] = useState<'signals' | 'workarounds' | 'upvoted'>('signals');
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(profile?.name || '');
   const [editBio, setEditBio] = useState(profile?.bio || '');
   const [editLocation, setEditLocation] = useState(profile?.location || '');
   const [editRoleTitle, setEditRoleTitle] = useState(profile?.roleTitle || '');
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [handle]);
+
   const submittedPosts = useMemo(() => {
     if (!profile) return [];
-    return posts.filter((p) => p.authorId === profile.id);
+    return posts
+      .filter((p) => p.authorId === profile.id)
+      .sort((a, b) => b.upvoteCount - a.upvoteCount);
   }, [posts, profile]);
 
-  const boostedPosts = useMemo(() => {
+  const userWorkarounds = useMemo(() => {
     if (!profile) return [];
-    const userReposts = reposts.filter((r) => r.userId === profile.id);
-    return userReposts
-      .map((r) => {
-        const post = posts.find((p) => p.id === r.postId);
-        return post ? { post, repost: r } : null;
-      })
-      .filter((x): x is NonNullable<typeof x> => x !== null);
-  }, [reposts, posts, profile]);
+    return comments
+      .filter((c) => c.authorId === profile.id && c.kind === 'workaround')
+      .sort((a, b) => (b.likesCount || 0) - (a.likesCount || 0));
+  }, [comments, profile]);
+
+  const workaroundPosts = useMemo(() => {
+    const postIds = new Set(userWorkarounds.map((c) => c.postId));
+    return posts.filter((p) => postIds.has(p.id));
+  }, [userWorkarounds, posts]);
 
   const upvotedPosts = useMemo(() => {
     if (!profile) return [];
-    const votedPostIds = new Set(
-      votes.filter((v) => v.userId === profile.id).map((v) => v.postId)
-    );
-    return posts.filter((p) => votedPostIds.has(p.id));
-  }, [votes, posts, profile]);
+    const votedIds = new Set([
+      ...votes.filter((v) => v.userId === profile.id).map((v) => v.postId),
+      ...reposts.filter((r) => r.userId === profile.id).map((r) => r.postId),
+    ]);
+    return posts.filter((p) => votedIds.has(p.id));
+  }, [votes, reposts, posts, profile]);
 
-  const userComments = useMemo(() => {
+  const totalImpactVotes = useMemo(() => {
+    const postVotesSum = submittedPosts.reduce((acc, p) => acc + p.upvoteCount, 0);
+    const workaroundVotesSum = userWorkarounds.reduce((acc, c) => acc + (c.likesCount || 0), 0);
+    return postVotesSum + workaroundVotesSum;
+  }, [submittedPosts, userWorkarounds]);
+
+  // Distinct products this contributor has signaled, written workarounds for, or backed
+  const backedProducts = useMemo(() => {
     if (!profile) return [];
-    return comments.filter((c) => c.authorId === profile.id);
-  }, [comments, profile]);
+    const prodCounts = new Map<string, number>();
+
+    for (const p of submittedPosts) {
+      prodCounts.set(p.productId, (prodCounts.get(p.productId) || 0) + 2);
+    }
+    for (const p of workaroundPosts) {
+      prodCounts.set(p.productId, (prodCounts.get(p.productId) || 0) + 2);
+    }
+    for (const p of upvotedPosts) {
+      prodCounts.set(p.productId, (prodCounts.get(p.productId) || 0) + 1);
+    }
+
+    return Array.from(prodCounts.entries())
+      .map(([prodId, count]) => ({
+        product: products.find((pr) => pr.id === prodId),
+        count,
+      }))
+      .filter((item): item is { product: NonNullable<typeof item.product>; count: number } =>
+        Boolean(item.product)
+      )
+      .sort((a, b) => b.count - a.count);
+  }, [profile, submittedPosts, workaroundPosts, upvotedPosts, products]);
 
   const followersCount = useMemo(() => {
     if (!profile) return 0;
@@ -82,12 +109,18 @@ export const ProfilePage: React.FC = () => {
 
   if (!profile) {
     return (
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-10 text-center space-y-2">
-        <h2 className="text-base font-bold">Builder profile not found</h2>
-        <Link to="/" className="text-xs text-emerald-600 hover:underline">
-          Back to feed →
+      <section className="central-command-zone">
+        <div className="live-pill mono">404 · Contributor Not Found</div>
+        <h1 className="hero-headline" style={{ fontSize: '26px' }}>
+          No contributor profile found for @{handle.replace(/^@/, '')}
+        </h1>
+        <p className="hero-subtitle" style={{ marginBottom: '16px' }}>
+          Explore the open index to discover community contributors and product boards.
+        </p>
+        <Link to="/" className="btn-primary mono">
+          ← Back to Open Index
         </Link>
-      </div>
+      </section>
     );
   }
 
@@ -105,271 +138,295 @@ export const ProfilePage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-5">
-      {/* Profile Header Card */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 sm:p-6 space-y-4 shadow-2xs">
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-          <div className="flex items-start gap-4">
-            <img
-              src={profile.avatarUrl}
-              alt={profile.name}
-              className="w-16 h-16 rounded-full object-cover border-2 border-zinc-200 dark:border-zinc-700 shrink-0"
-            />
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-lg sm:text-xl font-bold text-zinc-900 dark:text-white">
-                  {profile.name}
-                </h1>
-                <span className="text-xs font-mono text-zinc-400">@{profile.handle}</span>
-                {profile.roleTitle && (
-                  <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
-                    {profile.roleTitle}
-                  </span>
-                )}
-              </div>
+    <>
+      {/* 1. CONTRIBUTOR PORTFOLIO HERO */}
+      <section className="product-page-hero active">
+        <div className="p-hero-inner">
+          <div className="p-breadcrumbs mono">
+            <Link to="/" className="p-back-btn">
+              ← Back to Index
+            </Link>
+            <span>/</span>
+            <span>Contributors</span>
+            <span>/</span>
+            <span style={{ color: 'var(--text-primary)' }}>/u/{profile.handle}</span>
+          </div>
 
-              <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 max-w-xl leading-relaxed">
-                {profile.bio}
-              </p>
-
-              <div className="flex items-center gap-4 pt-1 text-xs text-zinc-400 flex-wrap">
-                {managedOrg && (
-                  <Link
-                    to={`/org/${managedOrg.slug}`}
-                    className="inline-flex items-center gap-1 text-zinc-600 dark:text-zinc-300 hover:underline font-medium"
-                  >
-                    <Building2 className="w-3.5 h-3.5 text-emerald-500" />
-                    <span>{managedOrg.name}</span>
-                  </Link>
-                )}
-                {profile.location && (
-                  <span className="inline-flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5" />
-                    <span>{profile.location}</span>
-                  </span>
-                )}
-                <span className="inline-flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5" />
-                  <span>Joined {formatRelativeTime(profile.joinedAt)}</span>
-                </span>
+          <div className="p-identity-row">
+            <div className="p-identity-left">
+              <div className="p-emblem">{profile.name[0]}</div>
+              <div>
+                <div className="p-title-row">
+                  <h1 className="p-title">{profile.name}</h1>
+                  <span className="p-route-badge mono">@{profile.handle}</span>
+                  {profile.roleTitle && (
+                    <span
+                      className="callout-badge badge-builder mono"
+                      style={{ textTransform: 'none', fontSize: '11px', padding: '2px 7px' }}
+                    >
+                      {profile.roleTitle}
+                    </span>
+                  )}
+                </div>
+                <p className="p-desc">{profile.bio}</p>
               </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {isMe ? (
+                <button
+                  type="button"
+                  className="btn-ghost mono"
+                  onClick={() => {
+                    setEditName(profile.name);
+                    setEditBio(profile.bio);
+                    setEditLocation(profile.location || '');
+                    setEditRoleTitle(profile.roleTitle || '');
+                    setIsEditing((prev) => !prev);
+                  }}
+                >
+                  {isEditing ? '✕ Cancel Edit' : '✎ Edit Portfolio'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className={following ? 'btn-ghost mono' : 'btn-primary mono'}
+                  onClick={() => toggleFollowUser(profile.id)}
+                >
+                  {following ? '✓ Following Contributor' : '+ Follow Contributor'}
+                </button>
+              )}
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            {isMe ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setEditName(profile.name);
-                  setEditBio(profile.bio);
-                  setEditLocation(profile.location || '');
-                  setEditRoleTitle(profile.roleTitle || '');
-                  setIsEditing((prev) => !prev);
-                }}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-xs font-semibold cursor-pointer"
-              >
-                <Edit3 className="w-3.5 h-3.5" />
-                <span>{isEditing ? 'Cancel' : 'Edit Profile'}</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => toggleFollowUser(profile.id)}
-                className={`px-4 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-colors ${
-                  following
-                    ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200'
-                    : 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-950'
-                }`}
-              >
-                {following ? 'Following' : 'Follow Builder'}
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Inline Edit Profile Form (Relational: updates reflect across all posts/comments automatically!) */}
-        {isMe && isEditing && (
-          <form
-            onSubmit={handleSaveProfile}
-            className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 space-y-3 text-xs"
-          >
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-                  Display Name
-                </label>
+          {/* Inline Edit Profile Drawer */}
+          {isMe && isEditing && (
+            <form
+              onSubmit={handleSaveProfile}
+              style={{
+                marginBottom: '18px',
+                padding: '16px 18px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-focus)',
+                background: 'var(--bg-surface)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+              }}
+            >
+              <div className="mono" style={{ fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>
+                Update Contributor Portfolio
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
                 <input
                   type="text"
-                  required
+                  className="select-pill"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  className="w-full px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700"
+                  placeholder="Display Name"
+                  required
                 />
-              </div>
-              <div>
-                <label className="block font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-                  Role / Headline
-                </label>
                 <input
                   type="text"
+                  className="select-pill"
                   value={editRoleTitle}
                   onChange={(e) => setEditRoleTitle(e.target.value)}
-                  placeholder="e.g. Full-Stack Engineer"
-                  className="w-full px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700"
+                  placeholder="Role / Headline (e.g. Staff Engineer)"
                 />
-              </div>
-              <div>
-                <label className="block font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-                  Location
-                </label>
                 <input
                   type="text"
+                  className="select-pill"
                   value={editLocation}
                   onChange={(e) => setEditLocation(e.target.value)}
-                  className="w-full px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700"
+                  placeholder="Location (e.g. San Francisco, CA)"
                 />
               </div>
-            </div>
-
-            <div>
-              <label className="block font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-                Bio
-              </label>
               <textarea
-                rows={2}
+                className="composer-textarea"
+                style={{ minHeight: '54px', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-hairline)', background: 'var(--bg-canvas)' }}
                 value={editBio}
                 onChange={(e) => setEditBio(e.target.value)}
-                className="w-full px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700"
+                placeholder="Short bio describing the tools you build with and care about..."
               />
-            </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                <button type="submit" className="btn-primary mono">
+                  Save Portfolio ↵
+                </button>
+              </div>
+            </form>
+          )}
 
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold cursor-pointer"
-              >
-                <Check className="w-3.5 h-3.5" />
-                <span>Save Changes</span>
-              </button>
+          {/* 4-Column Product Sense Telemetry Grid */}
+          <div className="p-stats-grid mono">
+            <div className="p-stat-cell">
+              <div className="p-stat-label">Signals Logged</div>
+              <div className="p-stat-val">{submittedPosts.length}</div>
             </div>
-          </form>
-        )}
-
-        {/* Social Stats Row */}
-        <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center gap-6 text-xs">
-          <div>
-            <span className="font-bold text-zinc-900 dark:text-white">
-              {submittedPosts.length}
-            </span>{' '}
-            <span className="text-zinc-500">Signals</span>
-          </div>
-          <div>
-            <span className="font-bold text-zinc-900 dark:text-white">
-              {boostedPosts.length}
-            </span>{' '}
-            <span className="text-zinc-500">Boosts</span>
-          </div>
-          <div>
-            <span className="font-bold text-zinc-900 dark:text-white">
-              {followersCount}
-            </span>{' '}
-            <span className="text-zinc-500">Followers</span>
-          </div>
-          <div>
-            <span className="font-bold text-zinc-900 dark:text-white">
-              {followingUsersCount}
-            </span>{' '}
-            <span className="text-zinc-500">Following</span>
+            <div className="p-stat-cell">
+              <div className="p-stat-label">Workarounds Authored</div>
+              <div className="p-stat-val" style={{ color: 'var(--accent-indigo)' }}>
+                {userWorkarounds.length}
+              </div>
+            </div>
+            <div className="p-stat-cell">
+              <div className="p-stat-label">Community Impact</div>
+              <div className="p-stat-val" style={{ color: 'var(--accent-emerald)' }}>
+                ▲ {totalImpactVotes}
+              </div>
+            </div>
+            <div className="p-stat-cell">
+              <div className="p-stat-label">Products Backed</div>
+              <div className="p-stat-val">{backedProducts.length}</div>
+            </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Activity Tabs */}
-      <div className="flex items-center gap-1 bg-white dark:bg-zinc-900 p-1 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs w-fit">
-        {(
-          [
-            { id: 'signals', label: `Signals (${submittedPosts.length})` },
-            { id: 'boosts', label: `Boosted (${boostedPosts.length})` },
-            { id: 'upvoted', label: `Upvoted (${upvotedPosts.length})` },
-            { id: 'comments', label: `Comments (${userComments.length})` },
-          ] as const
-        ).map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setActiveTab(t.id)}
-            className={`px-3 py-1.5 rounded-lg font-medium cursor-pointer transition-colors ${
-              activeTab === t.id
-                ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-semibold'
-                : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab Content */}
-      <div className="space-y-3">
-        {activeTab === 'signals' &&
-          (submittedPosts.length === 0 ? (
-            <p className="text-xs text-zinc-400 py-8 text-center">
-              No signals posted yet.
-            </p>
-          ) : (
-            submittedPosts.map((post) => <SignalCard key={post.id} post={post} />)
-          ))}
-
-        {activeTab === 'boosts' &&
-          (boostedPosts.length === 0 ? (
-            <p className="text-xs text-zinc-400 py-8 text-center">
-              No boosted signals yet.
-            </p>
-          ) : (
-            boostedPosts.map(({ post, repost }) => (
-              <SignalCard key={post.id} post={post} repostContext={repost} />
-            ))
-          ))}
-
-        {activeTab === 'upvoted' &&
-          (upvotedPosts.length === 0 ? (
-            <p className="text-xs text-zinc-400 py-8 text-center">
-              No upvoted signals yet.
-            </p>
-          ) : (
-            upvotedPosts.map((post) => <SignalCard key={post.id} post={post} />)
-          ))}
-
-        {activeTab === 'comments' &&
-          (userComments.length === 0 ? (
-            <p className="text-xs text-zinc-400 py-8 text-center">
-              No comments posted yet.
-            </p>
-          ) : (
-            userComments.map((c) => {
-              const parentPost = posts.find((p) => p.id === c.postId);
-              return (
-                <Link
-                  key={c.id}
-                  to={`/post/${c.postId}`}
-                  className="block bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 rounded-xl p-4 space-y-1.5 text-xs"
+      {/* 2. BOARD WORKSPACE */}
+      <div className="board-workspace">
+        <main className="feed-column">
+          <div className="feed-filter-bar">
+            <div className="filter-row-top">
+              <div className="stream-tabs">
+                <button
+                  type="button"
+                  className={`stream-tab ${activeTab === 'signals' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('signals')}
                 >
-                  <div className="text-zinc-400 flex items-center justify-between">
-                    <span>
-                      Replied on{' '}
-                      <strong className="text-zinc-800 dark:text-zinc-200">
-                        {parentPost?.title || 'Signal'}
-                      </strong>
-                    </span>
-                    <span>{formatRelativeTime(c.createdAt)}</span>
-                  </div>
-                  <p className="text-zinc-700 dark:text-zinc-300">{c.body}</p>
-                </Link>
-              );
-            })
-          ))}
+                  <span>Logged Signals</span>
+                  <span className="tab-count mono">{submittedPosts.length}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`stream-tab ${activeTab === 'workarounds' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('workarounds')}
+                >
+                  <span style={{ color: 'var(--accent-indigo)' }}>◆</span>
+                  <span>Authored Workarounds</span>
+                  <span className="tab-count mono">{userWorkarounds.length}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`stream-tab ${activeTab === 'upvoted' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('upvoted')}
+                >
+                  <span style={{ color: 'var(--accent-emerald)' }}>▲</span>
+                  <span>Upvoted & Backed</span>
+                  <span className="tab-count mono">{upvotedPosts.length}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="signal-list">
+            {activeTab === 'signals' &&
+              (submittedPosts.length === 0 ? (
+                <div style={{ padding: '56px 28px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+                  @{profile.handle} hasn't logged any standalone signals yet.
+                </div>
+              ) : (
+                submittedPosts.map((post, idx) => (
+                  <SignalCard key={post.id} post={post} defaultExpanded={idx === 0} />
+                ))
+              ))}
+
+            {activeTab === 'workarounds' &&
+              (workaroundPosts.length === 0 ? (
+                <div style={{ padding: '56px 28px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+                  @{profile.handle} hasn't shared any community workarounds yet.
+                </div>
+              ) : (
+                workaroundPosts.map((post) => (
+                  <SignalCard key={post.id} post={post} defaultExpanded={true} />
+                ))
+              ))}
+
+            {activeTab === 'upvoted' &&
+              (upvotedPosts.length === 0 ? (
+                <div style={{ padding: '56px 28px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+                  @{profile.handle} hasn't backed any signals yet.
+                </div>
+              ) : (
+                upvotedPosts.map((post) => (
+                  <SignalCard key={post.id} post={post} defaultExpanded={false} />
+                ))
+              ))}
+          </div>
+        </main>
+
+        {/* RIGHT RAIL: Backed Products & Contributor Standing */}
+        <aside className="side-rail">
+          <div className="rail-header mono">
+            <span>Products Backed</span>
+            <span>Activity</span>
+          </div>
+
+          <div className="rail-section">
+            {backedProducts.length === 0 ? (
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', padding: '6px' }}>
+                No products backed yet.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {backedProducts.map(({ product: prod, count }) => {
+                  const catMeta = PRODUCT_CATEGORIES.find((c) => c.id === prod.category);
+                  return (
+                    <Link
+                      key={prod.id}
+                      to={`/p/${prod.slug}`}
+                      className="prod-select-btn"
+                    >
+                      <span className="prod-select-left">
+                        <span className="mini-prod-badge">{prod.name[0]}</span>
+                        <span>{prod.name}</span>
+                        <span className="mono" style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                          {catMeta?.label}
+                        </span>
+                      </span>
+                      <span className="velocity-pill mono">+{count} ▲</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="rail-section">
+            <div className="rail-subhead mono">
+              <span>Contributor Telemetry</span>
+              <span>@{profile.handle}</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px' }}>
+              {managedOrg && (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Verified Team</span>
+                  <span className="mono" style={{ color: 'var(--accent-emerald)' }}>
+                    {managedOrg.name}
+                  </span>
+                </div>
+              )}
+              {profile.location && (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Location</span>
+                  <span className="mono">{profile.location}</span>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Followers</span>
+                <span className="mono">{followersCount}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Following</span>
+                <span className="mono">{followingUsersCount}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Joined</span>
+                <span className="mono">{formatRelativeTime(profile.joinedAt)}</span>
+              </div>
+            </div>
+          </div>
+        </aside>
       </div>
-    </div>
+    </>
   );
 };

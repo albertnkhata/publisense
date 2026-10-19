@@ -1504,3 +1504,128 @@ body {
   background: var(--accent-amber-bg);
   border-color: var(--accent-amber-border);
 }
+
+/* Phase 2.4: In-App Notifications Popover in Topbar */
+.notif-wrapper {
+  position: relative;
+}
+
+.notif-wrapper .btn-ghost.has-unread {
+  border-color: var(--accent-emerald-border);
+  background: var(--accent-emerald-bg);
+  color: var(--text-primary);
+}
+
+.notif-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 99px;
+  background: var(--accent-emerald);
+  color: #09090b;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.notif-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 360px;
+  max-width: calc(100vw - 24px);
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  box-shadow: var(--omnibar-shadow), var(--inner-glow);
+  z-index: 200;
+  overflow: hidden;
+}
+
+.notif-popover-header {
+  height: 40px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border-hairline);
+  background: var(--bg-elevated);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.notif-popover-list {
+  max-height: 360px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.notif-empty {
+  padding: 28px 18px;
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.notif-item {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-hairline);
+  padding: 11px 14px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: background 0.14s ease;
+  font-family: inherit;
+}
+
+.notif-item:last-child {
+  border-bottom: none;
+}
+
+.notif-item:hover {
+  background: var(--bg-hover);
+}
+
+.notif-item.unread {
+  background: var(--bg-elevated);
+}
+
+.notif-item-top {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.notif-item-title {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.notif-item-time {
+  font-size: 10px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.notif-item-msg {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  line-height: 1.42;
+  padding-left: 12px;
+}
+

@@ -6,6 +6,8 @@ import { AppShell } from './components/AppShell';
 import { AuthModal } from './components/AuthModal';
 import { CreateProductModal } from './components/CreateProductModal';
 import { HomePage } from './pages/HomePage';
+import { PostDetailPage } from './pages/PostDetailPage';
+import { ProfilePage } from './pages/ProfilePage';
 
 export default function App() {
   return (
@@ -16,6 +18,8 @@ export default function App() {
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/p/:slug" element={<HomePage />} />
+              <Route path="/post/:id" element={<PostDetailPage />} />
+              <Route path="/u/:handle" element={<ProfilePage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </AppShell>

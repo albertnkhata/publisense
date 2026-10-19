@@ -151,7 +151,7 @@ export const SignalCard: React.FC<SignalCardProps> = ({ post, defaultExpanded = 
 
   const handleCopyShare = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const shareUrl = `${window.location.origin}/p/${product?.slug || 'index'}#${post.id}`;
+    const shareUrl = `${window.location.origin}/post/${post.id}`;
     navigator.clipboard?.writeText(shareUrl).catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 1400);
@@ -220,9 +220,19 @@ export const SignalCard: React.FC<SignalCardProps> = ({ post, defaultExpanded = 
                 >
                   {calloutBlock.badge}
                 </span>
-                <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
-                  {calloutBlock.handle}
-                </strong>
+                {calloutBlock.handle.startsWith('@') ? (
+                  <Link
+                    to={`/u/${calloutBlock.handle.replace(/^@/, '')}`}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ color: 'var(--text-primary)', fontWeight: 500 }}
+                  >
+                    {calloutBlock.handle}
+                  </Link>
+                ) : (
+                  <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
+                    {calloutBlock.handle}
+                  </strong>
+                )}
                 {calloutBlock.kind === 'workaround' && workaroundComments.length > 1 && (
                   <span className="mono" style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
                     · +{workaroundComments.length - 1} more in thread
@@ -297,8 +307,28 @@ export const SignalCard: React.FC<SignalCardProps> = ({ post, defaultExpanded = 
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }} className="mono">
             <span className="signal-author">
-              @{author?.handle || 'member'} · {formatRelativeTime(post.createdAt)}
+              {author ? (
+                <Link
+                  to={`/u/${author.handle}`}
+                  onClick={(e) => e.stopPropagation()}
+                  style={{ color: 'var(--text-secondary)' }}
+                  title={`View @${author.handle}'s contributor profile`}
+                >
+                  @{author.handle}
+                </Link>
+              ) : (
+                '@member'
+              )}{' '}
+              · {formatRelativeTime(post.createdAt)}
             </span>
+            <Link
+              to={`/post/${post.id}`}
+              className="action-btn mono"
+              onClick={(e) => e.stopPropagation()}
+              title="Open dedicated signal permalink"
+            >
+              <span>↗ Thread</span>
+            </Link>
             <button type="button" className="action-btn mono" onClick={handleCopyShare}>
               <span>{copied ? '✓ Copied' : '🔗 Share'}</span>
             </button>
@@ -345,9 +375,18 @@ export const SignalCard: React.FC<SignalCardProps> = ({ post, defaultExpanded = 
                   className={`comment-row ${isPinnedWorkaround ? 'pinned-workaround-row' : ''}`}
                 >
                   <div className="comment-row-body">
-                    <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
-                      @{cmtAuthor?.handle || 'user'}
-                    </strong>
+                    {cmtAuthor ? (
+                      <Link
+                        to={`/u/${cmtAuthor.handle}`}
+                        style={{ color: 'var(--text-primary)', fontWeight: 500 }}
+                      >
+                        @{cmtAuthor.handle}
+                      </Link>
+                    ) : (
+                      <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
+                        @user
+                      </strong>
+                    )}
                     {cmt.kind === 'workaround' && (
                       <span
                         className="callout-badge badge-workaround mono"

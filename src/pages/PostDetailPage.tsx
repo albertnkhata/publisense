@@ -1,24 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
-  ChevronUp,
-  Repeat2,
-  CheckCircle2,
-  ChevronRight,
-  Sparkles,
-  Trash2,
-  Send,
-  Wrench,
-  ShieldCheck,
-  MessageSquare,
-} from 'lucide-react';
-import {
   FEEDBACK_STATUSES,
-  FEEDBACK_TYPES,
+  PRODUCT_CATEGORIES,
   FeedbackStatus,
-  CommentKind,
 } from '../types';
 import { useStore } from '../context/StoreContext';
+import { SignalCard, getPostKindLabel } from '../components/SignalCard';
 import { formatRelativeTime } from '../lib/time';
 
 export const PostDetailPage: React.FC = () => {
@@ -31,13 +19,9 @@ export const PostDetailPage: React.FC = () => {
     getProductById,
     getOrgById,
     getProfileById,
-    hasUserVoted,
-    hasUserReposted,
     canManageProduct,
-    toggleUpvote,
-    toggleRepost,
-    addComment,
-    deleteComment,
+    isFollowingProduct,
+    toggleFollowProduct,
     updatePostStatus,
     deletePost,
   } = useStore();
@@ -52,417 +36,331 @@ export const PostDetailPage: React.FC = () => {
     [comments, id]
   );
 
-  const [commentBody, setCommentBody] = useState('');
-  const [commentKind, setCommentKind] = useState<CommentKind>('discussion');
+  const workaroundCount = useMemo(
+    () => postComments.filter((c) => c.kind === 'workaround').length,
+    [postComments]
+  );
 
-  // Official Status Triage State
+  const relatedPosts = useMemo(() => {
+    if (!post) return [];
+    return posts
+      .filter((p) => p.productId === post.productId && p.id !== post.id)
+      .sort((a, b) => b.upvoteCount - a.upvoteCount)
+      .slice(0, 4);
+  }, [posts, post]);
+
+  // Maintainer Status Triage State
   const isMaintainer = post ? canManageProduct(post.productId) : false;
   const [selectedStatus, setSelectedStatus] = useState<FeedbackStatus>(
     post?.status || 'open'
   );
   const [officialNote, setOfficialNote] = useState(post?.officialNote || '');
   const [statusSavedMsg, setStatusSavedMsg] = useState(false);
+  const [copiedPermalink, setCopiedPermalink] = useState(false);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [id]);
+
+  useEffect(() => {
+    if (post) {
+      setSelectedStatus(post.status);
+      setOfficialNote(post.officialNote || '');
+    }
+  }, [post]);
 
   if (!post) {
     return (
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-10 text-center space-y-2">
-        <h2 className="text-base font-bold">Signal not found</h2>
-        <Link to="/" className="text-xs text-emerald-600 hover:underline">
-          Back to feed →
+      <section className="central-command-zone">
+        <div className="live-pill mono">404 · Signal Not Found</div>
+        <h1 className="hero-headline" style={{ fontSize: '26px' }}>
+          This signal permalink doesn't exist or was removed.
+        </h1>
+        <p className="hero-subtitle" style={{ marginBottom: '16px' }}>
+          Return to the global index to browse active product boards and community workarounds.
+        </p>
+        <Link to="/" className="btn-primary mono">
+          ← Back to Open Index
         </Link>
-      </div>
+      </section>
     );
   }
 
-  const voted = hasUserVoted(post.id);
-  const reposted = hasUserReposted(post.id);
-  const statusMeta =
-    FEEDBACK_STATUSES.find((s) => s.id === post.status) || FEEDBACK_STATUSES[0];
-  const typeMeta =
-    FEEDBACK_TYPES.find((t) => t.id === post.type) || FEEDBACK_TYPES[0];
-  const canDeletePost =
-    currentUser && (currentUser.id === post.authorId || currentUser.role === 'admin');
-
-  const handleCommentSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!commentBody.trim()) return;
-    await addComment(post.id, commentBody, commentKind);
-    setCommentBody('');
-  };
+  const categoryMeta = PRODUCT_CATEGORIES.find((c) => c.id === product?.category);
+  const kindLabel = getPostKindLabel(post);
+  const canDeletePost = Boolean(
+    currentUser && (currentUser.id === post.authorId || currentUser.role === 'admin')
+  );
 
   const handleSaveOfficialStatus = async (e: React.FormEvent) => {
     e.preventDefault();
     await updatePostStatus(post.id, selectedStatus, officialNote);
     setStatusSavedMsg(true);
-    setTimeout(() => setStatusSavedMsg(false), 2500);
+    setTimeout(() => setStatusSavedMsg(false), 2400);
+  };
+
+  const handleCopyPermalink = () => {
+    const url = `${window.location.origin}/post/${post.id}`;
+    navigator.clipboard?.writeText(url).catch(() => {});
+    setCopiedPermalink(true);
+    setTimeout(() => setCopiedPermalink(false), 1500);
   };
 
   return (
-    <div className="space-y-5">
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-1.5 text-xs text-zinc-500 flex-wrap">
-        <Link to="/" className="hover:text-zinc-900 dark:hover:text-white">
-          Feed
-        </Link>
-        {product && (
-          <>
-            <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />
-            <Link
-              to={`/p/${product.slug}`}
-              className="hover:text-zinc-900 dark:hover:text-white font-medium"
-            >
-              {product.name}
+    <>
+      {/* TOP PERMALINK BREADCRUMB HERO */}
+      <section className="product-page-hero active">
+        <div className="p-hero-inner" style={{ paddingBottom: '20px' }}>
+          <div className="p-breadcrumbs mono" style={{ marginBottom: 0 }}>
+            <Link to="/" className="p-back-btn">
+              ← Open Index
             </Link>
-          </>
-        )}
-        <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />
-        <span className="text-zinc-800 dark:text-zinc-200 truncate max-w-xs">
-          {post.title}
-        </span>
-      </nav>
-
-      {/* Main Signal Card */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 sm:p-6 space-y-4 shadow-2xs">
-        <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
-          <div className="flex items-center gap-2 flex-wrap">
+            <span>/</span>
             {product && (
-              <Link
-                to={`/p/${product.slug}`}
-                className="inline-flex items-center gap-1.5 font-semibold text-zinc-900 dark:text-zinc-100 hover:text-emerald-600 dark:hover:text-emerald-400"
-              >
-                <img
-                  src={product.logoUrl}
-                  alt={product.name}
-                  className="w-4 h-4 rounded-md object-cover"
-                />
-                <span>{product.name}</span>
-                {product.isVerified && (
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                )}
-              </Link>
+              <>
+                <Link to={`/p/${product.slug}`} className="p-back-btn">
+                  /p/{product.slug}
+                </Link>
+                <span>/</span>
+              </>
             )}
-            {org && (
-              <Link
-                to={`/org/${org.slug}`}
-                className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
-              >
-                by {org.name}
-              </Link>
-            )}
-            <span>•</span>
-            <span className="px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-medium">
-              {typeMeta.label}
-            </span>
-            <span className="px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 capitalize">
-              Severity: {post.severity}
-            </span>
+            <span style={{ color: 'var(--text-primary)' }}>Signal Permalink</span>
           </div>
-
-          <span
-            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${statusMeta.badgeClass}`}
-          >
-            <span className={`w-1.5 h-1.5 rounded-full ${statusMeta.dotColor}`} />
-            {statusMeta.label}
-          </span>
         </div>
+      </section>
 
-        <h1 className="text-lg sm:text-xl font-bold text-zinc-900 dark:text-white leading-snug">
-          {post.title}
-        </h1>
-
-        <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-line">
-          {post.body}
-        </p>
-
-        {post.tags && post.tags.length > 0 && (
-          <div className="flex items-center gap-1.5 flex-wrap pt-1">
-            {post.tags.map((t) => (
-              <span
-                key={t}
-                className="text-xs font-mono text-zinc-400 bg-zinc-50 dark:bg-zinc-800/60 px-2 py-0.5 rounded"
-              >
-                #{t}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {/* Official Update Callout */}
-        {post.officialNote && (
-          <div className="p-4 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 space-y-1 text-xs">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
-                Official Update from {post.officialUpdatedBy || `${product?.name} Team`}
-              </span>
-              {post.officialUpdatedAt && (
-                <span className="text-[11px] text-emerald-700/70 dark:text-emerald-400/70">
-                  {formatRelativeTime(post.officialUpdatedAt)}
-                </span>
-              )}
-            </div>
-            <p className="text-zinc-700 dark:text-zinc-200 leading-relaxed">
-              {post.officialNote}
-            </p>
-          </div>
-        )}
-
-        {/* Action Bar */}
-        <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between gap-3 flex-wrap text-xs">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => toggleUpvote(post.id)}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-semibold transition-all cursor-pointer ${
-                voted
-                  ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-950'
-                  : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200'
-              }`}
-            >
-              <ChevronUp className="w-4 h-4 stroke-[2.5]" />
-              <span>Upvote ({post.upvoteCount})</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => toggleRepost(post.id)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-medium transition-colors cursor-pointer ${
-                reposted
-                  ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
-                  : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'
-              }`}
-            >
-              <Repeat2 className="w-4 h-4" />
-              <span>{reposted ? 'Boosted' : 'Boost'} ({post.repostCount})</span>
-            </button>
-
-            {canDeletePost && (
-              <button
-                type="button"
-                onClick={async () => {
-                  await deletePost(post.id);
-                  navigate('/');
+      {/* WORKSPACE: Left = Focused Thread + Related Signals | Right = Product & Signal Telemetry */}
+      <div className="board-workspace">
+        <main className="feed-column">
+          <div className="feed-filter-bar">
+            <div className="filter-row-top" style={{ padding: '10px 24px' }}>
+              <div
+                className="mono"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontSize: '11px',
+                  color: 'var(--text-secondary)',
                 }}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer"
-                title="Delete signal"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Delete</span>
-              </button>
-            )}
-          </div>
+                <span style={{ color: 'var(--accent-emerald)' }}>●</span>
+                <span>Focused Signal Permalink</span>
+                <span style={{ color: 'var(--text-muted)' }}>·</span>
+                <span>{kindLabel}</span>
+              </div>
 
-          {author && (
-            <Link
-              to={`/u/${author.handle}`}
-              className="flex items-center gap-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
-            >
-              <img
-                src={author.avatarUrl}
-                alt={author.name}
-                className="w-5 h-5 rounded-full object-cover"
-              />
-              <span className="font-medium text-zinc-800 dark:text-zinc-200">
-                {author.name}
-              </span>
-              <span className="font-mono text-[11px] text-zinc-400">@{author.handle}</span>
-              <span>•</span>
-              <span>{formatRelativeTime(post.createdAt)}</span>
-            </Link>
-          )}
-        </div>
-      </div>
-
-      {/* Maintainer / Admin Status Update Panel */}
-      {isMaintainer && (
-        <form
-          onSubmit={handleSaveOfficialStatus}
-          className="bg-white dark:bg-zinc-900 border border-emerald-200/80 dark:border-emerald-800/60 rounded-2xl p-4 sm:p-5 space-y-3 text-xs shadow-2xs"
-        >
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-zinc-900 dark:text-white flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-emerald-500" />
-              Maintainer Triage Controls ({product?.name})
-            </span>
-            {statusSavedMsg && (
-              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                ✓ Status updated!
-              </span>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <label className="block font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-                Status
-              </label>
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value as FeedbackStatus)}
-                className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100"
-              >
-                {FEEDBACK_STATUSES.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="block font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-                Official Team Note
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={officialNote}
-                  onChange={(e) => setOfficialNote(e.target.value)}
-                  placeholder="Share roadmap context, release version, or resolution note..."
-                  className="flex-1 px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100"
-                />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <button
-                  type="submit"
-                  className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shrink-0 cursor-pointer"
+                  type="button"
+                  className="btn-ghost mono"
+                  onClick={handleCopyPermalink}
                 >
-                  Save Update
+                  {copiedPermalink ? '✓ Link Copied' : '🔗 Copy Permalink'}
                 </button>
+                {canDeletePost && (
+                  <button
+                    type="button"
+                    className="btn-ghost mono"
+                    style={{ color: 'var(--accent-rose)' }}
+                    onClick={async () => {
+                      await deletePost(post.id);
+                      navigate(product ? `/p/${product.slug}` : '/');
+                    }}
+                  >
+                    ✕ Delete
+                  </button>
+                )}
               </div>
             </div>
           </div>
-        </form>
-      )}
 
-      {/* Comments & Workarounds Section */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 space-y-4 text-xs shadow-2xs">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-            <MessageSquare className="w-4 h-4 text-zinc-400" />
-            <span>Discussion &amp; Community Workarounds ({postComments.length})</span>
-          </h2>
-        </div>
+          {/* Primary Signal Card (Expanded by Default) */}
+          <div className="signal-list">
+            <SignalCard post={post} defaultExpanded={true} />
+          </div>
 
-        {/* Add Comment Form */}
-        <form onSubmit={handleCommentSubmit} className="space-y-2.5">
-          <textarea
-            rows={2}
-            value={commentBody}
-            onChange={(e) => setCommentBody(e.target.value)}
-            placeholder="Share a workaround, reproduction detail, or thought..."
-            className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:border-zinc-400"
-          />
+          {/* Maintainer / Builder Official Triage Controls */}
+          {isMaintainer && (
+            <div
+              style={{
+                padding: '20px 28px',
+                borderTop: '1px solid var(--border-hairline)',
+                background: 'var(--bg-elevated)',
+              }}
+            >
+              <form onSubmit={handleSaveOfficialStatus} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div className="mono" style={{ fontSize: '11px', color: 'var(--accent-emerald)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    ✓ Verified Maintainer Triage · {product?.name}
+                  </div>
+                  {statusSavedMsg && (
+                    <span className="mono" style={{ fontSize: '11px', color: 'var(--accent-emerald)' }}>
+                      ✓ Builder Note & Status Published
+                    </span>
+                  )}
+                </div>
 
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] text-zinc-400">Comment type:</span>
-              {(
-                [
-                  { id: 'discussion', label: 'Discussion' },
-                  { id: 'workaround', label: 'Workaround / Fix' },
-                  ...(isMaintainer
-                    ? [{ id: 'official', label: 'Official Response' }]
-                    : []),
-                ] as { id: CommentKind; label: string }[]
-              ).map((k) => (
-                <button
-                  key={k.id}
-                  type="button"
-                  onClick={() => setCommentKind(k.id)}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-medium cursor-pointer ${
-                    commentKind === k.id
-                      ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-950'
-                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'
-                  }`}
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <label className="mono" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                    Signal Status:
+                  </label>
+                  <select
+                    className="select-pill mono"
+                    value={selectedStatus}
+                    onChange={(e) => setSelectedStatus(e.target.value as FeedbackStatus)}
+                  >
+                    {FEEDBACK_STATUSES.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <textarea
+                  className="composer-textarea"
+                  style={{ minHeight: '64px', background: 'var(--bg-surface)', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-hairline)' }}
+                  value={officialNote}
+                  onChange={(e) => setOfficialNote(e.target.value)}
+                  placeholder={`Write an official Builder Note from the ${product?.name || 'Product'} team...`}
+                />
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button type="submit" className="btn-primary mono">
+                    Save Official Update
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Related Signals on this Product Board */}
+          {relatedPosts.length > 0 && (
+            <>
+              <div
+                className="mono"
+                style={{
+                  padding: '12px 28px',
+                  borderTop: '1px solid var(--border-hairline)',
+                  borderBottom: '1px solid var(--border-hairline)',
+                  background: 'var(--bg-elevated)',
+                  fontSize: '10.5px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                  color: 'var(--text-muted)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <span>More Signals on @{product?.name}</span>
+                {product && (
+                  <Link to={`/p/${product.slug}`} style={{ color: 'var(--text-secondary)' }}>
+                    View All →
+                  </Link>
+                )}
+              </div>
+              <div className="signal-list">
+                {relatedPosts.map((rel) => (
+                  <SignalCard key={rel.id} post={rel} defaultExpanded={false} />
+                ))}
+              </div>
+            </>
+          )}
+        </main>
+
+        {/* RIGHT RAIL: Product Board Context & Signal Metadata */}
+        <aside className="side-rail">
+          <div className="rail-header mono">
+            <span>Product Board</span>
+            <span>{categoryMeta?.label || 'Directory'}</span>
+          </div>
+
+          {product && (
+            <div className="rail-section" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div className="p-emblem" style={{ width: '36px', height: '36px', fontSize: '15px' }}>
+                  {product.name[0]}
+                </div>
+                <div>
+                  <Link
+                    to={`/p/${product.slug}`}
+                    style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}
+                  >
+                    {product.name}
+                  </Link>
+                  {org && (
+                    <div className="mono" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                      by {org.name}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                {product.tagline || product.description}
+              </p>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <Link
+                  to={`/p/${product.slug}`}
+                  className="btn-primary mono"
+                  style={{ flex: 1, justifyContent: 'center' }}
                 >
-                  {k.label}
+                  Open /p/{product.slug}
+                </Link>
+                <button
+                  type="button"
+                  className="btn-ghost mono"
+                  onClick={() => toggleFollowProduct(product.id)}
+                >
+                  {isFollowingProduct(product.id) ? '✓ Following' : '+ Follow'}
                 </button>
-              ))}
+              </div>
+            </div>
+          )}
+
+          <div className="rail-section">
+            <div className="rail-subhead mono">
+              <span>Signal Telemetry</span>
+              <span>#{post.id.slice(0, 8)}</span>
             </div>
 
-            <button
-              type="submit"
-              disabled={!commentBody.trim()}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-semibold disabled:opacity-40 cursor-pointer"
-            >
-              <Send className="w-3 h-3" />
-              <span>Reply</span>
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Logged by</span>
+                {author ? (
+                  <Link to={`/u/${author.handle}`} className="mono" style={{ color: 'var(--text-primary)' }}>
+                    @{author.handle}
+                  </Link>
+                ) : (
+                  <span className="mono">@member</span>
+                )}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Submitted</span>
+                <span className="mono">{formatRelativeTime(post.createdAt)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Upvotes</span>
+                <span className="mono" style={{ color: 'var(--text-primary)' }}>
+                  ▲ {post.upvoteCount}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Community Workarounds</span>
+                <span className="mono" style={{ color: 'var(--accent-indigo)' }}>
+                  {workaroundCount}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Thread Replies</span>
+                <span className="mono">{postComments.length}</span>
+              </div>
+            </div>
           </div>
-        </form>
-
-        {/* Comments List */}
-        <div className="divide-y divide-zinc-100 dark:divide-zinc-800 pt-2">
-          {postComments.length === 0 ? (
-            <p className="py-6 text-center text-zinc-400">
-              No comments yet. Be the first to share a workaround or thought.
-            </p>
-          ) : (
-            postComments.map((c) => {
-              const cAuthor = getProfileById(c.authorId);
-              const canDelete =
-                currentUser &&
-                (currentUser.id === c.authorId || currentUser.role === 'admin');
-
-              return (
-                <div key={c.id} className="py-3.5 space-y-1.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      {cAuthor && (
-                        <Link
-                          to={`/u/${cAuthor.handle}`}
-                          className="flex items-center gap-1.5 font-semibold text-zinc-900 dark:text-zinc-100 hover:underline"
-                        >
-                          <img
-                            src={cAuthor.avatarUrl}
-                            alt={cAuthor.name}
-                            className="w-5 h-5 rounded-full object-cover"
-                          />
-                          <span>{cAuthor.name}</span>
-                          <span className="font-mono text-[11px] text-zinc-400 font-normal">
-                            @{cAuthor.handle}
-                          </span>
-                        </Link>
-                      )}
-
-                      {c.kind === 'workaround' && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 text-[10px] font-semibold">
-                          <Wrench className="w-3 h-3" />
-                          Community Workaround
-                        </span>
-                      )}
-
-                      {c.kind === 'official' && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 text-[10px] font-semibold">
-                          <CheckCircle2 className="w-3 h-3" />
-                          Official Team
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2 text-[11px] text-zinc-400">
-                      <span>{formatRelativeTime(c.createdAt)}</span>
-                      {canDelete && (
-                        <button
-                          type="button"
-                          onClick={() => deleteComment(c.id)}
-                          className="text-zinc-400 hover:text-rose-500 cursor-pointer"
-                          title="Delete comment"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <p className="text-zinc-700 dark:text-zinc-300 leading-relaxed pl-6">
-                    {c.body}
-                  </p>
-                </div>
-              );
-            })
-          )}
-        </div>
+        </aside>
       </div>
-    </div>
+    </>
   );
 };

@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { useStore } from '../context/StoreContext';
+import { formatRelativeTime } from '../lib/time';
 
 export const OPEN_COMPOSER_EVENT = 'publisense:open-composer';
 
@@ -13,12 +14,44 @@ export function triggerOpenComposer(productSlug?: string) {
 
 export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { theme, toggleTheme } = useTheme();
-  const { currentUser, openAuthModal, openCreateProductModal } = useStore();
+  const {
+    currentUser,
+    notifications,
+    markNotificationRead,
+    markAllNotificationsRead,
+    openAuthModal,
+    openCreateProductModal,
+  } = useStore();
   const location = useLocation();
   const navigate = useNavigate();
 
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onClickOutside = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setIsNotifOpen(false);
+      }
+    };
+    if (isNotifOpen) {
+      document.addEventListener('mousedown', onClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, [isNotifOpen]);
+
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
+
   const isProductRoute = location.pathname.startsWith('/p/');
-  const routeBadge = isProductRoute ? location.pathname : 'OPEN INDEX';
+  const isProfileRoute = location.pathname.startsWith('/u/');
+  const isPostRoute = location.pathname.startsWith('/post/');
+  const routeBadge = isProductRoute
+    ? location.pathname
+    : isProfileRoute
+    ? location.pathname
+    : isPostRoute
+    ? 'SIGNAL THREAD'
+    : 'OPEN INDEX';
 
   return (
     <div className="frame">
@@ -38,8 +71,16 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
             >
               Explore Index
             </Link>
-            <a href="#directory">Categories</a>
-            <a href="#trending">Trending</a>
+            <a href="/#directory">Categories</a>
+            <a href="/#trending">Trending</a>
+            {currentUser && (
+              <Link
+                to={`/u/${currentUser.handle}`}
+                className={location.pathname === `/u/${currentUser.handle}` ? 'active' : ''}
+              >
+                My Portfolio
+              </Link>
+            )}
             <button
               type="button"
               onClick={openCreateProductModal}
@@ -76,6 +117,86 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
             <span>+ Post Signal</span>
             <span className="kbd">C</span>
           </button>
+
+          {/* Phase 2.4: Live In-App Notifications Drawer */}
+          <div className="notif-wrapper" ref={notifRef}>
+            <button
+              type="button"
+              className={`btn-ghost mono ${unreadCount > 0 ? 'has-unread' : ''}`}
+              onClick={() => {
+                if (!currentUser) {
+                  openAuthModal('Sign in to view your signal notifications.');
+                  return;
+                }
+                setIsNotifOpen((prev) => !prev);
+              }}
+              title="Signal & Workaround Notifications"
+            >
+              <span>🔔</span>
+              {unreadCount > 0 && (
+                <span className="notif-badge mono">{unreadCount}</span>
+              )}
+            </button>
+
+            {isNotifOpen && currentUser && (
+              <div className="notif-popover">
+                <div className="notif-popover-header mono">
+                  <span>Signal Updates ({notifications.length})</span>
+                  {unreadCount > 0 && (
+                    <button
+                      type="button"
+                      className="action-btn mono"
+                      style={{ color: 'var(--accent-emerald)' }}
+                      onClick={markAllNotificationsRead}
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                </div>
+
+                <div className="notif-popover-list">
+                  {notifications.length === 0 ? (
+                    <div className="notif-empty mono">
+                      No notifications yet. Upvote or log a signal to track workarounds & shipped updates.
+                    </div>
+                  ) : (
+                    notifications.slice(0, 12).map((notif) => {
+                      const dotColor =
+                        notif.kind === 'status_change'
+                          ? 'var(--accent-emerald)'
+                          : notif.kind === 'comment'
+                          ? 'var(--accent-indigo)'
+                          : 'var(--accent-amber)';
+                      return (
+                        <button
+                          key={notif.id}
+                          type="button"
+                          className={`notif-item ${!notif.isRead ? 'unread' : ''}`}
+                          onClick={() => {
+                            markNotificationRead(notif.id);
+                            setIsNotifOpen(false);
+                            navigate(`/post/${notif.postId}`);
+                          }}
+                        >
+                          <div className="notif-item-top">
+                            <span
+                              className="status-dot"
+                              style={{ background: dotColor, flexShrink: 0 }}
+                            />
+                            <span className="notif-item-title">{notif.title}</span>
+                            <span className="notif-item-time mono">
+                              {formatRelativeTime(notif.createdAt)}
+                            </span>
+                          </div>
+                          <div className="notif-item-msg">{notif.message}</div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           <button
             type="button"
