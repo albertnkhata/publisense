@@ -31,9 +31,11 @@ export const SignalCard: React.FC<SignalCardProps> = ({ post, defaultExpanded = 
     getProfileById,
     hasUserVoted,
     hasUserReposted,
+    hasUserLikedComment,
     toggleUpvote,
     toggleRepost,
     addComment,
+    toggleCommentLike,
   } = useStore();
 
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
@@ -48,12 +50,24 @@ export const SignalCard: React.FC<SignalCardProps> = ({ post, defaultExpanded = 
   const meToo = hasUserReposted(post.id);
 
   const postComments = comments.filter((c) => c.postId === post.id);
-  const workaroundComment: FeedbackComment | undefined = postComments.find(
-    (c) => c.kind === 'workaround'
-  );
+  // Sort workarounds by highest likesCount so the top community workaround is automatically promoted
+  const workaroundComments: FeedbackComment[] = postComments
+    .filter((c) => c.kind === 'workaround')
+    .sort((a, b) => (b.likesCount || 0) - (a.likesCount || 0));
+  const workaroundComment: FeedbackComment | undefined = workaroundComments[0];
   const officialComment: FeedbackComment | undefined = postComments.find(
     (c) => c.kind === 'official'
   );
+
+  // Order thread comments: official first, then workarounds by votes, then discussion
+  const sortedThreadComments = [...postComments].sort((a, b) => {
+    const rank = (k: CommentKind) => (k === 'official' ? 0 : k === 'workaround' ? 1 : 2);
+    if (rank(a.kind) !== rank(b.kind)) return rank(a.kind) - rank(b.kind);
+    if (a.kind === 'workaround' && b.kind === 'workaround') {
+      return (b.likesCount || 0) - (a.likesCount || 0);
+    }
+    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+  });
 
   const categoryMeta = PRODUCT_CATEGORIES.find((c) => c.id === product?.category);
   const categoryLabel = categoryMeta?.label || 'General';
@@ -86,6 +100,8 @@ export const SignalCard: React.FC<SignalCardProps> = ({ post, defaultExpanded = 
     badge: string;
     handle: string;
     text: string;
+    commentId?: string;
+    likesCount?: number;
   } | null = null;
 
   if (post.officialNote) {
@@ -102,6 +118,8 @@ export const SignalCard: React.FC<SignalCardProps> = ({ post, defaultExpanded = 
       badge: `Builder Note · ${product?.name || 'Team'}`,
       handle: offAuthor ? `@${offAuthor.handle}` : '@maintainer',
       text: officialComment.body,
+      commentId: officialComment.id,
+      likesCount: officialComment.likesCount,
     };
   } else if (workaroundComment) {
     const waAuthor = getProfileById(workaroundComment.authorId);
@@ -110,6 +128,8 @@ export const SignalCard: React.FC<SignalCardProps> = ({ post, defaultExpanded = 
       badge: 'Top Community Workaround',
       handle: waAuthor ? `@${waAuthor.handle}` : '@community',
       text: workaroundComment.body,
+      commentId: workaroundComment.id,
+      likesCount: workaroundComment.likesCount,
     };
   }
 
@@ -203,7 +223,29 @@ export const SignalCard: React.FC<SignalCardProps> = ({ post, defaultExpanded = 
                 <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
                   {calloutBlock.handle}
                 </strong>
+                {calloutBlock.kind === 'workaround' && workaroundComments.length > 1 && (
+                  <span className="mono" style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                    · +{workaroundComments.length - 1} more in thread
+                  </span>
+                )}
               </div>
+
+              {calloutBlock.commentId && (
+                <button
+                  type="button"
+                  className={`comment-vote-pill ${
+                    hasUserLikedComment(calloutBlock.commentId) ? 'liked' : ''
+                  } mono`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleCommentLike(calloutBlock!.commentId!);
+                  }}
+                  title="Upvote this workaround"
+                >
+                  <span>▲</span>
+                  <span>{calloutBlock.likesCount || 0} Helpful</span>
+                </button>
+              )}
             </div>
             <div className="callout-copy">{calloutBlock.text}</div>
           </div>
@@ -270,44 +312,74 @@ export const SignalCard: React.FC<SignalCardProps> = ({ post, defaultExpanded = 
           <div
             className="mono"
             style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
               fontSize: '10px',
               textTransform: 'uppercase',
               letterSpacing: '0.06em',
               color: 'var(--text-muted)',
             }}
           >
-            Community Thread ({postComments.length})
+            <span>Community Thread ({postComments.length})</span>
+            {workaroundComments.length > 0 && (
+              <span style={{ color: 'var(--accent-indigo)' }}>
+                Highest-voted workaround auto-pinned to card
+              </span>
+            )}
           </div>
 
-          {postComments.length === 0 ? (
+          {sortedThreadComments.length === 0 ? (
             <div className="comment-row" style={{ color: 'var(--text-muted)' }}>
               No replies yet. Share a workaround or add context below.
             </div>
           ) : (
-            postComments.map((cmt) => {
+            sortedThreadComments.map((cmt) => {
               const cmtAuthor = getProfileById(cmt.authorId);
+              const isPinnedWorkaround =
+                cmt.kind === 'workaround' && workaroundComment?.id === cmt.id;
+              const isLiked = hasUserLikedComment(cmt.id);
               return (
-                <div key={cmt.id} className="comment-row">
-                  <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
-                    @{cmtAuthor?.handle || 'user'}
-                  </strong>
-                  {cmt.kind === 'workaround' && (
-                    <span
-                      className="callout-badge badge-workaround mono"
-                      style={{ marginLeft: '6px', marginRight: '4px' }}
-                    >
-                      Workaround
-                    </span>
-                  )}
-                  {cmt.kind === 'official' && (
-                    <span
-                      className="callout-badge badge-builder mono"
-                      style={{ marginLeft: '6px', marginRight: '4px' }}
-                    >
-                      Builder
-                    </span>
-                  )}
-                  : {cmt.body}
+                <div
+                  key={cmt.id}
+                  className={`comment-row ${isPinnedWorkaround ? 'pinned-workaround-row' : ''}`}
+                >
+                  <div className="comment-row-body">
+                    <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
+                      @{cmtAuthor?.handle || 'user'}
+                    </strong>
+                    {cmt.kind === 'workaround' && (
+                      <span
+                        className="callout-badge badge-workaround mono"
+                        style={{ marginLeft: '6px', marginRight: '4px' }}
+                      >
+                        {isPinnedWorkaround ? '★ Top Workaround' : 'Workaround'}
+                      </span>
+                    )}
+                    {cmt.kind === 'official' && (
+                      <span
+                        className="callout-badge badge-builder mono"
+                        style={{ marginLeft: '6px', marginRight: '4px' }}
+                      >
+                        Builder
+                      </span>
+                    )}
+                    <span>: {cmt.body}</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    className={`comment-vote-pill ${isLiked ? 'liked' : ''} mono`}
+                    onClick={() => toggleCommentLike(cmt.id)}
+                    title={
+                      cmt.kind === 'workaround'
+                        ? 'Upvote workaround (highest-voted is pinned to card)'
+                        : 'Upvote reply'
+                    }
+                  >
+                    <span>▲</span>
+                    <span>{cmt.likesCount || 0}</span>
+                  </button>
                 </div>
               );
             })

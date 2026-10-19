@@ -85,6 +85,7 @@ interface StoreContextValue {
   getProfileByHandle: (handle: string) => UserProfile | undefined;
   hasUserVoted: (postId: string) => boolean;
   hasUserReposted: (postId: string) => boolean;
+  hasUserLikedComment: (commentId: string) => boolean;
   isFollowingProduct: (productId: string) => boolean;
   isFollowingUser: (userId: string) => boolean;
   canManageProduct: (productId: string) => boolean;
@@ -96,7 +97,19 @@ interface StoreContextValue {
     name?: string;
     handle?: string;
   }) => Promise<UserProfile>;
-  signOut: () => void;
+  signInWithPassword: (input: {
+    email: string;
+    password: string;
+  }) => Promise<{ error?: string }>;
+  signUpWithPassword: (input: {
+    email: string;
+    password: string;
+    name?: string;
+    handle?: string;
+  }) => Promise<{ error?: string; message?: string }>;
+  signInWithMagicLink: (email: string) => Promise<{ error?: string; message?: string }>;
+  signInWithOAuthProvider: (provider: 'github' | 'google') => Promise<{ error?: string }>;
+  signOut: () => Promise<void>;
   updateCurrentProfile: (updates: Partial<Pick<UserProfile, 'name' | 'handle' | 'bio' | 'location' | 'avatarUrl' | 'roleTitle'>>) => Promise<void>;
 
   createPost: (input: CreatePostInput) => Promise<FeedbackPost>;
@@ -104,6 +117,7 @@ interface StoreContextValue {
   toggleUpvote: (postId: string) => Promise<void>;
   toggleRepost: (postId: string, quoteText?: string) => Promise<void>;
   addComment: (postId: string, body: string, kind?: CommentKind) => Promise<void>;
+  toggleCommentLike: (commentId: string) => Promise<void>;
   deleteComment: (commentId: string) => Promise<void>;
   updatePostStatus: (postId: string, status: FeedbackStatus, officialNote?: string) => Promise<void>;
   toggleFollowProduct: (productId: string) => Promise<void>;
@@ -124,7 +138,8 @@ interface StoreContextValue {
 }
 
 const LOCAL_DB_KEY = 'publisense_v3_relational_db';
-const LOCAL_USER_KEY = 'publisense_v3_active_user_id';
+const LOCAL_USER_KEY = 'publisense_v3_auth_user_id';
+const LOCAL_COMMENT_LIKES_KEY = 'publisense_v3_comment_likes';
 
 function getInitialStoreState(): RelationalStoreState {
   try {
@@ -158,16 +173,30 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [activeUserId, setActiveUserId] = useState<string | null>(() => {
     try {
       const saved = localStorage.getItem(LOCAL_USER_KEY);
-      if (saved === 'null') return null;
-      return saved || 'usr-albert';
+      if (!saved || saved === 'null') return null;
+      return saved;
     } catch {
-      return 'usr-albert';
+      return null;
     }
   });
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalPrompt, setAuthModalPrompt] = useState<string | undefined>(undefined);
   const [isCreateProductModalOpen, setIsCreateProductModalOpen] = useState(false);
+
+  const [commentLikes, setCommentLikes] = useState<Record<string, string[]>>(() => {
+    try {
+      const raw = localStorage.getItem(LOCAL_COMMENT_LIKES_KEY);
+      if (raw) return JSON.parse(raw) as Record<string, string[]>;
+    } catch {}
+    return {};
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LOCAL_COMMENT_LIKES_KEY, JSON.stringify(commentLikes));
+    } catch {}
+  }, [commentLikes]);
 
   // Persist local relational store on change
   useEffect(() => {
@@ -474,6 +503,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [currentUser, store.reposts]
   );
 
+  const hasUserLikedComment = useCallback(
+    (commentId: string) => {
+      if (!currentUser) return false;
+      const likers = commentLikes[commentId] || [];
+      return likers.includes(currentUser.id);
+    },
+    [currentUser, commentLikes]
+  );
+
   const isFollowingProduct = useCallback(
     (productId: string) => {
       if (!currentUser) return false;
@@ -527,10 +565,243 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsCreateProductModalOpen(false);
   }, []);
 
+  // Sync real Supabase Auth session -> UserProfile in public.profiles
+  const syncSupabaseUserToProfile = useCallback(
+    async (sbUser: {
+      id: string;
+      email?: string;
+      user_metadata?: Record<string, any>;
+    }): Promise<UserProfile> => {
+      const cleanEmail = (sbUser.email || `${sbUser.id.slice(0, 8)}@publisense.app`)
+        .trim()
+        .toLowerCase();
+
+      // Check if profile already exists by id or email
+      let existing: UserProfile | undefined;
+      setStore((prev) => {
+        existing =
+          prev.profiles.find((p) => p.id === sbUser.id) ||
+          prev.profiles.find((p) => p.email.toLowerCase() === cleanEmail);
+        return prev;
+      });
+
+      if (existing) {
+        setActiveUserId(existing.id);
+        return existing;
+      }
+
+      const meta = sbUser.user_metadata || {};
+      const rawName = (
+        meta.full_name ||
+        meta.name ||
+        meta.user_name ||
+        cleanEmail.split('@')[0] ||
+        'Builder'
+      ).trim();
+      const baseHandle = (meta.handle || meta.user_name || rawName)
+        .toLowerCase()
+        .replace(/^@/, '')
+        .replace(/[^a-z0-9_]/g, '_')
+        .slice(0, 24);
+
+      const newProfile: UserProfile = {
+        id: sbUser.id,
+        handle: baseHandle || `user_${sbUser.id.slice(0, 6)}`,
+        name: rawName,
+        email: cleanEmail,
+        avatarUrl:
+          meta.avatar_url ||
+          'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=128&auto=format&fit=crop&q=80',
+        bio: 'Builder sharing product feedback and backing community signals on Publisense.',
+        role: 'user',
+        joinedAt: new Date().toISOString(),
+      };
+
+      setStore((prev) => {
+        const alreadyInStore =
+          prev.profiles.find((p) => p.id === newProfile.id) ||
+          prev.profiles.find((p) => p.email.toLowerCase() === cleanEmail);
+        if (alreadyInStore) return prev;
+        const handleTaken = prev.profiles.some(
+          (p) => p.handle.toLowerCase() === newProfile.handle.toLowerCase()
+        );
+        const profileToInsert = handleTaken
+          ? { ...newProfile, handle: `${newProfile.handle}_${Math.floor(10 + Math.random() * 89)}` }
+          : newProfile;
+        return {
+          ...prev,
+          profiles: [...prev.profiles, profileToInsert],
+        };
+      });
+
+      setActiveUserId(newProfile.id);
+
+      if (supabase) {
+        await supabase.from('profiles').upsert({
+          id: newProfile.id,
+          handle: newProfile.handle,
+          name: newProfile.name,
+          email: newProfile.email,
+          avatar_url: newProfile.avatarUrl,
+          bio: newProfile.bio,
+          role: newProfile.role,
+          managed_org_id: null,
+          role_title: null,
+          location: null,
+          joined_at: newProfile.joinedAt,
+        });
+      }
+
+      return newProfile;
+    },
+    []
+  );
+
+  // Listen to real Supabase Auth sessions (OAuth redirects, Magic Links, Email/Password)
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) return;
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        syncSupabaseUserToProfile(session.user);
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        syncSupabaseUserToProfile(session.user);
+        setIsAuthModalOpen(false);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [syncSupabaseUserToProfile]);
+
   const signInAsProfile = useCallback((profileId: string) => {
     setActiveUserId(profileId);
     setIsAuthModalOpen(false);
   }, []);
+
+  const signInWithPassword = useCallback(
+    async (input: { email: string; password: string }): Promise<{ error?: string }> => {
+      if (!supabase) {
+        return { error: 'Supabase client is not configured.' };
+      }
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: input.email.trim(),
+        password: input.password,
+      });
+      if (error) {
+        return { error: error.message };
+      }
+      if (data.user) {
+        await syncSupabaseUserToProfile(data.user);
+        setIsAuthModalOpen(false);
+      }
+      return {};
+    },
+    [syncSupabaseUserToProfile]
+  );
+
+  const signUpWithPassword = useCallback(
+    async (input: {
+      email: string;
+      password: string;
+      name?: string;
+      handle?: string;
+    }): Promise<{ error?: string; message?: string }> => {
+      if (!supabase) {
+        return { error: 'Supabase client is not configured.' };
+      }
+      const cleanEmail = input.email.trim().toLowerCase();
+      const cleanName = (input.name || cleanEmail.split('@')[0] || 'Builder').trim();
+      const cleanHandle = (input.handle || cleanName)
+        .toLowerCase()
+        .replace(/^@/, '')
+        .replace(/[^a-z0-9_]/g, '_')
+        .slice(0, 24);
+
+      const { data, error } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password: input.password,
+        options: {
+          data: {
+            full_name: cleanName,
+            handle: cleanHandle,
+          },
+        },
+      });
+
+      if (error) {
+        return { error: error.message };
+      }
+
+      if (data.user) {
+        await syncSupabaseUserToProfile({
+          id: data.user.id,
+          email: cleanEmail,
+          user_metadata: {
+            full_name: cleanName,
+            handle: cleanHandle,
+          },
+        });
+        setIsAuthModalOpen(false);
+        if (!data.session) {
+          return {
+            message:
+              'Account created and profile activated! (Check your email if confirmation is enabled on your Supabase project.)',
+          };
+        }
+      }
+
+      return {};
+    },
+    [syncSupabaseUserToProfile]
+  );
+
+  const signInWithMagicLink = useCallback(
+    async (email: string): Promise<{ error?: string; message?: string }> => {
+      if (!supabase) {
+        return { error: 'Supabase client is not configured.' };
+      }
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email.trim(),
+        options: {
+          emailRedirectTo: window.location.origin,
+        },
+      });
+      if (error) {
+        return { error: error.message };
+      }
+      return {
+        message: `Magic sign-in link sent to ${email.trim()}. Check your inbox!`,
+      };
+    },
+    []
+  );
+
+  const signInWithOAuthProvider = useCallback(
+    async (provider: 'github' | 'google'): Promise<{ error?: string }> => {
+      if (!supabase) {
+        return { error: 'Supabase client is not configured.' };
+      }
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: window.location.origin,
+        },
+      });
+      if (error) {
+        return { error: error.message };
+      }
+      return {};
+    },
+    []
+  );
 
   const signInOrRegisterWithEmail = useCallback(
     async (input: { email: string; name?: string; handle?: string }): Promise<UserProfile> => {
@@ -579,6 +850,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           avatar_url: newProfile.avatarUrl,
           bio: newProfile.bio,
           role: newProfile.role,
+          managed_org_id: null,
+          role_title: null,
+          location: null,
           joined_at: newProfile.joinedAt,
         });
       }
@@ -588,8 +862,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [store.profiles]
   );
 
-  const signOut = useCallback(() => {
+  const signOut = useCallback(async () => {
+    if (supabase) {
+      await supabase.auth.signOut().catch(() => {});
+    }
     setActiveUserId(null);
+    setIsAuthModalOpen(false);
   }, []);
 
   const updateCurrentProfile = useCallback(
@@ -634,6 +912,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const createPost = useCallback(
     async (input: CreatePostInput): Promise<FeedbackPost> => {
       if (!currentUser) {
+        openAuthModal('Sign in to publish your signal.');
         throw new Error('Authentication required');
       }
       const now = new Date().toISOString();
@@ -689,7 +968,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       return newPost;
     },
-    [currentUser]
+    [currentUser, openAuthModal]
   );
 
   const deletePost = useCallback(
@@ -720,6 +999,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const alreadyVoted = store.votes.some(
         (v) => v.postId === postId && v.userId === currentUser.id
       );
+      const targetPostCurrent = store.posts.find((p) => p.id === postId);
+      const nextCount = targetPostCurrent
+        ? alreadyVoted
+          ? Math.max(0, targetPostCurrent.upvoteCount - 1)
+          : targetPostCurrent.upvoteCount + 1
+        : 1;
       const now = new Date().toISOString();
 
       setStore((prev) => {
@@ -774,9 +1059,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             .from('post_votes')
             .insert({ post_id: postId, user_id: currentUser.id });
         }
+        await supabase.from('posts').update({ upvote_count: nextCount }).eq('id', postId);
       }
     },
-    [currentUser, openAuthModal, store.votes]
+    [currentUser, openAuthModal, store.votes, store.posts]
   );
 
   const toggleRepost = useCallback(
@@ -789,6 +1075,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const alreadyReposted = store.reposts.some(
         (r) => r.postId === postId && r.userId === currentUser.id
       );
+      const targetPostCurrent = store.posts.find((p) => p.id === postId);
+      const nextCount = targetPostCurrent
+        ? alreadyReposted
+          ? Math.max(0, targetPostCurrent.repostCount - 1)
+          : targetPostCurrent.repostCount + 1
+        : 1;
       const now = new Date().toISOString();
 
       setStore((prev) => {
@@ -833,9 +1125,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             quote_text: quoteText?.trim() || null,
           });
         }
+        await supabase.from('posts').update({ repost_count: nextCount }).eq('id', postId);
       }
     },
-    [currentUser, openAuthModal, store.reposts]
+    [currentUser, openAuthModal, store.reposts, store.posts]
   );
 
   const addComment = useCallback(
@@ -847,16 +1140,27 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const trimmed = body.trim();
       if (!trimmed) return;
 
+      const targetPostCurrent = store.posts.find((p) => p.id === postId);
+      const nextCount = targetPostCurrent ? targetPostCurrent.commentCount + 1 : 1;
+
       const now = new Date().toISOString();
+      const initialLikes = kind === 'workaround' ? 1 : 0;
       const newComment: FeedbackComment = {
         id: `cmt-${Date.now().toString(36)}`,
         postId,
         authorId: currentUser.id,
         body: trimmed,
         kind,
-        likesCount: 0,
+        likesCount: initialLikes,
         createdAt: now,
       };
+
+      if (kind === 'workaround') {
+        setCommentLikes((prev) => ({
+          ...prev,
+          [newComment.id]: [currentUser.id],
+        }));
+      }
 
       setStore((prev) => {
         const targetPost = prev.posts.find((p) => p.id === postId);
@@ -869,7 +1173,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             postId,
             productId: targetPost.productId,
             kind: 'comment',
-            title: `New reply on "${targetPost.title}"`,
+            title:
+              kind === 'workaround'
+                ? `New Community Workaround on "${targetPost.title}"`
+                : `New reply on "${targetPost.title}"`,
             message: `${currentUser.name}: "${trimmed.slice(0, 80)}${trimmed.length > 80 ? '...' : ''}"`,
             isRead: false,
             createdAt: now,
@@ -894,11 +1201,54 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           author_id: newComment.authorId,
           body: newComment.body,
           kind: newComment.kind,
+          likes_count: initialLikes,
           created_at: newComment.createdAt,
         });
+        await supabase.from('posts').update({ comment_count: nextCount }).eq('id', postId);
       }
     },
-    [currentUser, openAuthModal]
+    [currentUser, openAuthModal, store.posts]
+  );
+
+  const toggleCommentLike = useCallback(
+    async (commentId: string) => {
+      if (!currentUser) {
+        openAuthModal('Sign in to upvote community workarounds and replies.');
+        return;
+      }
+
+      const targetComment = store.comments.find((c) => c.id === commentId);
+      if (!targetComment) return;
+
+      const existingLikers = commentLikes[commentId] || [];
+      const alreadyLiked = existingLikers.includes(currentUser.id);
+      const nextLikers = alreadyLiked
+        ? existingLikers.filter((id) => id !== currentUser.id)
+        : [...existingLikers, currentUser.id];
+      const nextLikesCount = alreadyLiked
+        ? Math.max(0, (targetComment.likesCount || 0) - 1)
+        : (targetComment.likesCount || 0) + 1;
+
+      setCommentLikes((prev) => ({
+        ...prev,
+        [commentId]: nextLikers,
+      }));
+
+      setStore((prev) => ({
+        ...prev,
+        comments: prev.comments.map((c) =>
+          c.id === commentId ? { ...c, likesCount: nextLikesCount } : c
+        ),
+      }));
+
+      if (supabase) {
+        await supabase
+          .from('comments')
+          .update({ likes_count: nextLikesCount })
+          .eq('id', commentId);
+      }
+    },
+    [currentUser, openAuthModal, store.comments, commentLikes]
   );
 
   const deleteComment = useCallback(
@@ -1230,12 +1580,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     getProfileByHandle,
     hasUserVoted,
     hasUserReposted,
+    hasUserLikedComment,
     isFollowingProduct,
     isFollowingUser,
     canManageProduct,
 
     signInAsProfile,
     signInOrRegisterWithEmail,
+    signInWithPassword,
+    signUpWithPassword,
+    signInWithMagicLink,
+    signInWithOAuthProvider,
     signOut,
     updateCurrentProfile,
 
@@ -1244,6 +1599,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     toggleUpvote,
     toggleRepost,
     addComment,
+    toggleCommentLike,
     deleteComment,
     updatePostStatus,
     toggleFollowProduct,

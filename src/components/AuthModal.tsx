@@ -1,188 +1,479 @@
 import React, { useState } from 'react';
-import { X, Radio, CheckCircle2, UserPlus, Sparkles } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
+
+type AuthMode = 'signin' | 'signup' | 'magic';
 
 export const AuthModal: React.FC = () => {
   const {
     isAuthModalOpen,
     authModalPrompt,
     closeAuthModal,
-    profiles,
     currentUser,
+    profiles,
+    signInWithPassword,
+    signUpWithPassword,
+    signInWithMagicLink,
+    signInWithOAuthProvider,
     signInAsProfile,
-    signInOrRegisterWithEmail,
-    getOrgById,
+    signOut,
+    updateCurrentProfile,
   } = useStore();
 
+  const [mode, setMode] = useState<AuthMode>('signin');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [handle, setHandle] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [statusMsg, setStatusMsg] = useState<string | null>(null);
+  const [showDevPersonas, setShowDevPersonas] = useState(false);
+
+  // Profile edit state when signed in
+  const [editName, setEditName] = useState(currentUser?.name || '');
+  const [editHandle, setEditHandle] = useState(currentUser?.handle || '');
+  const [editBio, setEditBio] = useState(currentUser?.bio || '');
+
+  React.useEffect(() => {
+    if (currentUser) {
+      setEditName(currentUser.name);
+      setEditHandle(currentUser.handle);
+      setEditBio(currentUser.bio);
+    }
+    setErrorMsg(null);
+    setStatusMsg(null);
+  }, [currentUser, isAuthModalOpen]);
 
   if (!isAuthModalOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
-    await signInOrRegisterWithEmail({
-      email,
-      name: name.trim() || undefined,
-      handle: handle.trim() || undefined,
+    setErrorMsg(null);
+    setStatusMsg(null);
+    setLoading(true);
+
+    try {
+      if (mode === 'signin') {
+        const res = await signInWithPassword({ email, password });
+        if (res.error) setErrorMsg(res.error);
+      } else if (mode === 'signup') {
+        if (password.length < 6) {
+          setErrorMsg('Password must be at least 6 characters.');
+          setLoading(false);
+          return;
+        }
+        const res = await signUpWithPassword({
+          email,
+          password,
+          name: name.trim() || undefined,
+          handle: handle.trim() || undefined,
+        });
+        if (res.error) setErrorMsg(res.error);
+        else if (res.message) setStatusMsg(res.message);
+      } else if (mode === 'magic') {
+        const res = await signInWithMagicLink(email);
+        if (res.error) setErrorMsg(res.error);
+        else if (res.message) setStatusMsg(res.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOAuth = async (provider: 'github' | 'google') => {
+    setErrorMsg(null);
+    const res = await signInWithOAuthProvider(provider);
+    if (res.error) setErrorMsg(res.error);
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    await updateCurrentProfile({
+      name: editName.trim(),
+      handle: editHandle.trim(),
+      bio: editBio.trim(),
     });
-    setEmail('');
-    setName('');
-    setHandle('');
+    setLoading(false);
+    setStatusMsg('Profile saved to Supabase.');
   };
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 60,
+        background: 'rgba(0, 0, 0, 0.68)',
+        backdropFilter: 'blur(6px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '16px',
+      }}
       onClick={closeAuthModal}
     >
       <div
-        className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-5 text-xs"
+        style={{
+          width: '100%',
+          maxWidth: '420px',
+          background: 'var(--bg-surface)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: '11px',
+          boxShadow: 'var(--cmd-shadow)',
+          padding: '22px 24px',
+          color: 'var(--text-primary)',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 flex items-center justify-center">
-              <Radio className="w-4 h-4" />
+        {/* Header */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: '12px',
+            marginBottom: '16px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div className="brand-mark" style={{ width: '26px', height: '26px', fontSize: '13px' }}>
+              P
             </div>
             <div>
-              <h2 className="text-base font-bold text-zinc-900 dark:text-white">
-                Sign in to Publisense
+              <h2 style={{ fontSize: '15px', fontWeight: 600, letterSpacing: '-0.02em' }}>
+                {currentUser ? `@${currentUser.handle}` : 'Sign in to Publisense'}
               </h2>
-              <p className="text-zinc-500 dark:text-zinc-400">
-                {authModalPrompt || 'Switch persona or create a builder profile'}
+              <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                {currentUser
+                  ? currentUser.email
+                  : authModalPrompt || 'Log signals, upvote ideas, and share workarounds.'}
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={closeAuthModal}
-            className="p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-white rounded-lg cursor-pointer"
-          >
-            <X className="w-4 h-4" />
+
+          <button type="button" className="btn-ghost mono" onClick={closeAuthModal}>
+            ✕
           </button>
         </div>
 
-        {/* Instant Persona Switcher */}
-        <div className="space-y-2">
-          <label className="block text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-            Quick Switch Persona (Instant)
-          </label>
-          <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
-            {profiles.map((p) => {
-              const isCurrent = currentUser?.id === p.id;
-              const managedOrg = p.managedOrgId ? getOrgById(p.managedOrgId) : undefined;
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => signInAsProfile(p.id)}
-                  className={`w-full flex items-center justify-between gap-3 p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                    isCurrent
-                      ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800'
-                      : 'bg-zinc-50/70 hover:bg-zinc-100 dark:bg-zinc-800/50 dark:hover:bg-zinc-800 border-zinc-200/80 dark:border-zinc-800'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <img
-                      src={p.avatarUrl}
-                      alt={p.name}
-                      className="w-8 h-8 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 shrink-0"
-                    />
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-semibold text-zinc-900 dark:text-zinc-100 truncate">
-                          {p.name}
-                        </span>
-                        <span className="text-zinc-400 font-mono text-[11px]">
-                          @{p.handle}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
-                        {p.role === 'admin'
-                          ? 'Platform Admin'
-                          : managedOrg
-                          ? `Maintainer • ${managedOrg.name}`
-                          : 'Community Builder'}
-                      </div>
-                    </div>
-                  </div>
-                  {isCurrent ? (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 shrink-0">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      Active
-                    </span>
-                  ) : (
-                    <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 shrink-0">
-                      Switch →
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="relative flex items-center justify-center">
-          <div className="border-t border-zinc-200 dark:border-zinc-800 w-full" />
-          <span className="bg-white dark:bg-zinc-900 px-2.5 text-[10px] uppercase tracking-wider text-zinc-400 absolute">
-            or sign in / register with email
-          </span>
-        </div>
-
-        {/* Email Sign In / Register */}
-        <form onSubmit={handleSubmit} className="space-y-3">
+        {/* IF SIGNED IN: Account & Sign Out Panel */}
+        {currentUser ? (
           <div>
-            <label className="block font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-              Email Address
-            </label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@domain.com"
-              className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-400"
-            />
-          </div>
+            <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label className="mono" style={{ display: 'block', fontSize: '10.5px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                    DISPLAY NAME
+                  </label>
+                  <input
+                    type="text"
+                    className="reply-input"
+                    style={{ width: '100%', minWidth: 0 }}
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="mono" style={{ display: 'block', fontSize: '10.5px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                    HANDLE
+                  </label>
+                  <input
+                    type="text"
+                    className="reply-input mono"
+                    style={{ width: '100%', minWidth: 0 }}
+                    value={editHandle}
+                    onChange={(e) => setEditHandle(e.target.value)}
+                  />
+                </div>
+              </div>
 
-          <div className="grid grid-cols-2 gap-2.5">
-            <div>
-              <label className="block font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-                Display Name <span className="text-zinc-400">(new users)</span>
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Jane Doe"
-                className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-400"
-              />
+              <div>
+                <label className="mono" style={{ display: 'block', fontSize: '10.5px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                  BIO
+                </label>
+                <input
+                  type="text"
+                  className="reply-input"
+                  style={{ width: '100%', minWidth: 0 }}
+                  value={editBio}
+                  onChange={(e) => setEditBio(e.target.value)}
+                />
+              </div>
+
+              {statusMsg && (
+                <div
+                  className="mono"
+                  style={{
+                    fontSize: '11px',
+                    padding: '6px 10px',
+                    borderRadius: '6px',
+                    color: 'var(--accent-emerald)',
+                    background: 'var(--accent-emerald-bg)',
+                    border: '1px solid var(--accent-emerald-border)',
+                  }}
+                >
+                  {statusMsg}
+                </div>
+              )}
+
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginTop: '4px',
+                  paddingTop: '12px',
+                  borderTop: '1px solid var(--border-hairline)',
+                }}
+              >
+                <button
+                  type="button"
+                  className="btn-ghost mono"
+                  style={{ color: 'var(--accent-rose)', borderColor: 'var(--accent-rose-border)' }}
+                  onClick={signOut}
+                >
+                  Sign out
+                </button>
+
+                <button type="submit" className="btn-primary" disabled={loading}>
+                  {loading ? 'Saving...' : 'Save Profile'}
+                </button>
+              </div>
+            </form>
+          </div>
+        ) : (
+          /* IF SIGNED OUT: Real Supabase Auth (OAuth + Email/Password + Magic Link) */
+          <div>
+            {/* Mode Switcher */}
+            <div
+              className="omni-mode-switch"
+              style={{ width: '100%', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', marginBottom: '14px' }}
+            >
+              <button
+                type="button"
+                className={`omni-mode-btn ${mode === 'signin' ? 'active' : ''}`}
+                style={{ justifyContent: 'center' }}
+                onClick={() => {
+                  setMode('signin');
+                  setErrorMsg(null);
+                  setStatusMsg(null);
+                }}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                className={`omni-mode-btn ${mode === 'signup' ? 'active' : ''}`}
+                style={{ justifyContent: 'center' }}
+                onClick={() => {
+                  setMode('signup');
+                  setErrorMsg(null);
+                  setStatusMsg(null);
+                }}
+              >
+                Create Account
+              </button>
+              <button
+                type="button"
+                className={`omni-mode-btn ${mode === 'magic' ? 'active' : ''}`}
+                style={{ justifyContent: 'center' }}
+                onClick={() => {
+                  setMode('magic');
+                  setErrorMsg(null);
+                  setStatusMsg(null);
+                }}
+              >
+                Magic Link
+              </button>
             </div>
-            <div>
-              <label className="block font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-                Handle <span className="text-zinc-400">(optional)</span>
-              </label>
-              <input
-                type="text"
-                value={handle}
-                onChange={(e) => setHandle(e.target.value)}
-                placeholder="janedoe"
-                className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 font-mono focus:outline-none focus:border-zinc-400"
-              />
+
+            {/* OAuth Providers */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '14px' }}>
+              <button
+                type="button"
+                className="btn-ghost"
+                style={{ height: '32px', justifyContent: 'center' }}
+                onClick={() => handleOAuth('github')}
+              >
+                <span>⌘ GitHub</span>
+              </button>
+              <button
+                type="button"
+                className="btn-ghost"
+                style={{ height: '32px', justifyContent: 'center' }}
+                onClick={() => handleOAuth('google')}
+              >
+                <span>◎ Google</span>
+              </button>
+            </div>
+
+            <div
+              className="mono"
+              style={{
+                fontSize: '10px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                color: 'var(--text-muted)',
+                textAlign: 'center',
+                marginBottom: '12px',
+              }}
+            >
+              — or with email —
+            </div>
+
+            <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div>
+                <label className="mono" style={{ display: 'block', fontSize: '10.5px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                  EMAIL ADDRESS *
+                </label>
+                <input
+                  type="email"
+                  required
+                  className="reply-input"
+                  style={{ width: '100%', minWidth: 0 }}
+                  placeholder="you@domain.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+
+              {mode !== 'magic' && (
+                <div>
+                  <label className="mono" style={{ display: 'block', fontSize: '10.5px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                    PASSWORD *
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    minLength={6}
+                    className="reply-input"
+                    style={{ width: '100%', minWidth: 0 }}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                </div>
+              )}
+
+              {mode === 'signup' && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <div>
+                    <label className="mono" style={{ display: 'block', fontSize: '10.5px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                      NAME
+                    </label>
+                    <input
+                      type="text"
+                      className="reply-input"
+                      style={{ width: '100%', minWidth: 0 }}
+                      placeholder="Alex Rivera"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="mono" style={{ display: 'block', fontSize: '10.5px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                      @HANDLE
+                    </label>
+                    <input
+                      type="text"
+                      className="reply-input mono"
+                      style={{ width: '100%', minWidth: 0 }}
+                      placeholder="alex_r"
+                      value={handle}
+                      onChange={(e) => setHandle(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {errorMsg && (
+                <div
+                  className="mono"
+                  style={{
+                    fontSize: '11px',
+                    padding: '7px 10px',
+                    borderRadius: '6px',
+                    color: 'var(--accent-rose)',
+                    background: 'var(--accent-rose-bg)',
+                    border: '1px solid var(--accent-rose-border)',
+                  }}
+                >
+                  {errorMsg}
+                </div>
+              )}
+
+              {statusMsg && (
+                <div
+                  className="mono"
+                  style={{
+                    fontSize: '11px',
+                    padding: '7px 10px',
+                    borderRadius: '6px',
+                    color: 'var(--accent-emerald)',
+                    background: 'var(--accent-emerald-bg)',
+                    border: '1px solid var(--accent-emerald-border)',
+                  }}
+                >
+                  {statusMsg}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={loading}
+                style={{ width: '100%', height: '34px', justifyContent: 'center', marginTop: '4px' }}
+              >
+                {loading
+                  ? 'Authenticating...'
+                  : mode === 'signin'
+                  ? 'Sign In →'
+                  : mode === 'signup'
+                  ? 'Create Account →'
+                  : 'Send Magic Link →'}
+              </button>
+            </form>
+
+            {/* Optional Collapsible Dev Persona Switcher for Testing Maintainer/Admin Views */}
+            <div style={{ marginTop: '14px', paddingTop: '10px', borderTop: '1px solid var(--border-hairline)' }}>
+              <button
+                type="button"
+                className="mono"
+                onClick={() => setShowDevPersonas((prev) => !prev)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  fontSize: '10.5px',
+                  cursor: 'pointer',
+                  width: '100%',
+                  textAlign: 'left',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <span>Dev Preview Personas (Admin / Maintainer)</span>
+                <span>{showDevPersonas ? '▾' : '▸'}</span>
+              </button>
+
+              {showDevPersonas && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+                  {profiles.slice(0, 4).map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className="filter-chip mono"
+                      onClick={() => signInAsProfile(p.id)}
+                    >
+                      @{p.handle} ({p.role})
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
-
-          <button
-            type="submit"
-            className="w-full py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-950 font-semibold flex items-center justify-center gap-2 cursor-pointer transition-colors"
-          >
-            <UserPlus className="w-3.5 h-3.5" />
-            <span>Continue with Email</span>
-          </button>
-        </form>
+        )}
       </div>
     </div>
   );
