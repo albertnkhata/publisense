@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useStore } from '../context/StoreContext';
 import {
   DEMO_PERSONAS_ENABLED,
+  MAGIC_LINK_ENABLED,
   loadAuthCapabilities,
   type AuthCapabilities,
 } from '../lib/authCapabilities';
@@ -37,7 +38,9 @@ export const AuthModal: React.FC = () => {
     email: true,
     google: false,
     github: false,
-    magicLink: false,
+    // Seeded from the build flag so an enabled Magic Link tab does not pop in
+    // after the settings fetch resolves; providers still come from the project.
+    magicLink: MAGIC_LINK_ENABLED,
     resolved: false,
   });
 

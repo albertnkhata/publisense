@@ -19,7 +19,12 @@
 
 ### D-011 · Every visible signal and comment in production is seeded fixture content
 
-**Status:** 🔴 blocks announce · **Raised:** 2026-10-20 · **Found during:** the sign-in work
+**Status:** 🟡 accepted for now (owner decision 2026-10-20) · **Raised:** 2026-10-20 · **Revisit:** before announce
+
+**Decision:** keep the demo content in place while the product is still being
+polished. Recorded so the risk is deliberate rather than forgotten — it is not a bug
+that got lost, it is a choice that has to be revisited out loud before the app is
+shown to anyone outside.
 
 The live site presents eight posts, nine comments and eight profiles as community
 activity. **All of it is fixture data.** Verified against production with the anon
@@ -30,33 +35,35 @@ posts.author_id      -> usr-maya 2, usr-elena 1, usr-jonas 1, usr-lucas 1,
                         usr-marcus 1, usr-noah 1, usr-albert 1   (100% fixtures)
 comments.author_id   -> usr-noah 3, usr-maya 2, usr-marcus 1, usr-elena 1,
                         usr-jonas 1, usr-albert 1                (100% fixtures)
-auth.users           -> 1 real account (the owner's hotmail), 0 real community members
+auth.users           -> 2 real accounts (both the owner's), 0 real community members
 ```
 
 The personas are named, avatar'd, and attributed to real-looking domains
 (`@systems.dev`, `@anysphere.inc`, …). `usr-albert` even carries `role = 'admin'`,
-so the public `public_profiles` view advertises an admin account that no human can
-sign in to.
-
-Presenting invented users as a community is the one thing no amount of engineering
-hygiene fixes — it is a truthfulness problem, not a bug. It also makes every screen
-misleading in a way a visitor cannot detect: a "4,120+ community signals" headline
-over eight fixture posts reads as traction that does not exist.
+so the public `public_profiles` view advertises an admin account no human can sign
+in to.
 
 **Already mitigated (2026-10-20, migration `0010`):** fixture rows no longer hold
 deliverable email addresses — they were moved to `@publisense.invalid`, which also
-removed the signup collision that blocked the owner's own address.
+removed the signup collision that blocked the owner's own address. Fixtures can no
+longer be mistaken for real accounts at the database level.
 
-**Decision needed before announce.** Three honest options:
-- **A** — delete the fixtures and shipped seed content; launch on a genuinely empty
-  index (the "new and empty" honesty, and the empty-state UI has to be good).
-- **B** — keep them but label them: a visible "sample data" banner, and personas
-  marked as examples rather than members.
-- **C** — keep as-is, which means the first real visitor is shown fabricated social
-  proof. Not recommended.
+**What keeping them costs:** a headline like "4,120+ community signals" over eight
+fixture posts reads as traction that does not exist. The product's central claim —
+"see which teams actually listen" — rests on reactions no team ever gave. That is a
+truthfulness exposure, not an engineering one, so it is the owner's call.
 
-**The cost:** as it stands, the product's central claim — "see which teams actually
-listen" — rests on reactions no team ever gave.
+**Revisit trigger — any of these ends the deferral:**
+- a public announcement, launch post, or shareable link outside the owner's circle
+- the first time real users are invited
+- a screenshot or demo shown to a third party (investor, partner, customer)
+
+**Then choose, in order of honesty:**
+- **A** — delete fixtures and shipped seed content; launch on a genuinely empty
+  index (requires a decent empty state)
+- **B** — keep them, but label them: a visible "sample data" banner and personas
+  marked as examples rather than members
+
 
 ---
 

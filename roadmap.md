@@ -95,8 +95,9 @@ Implemented in migrations `0004`–`0007`:
 **Still open, in priority order:**
 
 1. **The visible content is all fixture data** — 8 posts, 9 comments and 8 profiles
-   are seeded personas with real-looking addresses; zero real members. `D-011`.
-   This is the only item that blocks an *announce* rather than a deploy.
+   are seeded personas with real-looking addresses; zero real members. **Accepted for
+   now by owner decision (2026-10-20)** while the product is polished; must be
+   revisited before any announce. `D-011`.
 2. **Seeded addresses collided with real signups** — a person whose email matched a
    fixture got `HTTP 500 duplicate key … profiles_email_key`, which included the
    owner's own address. Fixed by migration `0010` (fixtures moved to
