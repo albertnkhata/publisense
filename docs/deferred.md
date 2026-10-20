@@ -241,7 +241,7 @@ scoped policies are live. So this is now a decision, not a pending condition:
   code-split into their own chunks.
 
 - **D-001** — old Firebase build superseded (2026-10-20). V2 is live at
-  https://publisense.vercel.app. The Firebase build at `publisense-app.web.app` still
+  https://publisense.app (with `publisense.vercel.app` still resolving). The Firebase build at `publisense-app.web.app` still
   serves the pre-Supabase bundle; retiring that GCP project is tracked in issue #7,
   not here.
 
