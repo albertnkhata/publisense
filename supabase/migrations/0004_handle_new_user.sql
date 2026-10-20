@@ -45,7 +45,6 @@ declare
   v_handle  text;
   v_name    text;
   v_avatar  text;
-  v_suffix  int := 0;
 begin
   v_email := lower(coalesce(new.email, new.id::text || '@publisense.app'));
 
@@ -69,33 +68,66 @@ begin
     v_base := 'user_' || substr(new.id::text, 1, 6);
   end if;
 
-  -- de-duplicate handle (unique constraint). id is distinct, so bounded.
-  v_handle := v_base;
-  while exists (select 1 from public.profiles p where p.handle = v_handle) loop
-    v_suffix := v_suffix + 1;
-    v_handle := left(v_base, 20) || '_' || v_suffix::text;
-  end loop;
-
+  -- display name + avatar (independent of the handle)
   v_name := coalesce(
     nullif(new.raw_user_meta_data ->> 'full_name', ''),
     nullif(new.raw_user_meta_data ->> 'name', ''),
     nullif(new.raw_user_meta_data ->> 'user_name', ''),
-    v_handle
+    v_base
   );
 
-  v_avatar := coalesce(new.raw_user_meta_data ->> 'avatar_url', '');
+  v_avatar := coalesce(nullif(new.raw_user_meta_data ->> 'avatar_url', ''), '');
 
-  insert into public.profiles (id, handle, name, email, avatar_url, bio, role)
-  values (
-    new.id::text,
-    v_handle,
-    v_name,
-    v_email,
-    v_avatar,
-    'Builder sharing product feedback and backing community signals on Publisense.',
-    'user'   -- hardcoded: never trust client metadata for role
-  )
-  on conflict (id) do nothing;
+  -- de-duplicate handle (profiles.handle is unique).
+  --
+  -- RACE SAFETY: a check-then-insert loop is not safe under concurrency. Two
+  -- users signing up at the same moment with the same derived handle can both
+  -- observe it as free, then one hits the unique constraint and the whole
+  -- signup fails with a 500 - an unexplained failure at the worst possible
+  -- moment. Instead the suffix is derived from the user's own uuid, which is
+  -- unique by construction, so two concurrent inserts cannot collide.
+  --
+  -- Order of preference:
+  --   1. the plain handle, if free  (best UX - most users keep their name)
+  --   2. sanitised-handle + '_' + first 4 hex of the uid  (unique)
+  --   3. sanitised-handle + '_' + full uid               (guaranteed unique)
+  --
+  -- The unique_violation handler covers the narrow window where another
+  -- transaction takes the name between the check and the insert.
+  begin
+    if not exists (select 1 from public.profiles p where p.handle = v_base) then
+      v_handle := v_base;
+    else
+      v_handle := left(v_base, 19) || '_' || substr(new.id::text, 1, 4);
+    end if;
+
+    insert into public.profiles (id, handle, name, email, avatar_url, bio, role)
+    values (
+      new.id::text,
+      v_handle,
+      v_name,
+      v_email,
+      v_avatar,
+      'Builder sharing product feedback and backing community signals on Publisense.',
+      'user'
+    );
+  exception when unique_violation then
+    -- Either the handle or the id collided. id collisions mean the profile
+    -- already exists (re-entrant trigger), which is a no-op, not an error.
+    if exists (select 1 from public.profiles p where p.id = new.id::text) then
+      return new;
+    end if;
+    insert into public.profiles (id, handle, name, email, avatar_url, bio, role)
+    values (
+      new.id::text,
+      left(v_base, 14) || '_' || new.id::text,  -- full uuid: cannot collide
+      v_name,
+      v_email,
+      v_avatar,
+      'Builder sharing product feedback and backing community signals on Publisense.',
+      'user'
+    );
+  end;
 
   return new;
 end;
