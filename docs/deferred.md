@@ -17,6 +17,49 @@
 
 ## Open
 
+### D-011 · Every visible signal and comment in production is seeded fixture content
+
+**Status:** 🔴 blocks announce · **Raised:** 2026-10-20 · **Found during:** the sign-in work
+
+The live site presents eight posts, nine comments and eight profiles as community
+activity. **All of it is fixture data.** Verified against production with the anon
+key and the service_role key:
+
+```
+posts.author_id      -> usr-maya 2, usr-elena 1, usr-jonas 1, usr-lucas 1,
+                        usr-marcus 1, usr-noah 1, usr-albert 1   (100% fixtures)
+comments.author_id   -> usr-noah 3, usr-maya 2, usr-marcus 1, usr-elena 1,
+                        usr-jonas 1, usr-albert 1                (100% fixtures)
+auth.users           -> 1 real account (the owner's hotmail), 0 real community members
+```
+
+The personas are named, avatar'd, and attributed to real-looking domains
+(`@systems.dev`, `@anysphere.inc`, …). `usr-albert` even carries `role = 'admin'`,
+so the public `public_profiles` view advertises an admin account that no human can
+sign in to.
+
+Presenting invented users as a community is the one thing no amount of engineering
+hygiene fixes — it is a truthfulness problem, not a bug. It also makes every screen
+misleading in a way a visitor cannot detect: a "4,120+ community signals" headline
+over eight fixture posts reads as traction that does not exist.
+
+**Already mitigated (2026-10-20, migration `0010`):** fixture rows no longer hold
+deliverable email addresses — they were moved to `@publisense.invalid`, which also
+removed the signup collision that blocked the owner's own address.
+
+**Decision needed before announce.** Three honest options:
+- **A** — delete the fixtures and shipped seed content; launch on a genuinely empty
+  index (the "new and empty" honesty, and the empty-state UI has to be good).
+- **B** — keep them but label them: a visible "sample data" banner, and personas
+  marked as examples rather than members.
+- **C** — keep as-is, which means the first real visitor is shown fabricated social
+  proof. Not recommended.
+
+**The cost:** as it stands, the product's central claim — "see which teams actually
+listen" — rests on reactions no team ever gave.
+
+---
+
 ### D-010 · Claimed boards have no approval path
 
 **Status:** 🟡 ship-with-risk · **Raised:** 2026-10-20 · **PR:** #25 · **Affects:** roadmap 3.1
@@ -69,36 +112,49 @@ other users. Guarded at every current call site.
 
 ---
 
-### D-005 · Email confirmation disabled
+### D-005 · Email confirmation disabled; SMTP now configured but mail lands in spam
 
-**Status:** 🟡 ship-with-risk · **Deferred:** 2026-10-20 · **PR:** #15
+**Status:** 🟡 ship-with-risk · **Deferred:** 2026-10-20 · **PR:** #15 · **Partially resolved:** 2026-10-20
 
-`mailer_autoconfirm: true` on `publisense`, so signup issues a session
-immediately and no confirmation email is attempted.
+**What was true at deferral:** `mailer_autoconfirm: true` on `publisense`, and every
+SMTP field was empty (`smtp_host`, `smtp_port`, `smtp_user`, `smtp_admin_email`,
+`smtp_sender_name` all `None`). With confirmation required, signup returned
+`HTTP 200` but **no session**, and no email was ever sent — there was no mailer.
+Every new user was stranded permanently unconfirmed. Magic link and password reset
+were therefore dead, and a user who forgot a password was locked out forever.
 
-**Deliberate because:** **every SMTP field was unset** (`smtp_host`, `smtp_port`,
-`smtp_user`, `smtp_admin_email`, `smtp_sender_name` all `None`). With confirmation
-required, signup returned `HTTP 200` but **no session**, and no email was ever
-sent — there was no mailer. Every new user was stranded permanently unconfirmed.
+**What changed (2026-10-20):** SMTP is live through Resend —
+`smtp.resend.com:587`, user `resend`, sender `Publisense <auth@ridgewoodinsights.com>`
+— set via the management API on the `publisense` project, with
+`rate_limit_email_sent` raised 2 → 30.
 
-**Revisit when:** MVP critical path item 3. Choose:
-- **A** — configure SMTP (Resend is already used for Ridgewood lead alerts), re-enable confirmation
-- **B** — ship without confirmation and **remove the magic-link option from `AuthModal`**
+Verified end to end, not inferred: `POST /auth/v1/otp` returned `200` and the mail
+**arrived** (`From: Publisense <auth@ridgewoodinsights.com>`, subject
+"Your sign-in link", 2026-10-20 19:04 UTC).
 
-**The cost:**
-- no email verification — anyone can claim an address they don't own
-- **magic-link sign-in is silently broken** (`signInWithMagicLink` exists in `StoreContext` and will fail)
-- **no password reset**
-- **no account recovery** — a user who forgets their password is locked out permanently
+**Still open — deliverability.** That message landed in **Gmail spam**. The cause is
+visible in DNS: `ridgewoodinsights.com` apex carries `v=spf1 include:zohomail.com ~all`,
+while Resend transmits from Amazon SES, so SPF fails for the apex. Resend's own
+correct setup already exists on the `send` subdomain
+(`send TXT v=spf1 include:amazonses.com ~all`, `resend._domainkey`), but the
+available Resend key is scoped to the apex address only and cannot send as
+`send.ridgewoodinsights.com`, and it cannot create or verify a new domain.
 
-**Reversal:** `PATCH /v1/projects/wyjfgrgxmhumyzwcrywj/config/auth` with
-`{"mailer_autoconfirm": false}` — only once SMTP is configured and testable.
+**To close it, pick one:**
+- **A** — verify `publisense.app` in Resend (needs a full-access Resend key; the DNS
+  records can then be added to its Vercel zone), sender becomes
+  `auth@publisense.app`. This is the right end state: the brand on the envelope
+  matches the brand in the body.
+- **B** — re-scope the existing Resend key to `send.ridgewoodinsights.com` and send
+  from that subdomain (SPF already aligned; one dashboard change, no new DNS).
 
-**Current live state (verified 2026-10-20):** `/auth/v1/settings` reports
-`email: true`, `mailer_autoconfirm: true`, `google: false`, `github: false`. Email +
-password is the only working sign-in path; the `◎ Google`, `⌘ GitHub` and
-`Magic Link` controls are all visible in `AuthModal` and none of them can succeed.
-This is the same decision as issue #5 — resolve them together.
+Until either lands: `mailer_autoconfirm` stays `true` (so nobody is stranded
+unconfirmed), and the Magic Link tab stays behind `VITE_AUTH_MAGIC_LINK` (default
+`false`) — an email that reliably lands in spam is worse than no email tab.
+
+**The cost of leaving it:** no email verification, anyone can claim an address they
+don't own, no password reset, no account recovery.
+
 
 ---
 
