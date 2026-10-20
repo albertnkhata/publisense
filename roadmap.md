@@ -39,7 +39,7 @@ flowchart LR
 | Milestone | Scope & Deliverables | Target Files |
 | :--- | :--- | :--- |
 | **1.1 Instant Product Indexing from Omni-Bar** ✅ | Allow users typing an unknown `@Product` directly in the Omni-Bar composer to create + tag that product inline in one step (auto-generating slug & category without leaving the composer). | [`HomePage.tsx`](./src/pages/HomePage.tsx) |
-| **1.2 Upvoting & Auto-Pinning Workarounds** ✅ | Users can upvote individual replies/workarounds (`likesCount`), automatically promoting the highest-upvoted `'workaround'` comment into the card's `Top Community Workaround` callout box. | [`SignalCard.tsx`](./src/components/SignalCard.tsx), [`StoreContext.tsx`](./src/context/StoreContext.tsx) |
+| **1.2 Upvoting & Auto-Pinning Workarounds** ⚠️ | Users can upvote individual replies/workarounds (`likesCount`), automatically promoting the highest-upvoted `'workaround'` comment into the card's `Top Community Workaround` callout box. **The UI works but the vote is silently dropped in production — see [Known Regressions](#-known-regressions-currently-broken-in-production).** | [`SignalCard.tsx`](./src/components/SignalCard.tsx), [`StoreContext.tsx`](./src/context/StoreContext.tsx) |
 | **1.3 Duplicate Detection in Omni-Bar** ✅ | As a user types a new signal headline in `+ Post` mode, show live matching existing signals below the bar so they can `+1 / Same Issue` an existing post instead of fragmenting votes. | [`HomePage.tsx`](./src/pages/HomePage.tsx) |
 | **1.4 Real-Time 7d Velocity Calculation** ✅ | Computes `7d Velocity` dynamically from `post_votes`, `post_reposts`, and new `posts` timestamps over the trailing 7 days, dynamically driving the Right Rail `Trending Products` leaderboard. | [`HomePage.tsx`](./src/pages/HomePage.tsx), [`StoreContext.tsx`](./src/context/StoreContext.tsx) |
 
@@ -60,7 +60,7 @@ flowchart LR
 
 | Milestone | Scope & Deliverables | Target Files |
 | :--- | :--- | :--- |
-| **3.1 Domain-Verified Board Claiming** ✅ | Allows builders to claim their `/p/:slug` board via company work email domain or DNS TXT record, earning the `✓ Verified Team` badge and maintainer permissions. | [`HomePage.tsx`](./src/pages/HomePage.tsx), [`StoreContext.tsx`](./src/context/StoreContext.tsx) |
+| **3.1 Domain-Verified Board Claiming** ⚠️ | Allows builders to claim their `/p/:slug` board via company work email domain or DNS TXT record, earning the `✓ Verified Team` badge and maintainer permissions. **UI and client logic are built, but the claim write is rejected by RLS in production — see [Known Regressions](#-known-regressions-currently-broken-in-production).** | [`HomePage.tsx`](./src/pages/HomePage.tsx), [`StoreContext.tsx`](./src/context/StoreContext.tsx) |
 | **3.2 Inline Maintainer Triage Controls** ✅ | Verified maintainers can update signal status (`Planned`, `In Progress`, `Shipped`) and author official emerald `Builder Notes` directly from [`SignalCard`](./src/components/SignalCard.tsx) in the feed. | [`SignalCard.tsx`](./src/components/SignalCard.tsx) |
 | **3.3 Changelog & "Shipped" Rollup Banner** ✅ | Dedicated summary banner on `/p/:slug` celebrating shipped community requests, tracking team responsiveness rate, and closing the community feedback loop. | [`HomePage.tsx`](./src/pages/HomePage.tsx) |
 
@@ -73,6 +73,55 @@ Implemented in migrations `0004`–`0007`:
 - [x] **Signup Trigger (Migration `0004`)**: Added `handle_new_user` on `auth.users` to atomically provision a `profiles` row inside the transaction with handle de-duplication.
 - [x] **Privilege Escalation Prevention (Migration `0007`)**: Added `guard_profile_privileges` trigger preventing users from patching their own role to `admin` or changing `managed_org_id`.
 - [x] **Privacy Safeguard (Migration `0007`)**: Added `public_profiles` view omitting private email addresses from public reads; updated `StoreContext` loader.
+
+---
+
+## ⚠️ Known Regressions (Currently Broken in Production)
+
+> [!WARNING]
+> Phase 4's lockdown is correct, but it **broke two Phase 1/3 features** that were
+> written against the permissive-RLS prototype. Both were verified against the live
+> database on 2026-10-20 — not inferred from reading code. Tracked as `D-008` and
+> `D-009` in [`docs/deferred.md`](./docs/deferred.md).
+
+### 1. Board claiming is rejected by RLS — Phase 3.1
+
+`claimProductBoard()` writes `role: 'maintainer'` and `managed_org_id` to the
+caller's own `profiles` row. `guard_profile_privileges` correctly rejects exactly
+that, because it is the privilege-escalation path the trigger exists to block:
+
+```
+PATCH /rest/v1/profiles?id=eq.<uid>
+  {"role":"maintainer","managed_org_id":"org-anthropic"}
+→ HTTP 400  P0001  profiles.role cannot be changed by the owner
+```
+
+**The guard is right and the client is wrong.** Fix: a `SECURITY DEFINER` RPC —
+`claim_product_board(product_id, work_email)` — that verifies the email domain (or
+DNS TXT) server-side and performs the role change itself. The client must never
+write `role`.
+
+### 2. Comment upvoting silently saves nothing — Phase 1.2
+
+The only UPDATE policy on `comments` is `comments author update`
+(`auth.uid() = author_id`). A non-author upvoting someone else's workaround matches
+**zero rows and returns success**:
+
+```
+PATCH /rest/v1/comments?id=eq.cmt-1  {"likes_count": 43}
+→ HTTP 200,  rows affected: 0
+```
+
+**Worse than a hard failure** — the UI reports success while persisting nothing, so
+it will appear to work during a demo. Fix: a `comment_votes` table (one row per
+voter, so `likes_count` becomes an aggregate and one-vote-per-user becomes
+enforceable), or a counter RPC.
+
+### Not blocking a read-only launch
+
+Browsing, posting signals, commenting and voting on *signals* (`post_votes`) all
+work. Claiming and workaround-upvoting do not. That is fine for a soft launch where
+builders are not yet invited to claim boards.
 
 ---
 
