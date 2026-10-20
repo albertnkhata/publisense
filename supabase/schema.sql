@@ -140,7 +140,28 @@ create table if not exists public.notifications (
 create index if not exists idx_notifications_recipient on public.notifications(recipient_id, created_at desc);
 
 -- ============================================================================
--- ROW LEVEL SECURITY (RLS) POLICIES (Open Index + Persona Switcher Support)
+-- ROW LEVEL SECURITY
+-- ============================================================================
+-- RLS is NOT defined in this file. It is defined in supabase/migrations/, which
+-- is the only source of truth for access control. This is deliberate:
+--
+--   * This file is bootstrap DDL (tables, indexes, constraints) plus a local-dev
+--     seed. It is meant to be safe to re-run against an existing project.
+--   * The policies used to live here as 17 `using (true)` rules. Because CREATE
+--     POLICY only adds, re-running this file against a locked-down project
+--     re-ADDED permissive policies alongside the secure ones. Permissive
+--     policies OR together, so that silently reopened the whole database.
+--   * Keeping RLS out of this file makes that failure mode impossible.
+--
+-- Apply access control in this order, after this file:
+--
+--   supabase/migrations/0004_handle_new_user.sql       -- profiles row on signup
+--   supabase/migrations/0006_production_rls.sql        -- the real policies
+--   supabase/migrations/0007_fix_profiles_recursion.sql -- recursion + guards
+--
+-- RLS is enabled on every table below but with NO policies until the migrations
+-- run. That means the tables are closed by default, which is the safe direction
+-- to fail: an un-migrated environment denies access rather than allowing it.
 -- ============================================================================
 alter table public.organizations enable row level security;
 alter table public.products enable row level security;
@@ -152,59 +173,4 @@ alter table public.comments enable row level security;
 alter table public.follows enable row level security;
 alter table public.notifications enable row level security;
 
--- Drop old restrictive policies if re-running
-drop policy if exists "Public read organizations" on public.organizations;
-drop policy if exists "Public write organizations" on public.organizations;
-drop policy if exists "Public read products" on public.products;
-drop policy if exists "Public write products" on public.products;
-drop policy if exists "Public read profiles" on public.profiles;
-drop policy if exists "Users manage own profile" on public.profiles;
-drop policy if exists "Public write profiles" on public.profiles;
-drop policy if exists "Public read posts" on public.posts;
-drop policy if exists "Authenticated users create posts" on public.posts;
-drop policy if exists "Authors or maintainers update posts" on public.posts;
-drop policy if exists "Authors or admins delete posts" on public.posts;
-drop policy if exists "Public write posts" on public.posts;
-drop policy if exists "Public read post_votes" on public.post_votes;
-drop policy if exists "Users manage own votes" on public.post_votes;
-drop policy if exists "Public write post_votes" on public.post_votes;
-drop policy if exists "Public read post_reposts" on public.post_reposts;
-drop policy if exists "Users manage own reposts" on public.post_reposts;
-drop policy if exists "Public write post_reposts" on public.post_reposts;
-drop policy if exists "Public read comments" on public.comments;
-drop policy if exists "Authenticated users create comments" on public.comments;
-drop policy if exists "Authors delete own comments" on public.comments;
-drop policy if exists "Public write comments" on public.comments;
-drop policy if exists "Public read follows" on public.follows;
-drop policy if exists "Users manage own follows" on public.follows;
-drop policy if exists "Public write follows" on public.follows;
-drop policy if exists "Users read own notifications" on public.notifications;
-drop policy if exists "Users update own notifications" on public.notifications;
-drop policy if exists "Public access notifications" on public.notifications;
-
--- Open-Index Read & Write Policies (Allows anon key + persona switcher to read/write)
-create policy "Public read organizations" on public.organizations for select using (true);
-create policy "Public write organizations" on public.organizations for all using (true) with check (true);
-
-create policy "Public read products" on public.products for select using (true);
-create policy "Public write products" on public.products for all using (true) with check (true);
-
-create policy "Public read profiles" on public.profiles for select using (true);
-create policy "Public write profiles" on public.profiles for all using (true) with check (true);
-
-create policy "Public read posts" on public.posts for select using (true);
-create policy "Public write posts" on public.posts for all using (true) with check (true);
-
-create policy "Public read post_votes" on public.post_votes for select using (true);
-create policy "Public write post_votes" on public.post_votes for all using (true) with check (true);
-
-create policy "Public read post_reposts" on public.post_reposts for select using (true);
-create policy "Public write post_reposts" on public.post_reposts for all using (true) with check (true);
-
-create policy "Public read comments" on public.comments for select using (true);
-create policy "Public write comments" on public.comments for all using (true) with check (true);
-
-create policy "Public read follows" on public.follows for select using (true);
-create policy "Public write follows" on public.follows for all using (true) with check (true);
-
-create policy "Public access notifications" on public.notifications for all using (true) with check (true);
+-- No policies here by design. See supabase/migrations/.
