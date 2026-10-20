@@ -1,159 +1,99 @@
-# Publisense — Roadmap
+# Publisense — Product & Engineering Roadmap
 
-> **Status note.** This roadmap was **reconstructed on 2026-10-19** from verifiable
-> repository evidence: git commit subjects, routed paths, `StoreContext` capability
-> surface, the applied Supabase schema, and open GitHub issues. It is **not** the
-> original document — that one existed only inside a Gemini session and was never
-> written to disk. Anything below that cannot be traced to code, schema, or an
-> issue is marked *(inferred)*. Treat phase names and shipped items as fact;
-> treat sequencing and intent as best-effort reconstruction.
->
-> Verify or replace this once the original is recovered.
+> [!IMPORTANT]
+> **Strategic Thesis**: Win the **community and discovery layer first** (an open, high-craft index where users log friction, share wishlists, and exchange community workarounds for *any* product—without waiting for enterprise buy-in). Once community signal density is undeniable on `/p/:slug` boards, product teams naturally claim their boards to respond, triage, and close the loop.
 
----
-
-## Where the product stands
-
-**Architecture:** React 19 + Vite 6 + Tailwind 4, Supabase (Postgres + Auth) backend.
-Firebase/Firestore was **removed entirely** in `7e0b0b0` — no Firestore rules,
-no client config, no `firebase.ts`. Supabase is the canonical backend.
-
-**Database:** project `wyjfgrgxmhumyzwcrywj`, org *Publisense*, region `eu-central-2`.
-9 tables, seeded with 48 rows (7 orgs / 13 products / 7 profiles / 8 posts /
-9 comments / 4 votes).
-
-**Build:** `tsc --noEmit` 0 errors; `vite build` clean at 603 kB (171 kB gzip),
-down from 1.13 MB on the Firebase version.
+```mermaid
+flowchart LR
+  P0["Phase 0: Foundation (Done)"] --> P1["Phase 1: Open Index (Done)"]
+  P1 --> P2["Phase 2: Identity & Permalinks (Done)"]
+  P2 --> P3["Phase 3: Builder Claiming (Done)"]
+  P3 --> P4["Phase 4: Security & RLS (Done)"]
+  P4 --> P5["Phase 5: Deploy & MVP Gate"]
+  P5 --> P6["Phase 6: Intelligence & Pro Tier"]
+```
 
 ---
 
-## Phase 0 — Foundation ✅ shipped
+## Current Architecture & State
 
-Commit `7e0b0b0` — *port high-craft open index UI, full-width signal cards, and live Supabase schema*
-
-- Full-width signal card layout
-- Open index (public read model — anyone can browse without an account)
-- Supabase schema authored and applied to `publisense`
-- Seed dataset for a browsable prototype
-- Firebase removal
+- **Frontend:** React 19 + Vite 6 + Tailwind 4, Obsidian Dark / Alabaster Light themes, hairline borders (`1px`), `Inter` + `JetBrains Mono` typography.
+- **Backend:** Supabase (Postgres + Auth, project `wyjfgrgxmhumyzwcrywj`, region `eu-central-2`).
+- **Data Model:** 9 tables (`organizations`, `products`, `profiles`, `posts`, `comments`, `post_votes`, `post_reposts`, `follows`, `notifications`) + `public_profiles` secure view.
+- **Access Control:** Production RLS with 32 scoped policies, `handle_new_user` trigger for signup profile creation, and `guard_profile_privileges` privilege escalation prevention.
+- **Build Status:** `tsc --noEmit` 0 errors; `vite build` clean.
 
 ---
 
-## Phase 1 — Open index loop ✅ shipped
+## Phase 0 — Foundation & High-Craft Baseline ✅ *(Completed)*
 
-Commit `8e14f54` — *add real Supabase auth and Phase 1 open index loop*
-
-**Auth surface** (all in `StoreContext`):
-- password sign-in / sign-up
-- magic link
-- OAuth — GitHub and Google
-- profile sync on first sign-in (`syncSupabaseUserToProfile`)
-
-**Open index mechanics:**
-- inline indexing (compose without leaving the feed — `InlineComposer`)
-- workaround voting (comments carry `kind: 'workaround'`)
-- duplicate detection
-- live 7-day velocity score driving a trending-products ranking (`HomePage`)
+- [x] **High-Craft UI System** ([`index.css`](./src/index.css), [`ThemeContext.tsx`](./src/context/ThemeContext.tsx)): Obsidian Dark ↔ Alabaster Light themes, `1px` hairline geometry, `28px` workspace gutter, `Inter` + `JetBrains Mono`.
+- [x] **Core Open Index & `/p/:slug` Product Pages** ([`HomePage.tsx`](./src/pages/HomePage.tsx)): Symmetrical Hero, Central Omni-Bar (`Search /` ↔ `+ Post C`), Feed Filter Bar, and Right Discovery Rail.
+- [x] **Full-Width Signal Card + Bottom Upvote Pill Bar** ([`SignalCard.tsx`](./src/components/SignalCard.tsx)): Highlighted `Top Community Workaround` (indigo) & `Builder Note` (emerald) callouts + inline expandable community threads.
+- [x] **Supabase Relational Database & Seed Catalog** ([`schema.sql`](./supabase/schema.sql), [`StoreContext.tsx`](./src/context/StoreContext.tsx)): 8 core relational tables + seed catalog. Firebase completely removed.
 
 ---
 
-## Phase 2 — Identity & persistence ✅ shipped
+## Phase 1 — Open Index Polish & Frictionless Community Loop ✅ *(Completed)*
 
-Commit `4d3acda` — *complete Phase 2*
-
-- Signal permalinks — `/post/:id` → `PostDetailPage`
-- Contributor portfolios — `/u/:handle` → `ProfilePage`
-- In-app notifications drawer (`AppShell`), with `markNotificationRead` /
-  `markAllNotificationsRead`
-
----
-
-## Phase 3 — Maintainer tools ✅ shipped
-
-Commit `9a28a30` — *complete Phase 3 (domain-verified board claiming, inline maintainer triage on SignalCard, and Shipped rollup changelog)*
-
-- **Board claiming** — `claimProductBoard(productId, {workEmail, roleTitle, verificationMethod})`. Two verification paths: `email_domain` (must match the product's org domain) and `dns_txt`.
-- **Inline maintainer triage** — on `SignalCard`, gated by `canManageProduct`. Status selection plus an official note, saved in place without leaving the feed.
-- **Shipped rollup changelog** — a `shipped` tab on the feed listing resolved signals, plus per-product counts ("Community requests resolved & shipped by …").
+| Milestone | Scope & Deliverables | Target Files |
+| :--- | :--- | :--- |
+| **1.1 Instant Product Indexing from Omni-Bar** ✅ | Allow users typing an unknown `@Product` directly in the Omni-Bar composer to create + tag that product inline in one step (auto-generating slug & category without leaving the composer). | [`HomePage.tsx`](./src/pages/HomePage.tsx) |
+| **1.2 Upvoting & Auto-Pinning Workarounds** ✅ | Users can upvote individual replies/workarounds (`likesCount`), automatically promoting the highest-upvoted `'workaround'` comment into the card's `Top Community Workaround` callout box. | [`SignalCard.tsx`](./src/components/SignalCard.tsx), [`StoreContext.tsx`](./src/context/StoreContext.tsx) |
+| **1.3 Duplicate Detection in Omni-Bar** ✅ | As a user types a new signal headline in `+ Post` mode, show live matching existing signals below the bar so they can `+1 / Same Issue` an existing post instead of fragmenting votes. | [`HomePage.tsx`](./src/pages/HomePage.tsx) |
+| **1.4 Real-Time 7d Velocity Calculation** ✅ | Computes `7d Velocity` dynamically from `post_votes`, `post_reposts`, and new `posts` timestamps over the trailing 7 days, dynamically driving the Right Rail `Trending Products` leaderboard. | [`HomePage.tsx`](./src/pages/HomePage.tsx), [`StoreContext.tsx`](./src/context/StoreContext.tsx) |
 
 ---
 
-## Phase 3b — Wire the orphaned pages *(inferred — not shipped)*
+## Phase 2 — Real Auth, Permalinks & Social Reputation ✅ *(Completed)*
 
-Verified after `9a28a30`: `App.tsx` still routes only `/`, `/p/:slug`, `/post/:id`, `/u/:handle`.
-
-Four page components exist in `src/pages/` and are **imported by nothing**:
-
-| Component | Status | Notes |
-|---|---|---|
-| `ExplorePage.tsx` | built, **orphaned** | no route, no importer |
-| `OrgPage.tsx` | built, **orphaned** | no route, no importer |
-| `ProductPage.tsx` | built, **orphaned** | `/p/:slug` renders `HomePage`, not this |
-| `SettingsPage.tsx` | built, **orphaned** | `updateCurrentProfile` exists, no UI route |
-
-Closing this is the cheapest meaningful gain: the code exists, only routing is missing.
+| Milestone | Scope & Deliverables | Target Files |
+| :--- | :--- | :--- |
+| **2.1 Supabase Auth (Email / Magic Link / OAuth)** ✅ | Upgraded [`AuthModal`](./src/components/AuthModal.tsx) to support real Supabase Email/Password, Magic Link, and GitHub/Google OAuth sessions with automatic profile hydration and dev persona switching. | [`AuthModal.tsx`](./src/components/AuthModal.tsx), [`StoreContext.tsx`](./src/context/StoreContext.tsx) |
+| **2.2 Dedicated Signal Permalinks (`/post/:id`)** ✅ | Dedicated permalink view ([`PostDetailPage.tsx`](./src/pages/PostDetailPage.tsx)) in the high-craft design system with expanded community threads, maintainer triage controls, and related board signals. | [`PostDetailPage.tsx`](./src/pages/PostDetailPage.tsx), [`App.tsx`](./src/App.tsx) |
+| **2.3 Contributor Profiles (`/u/:handle`)** ✅ | "Product Sense Portfolio" page ([`ProfilePage.tsx`](./src/pages/ProfilePage.tsx)) showing a user's logged signals, authored workarounds, community impact score, and backed products. | [`ProfilePage.tsx`](./src/pages/ProfilePage.tsx), [`App.tsx`](./src/App.tsx) |
+| **2.4 In-App Notifications Drawer** ✅ | Topbar notification bell (`🔔`) with unread count badge, mark-all-read action, and direct navigation to `/post/:id` when signals receive workarounds or status changes. | [`AppShell.tsx`](./src/components/AppShell.tsx), [`StoreContext.tsx`](./src/context/StoreContext.tsx) |
 
 ---
 
-## Phase 4 — Security & correctness 🔴 blocking any deploy
+## Phase 3 — Builder Claiming & Official Team Loops ✅ *(Completed)*
 
-**This is the gate before the app can face the public.** See [`MVP.md`](./MVP.md)
-for the shipping criteria this feeds into.
-
-- **RLS lockdown** — issue #11. The database currently has **17 policies, all
-  permissive (`using true`), zero auth-scoped**. Anyone holding the public anon
-  key can `SELECT`/`INSERT`/`UPDATE`/`DELETE` every table. Confirmed temporary by
-  product owner; not acceptable for production.
-- **`profiles` write exposure** — worst case of the above. `email`, `role`, and
-  `managed_org_id` are client-writable, so any visitor can self-promote to `admin`
-  or change another user's email.
-- **`notifications` is openly readable** — exposes every user's notification set.
-- **No `handle_new_user` trigger** — `posts.author_id`, `comments.author_id`,
-  `post_votes.user_id`, `follows.follower_id`, and both `notifications` FKs all
-  reference `profiles(id)`, but nothing creates a profile row on signup. A new
-  user's first write fails on foreign key. Signup is broken end-to-end until this
-  is added.
-- **No tests** — zero test files in the repo.
+| Milestone | Scope & Deliverables | Target Files |
+| :--- | :--- | :--- |
+| **3.1 Domain-Verified Board Claiming** ✅ | Allows builders to claim their `/p/:slug` board via company work email domain or DNS TXT record, earning the `✓ Verified Team` badge and maintainer permissions. | [`HomePage.tsx`](./src/pages/HomePage.tsx), [`StoreContext.tsx`](./src/context/StoreContext.tsx) |
+| **3.2 Inline Maintainer Triage Controls** ✅ | Verified maintainers can update signal status (`Planned`, `In Progress`, `Shipped`) and author official emerald `Builder Notes` directly from [`SignalCard`](./src/components/SignalCard.tsx) in the feed. | [`SignalCard.tsx`](./src/components/SignalCard.tsx) |
+| **3.3 Changelog & "Shipped" Rollup Banner** ✅ | Dedicated summary banner on `/p/:slug` celebrating shipped community requests, tracking team responsiveness rate, and closing the community feedback loop. | [`HomePage.tsx`](./src/pages/HomePage.tsx) |
 
 ---
 
-## Phase 5 — Deploy 🔴 not started
+## Phase 4 — Security, Integrity & RLS Lockdown ✅ *(Completed)*
 
-- No deploy target for the V2 build. The only live artifact is the **old
-  Firebase/Firestore build** at https://publisense-app.web.app (release
-  `1792065235443000`, deployed 2026-10-15). It serves the pre-Supabase
-  architecture and cannot receive V2 updates without deliberate action.
-- Decide: redeploy V2 to Firebase Hosting (reuses the URL), or stand up a
-  Supabase-appropriate host (Vercel/Netlify) and retire the Firebase project.
-- Production env vars: only `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
-  belong client-side. `service_role` and the DB password must stay server-only.
+Implemented in migrations `0004`–`0007`:
+- [x] **RLS Lockdown (Migration `0006`)**: Replaced all permissive policies with 32 scoped policies: public read for content, `auth.uid()`-gated writes, recipient-only notifications.
+- [x] **Signup Trigger (Migration `0004`)**: Added `handle_new_user` on `auth.users` to atomically provision a `profiles` row inside the transaction with handle de-duplication.
+- [x] **Privilege Escalation Prevention (Migration `0007`)**: Added `guard_profile_privileges` trigger preventing users from patching their own role to `admin` or changing `managed_org_id`.
+- [x] **Privacy Safeguard (Migration `0007`)**: Added `public_profiles` view omitting private email addresses from public reads; updated `StoreContext` loader.
 
 ---
 
-## Phase 6 — Hardening *(inferred)*
+## Phase 5 — MVP Deploy Gate *(Current Focus)*
 
-- **Bundle size** — issue #9. 603 kB single chunk, over Vite's 500 kB warning.
-  Route-level code splitting would cut first paint materially now that pages are
-  cleanly separated.
-- **Documentation** — the repo contains **no markdown at all**. No README, no
-  docs. This is why the original roadmap was lost.
-- **Error/empty states** — not yet reviewed.
+See [`MVP.md`](./MVP.md) and [`docs/deferred.md`](./docs/deferred.md) for shipping criteria.
 
----
-
-## Known unknowns
-
-Items that may have been in the original roadmap but leave no trace in the repo:
-
-- Moderation & abuse handling for a public write surface
-- Email deliverability for magic links (SMTP not configured)
-- Analytics / measurement
-- Rate limiting on posts, comments, votes
-- Image/media upload for `posts.media_urls`
+- [ ] **Auth Email Cleanup / Decision (D-005)**:
+  - Either configure Supabase SMTP provider (e.g. Resend) for magic links and email confirmations,
+  - Or disable magic-link / unconfirmed paths in [`AuthModal.tsx`](./src/components/AuthModal.tsx) so users aren't offered broken email paths.
+- [ ] **Wire Remaining Page Routes**:
+  - Route or consolidate `ExplorePage.tsx`, `OrgPage.tsx`, `SettingsPage.tsx`.
+- [ ] **Deploy V2 to Production**:
+  - Deploy to production hosting target (e.g. Vercel or Netlify) with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
+- [ ] **Bundle Optimization**:
+  - Route-level lazy loading (`React.lazy`) to reduce single chunk size below 500 kB (Issue #9).
 
 ---
 
-## Open issues
+## Phase 6 — Intelligence & Pro Tier *(Post-MVP)*
 
-- **#9** — bundle size / code splitting
-- **#11** — restrict world-writable RLS policies before deploy *(blocks deploy)*
+- **AI Signal Clustering & Deduplication**: Group related friction reports into thematic clusters on `/p/:slug` using embeddings.
+- **Embeddable "Public Sense" Badge**: 1-script high-craft widget (`[▲ 92 Signals on Publisense]`) for product documentation and SaaS footers.
+- **Linear / GitHub / Slack Sync (Pro Tier)**: 1-click issue export with bidirectional status synchronization when tickets are completed.
