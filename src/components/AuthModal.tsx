@@ -1,5 +1,10 @@
 import React, { useState } from 'react';
 import { useStore } from '../context/StoreContext';
+import {
+  DEMO_PERSONAS_ENABLED,
+  loadAuthCapabilities,
+  type AuthCapabilities,
+} from '../lib/authCapabilities';
 
 type AuthMode = 'signin' | 'signup' | 'magic';
 
@@ -28,6 +33,32 @@ export const AuthModal: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [showDevPersonas, setShowDevPersonas] = useState(false);
+  const [caps, setCaps] = useState<AuthCapabilities>({
+    email: true,
+    google: false,
+    github: false,
+    magicLink: false,
+    resolved: false,
+  });
+
+  // Ask the project which sign-in methods it can actually complete, and hide
+  // the rest. Rendering a Google button on a project where Google is disabled
+  // guarantees a failed round-trip for anyone who clicks it.
+  React.useEffect(() => {
+    if (!isAuthModalOpen) return;
+    let cancelled = false;
+    loadAuthCapabilities().then((next) => {
+      if (cancelled) return;
+      setCaps(next);
+      setMode((prev) => (prev === 'magic' && !next.magicLink ? 'signin' : prev));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthModalOpen]);
+
+  const showOAuth = caps.google || caps.github;
+  const oauthCount = (caps.google ? 1 : 0) + (caps.github ? 1 : 0);
 
   // Profile edit state when signed in
   const [editName, setEditName] = useState(currentUser?.name || '');
@@ -248,7 +279,7 @@ export const AuthModal: React.FC = () => {
             {/* Mode Switcher */}
             <div
               className="omni-mode-switch"
-              style={{ width: '100%', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', marginBottom: '14px' }}
+              style={{ width: '100%', display: 'grid', gridTemplateColumns: caps.magicLink ? '1fr 1fr 1fr' : '1fr 1fr', marginBottom: '14px' }}
             >
               <button
                 type="button"
@@ -274,53 +305,70 @@ export const AuthModal: React.FC = () => {
               >
                 Create Account
               </button>
-              <button
-                type="button"
-                className={`omni-mode-btn ${mode === 'magic' ? 'active' : ''}`}
-                style={{ justifyContent: 'center' }}
-                onClick={() => {
-                  setMode('magic');
-                  setErrorMsg(null);
-                  setStatusMsg(null);
+              {caps.magicLink && (
+                <button
+                  type="button"
+                  className={`omni-mode-btn ${mode === 'magic' ? 'active' : ''}`}
+                  style={{ justifyContent: 'center' }}
+                  onClick={() => {
+                    setMode('magic');
+                    setErrorMsg(null);
+                    setStatusMsg(null);
+                  }}
+                >
+                  Magic Link
+                </button>
+              )}
+            </div>
+
+            {/* OAuth Providers — rendered only for providers the project has enabled */}
+            {showOAuth && (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: oauthCount > 1 ? '1fr 1fr' : '1fr',
+                  gap: '8px',
+                  marginBottom: '14px',
                 }}
               >
-                Magic Link
-              </button>
-            </div>
+                {caps.github && (
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    style={{ height: '32px', justifyContent: 'center' }}
+                    onClick={() => handleOAuth('github')}
+                  >
+                    <span>⌘ GitHub</span>
+                  </button>
+                )}
+                {caps.google && (
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    style={{ height: '32px', justifyContent: 'center' }}
+                    onClick={() => handleOAuth('google')}
+                  >
+                    <span>◎ Google</span>
+                  </button>
+                )}
+              </div>
+            )}
 
-            {/* OAuth Providers */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '14px' }}>
-              <button
-                type="button"
-                className="btn-ghost"
-                style={{ height: '32px', justifyContent: 'center' }}
-                onClick={() => handleOAuth('github')}
+            {showOAuth && (
+              <div
+                className="mono"
+                style={{
+                  fontSize: '10px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                  color: 'var(--text-muted)',
+                  textAlign: 'center',
+                  marginBottom: '12px',
+                }}
               >
-                <span>⌘ GitHub</span>
-              </button>
-              <button
-                type="button"
-                className="btn-ghost"
-                style={{ height: '32px', justifyContent: 'center' }}
-                onClick={() => handleOAuth('google')}
-              >
-                <span>◎ Google</span>
-              </button>
-            </div>
-
-            <div
-              className="mono"
-              style={{
-                fontSize: '10px',
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-                color: 'var(--text-muted)',
-                textAlign: 'center',
-                marginBottom: '12px',
-              }}
-            >
-              — or with email —
-            </div>
+                — or with email —
+              </div>
+            )}
 
             <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div>
@@ -435,7 +483,9 @@ export const AuthModal: React.FC = () => {
               </button>
             </form>
 
-            {/* Optional Collapsible Dev Persona Switcher for Testing Maintainer/Admin Views */}
+            {/* Dev persona switcher — local only. It renders an admin/maintainer
+                view with no Supabase session, so it must never ship enabled. */}
+            {DEMO_PERSONAS_ENABLED && (
             <div style={{ marginTop: '14px', paddingTop: '10px', borderTop: '1px solid var(--border-hairline)' }}>
               <button
                 type="button"
@@ -472,6 +522,7 @@ export const AuthModal: React.FC = () => {
                 </div>
               )}
             </div>
+            )}
           </div>
         )}
       </div>

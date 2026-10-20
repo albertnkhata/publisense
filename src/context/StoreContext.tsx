@@ -771,13 +771,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             handle: cleanHandle,
           },
         });
-        setIsAuthModalOpen(false);
         if (!data.session) {
+          // Email confirmation is on: no session is issued until the link is
+          // clicked. Say that plainly instead of leaving the user staring at a
+          // modal that looks like it succeeded and does nothing.
           return {
-            message:
-              'Account created and profile activated! (Check your email if confirmation is enabled on your Supabase project.)',
+            message: `Account created. Check ${cleanEmail} for a confirmation link, then sign in. Nothing arrives? Check spam.`,
           };
         }
+        setIsAuthModalOpen(false);
       }
 
       return {};
