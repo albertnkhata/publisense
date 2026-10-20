@@ -385,6 +385,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               responsivenessRate: p.responsiveness_rate,
               avgResponseTime: p.avg_response_time,
               followersCount: p.followers_count,
+              claimStatus: p.claim_status ?? 'unclaimed',
+              claimEmail: p.claim_email ?? undefined,
             })),
             profiles: (profsRes.data || []).map((u: any) => ({
               id: u.id,
@@ -1576,92 +1578,52 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return { error: 'Please enter a valid company domain email address.' };
       }
 
-      let targetOrgId = prod.orgId;
-      let newlyCreatedOrg: Organization | null = null;
-
-      // If this product was under the shared community-index org, spin out its own verified org
-      const existingOrg = store.organizations.find((o) => o.id === prod.orgId);
-      if (!existingOrg || existingOrg.slug === 'community-index' || prod.orgId === 'org-community') {
-        targetOrgId = `org-${prod.slug}`;
-        const alreadyHasDedicatedOrg = store.organizations.find((o) => o.id === targetOrgId);
-        if (!alreadyHasDedicatedOrg) {
-          newlyCreatedOrg = {
-            id: targetOrgId,
-            slug: prod.slug,
-            name: `${prod.name} Team`,
-            tagline: `Verified makers of ${prod.name}`,
-            logoUrl: prod.logoUrl,
-            websiteUrl: prod.websiteUrl,
-            isVerified: true,
-          };
-        }
+      // Claiming is a SECURITY DEFINER RPC, not a direct profiles UPDATE.
+      //
+      // The browser used to write role='maintainer' onto its own profile row,
+      // which the 0005 guard correctly rejects with P0001 — without that guard
+      // any signed-in user could self-promote to admin. The client only asks;
+      // the database decides, and decides verification server-side.
+      if (!supabase) {
+        return { error: 'Claiming requires a live connection.' };
       }
 
-      const nextRoleTitle = input.roleTitle?.trim() || `${prod.name} Maintainer`;
+      const { data, error } = await supabase.rpc('claim_product_board', {
+        p_product_id: productId,
+        p_work_email: cleanEmail,
+      });
 
+      if (error || !data?.ok) {
+        const reason =
+          data?.error === 'domain_mismatch'
+            ? `That email does not match ${prod.name}'s domain (${data.expected}).`
+            : data?.error === 'already_claimed'
+            ? 'This board has already been claimed.'
+            : data?.error === 'invalid_email'
+            ? 'Please enter a valid work email address.'
+            : data?.error === 'not_authenticated'
+            ? 'Please sign in again to claim this board.'
+            : error?.message || 'Could not submit the claim.';
+        return { error: reason };
+      }
+
+      // Update local state only to the extent the database actually granted.
+      // The claim comes back 'pending': no role change, no org ownership, no
+      // verified badge. Rendering those optimistically would repeat the
+      // original bug in the UI layer — the user would see a board they do not
+      // administer.
       setStore((prev) => ({
         ...prev,
-        organizations: newlyCreatedOrg
-          ? [...prev.organizations, newlyCreatedOrg]
-          : prev.organizations.map((o) =>
-              o.id === targetOrgId ? { ...o, isVerified: true } : o
-            ),
         products: prev.products.map((p) =>
           p.id === productId
-            ? { ...p, orgId: targetOrgId, isVerified: true, responsivenessRate: Math.max(p.responsivenessRate, 92) }
+            ? { ...p, claimStatus: 'pending' as const, claimEmail: cleanEmail }
             : p
-        ),
-        profiles: prev.profiles.map((u) =>
-          u.id === currentUser.id
-            ? {
-                ...u,
-                role: u.role === 'admin' ? 'admin' : 'maintainer',
-                managedOrgId: targetOrgId,
-                roleTitle: nextRoleTitle,
-              }
-            : u
         ),
       }));
 
-      if (supabase) {
-        if (newlyCreatedOrg) {
-          await supabase.from('organizations').upsert({
-            id: newlyCreatedOrg.id,
-            slug: newlyCreatedOrg.slug,
-            name: newlyCreatedOrg.name,
-            tagline: newlyCreatedOrg.tagline,
-            logo_url: newlyCreatedOrg.logoUrl,
-            website_url: newlyCreatedOrg.websiteUrl,
-            is_verified: true,
-          });
-        } else {
-          await supabase
-            .from('organizations')
-            .update({ is_verified: true })
-            .eq('id', targetOrgId);
-        }
-
-        await supabase
-          .from('products')
-          .update({
-            org_id: targetOrgId,
-            is_verified: true,
-          })
-          .eq('id', productId);
-
-        await supabase
-          .from('profiles')
-          .update({
-            role: currentUser.role === 'admin' ? 'admin' : 'maintainer',
-            managed_org_id: targetOrgId,
-            role_title: nextRoleTitle,
-          })
-          .eq('id', currentUser.id);
-      }
-
       return {};
     },
-    [currentUser, openAuthModal, store.products, store.organizations]
+    [currentUser, openAuthModal, store.products, supabase]
   );
 
   const markNotificationRead = useCallback((notifId: string) => {
