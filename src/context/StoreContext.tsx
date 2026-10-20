@@ -227,7 +227,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     async function loadFromSupabase() {
       if (!supabase) return;
       try {
-        const [orgsRes, prodsRes, profsRes, postsRes, cmtsRes, votesRes, repostsRes, followsRes] =
+        const [orgsRes, prodsRes, profsRes, postsRes, cmtsRes, votesRes, repostsRes, followsRes, cmtVotesRes] =
           await Promise.all([
             supabase.from('organizations').select('*'),
             supabase.from('products').select('*'),
@@ -240,6 +240,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             supabase.from('post_votes').select('*'),
             supabase.from('post_reposts').select('*'),
             supabase.from('follows').select('*'),
+            supabase.from('comment_votes').select('*'),
           ]);
 
         if (cancelled) return;
@@ -445,6 +446,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               createdAt: f.created_at,
             })),
           }));
+
+          // Seed "who upvoted what" from the database so a fresh browser or a
+          // different device still shows the user's own votes filled in.
+          // The server is authoritative; localStorage is only an offline cache.
+          const grouped: Record<string, string[]> = {};
+          for (const v of cmtVotesRes?.data || []) {
+            (grouped[v.comment_id] ||= []).push(v.user_id);
+          }
+          setCommentLikes(grouped);
         }
       } catch (err) {
         console.warn('Supabase sync fallback to local relational store:', err);
@@ -1256,10 +1266,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }));
 
       if (supabase) {
-        await supabase
-          .from('comments')
-          .update({ likes_count: nextLikesCount })
-          .eq('id', commentId);
+        // Vote rows, not a counter. The count is derived by a database trigger
+        // so it cannot drift from the votes that actually exist — writing
+        // likes_count directly is rejected by a guard trigger, because a
+        // non-author's UPDATE would match zero rows and return success,
+        // silently discarding the vote.
+        if (alreadyLiked) {
+          await supabase
+            .from('comment_votes')
+            .delete()
+            .match({ comment_id: commentId, user_id: currentUser.id });
+        } else {
+          await supabase
+            .from('comment_votes')
+            .insert({ comment_id: commentId, user_id: currentUser.id });
+        }
       }
     },
     [currentUser, openAuthModal, store.comments, commentLikes]
