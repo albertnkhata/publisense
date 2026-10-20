@@ -119,49 +119,53 @@ other users. Guarded at every current call site.
 
 ---
 
-### D-005 · Email confirmation disabled; SMTP now configured but mail lands in spam
+### D-005 · Email delivery — RESOLVED
 
-**Status:** 🟡 ship-with-risk · **Deferred:** 2026-10-20 · **PR:** #15 · **Partially resolved:** 2026-10-20
+**Status:** ✅ **RESOLVED 2026-10-20** · **Deferred:** 2026-10-20 · **PR:** #15
 
-**What was true at deferral:** `mailer_autoconfirm: true` on `publisense`, and every
-SMTP field was empty (`smtp_host`, `smtp_port`, `smtp_user`, `smtp_admin_email`,
-`smtp_sender_name` all `None`). With confirmation required, signup returned
-`HTTP 200` but **no session**, and no email was ever sent — there was no mailer.
-Every new user was stranded permanently unconfirmed. Magic link and password reset
-were therefore dead, and a user who forgot a password was locked out forever.
+**What was wrong at deferral.** `mailer_autoconfirm: true` and every SMTP field
+empty (`smtp_host`, `smtp_port`, `smtp_user`, `smtp_admin_email`, `smtp_sender_name`
+all `None`). With confirmation required, signup returned `HTTP 200` but **no
+session**, and no email was ever sent — there was no mailer. Magic link and password
+reset were dead, and a forgotten password was unrecoverable.
 
-**What changed (2026-10-20):** SMTP is live through Resend —
-`smtp.resend.com:587`, user `resend`, sender `Publisense <auth@ridgewoodinsights.com>`
-— set via the management API on the `publisense` project, with
-`rate_limit_email_sent` raised 2 → 30.
+**What was wrong in the middle state.** SMTP was pointed at Resend using a key
+scoped to `ridgewoodinsights.com`, sending as `auth@ridgewoodinsights.com`. Mail was
+delivered, but Gmail filed every message as **spam**: that apex's SPF is
+`include:zohomail.com` (Zoho owns its mail) while Resend transmits through Amazon
+SES, so SPF failed for the sender domain.
 
-Verified end to end, not inferred: `POST /auth/v1/otp` returned `200` and the mail
-**arrived** (`From: Publisense <auth@ridgewoodinsights.com>`, subject
-"Your sign-in link", 2026-10-20 19:04 UTC).
+**How it was fixed — a sending domain the app actually owns.**
 
-**Still open — deliverability.** That message landed in **Gmail spam**. The cause is
-visible in DNS: `ridgewoodinsights.com` apex carries `v=spf1 include:zohomail.com ~all`,
-while Resend transmits from Amazon SES, so SPF fails for the apex. Resend's own
-correct setup already exists on the `send` subdomain
-(`send TXT v=spf1 include:amazonses.com ~all`, `resend._domainkey`), but the
-available Resend key is scoped to the apex address only and cannot send as
-`send.ridgewoodinsights.com`, and it cannot create or verify a new domain.
+1. `publisense.app` added to Resend (region `eu-west-1`) and its four records
+   written into the Vercel DNS zone: DKIM at `resend._domainkey`, SPF TXT and
+   feedback MX on the `send` subdomain, and the `rsend` return-path CNAME.
+   Resend reports `verified` on all four.
+2. Supabase SMTP sender moved to `Publisense <auth@publisense.app>`, and — the step
+   that matters — `smtp_pass` swapped to the **full-access** Resend key. Changing the
+   sender while keeping the old domain-scoped key makes every send fail with
+   `500 Error sending magic link email`, because Resend refuses a `from` address the
+   key is not authorised for. That looks like an SMTP outage and is not one.
+3. `rate_limit_email_sent` raised 2 → 30.
 
-**To close it, pick one:**
-- **A** — verify `publisense.app` in Resend (needs a full-access Resend key; the DNS
-  records can then be added to its Vercel zone), sender becomes
-  `auth@publisense.app`. This is the right end state: the brand on the envelope
-  matches the brand in the body.
-- **B** — re-scope the existing Resend key to `send.ridgewoodinsights.com` and send
-  from that subdomain (SPF already aligned; one dashboard change, no new DNS).
+**Verified end to end, by reading the mailbox rather than trusting a 200:**
 
-Until either lands: `mailer_autoconfirm` stays `true` (so nobody is stranded
-unconfirmed), and the Magic Link tab stays behind `VITE_AUTH_MAGIC_LINK` (default
-`false`) — an email that reliably lands in spam is worse than no email tab.
+```
+POST /auth/v1/otp {albertnkhata.s@gmail.com}          -> 200
+Resend:  2026-10-20 20:34:21  from "Publisense" <auth@publisense.app>  delivered
+Gmail:   labels = [INBOX]   (not SPAM)
+         dkim=pass header.i=@publisense.app header.s=resend
+         dkim=pass header.i=@amazonses.com
+         spf=pass (google.com: domain of ... designates ...)
+```
 
-**The cost of leaving it:** no email verification, anyone can claim an address they
-don't own, no password reset, no account recovery.
+Magic link is now enabled in the UI (`VITE_AUTH_MAGIC_LINK=true`) and email
+confirmation is back on (`mailer_autoconfirm: false`), so addresses are verified at
+signup and password reset works.
 
+**Reversal if the sending domain is retired:** PATCH `/config/auth` with
+`smtp_admin_email` + a key authorised for that domain. Do not change the sender
+without changing the key.
 
 ---
 
