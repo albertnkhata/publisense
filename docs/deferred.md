@@ -96,18 +96,13 @@ sent — there was no mailer. Every new user was stranded permanently unconfirme
 
 ### D-004 · Four page components are orphaned
 
-**Status:** 🟢 cosmetic/minor · **Deferred:** 2026-10-20
+**Status:** ✅ **RESOLVED 2026-10-20** (PR #18) · **Deferred:** 2026-10-20
 
-`ExplorePage`, `OrgPage`, `ProductPage`, `SettingsPage` are fully built in
-`src/pages/` and **imported by nothing**. `App.tsx` routes only `/`, `/p/:slug`,
-`/post/:id`, `/u/:handle`. `/p/:slug` renders `HomePage`, not `ProductPage`.
+`/explore`, `/org/:slug` and `/settings` are now routed and linked from the nav.
+`ProductPage` was deliberately left unrouted: it is a 6-line shim rendering
+`<HomePage />`, and `/p/:slug` already mounts `HomePage` directly.
 
-**Deliberate because:** not required for the MVP loop to work.
-
-**Revisit when:** there is time before announce — it is the cheapest win available
-(four route entries).
-
-**The cost:** substantial built UI is unreachable; `updateCurrentProfile` has no UI.
+Verified in a browser that each renders real content, not just HTTP 200.
 
 ---
 
@@ -165,13 +160,71 @@ Firebase project.
 
 ---
 
+### D-008 · Board claiming fails under production RLS
+
+**Status:** 🔴 broken feature · **Deferred:** 2026-10-20 · **Blocks:** Phase 3.1
+
+`claimProductBoard()` updates the caller's own `profiles` row with
+`role: 'maintainer'` and `managed_org_id`. The `guard_profile_privileges` trigger
+correctly rejects this, because that is exactly the privilege-escalation path it
+exists to block:
+
+```
+PATCH /rest/v1/profiles?id=eq.<uid>
+  {"role":"maintainer","managed_org_id":"org-anthropic"}
+-> HTTP 400 P0001 "profiles.role cannot be changed by the owner"
+```
+
+**Deliberate because:** it is the correct security outcome. The *client* design
+assumed permissive RLS; the guard is right and the caller is wrong.
+
+**Revisit when:** before claiming is announced as a feature.
+
+**The fix:** a `SECURITY DEFINER` RPC — `claim_product_board(product_id, work_email)`
+— that verifies the email domain (or DNS TXT) server-side and applies the role
+change itself. The client must not write `role` at all.
+
+**The cost:** Phase 3.1 is non-functional in production right now. Verified live,
+not inferred.
+
+---
+
+### D-009 · Comment upvoting silently does nothing
+
+**Status:** 🟡 ship-with-risk (silent no-op) · **Deferred:** 2026-10-20 · **Affects:** Phase 1.2
+
+Upvoting a workaround updates `comments.likes_count`, but the only UPDATE policy on
+`comments` is `comments author update` (`auth.uid() = author_id`). A non-author's
+UPDATE matches **zero rows and returns success**:
+
+```
+PATCH /rest/v1/comments?id=eq.cmt-1  {"likes_count": 43}
+-> HTTP 200, rows affected: 0
+```
+
+**Deliberate because:** nothing was changed to defer here — this is collateral from
+locking down RLS, found while auditing the roadmap against the live schema.
+
+**Revisit when:** before the workaround-upvote loop is promoted; it is a headline
+Phase 1 feature.
+
+**The fix:** a `comment_votes` table (one row per voter, so `likes_count` becomes an
+aggregate and one-vote-per-user is enforceable), or a `SECURITY DEFINER` counter RPC.
+
+**The cost:** worse than a hard failure — the UI reports success while persisting
+nothing, so it will look like it works during a demo.
+
+---
+
 ## Resolved
 
-_(nothing yet)_
+- **D-004** — orphaned pages wired (PR #18)
+- **D-006** — RLS lockdown (PR #16)
+- **D-001** — old Firebase build superseded; V2 live at https://publisense.vercel.app (PR #19)
 
 ---
 
 ## Related
 
 - [`MVP.md`](../MVP.md) — what must ship, and what is explicitly out of scope
-- [`roadmap.md`](../roadmap.md) — phases and open issues
+- [`ROADMAP.md`](../ROADMAP.md) — phases, current status and open issues
