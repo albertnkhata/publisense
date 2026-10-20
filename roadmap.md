@@ -80,13 +80,13 @@ Implemented in migrations `0004`–`0007`:
 
 See [`MVP.md`](./MVP.md) and [`docs/deferred.md`](./docs/deferred.md) for shipping criteria.
 
+- [x] **Wire Remaining Page Routes**:
+  - `ExplorePage.tsx` (`/explore`), `OrgPage.tsx` (`/org/:slug`), and `SettingsPage.tsx` (`/settings`) routed in [`App.tsx`](./src/App.tsx) and linked via [`AppShell.tsx`](./src/components/AppShell.tsx).
+- [x] **Deploy V2 to Production**:
+  - Deployed to Vercel at [publisense.vercel.app](https://publisense.vercel.app) with [`vercel.json`](./vercel.json) SPA rewrites, security headers, and production Supabase environment variables.
 - [ ] **Auth Email Cleanup / Decision (D-005)**:
   - Either configure Supabase SMTP provider (e.g. Resend) for magic links and email confirmations,
   - Or disable magic-link / unconfirmed paths in [`AuthModal.tsx`](./src/components/AuthModal.tsx) so users aren't offered broken email paths.
-- [ ] **Wire Remaining Page Routes**:
-  - Route or consolidate `ExplorePage.tsx`, `OrgPage.tsx`, `SettingsPage.tsx`.
-- [ ] **Deploy V2 to Production**:
-  - Deploy to production hosting target (e.g. Vercel or Netlify) with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
 - [ ] **Bundle Optimization**:
   - Route-level lazy loading (`React.lazy`) to reduce single chunk size below 500 kB (Issue #9).
 
