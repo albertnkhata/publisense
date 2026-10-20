@@ -49,6 +49,18 @@ export interface Product {
   responsivenessRate: number;
   avgResponseTime: string;
   followersCount: number;
+  /**
+   * Claim state, from products.claim_status (migration 0009).
+   *
+   * 'unclaimed' — nobody has asked.
+   * 'pending'   — someone submitted a matching work email; NOT verified and
+   *               NOT a maintainer yet. Grants no rights.
+   * 'verified'  — an admin approved it; the claimant became a maintainer.
+   *
+   * Optional because older local/offline state predates the column.
+   */
+  claimStatus?: 'unclaimed' | 'pending' | 'verified';
+  claimEmail?: string;
 }
 
 export interface UserProfile {
