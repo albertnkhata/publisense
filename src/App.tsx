@@ -8,6 +8,9 @@ import { CreateProductModal } from './components/CreateProductModal';
 import { HomePage } from './pages/HomePage';
 import { PostDetailPage } from './pages/PostDetailPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { ExplorePage } from './pages/ExplorePage';
+import { OrgPage } from './pages/OrgPage';
+import { SettingsPage } from './pages/SettingsPage';
 
 export default function App() {
   return (
@@ -20,6 +23,9 @@ export default function App() {
               <Route path="/p/:slug" element={<HomePage />} />
               <Route path="/post/:id" element={<PostDetailPage />} />
               <Route path="/u/:handle" element={<ProfilePage />} />
+              <Route path="/explore" element={<ExplorePage />} />
+              <Route path="/org/:slug" element={<OrgPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </AppShell>
