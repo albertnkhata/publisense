@@ -21,9 +21,16 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
     markAllNotificationsRead,
     openAuthModal,
     openCreateProductModal,
+    organizations,
   } = useStore();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // The signed-in maintainer's board slug, resolved from the org id. Comes from
+  // organizations.slug (a real column), not derived from the id.
+  const managedOrg = currentUser?.managedOrgId
+    ? organizations.find((o) => o.id === currentUser.managedOrgId)
+    : undefined;
 
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -66,8 +73,8 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
           <nav className="topnav">
             <Link
-              to="/"
-              className={location.pathname === '/' ? 'active' : ''}
+              to="/explore"
+              className={location.pathname === '/explore' ? 'active' : ''}
             >
               Explore Index
             </Link>
@@ -79,6 +86,22 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
                 className={location.pathname === `/u/${currentUser.handle}` ? 'active' : ''}
               >
                 My Portfolio
+              </Link>
+            )}
+            {managedOrg && (
+              <Link
+                to={`/org/${managedOrg.slug}`}
+                className={location.pathname.startsWith('/org/') ? 'active' : ''}
+              >
+                My Board
+              </Link>
+            )}
+            {currentUser && (
+              <Link
+                to="/settings"
+                className={location.pathname === '/settings' ? 'active' : ''}
+              >
+                Settings
               </Link>
             )}
             <button
