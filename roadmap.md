@@ -19,6 +19,7 @@ flowchart LR
 
 - **Frontend:** React 19 + Vite 6 + Tailwind 4, Obsidian Dark / Alabaster Light themes, hairline borders (`1px`), `Inter` + `JetBrains Mono` typography.
 - **Backend:** Supabase (Postgres + Auth, project `wyjfgrgxmhumyzwcrywj`, region `eu-central-2`).
+- **Canonical host:** https://publisense.app (Supabase `site_url` and redirect allow-list point here; `publisense.vercel.app` still resolves).
 - **Data Model:** 10 tables (`organizations`, `products`, `profiles`, `posts`, `comments`, `comment_votes`, `post_votes`, `post_reposts`, `follows`, `notifications`) + `public_profiles` secure view.
 - **Access Control:** Production RLS with 32 scoped policies, `handle_new_user` trigger for signup profile creation, and `guard_profile_privileges` privilege escalation prevention.
 - **Build Status:** `tsc --noEmit` 0 errors; `vite build` clean.
@@ -127,7 +128,8 @@ See [`MVP.md`](./MVP.md) and [`docs/deferred.md`](./docs/deferred.md) for shippi
 - [x] **Wire Remaining Page Routes**:
   - `ExplorePage.tsx` (`/explore`), `OrgPage.tsx` (`/org/:slug`), and `SettingsPage.tsx` (`/settings`) routed in [`App.tsx`](./src/App.tsx) and linked via [`AppShell.tsx`](./src/components/AppShell.tsx).
 - [x] **Deploy V2 to Production**:
-  - Deployed to Vercel at [publisense.vercel.app](https://publisense.vercel.app) with [`vercel.json`](./vercel.json) SPA rewrites, security headers, and production Supabase environment variables.
+  - Deployed to Vercel with [`vercel.json`](./vercel.json) SPA rewrites, security headers, and production Supabase environment variables.
+  - Custom domain **https://publisense.app** is live on the same project (`www.publisense.app` 308-redirects to the apex); `publisense.vercel.app` keeps serving as the fallback host.
 - [ ] **Auth Email Cleanup / Decision (D-005)**:
   - Either configure Supabase SMTP provider (e.g. Resend) for magic links and email confirmations,
   - Or disable magic-link / unconfirmed paths in [`AuthModal.tsx`](./src/components/AuthModal.tsx) so users aren't offered broken email paths.
