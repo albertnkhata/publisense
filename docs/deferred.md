@@ -17,29 +17,30 @@
 
 ## Open
 
-### D-006 · Posts are not publicly gated — RLS still permissive
+### D-010 · Claimed boards have no approval path
 
-**Status:** ✅ **RESOLVED 2026-10-20** (PR #16) · **Issue:** #11
+**Status:** 🟡 ship-with-risk · **Raised:** 2026-10-20 · **PR:** #25 · **Affects:** roadmap 3.1
 
-Replaced all 17 permissive policies with 32 scoped ones: public `SELECT` on
-content, `auth.uid()`-gated writes, recipient-only notifications,
-admin/maintainer gates via `SECURITY DEFINER` helpers.
+`claim_product_board(p_product_id, p_work_email)` verifies the work-email domain
+server-side and parks the claim as `claim_status = 'pending'`. It deliberately
+grants **nothing** — no `role` change, no `managed_org_id`, no verified badge — and
+says so in its own contract.
 
-Two bugs found during the work, both fixed in migration `0007`:
-- **Infinite recursion (`42P17`)** — policies on `profiles` that selected from
-  `profiles` re-entered their own policy; every authenticated profile read
-  returned 500. Anonymous reads looked fine only because RLS short-circuits for
-  `anon`. Fixed with `is_admin()` / `manages_product()` as `SECURITY DEFINER`.
-- **RLS cannot compare OLD vs NEW** — `WITH CHECK (auth.uid()::text = id)` still
-  allowed a user to `PATCH` their own `role` to `'admin'`. Added a `BEFORE UPDATE`
-  trigger `guard_profile_privileges` blocking changes to `role`,
-  `managed_org_id`, `email`, `id` for non-admins.
+`approve_product_claim(p_product_id)` exists and is gated to admins, but **nothing
+in the client calls it and there is no admin screen**. A claim submitted today sits
+`pending` forever.
 
-**Verified:** 11/11 tests against the live project with real GoTrue sessions.
-`anon` cannot post (401); cannot post as another user (403); cannot self-promote
-(400); can edit own bio (200); `anon` can still browse (200).
+**Deliberate because:** auto-approving on domain match would let anyone with a
+`@company.com` address take a board; the human gate is the security property, and
+the MVP loop does not require claiming.
 
-**MVP definition-of-done check 7 now passes.**
+**Revisit when:** before claiming is announced to builders. Needs an admin view
+listing pending claims plus an approve/reject action, and a decision on whether DNS
+TXT verification can replace the human gate.
+
+**The cost:** claiming is honest but inert. Verified live: all 13 products are
+`claim_status = 'unclaimed'`; there is no `product_claims` table, the state lives in
+`products.claim_status` / `claimed_by` / `claim_email`.
 
 ---
 
@@ -59,8 +60,9 @@ was updated to match:
 **What is absent:** `UserProfile.email` is `''` for anyone but the signed-in user.
 
 **Revisit when:** any feature needs another user's email — password reset flows,
-admin console lists, or export. Those need a `service_role` path or an admin-only
-view, not a loosening of `profiles` RLS.
+admin console lists, or export (including the D-010 claim-review screen, which shows
+`products.claim_email` and not a profile email). Those need a `service_role` path or
+an admin-only view, not a loosening of `profiles` RLS.
 
 **The cost:** client code cannot rely on `profile.email` being populated for
 other users. Guarded at every current call site.
@@ -92,37 +94,34 @@ sent — there was no mailer. Every new user was stranded permanently unconfirme
 **Reversal:** `PATCH /v1/projects/wyjfgrgxmhumyzwcrywj/config/auth` with
 `{"mailer_autoconfirm": false}` — only once SMTP is configured and testable.
 
----
-
-### D-004 · Four page components are orphaned
-
-**Status:** 🟢 cosmetic/minor · **Deferred:** 2026-10-20
-
-`ExplorePage`, `OrgPage`, `ProductPage`, `SettingsPage` are fully built in
-`src/pages/` and **imported by nothing**. `App.tsx` routes only `/`, `/p/:slug`,
-`/post/:id`, `/u/:handle`. `/p/:slug` renders `HomePage`, not `ProductPage`.
-
-**Deliberate because:** not required for the MVP loop to work.
-
-**Revisit when:** there is time before announce — it is the cheapest win available
-(four route entries).
-
-**The cost:** substantial built UI is unreachable; `updateCurrentProfile` has no UI.
+**Current live state (verified 2026-10-20):** `/auth/v1/settings` reports
+`email: true`, `mailer_autoconfirm: true`, `google: false`, `github: false`. Email +
+password is the only working sign-in path; the `◎ Google`, `⌘ GitHub` and
+`Magic Link` controls are all visible in `AuthModal` and none of them can succeed.
+This is the same decision as issue #5 — resolve them together.
 
 ---
 
-### D-003 · No tests
+### D-003 · No automated tests for application behaviour
 
-**Status:** 🟡 ship-with-risk · **Deferred:** 2026-10-20
+**Status:** 🟡 ship-with-risk · **Deferred:** 2026-10-20 · **Partly addressed:** PR #23
 
-Zero test files in the repo. Auth and post-creation were verified manually against
-the live project (see PR #14), not by an automated suite.
+There are still **zero** `*.test.*` / `*.spec.*` files in the repo. Auth, RLS and
+the post-creation loop were verified manually against the live project (PR #14, #16,
+#24, #25), not by a suite.
 
-**Deliberate because:** no suite is required to ship an MVP, and the auth surface
-is settling.
+**Partly addressed since deferral:** CI now runs, on every PR and on `main`:
 
-**Revisit when:** immediately after first deploy. The signup→post loop is the
-thing most likely to regress silently.
+- `tsc --noEmit` and `vite build`
+- a `service_role` bundle leak guard (`grep` over `dist/assets/*.js`)
+- every migration applied in order against Postgres 17 with a faithful `auth` schema stub
+
+That proves migrations apply and the bundle builds. It does **not** prove a user can
+sign up, post, or vote — those remain manual, live-only checks.
+
+**Revisit when:** immediately after first deploy (done) — next natural point is
+before announce. The signup→post→vote loop is the thing most likely to regress
+silently.
 
 **The cost:** regressions in auth or RLS surface only in production.
 
@@ -130,7 +129,7 @@ thing most likely to regress silently.
 
 ### D-002 · `service_role` key exists with no server-side consumer
 
-**Status:** 🟡 ship-with-risk · **Deferred:** 2026-10-20
+**Status:** 🟡 ship-with-risk · **Deferred:** 2026-10-20 · **Trigger met:** 2026-10-20
 
 The `service_role` key is provisioned and stored in the Notion API Keys DB. It
 **bypasses all RLS**. Nothing in the app currently needs it — there is no API
@@ -138,81 +137,50 @@ route or edge function.
 
 **Deliberate because:** it may be needed for admin operations later.
 
-**Revisit when:** RLS is locked down (D-006). At that point decide whether
-`service_role` is needed at all, or whether anon + policies suffice.
+**Revisit trigger was "when RLS is locked down (D-006)". That has happened** — 32
+scoped policies are live. So this is now a decision, not a pending condition:
+- **A** — keep it (D-010 claim approval and any admin console will need a
+  privileged path; a `service_role` server function or an `is_admin()`-gated RPC)
+- **B** — revoke and rotate it, and use admin-gated RPCs only
 
 **The cost:** a live all-powerful credential sitting unused. Verified it is
-**not** in the client bundle (`grep -c service_role dist` → 0), but blast radius
-if ever leaked is total.
+**not** in the client bundle (CI now fails the build if `service_role` appears in
+`dist/assets/*.js`), but blast radius if ever leaked is total.
 
 ---
-
-### D-001 · Old Firebase build still live at publisense-app.web.app
-
-**Status:** 🟢 cosmetic/minor · **Deferred:** 2026-10-20
-
-Release `1792065235443000` (2026-10-15) serves the **pre-Supabase** architecture
-from GCP project `publisense-app`. It cannot receive V2 updates. V2 has never
-been deployed anywhere.
-
-**Deliberate because:** no deploy target chosen yet for V2.
-
-**Revisit when:** MVP critical path item 4 (deploy). Decide whether to redeploy
-V2 to Firebase Hosting (reuses URL) or stand up Vercel/Netlify and retire the
-Firebase project.
-
-**The cost:** a public URL serving a stale architecture that talks to Firestore.
-
----
-
-### D-008 · Board claiming fails under production RLS
-
-**Status:** 🔴 broken feature · **Deferred:** 2026-10-20 · **Blocks:** roadmap 3.1
-
-`claimProductBoard()` updates the caller's own `profiles` row with
-`role: 'maintainer'` and `managed_org_id`. The `guard_profile_privileges` trigger
-correctly rejects this, because that is exactly the privilege-escalation path it
-exists to block:
-
-```
-PATCH /rest/v1/profiles?id=eq.<uid>
-  {"role":"maintainer","managed_org_id":"org-anthropic"}
--> HTTP 400 P0001 "profiles.role cannot be changed by the owner"
-```
-
-**Deliberate because:** it is the correct security outcome. The *client* design
-assumed permissive RLS; the guard is right and the caller is wrong.
-
-**Revisit when:** before claiming is announced as a feature.
-
-**The fix:** a `SECURITY DEFINER` RPC — `claim_product_board(product_id, work_email)`
-— that verifies the email domain (or DNS TXT) server-side and applies the role
-change itself. The client must not write `role` at all.
-
-**The cost:** claiming is non-functional in production. Verified live, not inferred.
-
----
-
-### D-009 · Comment upvoting silently does nothing
-
-**Status:** ✅ **RESOLVED 2026-10-20** (PR #24) · **Deferred:** 2026-10-20 · **Affected:** roadmap 1.2
-
-Upvoting a workaround updated `comments.likes_count`, but the only UPDATE policy on
-`comments` is `comments author update` (`auth.uid() = author_id`). A non-author's
-UPDATE matched **zero rows and returned success** — the UI reported success while
-persisting nothing.
-
-**Resolved by:** `0008_comment_votes.sql` — a `comment_votes` table with
-`(comment_id, user_id)` as the primary key, mirroring the `post_votes` pattern that
-already worked. `likes_count` is now maintained by a trigger and cannot be written
-by clients at all.
 
 ## Resolved
 
-- **D-009** — comment upvoting (PR #24)
-- **D-004** — orphaned pages wired (PR #18)
-- **D-006** — RLS lockdown (PR #16)
-- **D-001** — old Firebase build superseded; V2 live at https://publisense.vercel.app
+- **D-009** — comment upvoting (PR #24, 2026-10-20). `0008_comment_votes.sql`: a
+  `comment_votes` table with `(comment_id, user_id)` as the primary key, mirroring
+  the `post_votes` pattern that already worked. `likes_count` is trigger-maintained
+  and cannot be written by clients at all. Verified over real HTTP: non-author vote
+  201 with count 42→43, duplicate vote 23505, direct `likes_count` write 400 P0001,
+  vote as another user 42501, anon vote 42501, unvote 204.
+
+- **D-008** — board claiming (PR #25, 2026-10-20). `0009_claim_product_board.sql`
+  adds `claim_product_board(p_product_id, p_work_email)` and
+  `approve_product_claim(p_product_id)`, both `SECURITY DEFINER`; the client only
+  asks and never writes `role`. Verified: the old direct PATCH still returns 400
+  P0001, a matching domain returns `{ok:true, status:'pending'}`, a wrong domain is
+  refused with `domain_mismatch`, anon calls get 401 `42501`, and a pending claim
+  grants no elevation. The residual gap (nothing approves claims) is now D-010.
+
+- **D-006** — RLS lockdown (PR #16, 2026-10-20). All 17 permissive policies replaced
+  with 32 scoped ones. Two bugs found and fixed in `0007`: `42P17` infinite recursion
+  on `profiles` (fixed with `SECURITY DEFINER` `is_admin()` / `manages_product()`),
+  and self-promotion of `role` (fixed with the `guard_profile_privileges` trigger,
+  because a `WITH CHECK` cannot compare OLD to NEW). Verified 11/11 against the live
+  project with real GoTrue sessions.
+
+- **D-004** — orphaned pages wired (PR #18, 2026-10-20). `/explore`, `/org/:slug` and
+  `/settings` are routed in `App.tsx` and linked from `AppShell.tsx`, and are
+  code-split into their own chunks.
+
+- **D-001** — old Firebase build superseded (2026-10-20). V2 is live at
+  https://publisense.vercel.app. The Firebase build at `publisense-app.web.app` still
+  serves the pre-Supabase bundle; retiring that GCP project is tracked in issue #7,
+  not here.
 
 ---
 
