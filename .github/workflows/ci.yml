@@ -55,6 +55,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Supabase ships an `auth` schema (auth.users, auth.uid()) that plain
+      # Postgres does not have. The migrations legitimately depend on it —
+      # 0004 triggers on auth.users, and every 0006 policy is gated on
+      # auth.uid() — so the harness provides a faithful stub rather than the
+      # migrations being bent to avoid it. This is what Supabase's own local
+      # development stack does.
+      - name: Stub the Supabase auth schema
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 <<'SQL'
+          create schema if not exists auth;
+
+          create table if not exists auth.users (
+            id uuid primary key default gen_random_uuid(),
+            email text unique,
+            raw_user_meta_data jsonb default '{}'::jsonb,
+            created_at timestamptz not null default now()
+          );
+
+          -- Mirrors Supabase's auth.uid(): the caller's id, as set by
+          -- PostgREST in request.jwt.claim.sub, or null outside a request.
+          create or replace function auth.uid() returns uuid
+          language sql stable as $$
+            select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
+          $$;
+          SQL
+
       - name: Apply schema then migrations in order
         env:
           PGPASSWORD: postgres
