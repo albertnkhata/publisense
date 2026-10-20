@@ -195,33 +195,21 @@ change itself. The client must not write `role` at all.
 
 ### D-009 · Comment upvoting silently does nothing
 
-**Status:** 🟡 ship-with-risk (silent no-op) · **Deferred:** 2026-10-20 · **Affects:** roadmap 1.2
+**Status:** ✅ **RESOLVED 2026-10-20** (PR #24) · **Deferred:** 2026-10-20 · **Affected:** roadmap 1.2
 
-Upvoting a workaround updates `comments.likes_count`, but the only UPDATE policy on
+Upvoting a workaround updated `comments.likes_count`, but the only UPDATE policy on
 `comments` is `comments author update` (`auth.uid() = author_id`). A non-author's
-UPDATE matches **zero rows and returns success**:
+UPDATE matched **zero rows and returned success** — the UI reported success while
+persisting nothing.
 
-```
-PATCH /rest/v1/comments?id=eq.cmt-1  {"likes_count": 43}
--> HTTP 200, rows affected: 0
-```
-
-**Deliberate because:** nothing was deferred here — this is collateral from the RLS
-lockdown, found by auditing the roadmap against the live schema.
-
-**Revisit when:** before the workaround-upvote loop is promoted; it is a headline
-Phase 1 feature.
-
-**The fix:** a `comment_votes` table (one row per voter, so `likes_count` becomes an
-aggregate and one-vote-per-user is enforceable), or a `SECURITY DEFINER` counter RPC.
-
-**The cost:** worse than a hard failure — the UI reports success while persisting
-nothing, so it will look like it works during a demo.
-
----
+**Resolved by:** `0008_comment_votes.sql` — a `comment_votes` table with
+`(comment_id, user_id)` as the primary key, mirroring the `post_votes` pattern that
+already worked. `likes_count` is now maintained by a trigger and cannot be written
+by clients at all.
 
 ## Resolved
 
+- **D-009** — comment upvoting (PR #24)
 - **D-004** — orphaned pages wired (PR #18)
 - **D-006** — RLS lockdown (PR #16)
 - **D-001** — old Firebase build superseded; V2 live at https://publisense.vercel.app
