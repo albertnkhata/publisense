@@ -68,17 +68,28 @@ Commit `4d3acda` — *complete Phase 2*
 
 ---
 
-## Phase 3 — Finish the surface *(inferred — not shipped)*
+## Phase 3 — Maintainer tools ✅ shipped
 
-Evidence: four page components exist in `src/pages/` but are **not wired into
-the router**. `App.tsx` routes only `/`, `/p/:slug`, `/post/:id`, `/u/:handle`.
+Commit `9a28a30` — *complete Phase 3 (domain-verified board claiming, inline maintainer triage on SignalCard, and Shipped rollup changelog)*
+
+- **Board claiming** — `claimProductBoard(productId, {workEmail, roleTitle, verificationMethod})`. Two verification paths: `email_domain` (must match the product's org domain) and `dns_txt`.
+- **Inline maintainer triage** — on `SignalCard`, gated by `canManageProduct`. Status selection plus an official note, saved in place without leaving the feed.
+- **Shipped rollup changelog** — a `shipped` tab on the feed listing resolved signals, plus per-product counts ("Community requests resolved & shipped by …").
+
+---
+
+## Phase 3b — Wire the orphaned pages *(inferred — not shipped)*
+
+Verified after `9a28a30`: `App.tsx` still routes only `/`, `/p/:slug`, `/post/:id`, `/u/:handle`.
+
+Four page components exist in `src/pages/` and are **imported by nothing**:
 
 | Component | Status | Notes |
 |---|---|---|
-| `ExplorePage.tsx` | built, **unrouted** | no route mounts it |
-| `OrgPage.tsx` | built, **unrouted** | no route mounts it |
-| `ProductPage.tsx` | built, **unrouted** | `/p/:slug` maps to `HomePage`, not this |
-| `SettingsPage.tsx` | built, **unrouted** | `updateCurrentProfile` exists, no UI route |
+| `ExplorePage.tsx` | built, **orphaned** | no route, no importer |
+| `OrgPage.tsx` | built, **orphaned** | no route, no importer |
+| `ProductPage.tsx` | built, **orphaned** | `/p/:slug` renders `HomePage`, not this |
+| `SettingsPage.tsx` | built, **orphaned** | `updateCurrentProfile` exists, no UI route |
 
 Closing this is the cheapest meaningful gain: the code exists, only routing is missing.
 
@@ -86,7 +97,8 @@ Closing this is the cheapest meaningful gain: the code exists, only routing is m
 
 ## Phase 4 — Security & correctness 🔴 blocking any deploy
 
-**This is the gate before the app can face the public.**
+**This is the gate before the app can face the public.** See [`MVP.md`](./MVP.md)
+for the shipping criteria this feeds into.
 
 - **RLS lockdown** — issue #11. The database currently has **17 policies, all
   permissive (`using true`), zero auth-scoped**. Anyone holding the public anon
