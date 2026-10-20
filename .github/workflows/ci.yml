@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: Typecheck & build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Assert no service_role key in bundle
+        run: |
+          # The service_role key bypasses RLS entirely. It must never reach a
+          # client bundle. If this fails, do not ship.
+          if grep -rqE 'service_role' dist/assets/*.js; then
+            echo "::error::service_role referenced in the client bundle"
+            exit 1
+          fi
+          echo "OK: no service_role in bundle"
+
+  migrations:
+    name: Migrations apply cleanly
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: publisense_ci
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply schema then migrations in order
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 \
+            -f supabase/schema.sql
+          for f in $(ls supabase/migrations/*.sql | sort); do
+            echo "--- applying $f"
+            psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -f "$f"
+          done
+
+      - name: Assert RLS is enabled on every public table
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          # Any public table without RLS is world-writable via PostgREST.
+          OPEN=$(psql -h localhost -U postgres -d publisense_ci -tAc "
+            select tablename from pg_tables
+            where schemaname='public' and not rowsecurity
+          ")
+          if [ -n "$OPEN" ]; then
+            echo "::error::RLS disabled on: $OPEN"
+            exit 1
+          fi
+          echo "OK: RLS enabled on every public table"
+
+      - name: Assert no world-open write policy exists
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          # Public SELECT is intended (the 'public reads' half of the design).
+          # A permissive INSERT/UPDATE/DELETE policy is not — that is the exact
+          # bug that schema.sql carried and that locking RLS removed.
+          BAD=$(psql -h localhost -U postgres -d publisense_ci -tAc "
+            select tablename || ' ' || policyname || ' ' || cmd
+            from pg_policies
+            where schemaname='public'
+              and cmd in ('INSERT','UPDATE','DELETE','ALL')
+              and (coalesce(qual::text,'') in ('true','(true)')
+                or coalesce(with_check::text,'') in ('true','(true)'))
+          ")
+          if [ -n "$BAD" ]; then
+            echo "::error::world-open write policy: $BAD"
+            exit 1
+          fi
+          echo "OK: no world-open write policies"
+
+      - name: Report public read-policy count
+        env:
+          PGPASSWORD: postgres
+        run: |
+          N=$(psql -h localhost -U postgres -d publisense_ci -tAc \
+            "select count(*) from pg_policies where schemaname='public'")
+          echo "Total public policies after migrations: $N"
