@@ -231,7 +231,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           await Promise.all([
             supabase.from('organizations').select('*'),
             supabase.from('products').select('*'),
-            supabase.from('profiles').select('*'),
+            // profiles.email is private (RLS: self + admin only), so the feed
+            // reads the public_profiles view, which omits email. The signed-in
+            // user's own row (with email) is fetched separately below.
+            supabase.from('public_profiles').select('*'),
             supabase.from('posts').select('*').order('created_at', { ascending: false }),
             supabase.from('comments').select('*').order('created_at', { ascending: true }),
             supabase.from('post_votes').select('*'),
@@ -386,7 +389,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               id: u.id,
               handle: u.handle,
               name: u.name,
-              email: u.email,
+              // public_profiles has no email column by design
+              email: u.email || '',
               avatarUrl: u.avatar_url,
               bio: u.bio,
               role: u.role,
@@ -580,12 +584,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         .trim()
         .toLowerCase();
 
-      // Check if profile already exists by id or email
+      // Check if profile already exists by id (authoritative).
+      // Email match is only meaningful for the caller's OWN row, because
+      // public_profiles omits email - other users' entries have ''.
       let existing: UserProfile | undefined;
       setStore((prev) => {
         existing =
           prev.profiles.find((p) => p.id === sbUser.id) ||
-          prev.profiles.find((p) => p.email.toLowerCase() === cleanEmail);
+          prev.profiles.find((p) => p.email && p.email.toLowerCase() === cleanEmail);
         return prev;
       });
 
@@ -624,7 +630,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setStore((prev) => {
         const alreadyInStore =
           prev.profiles.find((p) => p.id === newProfile.id) ||
-          prev.profiles.find((p) => p.email.toLowerCase() === cleanEmail);
+          prev.profiles.find((p) => p.email && p.email.toLowerCase() === cleanEmail);
         if (alreadyInStore) return prev;
         const handleTaken = prev.profiles.some(
           (p) => p.handle.toLowerCase() === newProfile.handle.toLowerCase()
@@ -810,7 +816,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const signInOrRegisterWithEmail = useCallback(
     async (input: { email: string; name?: string; handle?: string }): Promise<UserProfile> => {
       const cleanEmail = input.email.trim().toLowerCase();
-      const existing = store.profiles.find((p) => p.email.toLowerCase() === cleanEmail);
+      // Only the caller's own row carries an email (public_profiles omits it),
+      // so this matches "am I already registered" and nothing else.
+      const existing = store.profiles.find(
+        (p) => p.email && p.email.toLowerCase() === cleanEmail
+      );
       if (existing) {
         setActiveUserId(existing.id);
         setIsAuthModalOpen(false);

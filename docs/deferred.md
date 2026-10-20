@@ -19,20 +19,51 @@
 
 ### D-006 · Posts are not publicly gated — RLS still permissive
 
-**Status:** 🔴 blocks deploy · **Deferred:** 2026-10-20 · **Issue:** #11
+**Status:** ✅ **RESOLVED 2026-10-20** (PR #16) · **Issue:** #11
 
-The database has **17 policies, all permissive (`using true`), zero auth-scoped**.
-Anyone with the public anon key can `SELECT`/`INSERT`/`UPDATE`/`DELETE` every
-table. `profiles` is the worst case: `email`, `role`, and `managed_org_id` are
-client-writable, so any visitor can self-promote to `admin`.
+Replaced all 17 permissive policies with 32 scoped ones: public `SELECT` on
+content, `auth.uid()`-gated writes, recipient-only notifications,
+admin/maintainer gates via `SECURITY DEFINER` helpers.
 
-**Deliberate because:** mid-rewrite, and open policies make local iteration
-frictionless. Confirmed temporary with product owner.
+Two bugs found during the work, both fixed in migration `0007`:
+- **Infinite recursion (`42P17`)** — policies on `profiles` that selected from
+  `profiles` re-entered their own policy; every authenticated profile read
+  returned 500. Anonymous reads looked fine only because RLS short-circuits for
+  `anon`. Fixed with `is_admin()` / `manages_product()` as `SECURITY DEFINER`.
+- **RLS cannot compare OLD vs NEW** — `WITH CHECK (auth.uid()::text = id)` still
+  allowed a user to `PATCH` their own `role` to `'admin'`. Added a `BEFORE UPDATE`
+  trigger `guard_profile_privileges` blocking changes to `role`,
+  `managed_org_id`, `email`, `id` for non-admins.
 
-**Revisit when:** before any public URL exists. This is MVP critical path item 2.
+**Verified:** 11/11 tests against the live project with real GoTrue sessions.
+`anon` cannot post (401); cannot post as another user (403); cannot self-promote
+(400); can edit own bio (200); `anon` can still browse (200).
 
-**The cost:** MVP definition-of-done check 7 ("cannot change own role to admin")
-**currently fails**. While that is true, we do not ship.
+**MVP definition-of-done check 7 now passes.**
+
+---
+
+### D-007 · Background rows for other users have no email in the client
+
+**Status:** 🟢 cosmetic/minor · **Deferred:** 2026-10-20 · **PR:** #16
+
+`profiles` is no longer publicly readable, because `email` was world-readable.
+The feed now reads the **`public_profiles`** view, which omits `email`. The client
+was updated to match:
+
+- loader switched to `public_profiles`
+- three `p.email.toLowerCase()` lookups guarded against empty strings, which
+  would otherwise throw on other users' entries
+
+**What still works:** handles, names, avatars, bios, roles, locations all render.
+**What is absent:** `UserProfile.email` is `''` for anyone but the signed-in user.
+
+**Revisit when:** any feature needs another user's email — password reset flows,
+admin console lists, or export. Those need a `service_role` path or an admin-only
+view, not a loosening of `profiles` RLS.
+
+**The cost:** client code cannot rely on `profile.email` being populated for
+other users. Guarded at every current call site.
 
 ---
 
