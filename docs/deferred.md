@@ -165,9 +165,66 @@ Firebase project.
 
 ---
 
+### D-008 · Board claiming fails under production RLS
+
+**Status:** 🔴 broken feature · **Deferred:** 2026-10-20 · **Blocks:** roadmap 3.1
+
+`claimProductBoard()` updates the caller's own `profiles` row with
+`role: 'maintainer'` and `managed_org_id`. The `guard_profile_privileges` trigger
+correctly rejects this, because that is exactly the privilege-escalation path it
+exists to block:
+
+```
+PATCH /rest/v1/profiles?id=eq.<uid>
+  {"role":"maintainer","managed_org_id":"org-anthropic"}
+-> HTTP 400 P0001 "profiles.role cannot be changed by the owner"
+```
+
+**Deliberate because:** it is the correct security outcome. The *client* design
+assumed permissive RLS; the guard is right and the caller is wrong.
+
+**Revisit when:** before claiming is announced as a feature.
+
+**The fix:** a `SECURITY DEFINER` RPC — `claim_product_board(product_id, work_email)`
+— that verifies the email domain (or DNS TXT) server-side and applies the role
+change itself. The client must not write `role` at all.
+
+**The cost:** claiming is non-functional in production. Verified live, not inferred.
+
+---
+
+### D-009 · Comment upvoting silently does nothing
+
+**Status:** 🟡 ship-with-risk (silent no-op) · **Deferred:** 2026-10-20 · **Affects:** roadmap 1.2
+
+Upvoting a workaround updates `comments.likes_count`, but the only UPDATE policy on
+`comments` is `comments author update` (`auth.uid() = author_id`). A non-author's
+UPDATE matches **zero rows and returns success**:
+
+```
+PATCH /rest/v1/comments?id=eq.cmt-1  {"likes_count": 43}
+-> HTTP 200, rows affected: 0
+```
+
+**Deliberate because:** nothing was deferred here — this is collateral from the RLS
+lockdown, found by auditing the roadmap against the live schema.
+
+**Revisit when:** before the workaround-upvote loop is promoted; it is a headline
+Phase 1 feature.
+
+**The fix:** a `comment_votes` table (one row per voter, so `likes_count` becomes an
+aggregate and one-vote-per-user is enforceable), or a `SECURITY DEFINER` counter RPC.
+
+**The cost:** worse than a hard failure — the UI reports success while persisting
+nothing, so it will look like it works during a demo.
+
+---
+
 ## Resolved
 
-_(nothing yet)_
+- **D-004** — orphaned pages wired (PR #18)
+- **D-006** — RLS lockdown (PR #16)
+- **D-001** — old Firebase build superseded; V2 live at https://publisense.vercel.app
 
 ---
 
