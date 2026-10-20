@@ -103,13 +103,12 @@ Implemented in migrations `0004`–`0007`:
    fixture got `HTTP 500 duplicate key … profiles_email_key`, which included the
    owner's own address. Fixed by migration `0010` (fixtures moved to
    `@publisense.invalid`); verified by a magic-link request that now returns `200`.
-3. **Sign-in surface** — `AuthModal` now asks `/auth/v1/settings` which providers are
-   live and renders only those, so no dead Google/GitHub/Magic Link controls ship.
-   SMTP is configured and a real sign-in email was delivered, but Gmail placed it in
-   **spam** (SPF on the sending apex is Zoho-only), so the Magic Link tab stays
-   behind `VITE_AUTH_MAGIC_LINK=false` until a properly verified sending domain is
-   in place. Google OAuth still needs an OAuth client created in the Google Console —
-   no API for it. `D-005`.
+3. **Sign-in surface** — `AuthModal` asks `/auth/v1/settings` which providers are
+   live and renders only those, so no dead controls ship. Email/password and magic
+   link both work; auth mail is sent from `auth@publisense.app` with SPF and DKIM
+   passing and lands in the inbox. Google OAuth is the one remaining method: it needs
+   an OAuth client created in the Google Console (no API exists for it), after which
+   the button appears on its own.
 4. **Claimed boards are inert** — nothing approves a pending claim and there is no
    admin screen. `D-010`.
 5. **No application tests** — CI proves migrations apply, the bundle builds, and no
@@ -130,9 +129,7 @@ See [`MVP.md`](./MVP.md) and [`docs/deferred.md`](./docs/deferred.md) for shippi
 - [x] **Deploy V2 to Production**:
   - Deployed to Vercel with [`vercel.json`](./vercel.json) SPA rewrites, security headers, and production Supabase environment variables.
   - Custom domain **https://publisense.app** is live on the same project (`www.publisense.app` 308-redirects to the apex); `publisense.vercel.app` keeps serving as the fallback host.
-- [ ] **Auth Email Cleanup / Decision (D-005)**:
-  - Either configure Supabase SMTP provider (e.g. Resend) for magic links and email confirmations,
-  - Or disable magic-link / unconfirmed paths in [`AuthModal.tsx`](./src/components/AuthModal.tsx) so users aren't offered broken email paths.
+- [x] **Auth Email Cleanup (D-005)**: Supabase SMTP runs through Resend on the app's own verified domain — sender `Publisense <auth@publisense.app>`, SPF/DKIM passing, delivered to the inbox. Magic link is enabled and email confirmation is required again.
 - [x] **Bundle Optimization**: route-level lazy loading (`React.lazy`) — main chunk 634 kB → **102 kB** (-84%), with `vendor-react`/`vendor-supabase`/`vendor-router`/`vendor-icons` split out and each page in its own async chunk (Issue #9, PR #26).
 
 ---
