@@ -19,7 +19,7 @@ flowchart LR
 
 - **Frontend:** React 19 + Vite 6 + Tailwind 4, Obsidian Dark / Alabaster Light themes, hairline borders (`1px`), `Inter` + `JetBrains Mono` typography.
 - **Backend:** Supabase (Postgres + Auth, project `wyjfgrgxmhumyzwcrywj`, region `eu-central-2`).
-- **Data Model:** 9 tables (`organizations`, `products`, `profiles`, `posts`, `comments`, `post_votes`, `post_reposts`, `follows`, `notifications`) + `public_profiles` secure view.
+- **Data Model:** 10 tables (`organizations`, `products`, `profiles`, `posts`, `comments`, `comment_votes`, `post_votes`, `post_reposts`, `follows`, `notifications`) + `public_profiles` secure view.
 - **Access Control:** Production RLS with 32 scoped policies, `handle_new_user` trigger for signup profile creation, and `guard_profile_privileges` privilege escalation prevention.
 - **Build Status:** `tsc --noEmit` 0 errors; `vite build` clean.
 
@@ -39,7 +39,7 @@ flowchart LR
 | Milestone | Scope & Deliverables | Target Files |
 | :--- | :--- | :--- |
 | **1.1 Instant Product Indexing from Omni-Bar** ✅ | Allow users typing an unknown `@Product` directly in the Omni-Bar composer to create + tag that product inline in one step (auto-generating slug & category without leaving the composer). | [`HomePage.tsx`](./src/pages/HomePage.tsx) |
-| **1.2 Upvoting & Auto-Pinning Workarounds** ⚠️ | Users can upvote individual replies/workarounds (`likesCount`), automatically promoting the highest-upvoted `'workaround'` comment into the card's `Top Community Workaround` callout box. **The UI works but the vote is silently dropped in production — see [Known Regressions](#-known-regressions-currently-broken-in-production).** | [`SignalCard.tsx`](./src/components/SignalCard.tsx), [`StoreContext.tsx`](./src/context/StoreContext.tsx) |
+| **1.2 Upvoting & Auto-Pinning Workarounds** ✅ | Users can upvote individual replies/workarounds (`likesCount`), automatically promoting the highest-upvoted `'workaround'` comment into the card's `Top Community Workaround` callout box. Persisted via `comment_votes` + a trigger-maintained `likes_count` (migration `0008`, PR #24 — previously the vote was silently dropped). | [`SignalCard.tsx`](./src/components/SignalCard.tsx), [`StoreContext.tsx`](./src/context/StoreContext.tsx) |
 | **1.3 Duplicate Detection in Omni-Bar** ✅ | As a user types a new signal headline in `+ Post` mode, show live matching existing signals below the bar so they can `+1 / Same Issue` an existing post instead of fragmenting votes. | [`HomePage.tsx`](./src/pages/HomePage.tsx) |
 | **1.4 Real-Time 7d Velocity Calculation** ✅ | Computes `7d Velocity` dynamically from `post_votes`, `post_reposts`, and new `posts` timestamps over the trailing 7 days, dynamically driving the Right Rail `Trending Products` leaderboard. | [`HomePage.tsx`](./src/pages/HomePage.tsx), [`StoreContext.tsx`](./src/context/StoreContext.tsx) |
 
@@ -60,7 +60,7 @@ flowchart LR
 
 | Milestone | Scope & Deliverables | Target Files |
 | :--- | :--- | :--- |
-| **3.1 Domain-Verified Board Claiming** ⚠️ | Allows builders to claim their `/p/:slug` board via company work email domain or DNS TXT record, earning the `✓ Verified Team` badge and maintainer permissions. **UI and client logic are built, but the claim write is rejected by RLS in production — see [Known Regressions](#-known-regressions-currently-broken-in-production).** | [`HomePage.tsx`](./src/pages/HomePage.tsx), [`StoreContext.tsx`](./src/context/StoreContext.tsx) |
+| **3.1 Domain-Verified Board Claiming** ✅ | Allows builders to claim their `/p/:slug` board via company work email domain, earning maintainer permissions after human approval. The write goes through `claim_product_board(p_product_id, p_work_email)` (`SECURITY DEFINER`, migration `0009`, PR #25) — the client never writes `role`. A claim **parks as `pending` and grants nothing**; approval is admin-only. No approval UI exists yet — see `D-010` in [`docs/deferred.md`](./docs/deferred.md). | [`HomePage.tsx`](./src/pages/HomePage.tsx), [`StoreContext.tsx`](./src/context/StoreContext.tsx) |
 | **3.2 Inline Maintainer Triage Controls** ✅ | Verified maintainers can update signal status (`Planned`, `In Progress`, `Shipped`) and author official emerald `Builder Notes` directly from [`SignalCard`](./src/components/SignalCard.tsx) in the feed. | [`SignalCard.tsx`](./src/components/SignalCard.tsx) |
 | **3.3 Changelog & "Shipped" Rollup Banner** ✅ | Dedicated summary banner on `/p/:slug` celebrating shipped community requests, tracking team responsiveness rate, and closing the community feedback loop. | [`HomePage.tsx`](./src/pages/HomePage.tsx) |
 
@@ -76,52 +76,35 @@ Implemented in migrations `0004`–`0007`:
 
 ---
 
-## ⚠️ Known Regressions (Currently Broken in Production)
+## Verified Production Gaps (as of 2026-10-20 18:50 UTC)
 
-> [!WARNING]
-> Phase 4's lockdown is correct, but it **broke two Phase 1/3 features** that were
-> written against the permissive-RLS prototype. Both were verified against the live
-> database on 2026-10-20 — not inferred from reading code. Tracked as `D-008` and
-> `D-009` in [`docs/deferred.md`](./docs/deferred.md).
+> [!IMPORTANT]
+> Both regressions that used to live here are **fixed and verified live**:
+> board claiming via `claim_product_board` (PR #25) and comment upvoting via
+> `comment_votes` (PR #24). What remains is listed below — check it against the live
+> project before any announce, because this file is prose and the database is not.
 
-### 1. Board claiming is rejected by RLS — Phase 3.1
+**Verified working against production** (`wyjfgrgxmhumyzwcrywj`), not inferred:
 
-`claimProductBoard()` writes `role: 'maintainer'` and `managed_org_id` to the
-caller's own `profiles` row. `guard_profile_privileges` correctly rejects exactly
-that, because it is the privilege-escalation path the trigger exists to block:
+- unauthenticated read of the seeded catalog: 13 products, 7 organizations, 8 posts, 9 comments
+- `public_profiles` serves handles/names/avatars; `profiles` is not publicly readable
+- `comment_votes` and `0009`'s RPCs are present; `claim_product_board` / `approve_product_claim` return `401 42501` to `anon`, so they are not callable from the public key
+- all 13 products are `claim_status = 'unclaimed'` — no claim has ever been submitted
+- V2 live on Vercel, main chunk 102 kB (was 634 kB), route chunks code-split and served
 
-```
-PATCH /rest/v1/profiles?id=eq.<uid>
-  {"role":"maintainer","managed_org_id":"org-anthropic"}
-→ HTTP 400  P0001  profiles.role cannot be changed by the owner
-```
+**Still open, in priority order:**
 
-**The guard is right and the client is wrong.** Fix: a `SECURITY DEFINER` RPC —
-`claim_product_board(product_id, work_email)` — that verifies the email domain (or
-DNS TXT) server-side and performs the role change itself. The client must never
-write `role`.
+1. **Sign-in surface is partly dead** — `/auth/v1/settings` reports `google: false`,
+   `github: false`, `mailer_autoconfirm: true`, no SMTP. Email + password works; the
+   `◎ Google`, `⌘ GitHub` and `Magic Link` controls are visible and cannot succeed.
+   Issue #5 + `D-005`.
+2. **Claimed boards are inert** — nothing approves a pending claim and there is no
+   admin screen. `D-010`.
+3. **No application tests** — CI proves migrations apply, the bundle builds, and no
+   `service_role` key ships; it does not prove a user can sign up, post or vote. `D-003`.
 
-### 2. Comment upvoting silently saves nothing — Phase 1.2
-
-The only UPDATE policy on `comments` is `comments author update`
-(`auth.uid() = author_id`). A non-author upvoting someone else's workaround matches
-**zero rows and returns success**:
-
-```
-PATCH /rest/v1/comments?id=eq.cmt-1  {"likes_count": 43}
-→ HTTP 200,  rows affected: 0
-```
-
-**Worse than a hard failure** — the UI reports success while persisting nothing, so
-it will appear to work during a demo. Fix: a `comment_votes` table (one row per
-voter, so `likes_count` becomes an aggregate and one-vote-per-user becomes
-enforceable), or a counter RPC.
-
-### Not blocking a read-only launch
-
-Browsing, posting signals, commenting and voting on *signals* (`post_votes`) all
-work. Claiming and workaround-upvoting do not. That is fine for a soft launch where
-builders are not yet invited to claim boards.
+Browsing, posting signals, commenting, signal voting, and workaround upvoting all
+work end to end in production.
 
 ---
 
@@ -136,8 +119,7 @@ See [`MVP.md`](./MVP.md) and [`docs/deferred.md`](./docs/deferred.md) for shippi
 - [ ] **Auth Email Cleanup / Decision (D-005)**:
   - Either configure Supabase SMTP provider (e.g. Resend) for magic links and email confirmations,
   - Or disable magic-link / unconfirmed paths in [`AuthModal.tsx`](./src/components/AuthModal.tsx) so users aren't offered broken email paths.
-- [ ] **Bundle Optimization**:
-  - Route-level lazy loading (`React.lazy`) to reduce single chunk size below 500 kB (Issue #9).
+- [x] **Bundle Optimization**: route-level lazy loading (`React.lazy`) — main chunk 634 kB → **102 kB** (-84%), with `vendor-react`/`vendor-supabase`/`vendor-router`/`vendor-icons` split out and each page in its own async chunk (Issue #9, PR #26).
 
 ---
 
