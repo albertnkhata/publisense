@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { StoreProvider } from './context/StoreContext';
 import { AppShell } from './components/AppShell';
@@ -38,6 +38,10 @@ const TermsPage = lazy(() =>
   import('./pages/LegalPage').then((m) => ({ default: m.TermsPage }))
 );
 
+const NotFoundPage = lazy(() =>
+  import('./pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage }))
+);
+
 // Deliberately blank, not a spinner. These chunks are 2-10 kB and resolve in a
 // few milliseconds on any real connection; a spinner that flashes for one frame
 // is worse than a brief gap. If this ever needs a visual, keep it text-free.
@@ -62,7 +66,7 @@ export default function App() {
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/privacy" element={<PrivacyPage />} />
                 <Route path="/terms" element={<TermsPage />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
+                <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </Suspense>
           </AppShell>

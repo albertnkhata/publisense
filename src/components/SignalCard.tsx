@@ -11,6 +11,7 @@ import {
 } from '../types';
 import { useStore } from '../context/StoreContext';
 import { formatRelativeTime } from '../lib/time';
+import { displayHandle, resolveProfileHandle } from '../lib/handles';
 
 export type SignalKindFilter = 'ALL' | 'Wishlist' | 'Friction' | 'Praise';
 
@@ -46,6 +47,7 @@ export const SignalCard: React.FC<SignalCardProps> = ({ post, defaultExpanded = 
     addComment,
     toggleCommentLike,
     updatePostStatus,
+    profiles,
   } = useStore();
 
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
@@ -237,19 +239,27 @@ export const SignalCard: React.FC<SignalCardProps> = ({ post, defaultExpanded = 
                 >
                   {calloutBlock.badge}
                 </span>
-                {calloutBlock.handle.startsWith('@') ? (
-                  <Link
-                    to={`/u/${calloutBlock.handle.replace(/^@/, '')}`}
-                    onClick={(e) => e.stopPropagation()}
-                    style={{ color: 'var(--text-primary)', fontWeight: 500 }}
-                  >
-                    {calloutBlock.handle}
-                  </Link>
-                ) : (
-                  <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
-                    {calloutBlock.handle}
-                  </strong>
-                )}
+                {(() => {
+                  // Only link a handle a real profile answers to. Responder labels
+                  // are free text and often carry a team name ("@aman (Cursor Team)"),
+                  // which used to render an authoritative-looking link to a profile
+                  // that does not exist.
+                  const slug = resolveProfileHandle(calloutBlock.handle, profiles);
+                  const label = displayHandle(calloutBlock.handle);
+                  return slug ? (
+                    <Link
+                      to={`/u/${slug}`}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{ color: 'var(--text-primary)', fontWeight: 500 }}
+                    >
+                      {label}
+                    </Link>
+                  ) : (
+                    <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
+                      {label}
+                    </strong>
+                  );
+                })()}
                 {calloutBlock.kind === 'workaround' && workaroundComments.length > 1 && (
                   <span className="mono" style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
                     · +{workaroundComments.length - 1} more in thread
