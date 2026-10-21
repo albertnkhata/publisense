@@ -19,31 +19,27 @@
 
 ### D-012 · The Google consent screen shows no app logo
 
-**Status:** 🟢 cosmetic/minor (owner decision 2026-10-21) · **Raised:** 2026-10-21 · **Revisit:** next time the OAuth client is touched, or if consent-screen drop-off is suspected
+**Status:** 🟢 logo kit received; upload is a console-only owner action and is PENDING · **Raised:** 2026-10-21 · **Revisit:** immediately after the upload, or if consent-screen trust becomes a concern
 
-**Decision:** ship without an app logo on the Google consent screen. What a user signing in
-with Google sees today is the correct app name **Publisense** with working
-`https://publisense.app/privacy` and `https://publisense.app/terms` links — verified from the
-anonymous sign-in page, not from the console. What they do not see is an icon. That is
-acceptable for now and recorded here so it stays a decision rather than an oversight.
+**Decision:** ship the logo. `publisense-google-120.png` (120×120, 3 KB, PNG, square — meets
+Google's Branding requirements: PNG, ≤1 MB, 120×120 recommended) was delivered on 2026-10-21
+and is ready to upload at Google Auth Platform → Branding → App logo in project
+`publisense-app` (#435845896733), client
+`435845896733-niul19ep912jje2lqnnqg9ssi1k4tuvj.apps.googleusercontent.com`.
 
-**Why this is not free.** Google only renders an uploaded logo once the app goes through brand
-verification. The client requests `email profile` only, which is non-sensitive, so it needs no
-verification at all today. Uploading a logo would volunteer the app for a review it otherwise
-never enters, to gain a cosmetic improvement. The cost of the gap is a marginally less
-recognisable consent screen, not a broken or blocked sign-in — there is no "unverified app"
-interstitial either way.
+**Blocked on:** owner console session — there is no API for Auth Platform branding, so Saul
+cannot do this step. Expected outcome after upload: the consent screen shows name **Publisense**
++ the chat-bubble mark. Open question only if Google asks for brand verification — with
+`email profile` scopes it should not, but if it does, revisit this entry before submitting.
 
-**What picking it up requires:** a square PNG/JPG/BMP, 1 MB maximum, 120×120 recommended;
-upload under Auth Platform → Branding → App logo in project `publisense-app` (#435845896733)
-for client `435845896733-niul19ep912jje2lqnnqg9ssi1k4tuvj.apps.googleusercontent.com`.
-
-**Trigger to revisit:** adding any sensitive or restricted scope (a review becomes mandatory
-anyway, so the logo should ride along with it), or any push that asks strangers to trust the
-sign-in screen — announcements, paid acquisition, press.
+**Kit remainder:** `apple-touch-icon-180.png`, `favicon.ico`,
+`publisense-icon-512.png`, `publisense-icon-white-on-indigo.svg`,
+`publisense-mark-indigo-1024.png`, `publisense-mark-indigo.svg` are for the site, not Google
+OAuth — not part of this entry. `/favicon.ico` currently 200s with index.html
+(SPA fallback) and the head uses an inline green SVG; a real favicon/app-icon job should be a
+separate deferred item if wanted.
 
 ---
-
 ### D-011 · Every visible signal and comment in production is seeded fixture content
 
 **Status:** 🟡 accepted for now (owner decision 2026-10-20) · **Raised:** 2026-10-20 · **Revisit:** before announce
@@ -90,7 +86,6 @@ truthfulness exposure, not an engineering one, so it is the owner's call.
   index (requires a decent empty state)
 - **B** — keep them, but label them: a visible "sample data" banner and personas
   marked as examples rather than members
-
 
 ---
 
@@ -204,7 +199,6 @@ queued shows as `failed` in `email_delivery` and nothing re-attempts it. Votes, 
 status changes remain in-app only. The "work email matches the domain" check proves
 nothing about mailbox control; it is labelled weak in the function itself and remains a
 manual trust decision, which is precisely why the reject path and the note exist.
-
 
 ---
 
