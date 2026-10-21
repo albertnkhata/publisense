@@ -15,6 +15,7 @@ import {
   FollowRelation,
   NotificationItem,
 } from '../types';
+import { approvalOutcome } from '../lib/claimRequests';
 import {
   SEED_ORGANIZATIONS,
   SEED_PRODUCTS,
@@ -127,6 +128,7 @@ interface StoreContextValue {
     productId: string,
     input: { workEmail: string; roleTitle?: string; verificationMethod?: 'email_domain' | 'dns_txt' }
   ) => Promise<{ error?: string }>;
+  approveProductClaim: (productId: string) => Promise<{ error?: string; message?: string }>;
   markNotificationRead: (notifId: string) => void;
   markAllNotificationsRead: () => void;
   resetLocalDemoData: () => void;
@@ -387,6 +389,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               followersCount: p.followers_count,
               claimStatus: p.claim_status ?? 'unclaimed',
               claimEmail: p.claim_email ?? undefined,
+              claimRequestedAt: p.claim_requested_at ?? undefined,
             })),
             profiles: (profsRes.data || []).map((u: any) => ({
               id: u.id,
@@ -1628,6 +1631,52 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [currentUser, openAuthModal, store.products, supabase]
   );
 
+  const approveProductClaim = useCallback(
+    async (productId: string): Promise<{ error?: string; message?: string }> => {
+      if (!currentUser) {
+        openAuthModal('Sign in as an administrator to review claims.');
+        return { error: 'Not signed in' };
+      }
+      if (currentUser.role !== 'admin') {
+        return { error: 'Only an administrator can approve a claim.' };
+      }
+      if (!supabase) {
+        return { error: 'Approving a claim requires a live connection.' };
+      }
+
+      const prod = store.products.find((p) => p.id === productId);
+      if (!prod) return { error: 'Product board not found.' };
+
+      // The database decides, as with claiming. This RPC is admin-gated
+      // server-side, so a client-side check here is convenience, not security.
+      const { data, error } = await supabase.rpc('approve_product_claim', {
+        p_product_id: productId,
+      });
+
+      if (error) {
+        return { error: error.message || 'Could not approve the claim.' };
+      }
+
+      const outcome = approvalOutcome(data, prod.name);
+      if (!outcome.ok) return { error: outcome.message };
+
+      // Mirror only what the database granted: the board is verified. The
+      // claimant's promotion is deliberately not faked in local state — the feed
+      // reads public_profiles, which carries no email, so there is nothing
+      // reliable to match on and a wrong guess would show a role nobody has.
+      // Their maintainer badge appears on their next load.
+      setStore((prev) => ({
+        ...prev,
+        products: prev.products.map((p) =>
+          p.id === productId ? { ...p, claimStatus: 'verified' as const, isVerified: true } : p
+        ),
+      }));
+
+      return { message: outcome.message };
+    },
+    [currentUser, openAuthModal, store.products, supabase]
+  );
+
   const markNotificationRead = useCallback((notifId: string) => {
     setStore((prev) => ({
       ...prev,
@@ -1715,6 +1764,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     toggleFollowUser,
     createProduct,
     claimProductBoard,
+    approveProductClaim,
     markNotificationRead,
     markAllNotificationsRead,
     resetLocalDemoData,

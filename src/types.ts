@@ -61,6 +61,8 @@ export interface Product {
    */
   claimStatus?: 'unclaimed' | 'pending' | 'verified';
   claimEmail?: string;
+  /** When the claimant asked, from products.claim_requested_at. */
+  claimRequestedAt?: string;
 }
 
 export interface UserProfile {
