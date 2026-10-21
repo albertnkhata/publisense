@@ -68,12 +68,44 @@ export function approvalOutcome(result: unknown, productName: string): ApprovalO
   switch (r.error) {
     case 'not_admin':
       return { ok: false, message: 'Only an administrator can approve a claim.' };
+    case 'already_verified':
+      return { ok: false, message: 'That board is already verified — nothing to approve.' };
     case 'no_pending_claim':
       return {
         ok: false,
-        message: 'That claim is no longer pending — it may already have been approved.',
+        message: 'That claim is no longer pending — it may already have been decided.',
       };
     default:
       return { ok: false, message: 'The database refused the approval.' };
+  }
+}
+
+/**
+ * The mirror of approvalOutcome(). A rejection is a decision, not a failure: it
+ * clears the claim and leaves the board claimable again, so the message says that
+ * plainly instead of apologising for it.
+ */
+export function rejectionOutcome(result: unknown, productName: string): ApprovalOutcome {
+  const r = (result ?? {}) as { ok?: boolean; error?: string };
+
+  if (r.ok === true) {
+    return {
+      ok: true,
+      message: `${productName} was not approved. The claim is cleared and the board is open again.`,
+    };
+  }
+
+  switch (r.error) {
+    case 'not_admin':
+      return { ok: false, message: 'Only an administrator can reject a claim.' };
+    case 'no_pending_claim':
+      return {
+        ok: false,
+        message: 'That claim is no longer pending — it may already have been decided.',
+      };
+    case 'product_not_found':
+      return { ok: false, message: 'That product board no longer exists.' };
+    default:
+      return { ok: false, message: 'The database refused the rejection.' };
   }
 }

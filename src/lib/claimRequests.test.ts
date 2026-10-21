@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { approvalOutcome, pendingClaimRequests } from './claimRequests';
+import { approvalOutcome, pendingClaimRequests, rejectionOutcome } from './claimRequests';
 import type { Organization, Product } from '../types';
 
 function product(over: Partial<Product>): Product {
@@ -124,10 +124,37 @@ describe('approvalOutcome', () => {
     expect(outcome.message).toMatch(/maintainer/i);
   });
 
+  it('explains that a board is already verified instead of implying a failure', () => {
+    const outcome = approvalOutcome({ ok: false, error: 'already_verified' }, 'Product One');
+    expect(outcome.ok).toBe(false);
+    expect(outcome.message).toMatch(/already verified/i);
+  });
+
   it('treats an unrecognised payload as a failure, not a success', () => {
     expect(approvalOutcome(null, 'X').ok).toBe(false);
     expect(approvalOutcome({}, 'X').ok).toBe(false);
     expect(approvalOutcome({ ok: 'yes' }, 'X').ok).toBe(false);
     expect(approvalOutcome(undefined, 'X').ok).toBe(false);
+  });
+});
+
+describe('rejectionOutcome', () => {
+  it('reads a rejection as the decision it is, not an error', () => {
+    const outcome = rejectionOutcome({ ok: true, status: 'unclaimed' }, 'Product One');
+    expect(outcome.ok).toBe(true);
+    expect(outcome.message).toContain('Product One');
+    expect(outcome.message).toMatch(/open again/i);
+  });
+
+  it('distinguishes a database refusal from the decision itself', () => {
+    expect(rejectionOutcome({ ok: false, error: 'not_admin' }, 'X').message).toMatch(/administrator/i);
+    expect(rejectionOutcome({ ok: false, error: 'no_pending_claim' }, 'X').message).toMatch(/no longer pending/i);
+    expect(rejectionOutcome({ ok: false, error: 'product_not_found' }, 'X').message).toMatch(/no longer exists/i);
+  });
+
+  it('never reads an unknown payload as a completed rejection', () => {
+    expect(rejectionOutcome(null, 'X').ok).toBe(false);
+    expect(rejectionOutcome({}, 'X').ok).toBe(false);
+    expect(rejectionOutcome({ ok: 'yes' }, 'X').ok).toBe(false);
   });
 });
