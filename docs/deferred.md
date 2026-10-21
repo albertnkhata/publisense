@@ -19,34 +19,44 @@
 
 ### D-012 · The Google consent screen shows no app logo
 
-**Status:** 🟡 logo on site now; brand re-verification PENDING (owner action) · **Raised:** 2026-10-21 · **Revisit:** after the next Verify Branding result
+**Status:** 🟢 DEFERRED by owner decision 2026-10-21 — auto-verification bounced twice; not pursuing now · **Raised:** 2026-10-21 · **Revisit:** when a distinctive brand mark exists, or if a sensitive scope forces a review anyway
 
-**History.** The logo was uploaded on 2026-10-21 and **rejected**: it does not uniquely represent the
-brand. Root cause found by inspection, not guesswork — **the site carried no brand mark at all**, so
-Google's reviewer/crawler compared the submitted indigo mark against `publisense.app` and found no
-continuity: the header rendered the word "Publisense" with a letter-`P` box, the favicon was an inline
-**green** broadcast glyph, and there was no `og:image`. A mark that appears nowhere on the site cannot
-be verified as belonging to the site.
+**Decision.** Stop chasing brand verification for now. The logo does not appear on the consent
+screen and that is accepted. What users see is the app name **Publisense** with working
+`publisense.app/privacy` and `publisense.app/terms` links, and no unverified-app interstitial —
+verified from the anonymous sign-in page. **Nothing user-facing is broken by this.**
 
-**Fixed (PR: feat/brand-logo-site-continuity).** The mark is now the site's actual brand identity:
+**What was tried (so nobody repeats it).**
 
-- header mark (`AppShell`) is the real icon instead of a letter tile
-- hero mark on the homepage — the public page a reviewer opens first
-- `favicon.ico`, SVG icon, 120×120 PNG icon, `apple-touch-icon-180`, and `og:image`
-- all served from `/brand/` (copied into `public/`), verified over HTTP as real image content types
+1. Uploaded `publisense-google-120.png` → **rejected**: does not uniquely represent the brand.
+2. Root cause of the *first* bounce was genuine and is now fixed: the site carried **no brand mark
+   anywhere** (header was a letter-`P` tile, favicon an unrelated green glyph, no `og:image`), so the
+   crawler found zero continuity with the submitted mark. PR #56 made the mark the site's actual
+   identity — header, homepage hero, favicon, apple-touch-icon, `og:image`, all served from `/brand/`.
+   Verified live: the 120×120 on `publisense.app` is **byte-identical** (SHA-256) to the kit file, so
+   continuity is real, not asserted.
+3. Re-ran auto-verification → **bounced again**. Continuity alone was not the whole objection.
 
-**How to finish.** Re-upload `publisense-google-120.png` under Auth Platform → Branding → App logo in
-project `publisense-app` (#435845896733), then Verify Branding. Continuity is now real rather than
-asserted. If it passes, publish within the 7-day window (a pass expires). If it is rejected again
-*after* this, the remaining objection is the shared reproach — that the chat-bubble-plus-bars is a
-generic messaging glyph — and the answer is a distinctive mark (a monogram/lettermark), not an appeal.
+**The honest read.** The mark is a speech bubble with ascending bars — the generic "messaging app"
+glyph. Google's distinctiveness test is about the mark itself, and no amount of site continuity will
+make a common glyph unique. The next attempt needs a **distinctive mark** (monogram / custom
+lettermark on the indigo field), not another submission of this one.
 
-**Do not appeal a generic-mark finding with the old asset.** Google's "Request additional review" path
-is for *"I believe the issues found are incorrect"*; the finding was substantive, and a 2–3 business
-day appeal on an unchanged mark mostly wastes the window.
+**Do not appeal.** Google's "Request additional review" path is for *"I believe the issues found are
+incorrect."* Two bounces on a generic glyph is not a false positive, and an appeal spends 2–3 business
+days to argue a point that would be lost.
 
-**Kit remainder:** `publisense-icon-512.png`, `publisense-mark-indigo-{1024.png,svg}` are unused
-variants — no entry needed unless a need appears.
+**What picking it up requires:** a distinctive 120×120 square PNG/JPG/BMP (≤1 MB), upload at Auth
+Platform → Branding in project `publisense-app` (#435845896733), Verify Branding, then **publish
+within 7 days** (a passing verification expires). Branding edits are blocked while a verification is
+in progress — click **Cancel** if one is still running.
+
+**Trigger to revisit:** commissioning a real brand mark, **or** adding any sensitive/restricted OAuth
+scope (verification becomes mandatory anyway, so the logo rides along at no extra cost).
+
+**Already delivered and staying:** the site brand work (PR #56) is independent of Google's verdict and
+is live — the site now carries a real mark where it previously had a letter tile and an unrelated
+favicon. That improves the product regardless of the consent screen.
 
 ---
 
