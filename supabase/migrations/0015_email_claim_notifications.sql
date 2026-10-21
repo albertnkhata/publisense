@@ -13,9 +13,24 @@
 -- Every attempt is recorded in email_log, including the ones that could not be
 -- made — a silent failure here would be worse than no email at all, because the
 -- in-app notification would make it look delivered.
+--
+-- PORTABILITY. pg_net and supabase_vault are Supabase platform extensions. The CI
+-- migrations job applies these files to a stock Postgres that has neither, so every
+-- extension-dependent object is created only where the extensions exist. There this
+-- migration creates email_log and the trigger function, then stops with a notice:
+-- CI proves the file parses and applies in order, not that mail is delivered.
+-- Delivery is verified live and recorded in the PR.
 
-create extension if not exists pg_net;
-create extension if not exists supabase_vault;
+do $extensions$
+begin
+  if exists (select 1 from pg_available_extensions where name = 'pg_net') then
+    create extension if not exists pg_net;
+  end if;
+  if exists (select 1 from pg_available_extensions where name = 'supabase_vault') then
+    create extension if not exists supabase_vault;
+  end if;
+end
+$extensions$;
 
 create table if not exists public.email_log (
   id              uuid primary key default gen_random_uuid(),
@@ -109,35 +124,52 @@ begin
 end;
 $function$;
 
-drop trigger if exists notifications_send_email on public.notifications;
-create trigger notifications_send_email
-  after insert on public.notifications
-  for each row execute function public.send_notification_email();
-
 -- Only the trigger calls this; it holds a secret and must not be reachable over RPC.
 revoke all on function public.send_notification_email() from anon, authenticated;
 
 
--- Anything that can fail silently needs somewhere to be looked at. email_log says
--- what was attempted; pg_net keeps the response; this view pairs them, so a send
--- that came back 401 or 422 shows up as itself instead of 'queued' forever.
-create or replace view public.email_delivery
-with (security_invoker = true) as
-select
-  l.id,
-  l.created_at,
-  l.kind,
-  l.recipient,
-  l.status,
-  l.request_id,
-  case
-    when l.status <> 'queued' then l.status
-    when r.status_code is null then 'in flight'
-    when r.status_code between 200 and 299 then 'sent'
-    else 'failed'
-  end as outcome,
-  r.status_code,
-  nullif(r.content, '') as provider_response,
-  l.detail
-from public.email_log l
-left join net._http_response r on r.id = l.request_id;
+-- The trigger and the delivery view exist only where pg_net and Vault are present.
+do $platform$
+begin
+  if exists (select 1 from pg_namespace where nspname = 'net')
+     and exists (select 1 from pg_namespace where nspname = 'vault') then
+
+    execute $trg$
+      drop trigger if exists notifications_send_email on public.notifications;
+      create trigger notifications_send_email
+        after insert on public.notifications
+        for each row execute function public.send_notification_email();
+    $trg$;
+
+    -- Anything that can fail silently needs somewhere to be looked at. email_log
+    -- says what was attempted; pg_net keeps the response; this view pairs them, so
+    -- a send that came back 401 or 422 shows up as itself instead of 'queued'.
+    execute $view$
+      create or replace view public.email_delivery
+      with (security_invoker = true) as
+      select
+        l.id,
+        l.created_at,
+        l.kind,
+        l.recipient,
+        l.status,
+        l.request_id,
+        case
+          when l.status <> 'queued' then l.status
+          when r.status_code is null then 'in flight'
+          when r.status_code between 200 and 299 then 'sent'
+          else 'failed'
+        end as outcome,
+        r.status_code,
+        nullif(r.content, '') as provider_response,
+        l.detail
+      from public.email_log l
+      left join net._http_response r on r.id = l.request_id;
+    $view$;
+
+    raise notice 'email notifications enabled (pg_net + vault present)';
+  else
+    raise notice 'pg_net/vault absent: email trigger and delivery view not created (expected off-platform, e.g. CI)';
+  end if;
+end
+$platform$;
