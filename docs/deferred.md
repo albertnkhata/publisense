@@ -17,6 +17,33 @@
 
 ## Open
 
+### D-012 · The Google consent screen shows no app logo
+
+**Status:** 🟢 cosmetic/minor (owner decision 2026-10-21) · **Raised:** 2026-10-21 · **Revisit:** next time the OAuth client is touched, or if consent-screen drop-off is suspected
+
+**Decision:** ship without an app logo on the Google consent screen. What a user signing in
+with Google sees today is the correct app name **Publisense** with working
+`https://publisense.app/privacy` and `https://publisense.app/terms` links — verified from the
+anonymous sign-in page, not from the console. What they do not see is an icon. That is
+acceptable for now and recorded here so it stays a decision rather than an oversight.
+
+**Why this is not free.** Google only renders an uploaded logo once the app goes through brand
+verification. The client requests `email profile` only, which is non-sensitive, so it needs no
+verification at all today. Uploading a logo would volunteer the app for a review it otherwise
+never enters, to gain a cosmetic improvement. The cost of the gap is a marginally less
+recognisable consent screen, not a broken or blocked sign-in — there is no "unverified app"
+interstitial either way.
+
+**What picking it up requires:** a square PNG/JPG/BMP, 1 MB maximum, 120×120 recommended;
+upload under Auth Platform → Branding → App logo in project `publisense-app` (#435845896733)
+for client `435845896733-niul19ep912jje2lqnnqg9ssi1k4tuvj.apps.googleusercontent.com`.
+
+**Trigger to revisit:** adding any sensitive or restricted scope (a review becomes mandatory
+anyway, so the logo should ride along with it), or any push that asks strangers to trust the
+sign-in screen — announcements, paid acquisition, press.
+
+---
+
 ### D-011 · Every visible signal and comment in production is seeded fixture content
 
 **Status:** 🟡 accepted for now (owner decision 2026-10-20) · **Raised:** 2026-10-20 · **Revisit:** before announce
