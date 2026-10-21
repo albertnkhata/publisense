@@ -19,40 +19,51 @@
 
 ### D-013 · Password reset and emailed auth links had no recovery path
 
-**Status:** ✅ RESOLVED 2026-10-21 · **Raised:** 2026-10-21
+**Status:** ✅ RESOLVED 2026-10-21 · **Raised:** 2026-10-21 · **PR:** #58
 
 **What was wrong.** Two gaps in the same flow, both invisible until a user hit them:
 
 1. **No password reset at all.** No "Forgot password?" affordance anywhere, and
-   `resetPasswordForEmail` was not called anywhere in the client. A user who mistyped their
-   password at signup, or simply forgot it, had no recovery path — the only option was a second
-   account on a different address.
-2. **Emailed links were never consumed.** `mailer_autoconfirm = false`, so signup and recovery
-   both depend on an email link, but Supabase sends `?token_hash=…&type=…` links that a plain
-   `createClient` (implicit flow) does not consume. The user clicked "confirm", landed on the site
-   **signed out**, and had to sign in again — or, for a reset, there was nothing to do at all. A
-   spent link (routinely already fetched by a mail scanner) failed silently: the modal just sat
-   there offering a password box.
+   `resetPasswordForEmail` was never called. A user who mistyped their password at signup, or
+   forgot it, had no recovery path — the only option was a second account.
+2. **Emailed links never completed.** `mailer_autoconfirm = false`, so both signup and recovery
+   depend on a mailed link, but nothing consumed it.
 
-**Fixed.** `src/lib/authRecovery.ts` (pure, 19 tests) plus wiring in `StoreContext`/`AuthModal`:
+**The second one was worse than it looked, and a live round-trip is what found it.** Supabase
+mails `/auth/v1/verify?token=…&type=recovery`, which **303-redirects with the session in the URL
+fragment** (`#access_token=…&type=recovery`); `supabase-js` consumes that itself. The first
+implementation assumed a `?token_hash=` link and read only search params — so a real reset landed
+the user **signed in with no way to choose a new password**, and a spent link failed silently.
+Unit tests and DOM probes passed on that wrong model; only a real email exposed it.
 
-- forgot-password enters an email-only step, then confirms "link sent"
-- `classifyAuthCallback` reads `token_hash`/`type` off the landing URL and `verifyOtp` completes it
-  **in-page**: a confirmed signup lands signed in, a recovery link opens a "set new password" step
-- a link that will not verify explains itself and offers a resend; the query string is stripped via
-  `replaceState` so a reload cannot replay a dead token
-- "expired" is only claimed when the provider says expired — `access_denied` alone does not mean
-  that, and guessing sends people to the wrong fix
-- reset requests return the same message whether or not the address exists, so the form cannot be
-  used to enumerate accounts
+**Fixed.** `src/lib/authRecovery.ts` (pure, 22 tests) plus wiring in `StoreContext`/`AuthModal`:
 
-**Verified** over the built bundle in a real browser: all four landing states (expired code,
-malformed token, plain page, forgot-password) produce the intended mode, fields and button, with
-the URL cleaned and no password field shown before a session exists.
+- forgot-password → email-only step → "link sent"
+- a fragment session is its own case: `type=recovery` opens the **New Password** step, hash cleared
+- the `?token_hash=` branch is kept for projects configured that way (`verifyOtp` path)
+- a link that will not verify explains itself and offers a resend; reload cannot replay a spent token
+- "expired" is claimed only when the provider says expired — `access_denied` alone is not proof
+- reset requests answer identically whether or not the address exists (no account enumeration)
 
-**Residual, not fixed here:** there is no client-side cooldown on resend, so a user can trip
-Supabase's `smtp_max_frequency` (60s) and see a throttle error; `explainSendFailure` now words that
-as a wait rather than a failure, but a visible countdown would be better.
+**Verified against a real mailbox** (throwaway address), not just an API 200:
+
+```
+signup  -> 200, confirmation_sent_at set
+mail    -> "Confirm your email address"  from auth@publisense.app   arrived
+recover -> 200
+mail    -> "Reset your password"         from auth@publisense.app   arrived
+reset   -> link followed, password changed
+        -> sign-in OLD password 400 REJECTED / NEW password 200 ACCEPTED
+```
+
+**Residual, not fixed here:**
+
+- no client-side resend cooldown, so Supabase's 60s `smtp_max_frequency` can be tripped
+  (`explainSendFailure` now *words* it as a wait; there is no countdown)
+- the 303 hop itself could not be exercised against a local build — `redirect_to` is pinned to the
+  allow-listed site URL — so the final UI check used the fragment form directly
+- **a mail scanner fetching the link consumes the token**, which is why "expired or already used"
+  will sometimes be shown to a user who never clicked anything
 
 ---
 
