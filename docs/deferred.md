@@ -101,11 +101,25 @@ reviewable migration with a single email-identified row is the narrowest place.
 - re-approval is **idempotent** (`ok: true`, same values) rather than refused — harmless, but the function should arguably return `already_verified`; noted, not fixed
 - everything removed afterwards, counts back to baseline
 
-**Still open.** There is no UI that reaches `approve_product_claim`, no reject/deny
-path at all (not even in the database), no notification to the claimant on decision,
-and the "work email matches the domain" check proves nothing about mailbox control —
-it is labelled weak in the function itself and remains a manual trust decision for the
-reviewer. Admin approvals screen is the next slice.
+**Shipped.** Settings carries a claim queue for administrators only: product,
+organisation, claimant email and when they asked, oldest first, one Approve action.
+Verified end to end against production — a pending claim approved through that screen
+left the product `verified`, its organisation verified and the claimant `maintainer`
+bound to it, with the queue emptying afterwards.
+
+**A prerequisite bug this surfaced.** Provisioning a `profiles` row on sign-in used to
+write `role: 'user'` and `managed_org_id: null` as though they were defaults. They were
+overwrites: the profiles read that proves the account already exists is still in flight
+on a cold load, so an admin who signed in was silently demoted — their own admin role is
+what made the guard permit the change — and a maintainer's organisation binding would
+have been rejected invisibly. The client now provisions with `ON CONFLICT DO NOTHING`
+and display fields only, then adopts the authoritative row. `profileProvisioningPayload()`
+has tests asserting it cannot carry a role or an organisation.
+
+**Still open.** No reject or deny path at all — not even in the database, so a bad claim
+can only be approved or ignored; no notification to the claimant when a decision lands;
+and the "work email matches the domain" check proves nothing about mailbox control — it
+is labelled weak in the function itself and remains a manual trust decision.
 
 
 ---
