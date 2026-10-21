@@ -129,8 +129,23 @@ Verified through the live UI, not just the RPCs: declined a real pending claim f
 Settings with a reason; the board came back `unclaimed` with every claim field cleared and
 unverified, and the decision row carried the reviewer's email and the note.
 
-**Still open.** No notification to the claimant when a decision lands — a declined request
-is silent unless they happen to look. The "work email matches the domain" check proves
+**The claimant is now told.** Both decisions insert a `notifications` row inside the same
+`SECURITY DEFINER` function that decides, so there is no path that decides without telling
+or tells without deciding. A rejection carries the reviewer's note — "we said no" with no
+reason is the silence this replaced. `notifications.kind` was a checked list that did not
+include the new kinds; it was extended rather than reusing `upvote`, so the database still
+says what a row means.
+
+This surfaced two defects behind it. The app never read `notifications` at all — it invented
+them in browser state — and the catalogue load ran once at mount before Supabase restored
+the session, so anything RLS-filtered came back empty. And the read-state write was written
+as `void supabase...update(...)`, which sends nothing: a supabase-js builder is lazy and
+requires `.then()` or `await`. Verified by spying on fetch during the click — zero requests,
+while the same PATCH as that user returned 200 — then `PATCH -> 204` and `is_read = true`
+after the fix.
+
+**Still open.** Notifications are in-app only: no email is sent, so a claimant who never
+returns to the site still does not find out. The "work email matches the domain" check proves
 nothing about mailbox control; it is labelled weak in the function itself and remains a
 manual trust decision, which is precisely why the reject path and the note exist.
 
