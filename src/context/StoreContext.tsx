@@ -31,6 +31,27 @@ import {
 } from '../data/seedData';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
+/**
+ * The auth callback, read from the URL *before* supabase-js gets a chance to
+ * consume it.
+ *
+ * Import order matters here and is the whole point: `../lib/supabase` is
+ * imported above, and creating its client strips `#access_token=...` off the
+ * URL as part of initialising. Anything that reads `window.location.href` from
+ * inside a component effect therefore sees a URL with the fragment already
+ * gone, cannot tell a recovery link from an ordinary visit, and never opens the
+ * "choose a new password" step - which is exactly the bug that let a reset link
+ * sign the user in and leave them with a password they had forgotten.
+ *
+ * Reading it once at module scope, before the client exists, is what makes the
+ * classification trustworthy. It is deliberately a single read: the value
+ * describes the page as it was first loaded, and must not follow later
+ * navigations.
+ */
+const callbackFromFirstLoad = classifyAuthCallback(
+  typeof window === 'undefined' ? '' : window.location.href
+);
+
 interface RelationalStoreState {
   organizations: Organization[];
   products: Product[];
@@ -796,7 +817,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
      * reported rather than silently ignored, and the URL is cleaned so a reload
      * does not replay it.
      */
-    const callback = classifyAuthCallback(window.location.href);
+    const callback = callbackFromFirstLoad;
     // A recovery link signs the user in, but only to let them choose a new
     // password. Remember that so the session listener does not treat it as a
     // finished sign-in and close the password prompt.
@@ -850,11 +871,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
         syncSupabaseUserToProfile(session.user).then(() => setDataVersion((v) => v + 1));
-        // Do NOT close the modal on a recovery link. The session there is the
-        // *permission* to choose a password, not the end of the journey - closing
-        // it would drop the user on the feed still holding a password they have
-        // forgotten. Only the other paths end at a usable session.
-        if (event !== 'PASSWORD_RECOVERY' && !sessionFromRecoveryLink) {
+        // A recovery session is permission to choose a new password, not the end
+        // of the journey: open that step instead of closing the modal. This
+        // event is the reliable signal - the URL fragment has already been
+        // consumed by the time any of this runs.
+        if (event === 'PASSWORD_RECOVERY' || sessionFromRecoveryLink) {
+          setAuthLinkMessage(undefined);
+          setAuthLinkMode('newpassword');
+          setIsAuthModalOpen(true);
+        } else {
           setIsAuthModalOpen(false);
         }
       } else {
