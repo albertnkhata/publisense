@@ -16,6 +16,7 @@ import {
   NotificationItem,
 } from '../types';
 import { approvalOutcome } from '../lib/claimRequests';
+import { profileProvisioningPayload } from '../lib/profileProvisioning';
 import {
   SEED_ORGANIZATIONS,
   SEED_PRODUCTS,
@@ -662,19 +663,57 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setActiveUserId(newProfile.id);
 
       if (supabase) {
-        await supabase.from('profiles').upsert({
-          id: newProfile.id,
-          handle: newProfile.handle,
-          name: newProfile.name,
-          email: newProfile.email,
-          avatar_url: newProfile.avatarUrl,
-          bio: newProfile.bio,
-          role: newProfile.role,
-          managed_org_id: null,
-          role_title: null,
-          location: null,
-          joined_at: newProfile.joinedAt,
-        });
+        // Create the row if it is missing, and never touch an existing one.
+        //
+        // This used to send role: 'user' and managed_org_id: null, which read as
+        // "harmless defaults" but behaved as an overwrite: signing in on a cold
+        // page load — before the profiles read lands — silently demoted an admin
+        // (their own admin role is what lets the guard trigger permit it) and
+        // would have stripped a maintainer's organisation binding, except that the
+        // guard rejects that write and the failure was never checked.
+        //
+        // ignoreDuplicates makes it ON CONFLICT DO NOTHING, so an existing account
+        // keeps whatever the database says it is.
+        const { data: created, error: provisionError } = await supabase
+          .from('profiles')
+          .upsert(profileProvisioningPayload(newProfile), {
+            onConflict: 'id',
+            ignoreDuplicates: true,
+          })
+          .select('id, role, managed_org_id, role_title');
+
+        if (provisionError) {
+          console.warn('[Publisense] could not provision profile row:', provisionError.message);
+        }
+
+        // The row already existed: adopt the database's version rather than the
+        // guess built from auth metadata, so local state shows the real role.
+        if (!provisionError && (!created || created.length === 0)) {
+          // profiles (not the public view) because managed_org_id lives there and
+          // the "self read" policy permits it for the caller's own row.
+          const { data: authoritative } = await supabase
+            .from('profiles')
+            .select('id, handle, name, role, managed_org_id, role_title')
+            .eq('id', newProfile.id)
+            .maybeSingle();
+          if (authoritative) {
+            setStore((prev) => ({
+              ...prev,
+              profiles: prev.profiles.map((p) =>
+                p.id === authoritative.id
+                  ? {
+                      ...p,
+                      handle: authoritative.handle,
+                      name: authoritative.name,
+                      role: authoritative.role,
+                      managedOrgId: authoritative.managed_org_id ?? undefined,
+                      roleTitle: authoritative.role_title ?? undefined,
+                    }
+                  : p
+              ),
+            }));
+          }
+        }
       }
 
       return newProfile;
@@ -873,19 +912,57 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setIsAuthModalOpen(false);
 
       if (supabase) {
-        await supabase.from('profiles').upsert({
-          id: newProfile.id,
-          handle: newProfile.handle,
-          name: newProfile.name,
-          email: newProfile.email,
-          avatar_url: newProfile.avatarUrl,
-          bio: newProfile.bio,
-          role: newProfile.role,
-          managed_org_id: null,
-          role_title: null,
-          location: null,
-          joined_at: newProfile.joinedAt,
-        });
+        // Create the row if it is missing, and never touch an existing one.
+        //
+        // This used to send role: 'user' and managed_org_id: null, which read as
+        // "harmless defaults" but behaved as an overwrite: signing in on a cold
+        // page load — before the profiles read lands — silently demoted an admin
+        // (their own admin role is what lets the guard trigger permit it) and
+        // would have stripped a maintainer's organisation binding, except that the
+        // guard rejects that write and the failure was never checked.
+        //
+        // ignoreDuplicates makes it ON CONFLICT DO NOTHING, so an existing account
+        // keeps whatever the database says it is.
+        const { data: created, error: provisionError } = await supabase
+          .from('profiles')
+          .upsert(profileProvisioningPayload(newProfile), {
+            onConflict: 'id',
+            ignoreDuplicates: true,
+          })
+          .select('id, role, managed_org_id, role_title');
+
+        if (provisionError) {
+          console.warn('[Publisense] could not provision profile row:', provisionError.message);
+        }
+
+        // The row already existed: adopt the database's version rather than the
+        // guess built from auth metadata, so local state shows the real role.
+        if (!provisionError && (!created || created.length === 0)) {
+          // profiles (not the public view) because managed_org_id lives there and
+          // the "self read" policy permits it for the caller's own row.
+          const { data: authoritative } = await supabase
+            .from('profiles')
+            .select('id, handle, name, role, managed_org_id, role_title')
+            .eq('id', newProfile.id)
+            .maybeSingle();
+          if (authoritative) {
+            setStore((prev) => ({
+              ...prev,
+              profiles: prev.profiles.map((p) =>
+                p.id === authoritative.id
+                  ? {
+                      ...p,
+                      handle: authoritative.handle,
+                      name: authoritative.name,
+                      role: authoritative.role,
+                      managedOrgId: authoritative.managed_org_id ?? undefined,
+                      roleTitle: authoritative.role_title ?? undefined,
+                    }
+                  : p
+              ),
+            }));
+          }
+        }
       }
 
       return newProfile;
