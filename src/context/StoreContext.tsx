@@ -797,6 +797,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
      * does not replay it.
      */
     const callback = classifyAuthCallback(window.location.href);
+    // A recovery link signs the user in, but only to let them choose a new
+    // password. Remember that so the session listener does not treat it as a
+    // finished sign-in and close the password prompt.
+    const sessionFromRecoveryLink =
+      callback.kind === 'session' && callback.type === 'recovery';
     if (callback.kind === 'verify') {
       supabase.auth
         .verifyOtp({ token_hash: callback.tokenHash, type: callback.type })
@@ -842,10 +847,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
         syncSupabaseUserToProfile(session.user).then(() => setDataVersion((v) => v + 1));
-        setIsAuthModalOpen(false);
+        // Do NOT close the modal on a recovery link. The session there is the
+        // *permission* to choose a password, not the end of the journey - closing
+        // it would drop the user on the feed still holding a password they have
+        // forgotten. Only the other paths end at a usable session.
+        if (event !== 'PASSWORD_RECOVERY' && !sessionFromRecoveryLink) {
+          setIsAuthModalOpen(false);
+        }
       } else {
         // Signed out: drop anything the session was allowed to see.
         setDataVersion((v) => v + 1);
