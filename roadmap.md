@@ -106,17 +106,23 @@ Implemented in migrations `0004`–`0007`:
 3. **Sign-in surface** — `AuthModal` asks `/auth/v1/settings` which providers are
    live and renders only those, so no dead controls ship. Email/password and magic
    link both work; auth mail is sent from `auth@publisense.app` with SPF and DKIM
-   passing and lands in the inbox. Google OAuth is now enabled and wired: the provider
-   hands off to Google's real consent screen with the correct client and callback, and
-   the button appears on the live site on its own. The remaining unknown is the app's
-   publishing status in the Google Console — in *Testing* only listed test accounts can
-   complete the round trip — and the final approval click is a human one.
-4. **Claimed boards are inert** — the approval RPC exists and works, but the only
-   `admin` row was an unreachable demo fixture, so nothing could be approved by
-   anyone. The owner account is now a real admin (migration `0011`); there is still no
-   screen that reaches `approve_product_claim` and no reject path. `D-010`.
-5. **Test coverage is narrow** — `npm test` covers the auth-capability logic (15
-   cases, in CI), `npm run smoke:live` exercises sign-up, posting, voting and every
+   passing and lands in the inbox. Google OAuth is enabled and hands off to Google's
+   real consent screen with the correct client and callback, and the button appears on
+   the live site on its own. **Branding is the remaining gap:** the consent screen
+   still says *"to continue to wyjfgrgxmhumyzwcrywj.supabase.co"* because Google
+   displays the redirect host until an App name is set, and that form is console-only
+   (no API). Its prerequisite is done: `publisense.app` is now a verified Domain
+   property — DNS TXT in the Vercel zone, verified through the Site Verification API,
+   with the owner's address added as a verified owner so it appears in his own Search
+   Console. Setting App name `Publisense` plus the app domain, privacy and terms links
+   is what puts the name on the screen.
+4. **Claim lifecycle** — closed. The owner account is a real `admin` (migration
+   `0011`), Settings carries a review queue with approve and decline, requests page the
+   admins by in-app notification *and* email, and both outcomes are recorded in
+   `claim_decisions` and reported back to the claimant. The lifecycle is exercised end
+   to end in production: claim, approve, reject, notify, email. `D-010`.
+5. **Test coverage is narrow** — `npm test` covers the auth-capability rules, claim
+   queue logic, profile provisioning and handle resolution (42 cases, in CI), `npm run smoke:live` exercises sign-up, posting, voting and every
    RLS boundary against the live project (14 checks, deletes everything it creates and
    asserts the table counts come back), and CI proves migrations apply, the bundle
    builds and no `service_role` ships. The smoke test cannot run in CI — it needs the
