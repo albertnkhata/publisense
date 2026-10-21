@@ -231,7 +231,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     async function loadFromSupabase() {
       if (!supabase) return;
       try {
-        const [orgsRes, prodsRes, profsRes, postsRes, cmtsRes, votesRes, repostsRes, followsRes, cmtVotesRes] =
+        const [orgsRes, prodsRes, profsRes, postsRes, cmtsRes, votesRes, repostsRes, followsRes, cmtVotesRes, notifsRes] =
           await Promise.all([
             supabase.from('organizations').select('*'),
             supabase.from('products').select('*'),
@@ -245,6 +245,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             supabase.from('post_reposts').select('*'),
             supabase.from('follows').select('*'),
             supabase.from('comment_votes').select('*'),
+            // RLS returns only the caller's own rows (recipient read policy), so
+            // no filter is needed or wanted here.
+            supabase.from('notifications').select('*').order('created_at', { ascending: false }),
           ]);
 
         if (cancelled) return;
@@ -392,6 +395,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               claimStatus: p.claim_status ?? 'unclaimed',
               claimEmail: p.claim_email ?? undefined,
               claimRequestedAt: p.claim_requested_at ?? undefined,
+            })),
+            notifications: (notifsRes?.data || []).map((n: any) => ({
+              id: n.id,
+              recipientId: n.recipient_id,
+              actorId: n.actor_id,
+              postId: n.post_id ?? undefined,
+              productId: n.product_id ?? undefined,
+              kind: n.kind,
+              title: n.title,
+              message: n.message,
+              isRead: n.is_read,
+              createdAt: n.created_at,
             })),
             profiles: (profsRes.data || []).map((u: any) => ({
               id: u.id,
@@ -1805,14 +1820,23 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [currentUser, openAuthModal, store.products, supabase]
   );
 
-  const markNotificationRead = useCallback((notifId: string) => {
-    setStore((prev) => ({
-      ...prev,
-      notifications: prev.notifications.map((n) =>
-        n.id === notifId ? { ...n, isRead: true } : n
-      ),
-    }));
-  }, []);
+  const markNotificationRead = useCallback(
+    (notifId: string) => {
+      setStore((prev) => ({
+        ...prev,
+        notifications: prev.notifications.map((n) =>
+          n.id === notifId ? { ...n, isRead: true } : n
+        ),
+      }));
+
+      // Persist, so something the user has actually seen stays seen after a
+      // reload. The recipient-update policy allows exactly this and nothing more.
+      if (supabase) {
+        void supabase.from('notifications').update({ is_read: true }).eq('id', notifId);
+      }
+    },
+    [supabase]
+  );
 
   const markAllNotificationsRead = useCallback(() => {
     if (!currentUser) return;
@@ -1822,7 +1846,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         n.recipientId === currentUser.id ? { ...n, isRead: true } : n
       ),
     }));
-  }, [currentUser]);
+
+    if (supabase) {
+      void supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('recipient_id', currentUser.id)
+        .eq('is_read', false);
+    }
+  }, [currentUser, supabase]);
 
   const resetLocalDemoData = useCallback(() => {
     localStorage.removeItem(LOCAL_DB_KEY);
