@@ -69,7 +69,7 @@ truthfulness exposure, not an engineering one, so it is the owner's call.
 
 ### D-010 · Claimed boards are inert — an approval path no human could reach
 
-**Status:** 🟠 in progress · **Raised:** 2026-10-20 · **Unblocked:** 2026-10-21 (PR #34)
+**Status:** 🟢 approval path live · **Raised:** 2026-10-20 · **Unblocked + shipped:** 2026-10-21 (#34, #36, #37)
 
 **What the flow does.** `claim_product_board(product, work_email)` is a
 `SECURITY DEFINER` RPC. It validates the work email against the product's own domain,
