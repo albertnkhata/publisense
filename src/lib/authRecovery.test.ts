@@ -53,10 +53,35 @@ describe('classifyAuthCallback', () => {
     expect(classifyAuthCallback('not-a-url').kind).toBe('none');
   });
 
-  it('does not read a token out of the hash fragment', () => {
-    // Must not be treated as a verifiable link: only search params are read.
+  it('does not treat a token_hash inside the fragment as verifiable', () => {
+    // verifyOtp needs it as a query param; a fragment copy is not ours to use.
     const result = classifyAuthCallback(`${BASE}/#token_hash=abc&type=signup`);
-    expect(result.kind).toBe('none');
+    expect(result.kind).not.toBe('verify');
+  });
+
+  it('recognises the hash-fragment session Supabase actually redirects with', () => {
+    // Observed live: /auth/v1/verify?token=…&type=recovery 303s to
+    // https://publisense.app#access_token=…&type=recovery. supabase-js consumes
+    // that itself, so it must NOT be pushed through verifyOtp.
+    const result = classifyAuthCallback(
+      `${BASE}/#access_token=eyJhbGciOi&expires_at=1792598609&refresh_token=qkyr&token_type=bearer&type=recovery`
+    );
+    expect(result).toEqual({ kind: 'session', type: 'recovery' });
+  });
+
+  it('carries the type through the session form so recovery is distinguishable', () => {
+    const rec = classifyAuthCallback(`${BASE}/#access_token=a&refresh_token=b&type=recovery`);
+    const sig = classifyAuthCallback(`${BASE}/#access_token=a&refresh_token=b&type=signup`);
+    expect(rec).toEqual({ kind: 'session', type: 'recovery' });
+    expect(sig).toEqual({ kind: 'session', type: 'signup' });
+  });
+
+  it('reports a fragment error as an error, since there is no session to use', () => {
+    const result = classifyAuthCallback(
+      `${BASE}/#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid`
+    );
+    expect(result.kind).toBe('error');
+    if (result.kind === 'error') expect(result.code).toBe('otp_expired');
   });
 });
 

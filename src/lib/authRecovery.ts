@@ -23,19 +23,44 @@ export type OtpVerifyKind = 'signup' | 'recovery' | 'email_change' | 'magiclink'
  */
 export function classifyAuthCallback(
   url: string
-): { kind: 'verify'; tokenHash: string; type: OtpVerifyKind } | { kind: 'error'; code: string; description: string } | { kind: 'none' } {
-  let search: URLSearchParams;
+):
+  | { kind: 'verify'; tokenHash: string; type: OtpVerifyKind }
+  | { kind: 'error'; code: string; description: string }
+  | { kind: 'session'; type: OtpVerifyKind }
+  | { kind: 'none' } {
+  let parsed: URL;
   try {
-    search = new URL(url).searchParams;
+    parsed = new URL(url);
   } catch {
     return { kind: 'none' };
   }
+  const search = parsed.searchParams;
+  const known: OtpVerifyKind[] = ['signup', 'recovery', 'email_change', 'magiclink'];
+  const pick = (t: string | null): OtpVerifyKind =>
+    known.includes((t || '') as OtpVerifyKind) ? (t as OtpVerifyKind) : 'signup';
 
-  const hash = search.get('token_hash');
-  const type = (search.get('type') || '') as OtpVerifyKind;
-  if (hash) {
-    const known: OtpVerifyKind[] = ['signup', 'recovery', 'email_change', 'magiclink'];
-    return { kind: 'verify', tokenHash: hash, type: known.includes(type) ? type : 'signup' };
+  // Form 1: ?token_hash=… which we verify ourselves with verifyOtp.
+  const tokenHash = search.get('token_hash');
+  if (tokenHash) {
+    return { kind: 'verify', tokenHash, type: pick(search.get('type')) };
+  }
+
+  // Form 2 - what Supabase ACTUALLY mails by default. The link is
+  // /auth/v1/verify?token=…&type=… which 303-redirects here with the session in
+  // the URL *fragment* (#access_token=…&type=recovery). supabase-js consumes
+  // that itself, so there is nothing to verify - but a recovery session must be
+  // recognised, or the reset flow ends by silently signing the user in with no
+  // way to choose a new password.
+  const frag = new URLSearchParams(parsed.hash.replace(/^#/, ''));
+  if (frag.get('access_token') || frag.get('refresh_token')) {
+    return { kind: 'session', type: pick(frag.get('type')) };
+  }
+  if (frag.get('error') || frag.get('error_code')) {
+    return {
+      kind: 'error',
+      code: frag.get('error_code') || frag.get('error') || '',
+      description: frag.get('error_description') || '',
+    };
   }
 
   const errorCode = search.get('error_code') || search.get('error');

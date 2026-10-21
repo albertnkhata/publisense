@@ -813,6 +813,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           // A verified signup/magic link lands signed in via onAuthStateChange;
           // nothing else to do, and saying nothing is correct.
         });
+    } else if (callback.kind === 'session') {
+      // Supabase 303s the mailed link here with the session in the hash, which
+      // supabase-js has just consumed. For a recovery link that means the user is
+      // signed in but has NOT chosen a password yet - ask them for one, or the
+      // reset ends with no way to set it.
+      const url = new URL(window.location.href);
+      window.history.replaceState({}, '', url.pathname + url.search);
+      if (callback.type === 'recovery') {
+        setAuthLinkMessage(undefined);
+        setAuthLinkMode('newpassword');
+        setIsAuthModalOpen(true);
+      }
     } else if (callback.kind === 'error') {
       const url = new URL(window.location.href);
       url.search = '';
