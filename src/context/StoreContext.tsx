@@ -17,6 +17,7 @@ import {
 } from '../types';
 import { approvalOutcome, rejectionOutcome } from '../lib/claimRequests';
 import { profileProvisioningPayload } from '../lib/profileProvisioning';
+import { classifyAuthCallback, explainAuthError, explainSendFailure } from '../lib/authRecovery';
 import {
   SEED_ORGANIZATIONS,
   SEED_PRODUCTS,
@@ -110,6 +111,8 @@ interface StoreContextValue {
     handle?: string;
   }) => Promise<{ error?: string; message?: string }>;
   signInWithMagicLink: (email: string) => Promise<{ error?: string; message?: string }>;
+  requestPasswordReset: (email: string) => Promise<{ error?: string; message?: string }>;
+  completePasswordReset: (password: string) => Promise<{ error?: string }>;
   signInWithOAuthProvider: (provider: 'github' | 'google') => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   updateCurrentProfile: (updates: Partial<Pick<UserProfile, 'name' | 'handle' | 'bio' | 'location' | 'avatarUrl' | 'roleTitle'>>) => Promise<void>;
@@ -138,6 +141,10 @@ interface StoreContextValue {
   // Global UI Modal Triggers
   isAuthModalOpen: boolean;
   authModalPrompt?: string;
+  authLinkMessage?: string;
+  /** Which auth step the modal should open on because of an emailed link. */
+  authLinkMode?: 'reset' | 'newpassword';
+  clearAuthLinkMessage: () => void;
   openAuthModal: (prompt?: string) => void;
   closeAuthModal: () => void;
   isCreateProductModalOpen: boolean;
@@ -190,6 +197,37 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalPrompt, setAuthModalPrompt] = useState<string | undefined>(undefined);
+  /** Set when an emailed link failed, so the modal can explain why instead of looking idle. */
+  const [authLinkMessage, setAuthLinkMessage] = useState<string | undefined>(undefined);
+  const [authLinkMode, setAuthLinkMode] = useState<'reset' | 'newpassword' | undefined>(undefined);
+  const clearAuthLinkMessage = useCallback(() => {
+    setAuthLinkMessage(undefined);
+    setAuthLinkMode(undefined);
+  }, []);
+
+  /**
+   * A link that will not verify. Distinguish "already used / expired" from any
+   * other rejection: telling someone their link expired when it never existed is
+   * a small lie that sends them to the wrong fix.
+   */
+  const onAuthLinkFailed = useCallback((type: string, message: string) => {
+    const m = message.toLowerCase();
+    const spent = m.includes('expired') || m.includes('invalid') || m.includes('already');
+    setAuthLinkMessage(
+      spent
+        ? 'That link has expired or was already used. Enter your email below and we will send a fresh one.'
+        : 'We could not use that link. Enter your email below and we will send a fresh one.'
+    );
+    setAuthLinkMode('reset');
+    setIsAuthModalOpen(true);
+  }, []);
+
+  /** The recovery link verified, so a session exists: ask for a new password. */
+  const onRecoveryVerified = useCallback(() => {
+    setAuthLinkMessage(undefined);
+    setAuthLinkMode('newpassword');
+    setIsAuthModalOpen(true);
+  }, []);
   const [isCreateProductModalOpen, setIsCreateProductModalOpen] = useState(false);
 
   const [commentLikes, setCommentLikes] = useState<Record<string, string[]>>(() => {
@@ -748,6 +786,54 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return;
 
+    /**
+     * Email links come back as ?token_hash=…&type=… which this client never asks
+     * for, so nothing would consume it: the user would land signed out and be
+     * told to sign in again. Verify it here instead, so clicking the link in the
+     * inbox actually completes the job.
+     *
+     * A dead link (already spent, usually by a mail scanner fetching it) is
+     * reported rather than silently ignored, and the URL is cleaned so a reload
+     * does not replay it.
+     */
+    const callback = classifyAuthCallback(window.location.href);
+    if (callback.kind === 'verify') {
+      supabase.auth
+        .verifyOtp({ token_hash: callback.tokenHash, type: callback.type })
+        .then(({ error }) => {
+          const url = new URL(window.location.href);
+          url.search = '';
+          window.history.replaceState({}, '', url.pathname + url.hash);
+          if (error) {
+            onAuthLinkFailed(callback.type, error.message);
+          } else if (callback.type === 'recovery') {
+            // Verified, so there IS a session now: switch to choosing a password.
+            onRecoveryVerified();
+          }
+          // A verified signup/magic link lands signed in via onAuthStateChange;
+          // nothing else to do, and saying nothing is correct.
+        });
+    } else if (callback.kind === 'session') {
+      // Supabase 303s the mailed link here with the session in the hash, which
+      // supabase-js has just consumed. For a recovery link that means the user is
+      // signed in but has NOT chosen a password yet - ask them for one, or the
+      // reset ends with no way to set it.
+      const url = new URL(window.location.href);
+      window.history.replaceState({}, '', url.pathname + url.search);
+      if (callback.type === 'recovery') {
+        setAuthLinkMessage(undefined);
+        setAuthLinkMode('newpassword');
+        setIsAuthModalOpen(true);
+      }
+    } else if (callback.kind === 'error') {
+      const url = new URL(window.location.href);
+      url.search = '';
+      window.history.replaceState({}, '', url.pathname + url.hash);
+      setAuthLinkMessage(explainAuthError(callback.code, callback.description));
+      setAuthLinkMode('reset');
+      setIsAuthModalOpen(true);
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         syncSupabaseUserToProfile(session.user).then(() => setDataVersion((v) => v + 1));
@@ -872,6 +958,46 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return {
         message: `Magic sign-in link sent to ${email.trim()}. Check your inbox!`,
       };
+    },
+    []
+  );
+
+  /**
+   * Password reset. Supabase mails a token_hash link that this app never asked
+   * for, so it is verified in-page (see the AUTH_LINK_EVENT handler) instead of
+   * relying on a session being auto-detected from the URL.
+   */
+  const requestPasswordReset = useCallback(
+    async (email: string): Promise<{ error?: string; message?: string }> => {
+      if (!supabase) {
+        return { error: 'Supabase client is not configured.' };
+      }
+      const cleanEmail = email.trim().toLowerCase();
+      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+        redirectTo: window.location.origin,
+      });
+      if (error) {
+        return { error: explainSendFailure(error.message) };
+      }
+      // Deliberately identical whether or not the address exists, so this cannot
+      // be used to enumerate accounts.
+      return {
+        message: `If an account exists for ${cleanEmail}, a reset link is on its way. Check spam too.`,
+      };
+    },
+    []
+  );
+
+  const completePasswordReset = useCallback(
+    async (password: string): Promise<{ error?: string }> => {
+      if (!supabase) {
+        return { error: 'Supabase client is not configured.' };
+      }
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) {
+        return { error: error.message };
+      }
+      return {};
     },
     []
   );
@@ -1934,6 +2060,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     signInWithPassword,
     signUpWithPassword,
     signInWithMagicLink,
+    requestPasswordReset,
+    completePasswordReset,
     signInWithOAuthProvider,
     signOut,
     updateCurrentProfile,
@@ -1958,6 +2086,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     isAuthModalOpen,
     authModalPrompt,
+    authLinkMessage,
+    authLinkMode,
+    clearAuthLinkMessage,
     openAuthModal,
     closeAuthModal,
     isCreateProductModalOpen,

@@ -17,29 +17,99 @@
 
 ## Open
 
-### D-012 · The Google consent screen shows no app logo
+### D-013 · Password reset and emailed auth links had no recovery path
 
-**Status:** 🟢 logo kit received; upload is a console-only owner action and is PENDING · **Raised:** 2026-10-21 · **Revisit:** immediately after the upload, or if consent-screen trust becomes a concern
+**Status:** ✅ RESOLVED 2026-10-21 · **Raised:** 2026-10-21 · **PR:** #58
 
-**Decision:** ship the logo. `publisense-google-120.png` (120×120, 3 KB, PNG, square — meets
-Google's Branding requirements: PNG, ≤1 MB, 120×120 recommended) was delivered on 2026-10-21
-and is ready to upload at Google Auth Platform → Branding → App logo in project
-`publisense-app` (#435845896733), client
-`435845896733-niul19ep912jje2lqnnqg9ssi1k4tuvj.apps.googleusercontent.com`.
+**What was wrong.** Two gaps in the same flow, both invisible until a user hit them:
 
-**Blocked on:** owner console session — there is no API for Auth Platform branding, so Saul
-cannot do this step. Expected outcome after upload: the consent screen shows name **Publisense**
-+ the chat-bubble mark. Open question only if Google asks for brand verification — with
-`email profile` scopes it should not, but if it does, revisit this entry before submitting.
+1. **No password reset at all.** No "Forgot password?" affordance anywhere, and
+   `resetPasswordForEmail` was never called. A user who mistyped their password at signup, or
+   forgot it, had no recovery path — the only option was a second account.
+2. **Emailed links never completed.** `mailer_autoconfirm = false`, so both signup and recovery
+   depend on a mailed link, but nothing consumed it.
 
-**Kit remainder:** `apple-touch-icon-180.png`, `favicon.ico`,
-`publisense-icon-512.png`, `publisense-icon-white-on-indigo.svg`,
-`publisense-mark-indigo-1024.png`, `publisense-mark-indigo.svg` are for the site, not Google
-OAuth — not part of this entry. `/favicon.ico` currently 200s with index.html
-(SPA fallback) and the head uses an inline green SVG; a real favicon/app-icon job should be a
-separate deferred item if wanted.
+**The second one was worse than it looked, and a live round-trip is what found it.** Supabase
+mails `/auth/v1/verify?token=…&type=recovery`, which **303-redirects with the session in the URL
+fragment** (`#access_token=…&type=recovery`); `supabase-js` consumes that itself. The first
+implementation assumed a `?token_hash=` link and read only search params — so a real reset landed
+the user **signed in with no way to choose a new password**, and a spent link failed silently.
+Unit tests and DOM probes passed on that wrong model; only a real email exposed it.
+
+**Fixed.** `src/lib/authRecovery.ts` (pure, 22 tests) plus wiring in `StoreContext`/`AuthModal`:
+
+- forgot-password → email-only step → "link sent"
+- a fragment session is its own case: `type=recovery` opens the **New Password** step, hash cleared
+- the `?token_hash=` branch is kept for projects configured that way (`verifyOtp` path)
+- a link that will not verify explains itself and offers a resend; reload cannot replay a spent token
+- "expired" is claimed only when the provider says expired — `access_denied` alone is not proof
+- reset requests answer identically whether or not the address exists (no account enumeration)
+
+**Verified against a real mailbox** (throwaway address), not just an API 200:
+
+```
+signup  -> 200, confirmation_sent_at set
+mail    -> "Confirm your email address"  from auth@publisense.app   arrived
+recover -> 200
+mail    -> "Reset your password"         from auth@publisense.app   arrived
+reset   -> link followed, password changed
+        -> sign-in OLD password 400 REJECTED / NEW password 200 ACCEPTED
+```
+
+**Residual, not fixed here:**
+
+- no client-side resend cooldown, so Supabase's 60s `smtp_max_frequency` can be tripped
+  (`explainSendFailure` now *words* it as a wait; there is no countdown)
+- the 303 hop itself could not be exercised against a local build — `redirect_to` is pinned to the
+  allow-listed site URL — so the final UI check used the fragment form directly
+- **a mail scanner fetching the link consumes the token**, which is why "expired or already used"
+  will sometimes be shown to a user who never clicked anything
 
 ---
+
+### D-012 · The Google consent screen shows no app logo
+
+**Status:** 🟢 DEFERRED by owner decision 2026-10-21 — auto-verification bounced twice; not pursuing now · **Raised:** 2026-10-21 · **Revisit:** when a distinctive brand mark exists, or if a sensitive scope forces a review anyway
+
+**Decision.** Stop chasing brand verification for now. The logo does not appear on the consent
+screen and that is accepted. What users see is the app name **Publisense** with working
+`publisense.app/privacy` and `publisense.app/terms` links, and no unverified-app interstitial —
+verified from the anonymous sign-in page. **Nothing user-facing is broken by this.**
+
+**What was tried (so nobody repeats it).**
+
+1. Uploaded `publisense-google-120.png` → **rejected**: does not uniquely represent the brand.
+2. Root cause of the *first* bounce was genuine and is now fixed: the site carried **no brand mark
+   anywhere** (header was a letter-`P` tile, favicon an unrelated green glyph, no `og:image`), so the
+   crawler found zero continuity with the submitted mark. PR #56 made the mark the site's actual
+   identity — header, homepage hero, favicon, apple-touch-icon, `og:image`, all served from `/brand/`.
+   Verified live: the 120×120 on `publisense.app` is **byte-identical** (SHA-256) to the kit file, so
+   continuity is real, not asserted.
+3. Re-ran auto-verification → **bounced again**. Continuity alone was not the whole objection.
+
+**The honest read.** The mark is a speech bubble with ascending bars — the generic "messaging app"
+glyph. Google's distinctiveness test is about the mark itself, and no amount of site continuity will
+make a common glyph unique. The next attempt needs a **distinctive mark** (monogram / custom
+lettermark on the indigo field), not another submission of this one.
+
+**Do not appeal.** Google's "Request additional review" path is for *"I believe the issues found are
+incorrect."* Two bounces on a generic glyph is not a false positive, and an appeal spends 2–3 business
+days to argue a point that would be lost.
+
+**What picking it up requires:** a distinctive 120×120 square PNG/JPG/BMP (≤1 MB), upload at Auth
+Platform → Branding in project `publisense-app` (#435845896733), Verify Branding, then **publish
+within 7 days** (a passing verification expires). Branding edits are blocked while a verification is
+in progress — click **Cancel** if one is still running.
+
+**Trigger to revisit:** commissioning a real brand mark, **or** adding any sensitive/restricted OAuth
+scope (verification becomes mandatory anyway, so the logo rides along at no extra cost).
+
+**Already delivered and staying:** the site brand work (PR #56) is independent of Google's verdict and
+is live — the site now carries a real mark where it previously had a letter tile and an unrelated
+favicon. That improves the product regardless of the consent screen.
+
+---
+
 ### D-011 · Every visible signal and comment in production is seeded fixture content
 
 **Status:** 🟡 accepted for now (owner decision 2026-10-20) · **Raised:** 2026-10-20 · **Revisit:** before announce
