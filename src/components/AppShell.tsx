@@ -67,7 +67,13 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
       <header className="topbar">
         <div className="topbar-left">
           <Link to="/" className="brand">
-            <div className="brand-mark">P</div>
+            <img
+              className="brand-mark"
+              src="/brand/publisense-icon-white-on-indigo.svg"
+              alt=""
+              width={22}
+              height={22}
+            />
             <span className="brand-name">Publisense</span>
             <span className="brand-tag mono">{routeBadge}</span>
           </Link>
