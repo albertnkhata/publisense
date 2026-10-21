@@ -109,8 +109,10 @@ Implemented in migrations `0004`–`0007`:
    passing and lands in the inbox. Google OAuth is the one remaining method: it needs
    an OAuth client created in the Google Console (no API exists for it), after which
    the button appears on its own.
-4. **Claimed boards are inert** — nothing approves a pending claim and there is no
-   admin screen. `D-010`.
+4. **Claimed boards are inert** — the approval RPC exists and works, but the only
+   `admin` row was an unreachable demo fixture, so nothing could be approved by
+   anyone. The owner account is now a real admin (migration `0011`); there is still no
+   screen that reaches `approve_product_claim` and no reject path. `D-010`.
 5. **Test coverage is narrow** — `npm test` covers the auth-capability logic (15
    cases, in CI), `npm run smoke:live` exercises sign-up, posting, voting and every
    RLS boundary against the live project (14 checks, deletes everything it creates and

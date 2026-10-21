@@ -67,30 +67,46 @@ truthfulness exposure, not an engineering one, so it is the owner's call.
 
 ---
 
-### D-010 · Claimed boards have no approval path
+### D-010 · Claimed boards are inert — an approval path no human could reach
 
-**Status:** 🟡 ship-with-risk · **Raised:** 2026-10-20 · **PR:** #25 · **Affects:** roadmap 3.1
+**Status:** 🟠 in progress · **Raised:** 2026-10-20 · **Unblocked:** 2026-10-21 (PR #34)
 
-`claim_product_board(p_product_id, p_work_email)` verifies the work-email domain
-server-side and parks the claim as `claim_status = 'pending'`. It deliberately
-grants **nothing** — no `role` change, no `managed_org_id`, no verified badge — and
-says so in its own contract.
+**What the flow does.** `claim_product_board(product, work_email)` is a
+`SECURITY DEFINER` RPC. It validates the work email against the product's own domain,
+writes `claim_status = 'pending'` and the claimant's id, and changes no privileges:
+no role, no organisation ownership. Correct — a request, not a grant.
 
-`approve_product_claim(p_product_id)` exists and is gated to admins, but **nothing
-in the client calls it and there is no admin screen**. A claim submitted today sits
-`pending` forever.
+**What was actually broken.** `approve_product_claim(product)` already existed,
+`SECURITY DEFINER`, and it does the right things: verifies the product and its
+organisation, promotes the claimant to `maintainer`, binds `managed_org_id`. But it
+gates on `profiles.role = 'admin'` for `auth.uid()`, and the only `admin` row in the
+database was the seeded demo persona `usr-albert@publisense.invalid` — a fixture with
+no auth user behind it that can never sign in.
 
-**Deliberate because:** auto-approving on domain match would let anyone with a
-`@company.com` address take a board; the human gate is the security property, and
-the MVP loop does not require claiming.
+So this was never a missing-UI problem. **No human account could approve anything**,
+which meant every claim request was a dead end no matter what surfaced it. Nothing in
+the product had a real administrator.
 
-**Revisit when:** before claiming is announced to builders. Needs an admin view
-listing pending claims plus an approve/reject action, and a decision on whether DNS
-TXT verification can replace the human gate.
+**Fixed.** Migration `0011_bootstrap_owner_admin.sql` promotes the owner account to
+`admin`. It disables `guard_profile_privileges_trg` for exactly one statement, because
+the guard correctly refuses role changes by non-admins and therefore also blocks the
+creation of the first one — the circularity has to be broken somewhere, and a
+reviewable migration with a single email-identified row is the narrowest place.
 
-**The cost:** claiming is honest but inert. Verified live: all 13 products are
-`claim_status = 'unclaimed'`; there is no `product_claims` table, the state lives in
-`products.claim_status` / `claimed_by` / `claim_email`.
+**Verified against production**, with a throwaway org, product and user:
+
+- claim lands `pending`, product stays unverified, claimant gets no privileges
+- the claimant **cannot** approve their own claim (`not_admin`), and the product stays pending
+- an admin approval verifies product + organisation, promotes the claimant to `maintainer`, binds `managed_org_id`
+- re-approval is **idempotent** (`ok: true`, same values) rather than refused — harmless, but the function should arguably return `already_verified`; noted, not fixed
+- everything removed afterwards, counts back to baseline
+
+**Still open.** There is no UI that reaches `approve_product_claim`, no reject/deny
+path at all (not even in the database), no notification to the claimant on decision,
+and the "work email matches the domain" check proves nothing about mailbox control —
+it is labelled weak in the function itself and remains a manual trust decision for the
+reviewer. Admin approvals screen is the next slice.
+
 
 ---
 
