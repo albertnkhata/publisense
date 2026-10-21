@@ -116,10 +116,23 @@ have been rejected invisibly. The client now provisions with `ON CONFLICT DO NOT
 and display fields only, then adopts the authoritative row. `profileProvisioningPayload()`
 has tests asserting it cannot carry a role or an organisation.
 
-**Still open.** No reject or deny path at all — not even in the database, so a bad claim
-can only be approved or ignored; no notification to the claimant when a decision lands;
-and the "work email matches the domain" check proves nothing about mailbox control — it
-is labelled weak in the function itself and remains a manual trust decision.
+**Decisions are now recorded.** `public.claim_decisions` logs product, action, actor id
+and email, an optional note and a timestamp for every approval and rejection. RLS is on,
+admin-readable only, and there is no insert/update/delete policy — rows are written inside
+the `SECURITY DEFINER` functions, so a decision cannot be forged or erased over the REST
+API. Rejection resets the claim to `unclaimed` (board claimable again) rather than adding a
+terminal `rejected` status, which would need cooldown and re-request rules nobody has
+designed. Approval now refuses a second call with `already_verified` instead of
+double-logging one decision. Both functions are revoked from `anon`.
+
+Verified through the live UI, not just the RPCs: declined a real pending claim from
+Settings with a reason; the board came back `unclaimed` with every claim field cleared and
+unverified, and the decision row carried the reviewer's email and the note.
+
+**Still open.** No notification to the claimant when a decision lands — a declined request
+is silent unless they happen to look. The "work email matches the domain" check proves
+nothing about mailbox control; it is labelled weak in the function itself and remains a
+manual trust decision, which is precisely why the reject path and the note exist.
 
 
 ---
