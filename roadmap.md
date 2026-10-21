@@ -111,14 +111,29 @@ Implemented in migrations `0004`–`0007`:
    the button appears on its own.
 4. **Claimed boards are inert** — nothing approves a pending claim and there is no
    admin screen. `D-010`.
-5. **Test coverage is narrow** — `npm test` now covers the auth-capability logic
-   (15 cases, in CI), and CI proves migrations apply, the bundle builds and no
-   `service_role` ships. No automated test exercises signup → post → vote against a
-   backend. `D-003`.
+5. **Test coverage is narrow** — `npm test` covers the auth-capability logic (15
+   cases, in CI), `npm run smoke:live` exercises sign-up, posting, voting and every
+   RLS boundary against the live project (14 checks, deletes everything it creates and
+   asserts the table counts come back), and CI proves migrations apply, the bundle
+   builds and no `service_role` ships. The smoke test cannot run in CI — it needs the
+   service role — so it is a deliberate pre-ship step, not an automatic gate. `D-003`.
 
 
 Browsing, posting signals, commenting, signal voting, and workaround upvoting all
 work end to end in production.
+
+### Running the checks
+
+```
+npm test          # unit: auth-capability rules (CI)
+npm run typecheck # types (CI)
+npm run build     # bundle + service_role guard (CI)
+npm run smoke:live # live auth + RLS canary; creates a throwaway user, removes it
+```
+
+`smoke:live` talks to the production project on purpose. It prints a baseline count
+for every table it touches and fails if the counts do not match on the way out; run it
+with `-- --keep` to leave the identity behind for inspection.
 
 ---
 
