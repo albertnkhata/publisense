@@ -8,7 +8,7 @@ import {
   type AuthCapabilities,
 } from '../lib/authCapabilities';
 
-type AuthMode = 'signin' | 'signup' | 'magic';
+type AuthMode = 'signin' | 'signup' | 'magic' | 'reset' | 'newpassword';
 
 export const AuthModal: React.FC = () => {
   const {
@@ -20,6 +20,11 @@ export const AuthModal: React.FC = () => {
     signInWithPassword,
     signUpWithPassword,
     signInWithMagicLink,
+    requestPasswordReset,
+    completePasswordReset,
+    authLinkMessage,
+    authLinkMode,
+    clearAuthLinkMessage,
     signInWithOAuthProvider,
     signInAsProfile,
     signOut,
@@ -35,6 +40,7 @@ export const AuthModal: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [showDevPersonas, setShowDevPersonas] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
   const [caps, setCaps] = useState<AuthCapabilities>({
     email: true,
     google: false,
@@ -82,6 +88,17 @@ export const AuthModal: React.FC = () => {
     setStatusMsg(null);
   }, [currentUser, isAuthModalOpen]);
 
+  // A dead emailed link is reported by the provider layer (token already spent,
+  // usually by a mail scanner). Show it here and clear it so it does not stick
+  // across openings, and route the user straight at the fix.
+  React.useEffect(() => {
+    if (!isAuthModalOpen || !authLinkMode) return;
+    setErrorMsg(authLinkMessage ?? null);
+    // A verified recovery link must ask for a password, not for an email.
+    setMode(authLinkMode === 'newpassword' ? 'newpassword' : 'reset');
+    clearAuthLinkMessage();
+  }, [isAuthModalOpen, authLinkMessage, authLinkMode, clearAuthLinkMessage]);
+
   if (!isAuthModalOpen) return null;
 
   const handleFormSubmit = async (e: React.FormEvent) => {
@@ -112,6 +129,26 @@ export const AuthModal: React.FC = () => {
         const res = await signInWithMagicLink(email);
         if (res.error) setErrorMsg(res.error);
         else if (res.message) setStatusMsg(res.message);
+      } else if (mode === 'reset') {
+        const res = await requestPasswordReset(email);
+        if (res.error) setErrorMsg(res.error);
+        else {
+          setResetSent(true);
+          if (res.message) setStatusMsg(res.message);
+        }
+      } else if (mode === 'newpassword') {
+        if (password.length < 6) {
+          setErrorMsg('Password must be at least 6 characters.');
+          setLoading(false);
+          return;
+        }
+        const res = await completePasswordReset(password);
+        if (res.error) setErrorMsg(res.error);
+        else {
+          setStatusMsg('Password updated. You are signed in.');
+          setMode('signin');
+          setPassword('');
+        }
       }
     } finally {
       setLoading(false);
@@ -397,10 +434,10 @@ export const AuthModal: React.FC = () => {
                 />
               </div>
 
-              {mode !== 'magic' && (
+              {mode !== 'magic' && mode !== 'reset' && (
                 <div>
                   <label className="mono" style={{ display: 'block', fontSize: '10.5px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                    PASSWORD *
+                    {mode === 'newpassword' ? 'NEW PASSWORD *' : 'PASSWORD *'}
                   </label>
                   <input
                     type="password"
@@ -413,6 +450,40 @@ export const AuthModal: React.FC = () => {
                     onChange={(e) => setPassword(e.target.value)}
                   />
                 </div>
+              )}
+
+              {mode === 'signin' && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '-4px' }}>
+                  <button
+                    type="button"
+                    className="mono"
+                    onClick={() => {
+                      setMode('reset');
+                      setErrorMsg(null);
+                      setStatusMsg(null);
+                      setResetSent(false);
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      cursor: 'pointer',
+                      fontSize: '11px',
+                      color: 'var(--text-secondary)',
+                      textDecoration: 'underline',
+                    }}
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+              )}
+
+              {mode === 'reset' && (
+                <p className="mono" style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: 0 }}>
+                  {resetSent
+                    ? 'Link sent. Open it and choose a new password.'
+                    : 'Enter your email and we will send a reset link.'}
+                </p>
               )}
 
               {mode === 'signup' && (
@@ -490,6 +561,10 @@ export const AuthModal: React.FC = () => {
                   ? 'Sign In →'
                   : mode === 'signup'
                   ? 'Create Account →'
+                  : mode === 'reset'
+                  ? (resetSent ? 'Send Again →' : 'Send Reset Link →')
+                  : mode === 'newpassword'
+                  ? 'Set New Password →'
                   : 'Send Magic Link →'}
               </button>
             </form>
