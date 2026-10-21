@@ -15,7 +15,7 @@ import {
   FollowRelation,
   NotificationItem,
 } from '../types';
-import { approvalOutcome } from '../lib/claimRequests';
+import { approvalOutcome, rejectionOutcome } from '../lib/claimRequests';
 import { profileProvisioningPayload } from '../lib/profileProvisioning';
 import {
   SEED_ORGANIZATIONS,
@@ -130,6 +130,7 @@ interface StoreContextValue {
     input: { workEmail: string; roleTitle?: string; verificationMethod?: 'email_domain' | 'dns_txt' }
   ) => Promise<{ error?: string }>;
   approveProductClaim: (productId: string) => Promise<{ error?: string; message?: string }>;
+  rejectProductClaim: (productId: string, note?: string) => Promise<{ error?: string; message?: string }>;
   markNotificationRead: (notifId: string) => void;
   markAllNotificationsRead: () => void;
   resetLocalDemoData: () => void;
@@ -1754,6 +1755,56 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [currentUser, openAuthModal, store.products, supabase]
   );
 
+  const rejectProductClaim = useCallback(
+    async (productId: string, note?: string): Promise<{ error?: string; message?: string }> => {
+      if (!currentUser) {
+        openAuthModal('Sign in as an administrator to review claims.');
+        return { error: 'Not signed in' };
+      }
+      if (currentUser.role !== 'admin') {
+        return { error: 'Only an administrator can reject a claim.' };
+      }
+      if (!supabase) {
+        return { error: 'Rejecting a claim requires a live connection.' };
+      }
+
+      const prod = store.products.find((p) => p.id === productId);
+      if (!prod) return { error: 'Product board not found.' };
+
+      // Rejecting clears the claim rather than introducing a terminal state: the
+      // board becomes claimable again, and claim_decisions keeps the record that
+      // this attempt was refused, by whom, and why.
+      const { data, error } = await supabase.rpc('reject_product_claim', {
+        p_product_id: productId,
+        p_note: note?.trim() ? note.trim() : null,
+      });
+
+      if (error) {
+        return { error: error.message || 'Could not reject the claim.' };
+      }
+
+      const outcome = rejectionOutcome(data, prod.name);
+      if (!outcome.ok) return { error: outcome.message };
+
+      setStore((prev) => ({
+        ...prev,
+        products: prev.products.map((p) =>
+          p.id === productId
+            ? {
+                ...p,
+                claimStatus: 'unclaimed' as const,
+                claimEmail: undefined,
+                claimRequestedAt: undefined,
+              }
+            : p
+        ),
+      }));
+
+      return { message: outcome.message };
+    },
+    [currentUser, openAuthModal, store.products, supabase]
+  );
+
   const markNotificationRead = useCallback((notifId: string) => {
     setStore((prev) => ({
       ...prev,
@@ -1842,6 +1893,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     createProduct,
     claimProductBoard,
     approveProductClaim,
+    rejectProductClaim,
     markNotificationRead,
     markAllNotificationsRead,
     resetLocalDemoData,

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Database, RotateCcw, CheckCircle2, Sparkles, ShieldCheck, Inbox } from 'lucide-react';
+import { Database, RotateCcw, CheckCircle2, Sparkles, ShieldCheck, Inbox, XCircle } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { pendingClaimRequests } from '../lib/claimRequests';
 
@@ -13,6 +13,7 @@ export const SettingsPage: React.FC = () => {
     profiles,
     currentUser,
     approveProductClaim,
+    rejectProductClaim,
   } = useStore();
   const [resetDone, setResetDone] = useState(false);
 
@@ -23,6 +24,8 @@ export const SettingsPage: React.FC = () => {
   );
   const [approving, setApproving] = useState<string | null>(null);
   const [approvalNote, setApprovalNote] = useState<{ ok: boolean; text: string } | null>(null);
+  const [rejectingFor, setRejectingFor] = useState<string | null>(null);
+  const [rejectNote, setRejectNote] = useState('');
 
   const handleReset = () => {
     resetLocalDemoData();
@@ -42,6 +45,18 @@ export const SettingsPage: React.FC = () => {
     );
   };
 
+  const handleReject = async (productId: string) => {
+    setApproving(productId);
+    setApprovalNote(null);
+    const result = await rejectProductClaim(productId, rejectNote);
+    setApproving(null);
+    setRejectingFor(null);
+    setRejectNote('');
+    setApprovalNote(
+      result.error ? { ok: false, text: result.error } : { ok: true, text: result.message || 'Claim rejected.' }
+    );
+  };
+
   return (
     <div className="space-y-5 text-xs">
       {isAdmin && (
@@ -53,8 +68,9 @@ export const SettingsPage: React.FC = () => {
             <div>
               <h2 className="text-base font-bold text-zinc-900 dark:text-white">Claim requests</h2>
               <p className="text-zinc-500">
-                Approving verifies the board and makes the claimant its maintainer. Nothing is
-                granted before you decide.
+                Approving verifies the board and makes the claimant its maintainer. Declining
+                clears the claim and leaves the board open. Nothing is granted before you decide,
+                and every decision is recorded against the board.
               </p>
             </div>
           </div>
@@ -82,18 +98,73 @@ export const SettingsPage: React.FC = () => {
                         : ''}
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleApprove(req.productId, req.productName)}
-                    disabled={approving === req.productId}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-semibold cursor-pointer shrink-0"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>{approving === req.productId ? 'Approving…' : 'Approve'}</span>
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleApprove(req.productId, req.productName)}
+                      disabled={approving === req.productId}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-semibold cursor-pointer shrink-0"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>{approving === req.productId ? 'Working…' : 'Approve'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRejectingFor(rejectingFor === req.productId ? null : req.productId);
+                        setRejectNote('');
+                        setApprovalNote(null);
+                      }}
+                      disabled={approving === req.productId}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 disabled:opacity-60 text-zinc-700 dark:text-zinc-200 font-semibold cursor-pointer shrink-0"
+                    >
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span>Not now</span>
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
+          )}
+
+          {rejectingFor && (
+            <div className="p-3.5 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 space-y-2">
+              <div className="text-amber-900 dark:text-amber-200 font-semibold">
+                Decline this claim
+              </div>
+              <p className="text-amber-800 dark:text-amber-300/90">
+                The claim is cleared and the board becomes claimable again. The decision is
+                recorded against the board with your name and this note — leave it blank if you
+                would rather not write one.
+              </p>
+              <input
+                type="text"
+                value={rejectNote}
+                onChange={(e) => setRejectNote(e.target.value)}
+                placeholder="Reason (optional) — e.g. work email does not match the product's domain"
+                className="w-full px-3 py-2 rounded-lg border border-amber-300 dark:border-amber-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100"
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleReject(rejectingFor)}
+                  disabled={approving === rejectingFor}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-semibold cursor-pointer"
+                >
+                  <span>{approving === rejectingFor ? 'Working…' : 'Confirm decline'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRejectingFor(null);
+                    setRejectNote('');
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-transparent hover:bg-amber-100 dark:hover:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
           )}
 
           {approvalNote && (
