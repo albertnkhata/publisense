@@ -169,28 +169,30 @@ without changing the key.
 
 ---
 
-### D-003 · No automated tests for application behaviour
+### D-003 · Test coverage is narrow — one module, no user-flow tests
 
-**Status:** 🟡 ship-with-risk · **Deferred:** 2026-10-20 · **Partly addressed:** PR #23
+**Status:** 🟡 ship-with-risk · **Deferred:** 2026-10-20 · **Partly addressed:** PR #23, #32
 
-There are still **zero** `*.test.*` / `*.spec.*` files in the repo. Auth, RLS and
-the post-creation loop were verified manually against the live project (PR #14, #16,
-#24, #25), not by a suite.
+**What exists now.** `npm test` runs a real suite (vitest) over
+`src/lib/authCapabilities.ts` — 15 cases covering the rule that caused a production
+defect: the modal must advertise only sign-in methods the project can actually
+complete, must fail closed to email/password when `/auth/v1/settings` is unavailable,
+must not hide password auth, must cache instead of refetching per modal open, and
+must keep the demo persona switcher off in production builds. CI runs it between
+typecheck and build.
 
-**Partly addressed since deferral:** CI now runs, on every PR and on `main`:
+**What still does not exist.** Nothing exercises a user flow against a real backend:
+signup → confirmation → session, posted signals, votes, comments, or the RLS rules
+underneath them. Those were verified manually against the live project (PR #14, #16,
+#24, #25, #29) — real requests, but not repeatable by a machine.
 
-- `tsc --noEmit` and `vite build`
-- a `service_role` bundle leak guard (`grep` over `dist/assets/*.js`)
-- every migration applied in order against Postgres 17 with a faithful `auth` schema stub
+CI proves: migrations apply on Postgres 17 with an `auth` stub, the bundle builds,
+`service_role` never reaches `dist/assets`, and the auth-capability logic behaves.
 
-That proves migrations apply and the bundle builds. It does **not** prove a user can
-sign up, post, or vote — those remain manual, live-only checks.
-
-**Revisit when:** immediately after first deploy (done) — next natural point is
-before announce. The signup→post→vote loop is the thing most likely to regress
-silently.
-
-**The cost:** regressions in auth or RLS surface only in production.
+**Revisit when:** before real users depend on sign-up. The honest first slice is a
+seeded throwaway user created in a Supabase **branch database**, exercising
+signup → post → vote → comment, torn down after the run. Doing it against the
+production project is not acceptable — it leaves rows behind.
 
 ---
 

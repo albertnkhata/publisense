@@ -35,18 +35,32 @@ export type AuthCapabilities = {
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.replace(/\/$/, '');
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
-/** Set VITE_AUTH_MAGIC_LINK="true" only after a real sign-in email has been received. */
-export const MAGIC_LINK_ENABLED =
-  ((import.meta.env.VITE_AUTH_MAGIC_LINK as string | undefined) ?? 'false').toLowerCase() === 'true';
+/**
+ * Set VITE_AUTH_MAGIC_LINK="true" only after a real sign-in email has been received.
+ * Exposed as a pure function so the flag's meaning can be tested directly rather
+ * than inferred from whatever mode the test runner happens to boot in.
+ */
+export function magicLinkEnabled(flag: string | undefined): boolean {
+  return (flag ?? 'false').toLowerCase() === 'true';
+}
+
+export const MAGIC_LINK_ENABLED = magicLinkEnabled(
+  import.meta.env.VITE_AUTH_MAGIC_LINK as string | undefined
+);
 
 /**
  * Demo persona switcher signs the UI in as a seeded profile without any
  * Supabase session. Fine in local development, indefensible in production
  * (it renders an admin view for anyone who clicks it), so it is opt-in.
  */
-export const DEMO_PERSONAS_ENABLED =
-  ((import.meta.env.VITE_SHOW_DEMO_PERSONAS as string | undefined) ?? '').toLowerCase() === 'true' ||
-  Boolean(import.meta.env.DEV);
+export function demoPersonasEnabled(flag: string | undefined, dev: boolean): boolean {
+  return (flag ?? '').toLowerCase() === 'true' || dev;
+}
+
+export const DEMO_PERSONAS_ENABLED = demoPersonasEnabled(
+  import.meta.env.VITE_SHOW_DEMO_PERSONAS as string | undefined,
+  Boolean(import.meta.env.DEV)
+);
 
 /**
  * Fail closed: if the settings call cannot be made or fails, advertise only
@@ -60,6 +74,25 @@ const FALLBACK: AuthCapabilities = {
   magicLink: MAGIC_LINK_ENABLED,
   resolved: false,
 };
+
+export type AuthMethod = 'google' | 'github' | 'magic' | 'email';
+
+/**
+ * The single source of truth for what the modal renders, in display order.
+ *
+ * Kept as a pure function so the "don't ship options that cannot work" rule can
+ * be tested without mounting React: a capability that is false must never
+ * appear here, and email/password must always appear.
+ */
+export function visibleAuthMethods(caps: AuthCapabilities): AuthMethod[] {
+  const methods: AuthMethod[] = [];
+  if (caps.github) methods.push('github');
+  if (caps.google) methods.push('google');
+  if (caps.magicLink) methods.push('magic');
+  if (caps.email) methods.push('email');
+  return methods;
+}
+
 
 let cached: AuthCapabilities | null = null;
 let inflight: Promise<AuthCapabilities> | null = null;
