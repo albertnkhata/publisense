@@ -152,9 +152,29 @@ without paging admins twice, and the fan-out joins `auth.users` so the seeded ad
 with no signable-in account is skipped rather than burying real requests. Verified 11/11 in
 production, then seen in the bell as the admin: "Claim waiting: … Review it in Settings."
 
-**Still open.** Notifications are in-app only: no email is sent, so a claimant who never
-returns to the site still does not find out, and an admin who does not open the app misses a
-request entirely. The "work email matches the domain" check proves
+**The claim lifecycle is now emailed.** `pg_net` makes the HTTPS call from Postgres to Resend,
+with the key in Supabase Vault (`resend_api_key`) and the send performed by a
+`SECURITY DEFINER` trigger function that is revoked from `anon` and `authenticated` — no API
+key in the browser and nothing to deploy. Only the four claim kinds are emailed; votes and
+comments stay in the app because they are frequent and would train people to ignore the ones
+that matter. Reserved domains (`.invalid`, `.test`, `.example`, `localhost`) are skipped so
+demo fixtures never bounce, and a recipient with no address is logged `skipped`.
+
+`email_log` records every attempt and `email_delivery` joins pg_net's response, so a 401 or
+422 reads as `failed` rather than `queued` forever — a silent send failure is worse than no
+email, because the in-app row makes it look delivered.
+
+Delivered and verified: claim requested, claim waiting and claim rejected each arrived in a
+real Gmail INBOX with `dkim=pass` and `spf=pass` from `notify@publisense.app`.
+
+Two limits worth stating. The Vault key is **full-access** — a send-only key would be tighter
+and swapping it is one `vault.update_secret`. And the migrations CI job runs on stock
+Postgres without `pg_net` or `supabase_vault`, so it proves this migration parses and applies
+in order but cannot exercise delivery; delivery is verified live instead.
+
+**Still open.** Email is fire-and-forget with no retry: a send that fails after the request is
+queued shows as `failed` in `email_delivery` and nothing re-attempts it. Votes, comments and
+status changes remain in-app only. The "work email matches the domain" check proves
 nothing about mailbox control; it is labelled weak in the function itself and remains a
 manual trust decision, which is precisely why the reject path and the note exist.
 
