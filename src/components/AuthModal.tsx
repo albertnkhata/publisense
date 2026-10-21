@@ -4,6 +4,7 @@ import {
   DEMO_PERSONAS_ENABLED,
   MAGIC_LINK_ENABLED,
   loadAuthCapabilities,
+  visibleAuthMethods,
   type AuthCapabilities,
 } from '../lib/authCapabilities';
 
@@ -60,8 +61,11 @@ export const AuthModal: React.FC = () => {
     };
   }, [isAuthModalOpen]);
 
-  const showOAuth = caps.google || caps.github;
-  const oauthCount = (caps.google ? 1 : 0) + (caps.github ? 1 : 0);
+  // One pure function decides what can be offered; the JSX only renders it.
+  const methods = visibleAuthMethods(caps);
+  const showMagic = methods.includes('magic');
+  const showOAuth = methods.includes('google') || methods.includes('github');
+  const oauthCount = (methods.includes('github') ? 1 : 0) + (methods.includes('google') ? 1 : 0);
 
   // Profile edit state when signed in
   const [editName, setEditName] = useState(currentUser?.name || '');
@@ -282,7 +286,7 @@ export const AuthModal: React.FC = () => {
             {/* Mode Switcher */}
             <div
               className="omni-mode-switch"
-              style={{ width: '100%', display: 'grid', gridTemplateColumns: caps.magicLink ? '1fr 1fr 1fr' : '1fr 1fr', marginBottom: '14px' }}
+              style={{ width: '100%', display: 'grid', gridTemplateColumns: showMagic ? '1fr 1fr 1fr' : '1fr 1fr', marginBottom: '14px' }}
             >
               <button
                 type="button"
@@ -308,7 +312,7 @@ export const AuthModal: React.FC = () => {
               >
                 Create Account
               </button>
-              {caps.magicLink && (
+              {showMagic && (
                 <button
                   type="button"
                   className={`omni-mode-btn ${mode === 'magic' ? 'active' : ''}`}
@@ -334,7 +338,7 @@ export const AuthModal: React.FC = () => {
                   marginBottom: '14px',
                 }}
               >
-                {caps.github && (
+                {methods.includes('github') && (
                   <button
                     type="button"
                     className="btn-ghost"
@@ -344,7 +348,7 @@ export const AuthModal: React.FC = () => {
                     <span>⌘ GitHub</span>
                   </button>
                 )}
-                {caps.google && (
+                {methods.includes('google') && (
                   <button
                     type="button"
                     className="btn-ghost"

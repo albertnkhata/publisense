@@ -111,8 +111,10 @@ Implemented in migrations `0004`–`0007`:
    the button appears on its own.
 4. **Claimed boards are inert** — nothing approves a pending claim and there is no
    admin screen. `D-010`.
-5. **No application tests** — CI proves migrations apply, the bundle builds, and no
-   `service_role` key ships; it does not prove a user can sign up, post or vote. `D-003`.
+5. **Test coverage is narrow** — `npm test` now covers the auth-capability logic
+   (15 cases, in CI), and CI proves migrations apply, the bundle builds and no
+   `service_role` ships. No automated test exercises signup → post → vote against a
+   backend. `D-003`.
 
 
 Browsing, posting signals, commenting, signal voting, and workaround upvoting all
