@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { PRODUCT_CATEGORIES, ProductCategory, FeedbackType } from '../types';
 import { useStore } from '../context/StoreContext';
+import { claimEmailPlaceholder } from '../lib/claimEmail';
 import { SignalCard, SignalKindFilter, getPostKindLabel } from '../components/SignalCard';
 import { OPEN_COMPOSER_EVENT } from '../components/AppShell';
 
@@ -653,7 +654,7 @@ export const HomePage: React.FC = () => {
                     className="select-pill mono"
                     value={claimEmail}
                     onChange={(e) => setClaimEmail(e.target.value)}
-                    placeholder={`you@${activeProduct.slug}.com`}
+                    placeholder={claimEmailPlaceholder(activeProduct)}
                   />
                   <input
                     type="text"
