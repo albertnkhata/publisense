@@ -1841,8 +1841,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       // Persist, so something the user has actually seen stays seen after a
       // reload. The recipient-update policy allows exactly this and nothing more.
+      //
+      // `.then()` is not decoration: a supabase-js query builder is lazy and only
+      // sends the request when it is awaited or `.then()`ed. `void builder` looks
+      // like fire-and-forget but never fires at all.
       if (supabase) {
-        void supabase.from('notifications').update({ is_read: true }).eq('id', notifId);
+        void supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('id', notifId)
+          .then(
+            () => undefined,
+            () => undefined
+          );
       }
     },
     [supabase]
@@ -1858,11 +1869,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }));
 
     if (supabase) {
+      // Same laziness trap as markNotificationRead: without .then() nothing is sent.
       void supabase
         .from('notifications')
         .update({ is_read: true })
         .eq('recipient_id', currentUser.id)
-        .eq('is_read', false);
+        .eq('is_read', false)
+        .then(
+          () => undefined,
+          () => undefined
+        );
     }
   }, [currentUser, supabase]);
 
