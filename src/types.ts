@@ -148,7 +148,9 @@ export interface NotificationItem {
     | 'repost'
     | 'follow'
     | 'claim_approved'
-    | 'claim_rejected';
+    | 'claim_rejected'
+    | 'claim_requested'
+    | 'claim_pending';
   title: string;
   message: string;
   isRead: boolean;
