@@ -233,6 +233,18 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
       </header>
 
       {children}
+
+      <footer className="max-w-7xl mx-auto px-4 sm:px-6 py-6 mt-2 border-t border-zinc-200/70 dark:border-zinc-800 flex items-center justify-between gap-3 flex-wrap text-[11px] text-zinc-500">
+        <span>Publisense — a public index of product feedback.</span>
+        <span className="flex items-center gap-3">
+          <Link to="/privacy" className="hover:underline">
+            Privacy
+          </Link>
+          <Link to="/terms" className="hover:underline">
+            Terms
+          </Link>
+        </span>
+      </footer>
     </div>
   );
 };
