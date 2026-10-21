@@ -106,9 +106,11 @@ Implemented in migrations `0004`–`0007`:
 3. **Sign-in surface** — `AuthModal` asks `/auth/v1/settings` which providers are
    live and renders only those, so no dead controls ship. Email/password and magic
    link both work; auth mail is sent from `auth@publisense.app` with SPF and DKIM
-   passing and lands in the inbox. Google OAuth is the one remaining method: it needs
-   an OAuth client created in the Google Console (no API exists for it), after which
-   the button appears on its own.
+   passing and lands in the inbox. Google OAuth is now enabled and wired: the provider
+   hands off to Google's real consent screen with the correct client and callback, and
+   the button appears on the live site on its own. The remaining unknown is the app's
+   publishing status in the Google Console — in *Testing* only listed test accounts can
+   complete the round trip — and the final approval click is a human one.
 4. **Claimed boards are inert** — the approval RPC exists and works, but the only
    `admin` row was an unreachable demo fixture, so nothing could be approved by
    anyone. The owner account is now a real admin (migration `0011`); there is still no
