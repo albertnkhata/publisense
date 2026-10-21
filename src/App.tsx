@@ -28,6 +28,15 @@ const OrgPage = lazy(() =>
 const SettingsPage = lazy(() =>
   import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage }))
 );
+// Legal pages are lazy for the same reason as any other route, but they matter
+// beyond tidiness: the SPA catch-all used to send /privacy and /terms to the
+// homepage, which returns 200 and is still a broken promise.
+const PrivacyPage = lazy(() =>
+  import('./pages/LegalPage').then((m) => ({ default: m.PrivacyPage }))
+);
+const TermsPage = lazy(() =>
+  import('./pages/LegalPage').then((m) => ({ default: m.TermsPage }))
+);
 
 // Deliberately blank, not a spinner. These chunks are 2-10 kB and resolve in a
 // few milliseconds on any real connection; a spinner that flashes for one frame
@@ -51,6 +60,8 @@ export default function App() {
                 <Route path="/explore" element={<ExplorePage />} />
                 <Route path="/org/:slug" element={<OrgPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/privacy" element={<PrivacyPage />} />
+                <Route path="/terms" element={<TermsPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Suspense>
