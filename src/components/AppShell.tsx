@@ -22,6 +22,7 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
     openAuthModal,
     openCreateProductModal,
     organizations,
+    products,
   } = useStore();
   const location = useLocation();
   const navigate = useNavigate();
@@ -180,12 +181,13 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
                 <div className="notif-popover-list">
                   {notifications.length === 0 ? (
                     <div className="notif-empty mono">
-                      No notifications yet. Upvote or log a signal to track workarounds & shipped updates.
+                      Nothing yet. Votes and comments on your signals show up here, as do
+                      decisions on product boards you claim.
                     </div>
                   ) : (
                     notifications.slice(0, 12).map((notif) => {
                       const dotColor =
-                        notif.kind === 'status_change'
+                        notif.kind === 'status_change' || notif.kind === 'claim_approved'
                           ? 'var(--accent-emerald)'
                           : notif.kind === 'comment'
                           ? 'var(--accent-indigo)'
@@ -198,7 +200,15 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
                           onClick={() => {
                             markNotificationRead(notif.id);
                             setIsNotifOpen(false);
-                            navigate(`/post/${notif.postId}`);
+                            // A claim decision has no post to open — it belongs to a
+                            // board. Resolve the slug from the catalogue rather than
+                            // navigating to /post/null.
+                            if (notif.postId) {
+                              navigate(`/post/${notif.postId}`);
+                              return;
+                            }
+                            const board = products.find((p) => p.id === notif.productId);
+                            if (board) navigate(`/p/${board.slug}`);
                           }}
                         >
                           <div className="notif-item-top">

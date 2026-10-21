@@ -135,7 +135,20 @@ export interface NotificationItem {
   actorId: string;
   postId?: string;
   productId?: string;
-  kind: 'upvote' | 'comment' | 'status_change' | 'repost' | 'follow';
+  /**
+   * 'claim_approved' / 'claim_rejected' are written by the database when an
+   * administrator decides a product claim. They arrive from notifications, not
+   * from this browser, which is the point: the decision happens while the
+   * claimant is away.
+   */
+  kind:
+    | 'upvote'
+    | 'comment'
+    | 'status_change'
+    | 'repost'
+    | 'follow'
+    | 'claim_approved'
+    | 'claim_rejected';
   title: string;
   message: string;
   isRead: boolean;
