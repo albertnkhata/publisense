@@ -144,8 +144,17 @@ requires `.then()` or `await`. Verified by spying on fetch during the click — 
 while the same PATCH as that user returned 200 — then `PATCH -> 204` and `is_read = true`
 after the fix.
 
+**Requests are acknowledged and routed too.** A valid claim writes `claim_requested` back to
+the claimant (stating that reviews are manual, with no invented turnaround) and `claim_pending`
+to each admin, so a request no longer waits on someone happening to open Settings. Refused
+attempts notify nobody, a repeat submission by the same claimant updates the stored address
+without paging admins twice, and the fan-out joins `auth.users` so the seeded admin profile
+with no signable-in account is skipped rather than burying real requests. Verified 11/11 in
+production, then seen in the bell as the admin: "Claim waiting: … Review it in Settings."
+
 **Still open.** Notifications are in-app only: no email is sent, so a claimant who never
-returns to the site still does not find out. The "work email matches the domain" check proves
+returns to the site still does not find out, and an admin who does not open the app misses a
+request entirely. The "work email matches the domain" check proves
 nothing about mailbox control; it is labelled weak in the function itself and remains a
 manual trust decision, which is precisely why the reject path and the note exist.
 
