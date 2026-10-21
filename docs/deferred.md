@@ -169,30 +169,35 @@ without changing the key.
 
 ---
 
-### D-003 · Test coverage is narrow — one module, no user-flow tests
+### D-003 · Test coverage is narrow — no automatic user-flow test in CI
 
-**Status:** 🟡 ship-with-risk · **Deferred:** 2026-10-20 · **Partly addressed:** PR #23, #32
+**Status:** 🟡 ship-with-risk · **Deferred:** 2026-10-20 · **Partly addressed:** #23, #32, #33
 
-**What exists now.** `npm test` runs a real suite (vitest) over
-`src/lib/authCapabilities.ts` — 15 cases covering the rule that caused a production
-defect: the modal must advertise only sign-in methods the project can actually
-complete, must fail closed to email/password when `/auth/v1/settings` is unavailable,
-must not hide password auth, must cache instead of refetching per modal open, and
-must keep the demo persona switcher off in production builds. CI runs it between
-typecheck and build.
+**Covered now.**
 
-**What still does not exist.** Nothing exercises a user flow against a real backend:
-signup → confirmation → session, posted signals, votes, comments, or the RLS rules
-underneath them. Those were verified manually against the live project (PR #14, #16,
-#24, #25, #29) — real requests, but not repeatable by a machine.
+- `npm test` — 15 vitest cases over `src/lib/authCapabilities.ts`: a disabled provider
+  is never advertised, a failed settings fetch fails closed to email/password, results
+  are cached, flags are decoded predictably. Runs in CI.
+- `npm run smoke:live` — 14 checks against the live project with a throwaway user:
+  signup provisions a plain-user profile, password sign-in returns a session, a user
+  can post and vote as themselves, cannot post or vote as somebody else (`42501`),
+  cannot double-vote (`23505`), can edit their own profile but cannot promote
+  themselves to admin, and cannot delete another user's post. It records a baseline
+  count for every table it touches and **fails if the counts do not come back**, so a
+  crashed run cannot silently leave residue.
+- CI still proves migrations apply on Postgres 17 with an `auth` stub, the bundle
+  builds, and `service_role` never reaches `dist/assets`.
 
-CI proves: migrations apply on Postgres 17 with an `auth` stub, the bundle builds,
-`service_role` never reaches `dist/assets`, and the auth-capability logic behaves.
+**What is still missing.** The smoke test is manual, because it needs the service role
+key and CI has no secrets — and because it writes to production, it is a canary rather
+than a suite. There is no automated coverage of the comment/repost/follow/notification
+paths, no component tests for the pages, and no test database to run any of it against
+(Supabase branching is not on the current plan).
 
-**Revisit when:** before real users depend on sign-up. The honest first slice is a
-seeded throwaway user created in a Supabase **branch database**, exercising
-signup → post → vote → comment, torn down after the run. Doing it against the
-production project is not acceptable — it leaves rows behind.
+**Revisit when:** either the plan allows branch databases, or repo secrets are added so
+`smoke:live` can run on a schedule against a non-production project. Until then the
+honest statement is: every RLS rule that matters has been verified against production
+by hand and by this script, and nothing verifies it automatically.
 
 ---
 
