@@ -175,9 +175,13 @@ export const AuthModal: React.FC = () => {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div className="brand-mark" style={{ width: '26px', height: '26px', fontSize: '13px' }}>
-              P
-            </div>
+            <img
+              className="brand-mark"
+              src="/brand/publisense-icon-white-on-indigo.svg"
+              alt=""
+              width={26}
+              height={26}
+            />
             <div>
               <h2 style={{ fontSize: '15px', fontWeight: 600, letterSpacing: '-0.02em' }}>
                 {currentUser ? `@${currentUser.handle}` : 'Sign in to Publisense'}

@@ -17,6 +17,39 @@
 
 ## Open
 
+### D-012 · The Google consent screen shows no app logo
+
+**Status:** 🟡 logo on site now; brand re-verification PENDING (owner action) · **Raised:** 2026-10-21 · **Revisit:** after the next Verify Branding result
+
+**History.** The logo was uploaded on 2026-10-21 and **rejected**: it does not uniquely represent the
+brand. Root cause found by inspection, not guesswork — **the site carried no brand mark at all**, so
+Google's reviewer/crawler compared the submitted indigo mark against `publisense.app` and found no
+continuity: the header rendered the word "Publisense" with a letter-`P` box, the favicon was an inline
+**green** broadcast glyph, and there was no `og:image`. A mark that appears nowhere on the site cannot
+be verified as belonging to the site.
+
+**Fixed (PR: feat/brand-logo-site-continuity).** The mark is now the site's actual brand identity:
+
+- header mark (`AppShell`) is the real icon instead of a letter tile
+- hero mark on the homepage — the public page a reviewer opens first
+- `favicon.ico`, SVG icon, 120×120 PNG icon, `apple-touch-icon-180`, and `og:image`
+- all served from `/brand/` (copied into `public/`), verified over HTTP as real image content types
+
+**How to finish.** Re-upload `publisense-google-120.png` under Auth Platform → Branding → App logo in
+project `publisense-app` (#435845896733), then Verify Branding. Continuity is now real rather than
+asserted. If it passes, publish within the 7-day window (a pass expires). If it is rejected again
+*after* this, the remaining objection is the shared reproach — that the chat-bubble-plus-bars is a
+generic messaging glyph — and the answer is a distinctive mark (a monogram/lettermark), not an appeal.
+
+**Do not appeal a generic-mark finding with the old asset.** Google's "Request additional review" path
+is for *"I believe the issues found are incorrect"*; the finding was substantive, and a 2–3 business
+day appeal on an unchanged mark mostly wastes the window.
+
+**Kit remainder:** `publisense-icon-512.png`, `publisense-mark-indigo-{1024.png,svg}` are unused
+variants — no entry needed unless a need appears.
+
+---
+
 ### D-011 · Every visible signal and comment in production is seeded fixture content
 
 **Status:** 🟡 accepted for now (owner decision 2026-10-20) · **Raised:** 2026-10-20 · **Revisit:** before announce
@@ -63,7 +96,6 @@ truthfulness exposure, not an engineering one, so it is the owner's call.
   index (requires a decent empty state)
 - **B** — keep them, but label them: a visible "sample data" banner and personas
   marked as examples rather than members
-
 
 ---
 
@@ -177,7 +209,6 @@ queued shows as `failed` in `email_delivery` and nothing re-attempts it. Votes, 
 status changes remain in-app only. The "work email matches the domain" check proves
 nothing about mailbox control; it is labelled weak in the function itself and remains a
 manual trust decision, which is precisely why the reject path and the note exist.
-
 
 ---
 

@@ -138,16 +138,19 @@ body {
 }
 
 .brand-mark {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 5px;
-  background: var(--text-primary);
-  color: var(--bg-canvas);
-  display: grid;
-  place-items: center;
-  font-weight: 700;
-  font-size: 11px;
-  letter-spacing: -0.04em;
+  display: block;
+  flex: none;
+}
+
+.hero-brand-mark {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  display: block;
+  margin: 0 auto 18px;
 }
 
 .brand-name {

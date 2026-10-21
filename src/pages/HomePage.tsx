@@ -471,6 +471,13 @@ export const HomePage: React.FC = () => {
       {/* 1A. HOME VIEW: FULL-WIDTH SYMMETRICAL HERO */}
       {!activeProduct && (
         <section className="central-command-zone" id="homeHeroZone">
+          <img
+            className="hero-brand-mark"
+            src="/brand/publisense-icon-white-on-indigo.svg"
+            alt="Publisense"
+            width={56}
+            height={56}
+          />
           <div className="live-pill">
             <span className="pulse-dot"></span>
             <span className="mono">4,120+ community signals</span>
