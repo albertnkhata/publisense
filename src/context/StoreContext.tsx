@@ -224,6 +224,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isSupabaseConnected, setIsSupabaseConnected] = useState(false);
 
   // Optional live Supabase sync on mount when configured
+  // The catalogue load below runs once at mount. That is fine for public tables but
+  // wrong for anything RLS filters by session: at mount there may be no session yet,
+  // so `notifications` came back empty for a signed-in user — and even after a manual
+  // reload the queries fired before the session was restored. Bumping this after
+  // authentication re-runs the load with the session attached.
+  const [dataVersion, setDataVersion] = useState(0);
+
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return;
     let cancelled = false;
@@ -487,7 +494,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [dataVersion]);
 
   const currentUser = useMemo(() => {
     if (!activeUserId) return null;
@@ -743,7 +750,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        syncSupabaseUserToProfile(session.user);
+        syncSupabaseUserToProfile(session.user).then(() => setDataVersion((v) => v + 1));
       }
     });
 
@@ -751,8 +758,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        syncSupabaseUserToProfile(session.user);
+        syncSupabaseUserToProfile(session.user).then(() => setDataVersion((v) => v + 1));
         setIsAuthModalOpen(false);
+      } else {
+        // Signed out: drop anything the session was allowed to see.
+        setDataVersion((v) => v + 1);
       }
     });
 
