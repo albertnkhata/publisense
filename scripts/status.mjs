@@ -367,7 +367,7 @@ async function probeDeployedCommit() {
   const token = ENV.VERCEL_TOKEN;
   if (!token) return unknown;
   try {
-    const res = await fetch('https://api.vercel.com/v6/deployments?projectId=prj_ay0fPPdbmyDJkwknp9rqUookhOLH&target=production&limit=1&teamId=team_0tyWsvQDIjWpLDaiPU7KqQmV', {
+    const res = await fetch('https://api.vercel.com/v6/deployments?projectId=prj_ay0fPPdbmyDJkwknp9rqUookhOLH&target=production&state=READY&limit=1&teamId=team_0tyWsvQDIjWpLDaiPU7KqQmV', {
       headers: { Authorization: `Bearer ${token}` },
     });
     const body = await res.json();
