@@ -56,13 +56,13 @@ _test declarations counted by regex over `src/**/*.test.ts`; CI steps read from 
 
 <!-- status:live:start — refreshed by `npm run status -- --live`; may lag until the next scheduled refresh -->
 
-_probed 2026-10-22T12:16:11Z · anything that could not be read says `unknown` rather than guessing_
+_probed 2026-10-22T15:01:52Z · anything that could not be read says `unknown` rather than guessing_
 
 ### Production
 
 - https://publisense.app → **200** · served entry bundle `/assets/index-CiwaYOWW.js`
 - www → 308 → https://publisense.app/
-- production deployment: `d9bd6f1` (READY, 2026-10-22T07:12:01.931Z)
+- production deployment: `81a67a2` (READY, 2026-10-22T15:01:40.593Z)
 
 ### Data
 
