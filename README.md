@@ -30,7 +30,7 @@ npm run build
 
 npm run status           # regenerate the repo-derived ledger
 npm run status -- --live # + production probes (needs network; optional creds unlock more)
-npm run smoke:live       # 14 RLS/auth checks against production, throwaway user, self-cleaning
+npm run smoke:live       # RLS/auth checks against production with a throwaway user, then deletes it
 ```
 
 `smoke:live` needs the service role and is therefore **not** in CI — it is a deliberate
