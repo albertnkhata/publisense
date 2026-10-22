@@ -56,7 +56,7 @@ _test declarations counted by regex over `src/**/*.test.ts`; CI steps read from 
 
 <!-- status:live:start — refreshed by `npm run status -- --live`; may lag until the next scheduled refresh -->
 
-_probed 2026-10-22T12:16:11Z · anything that could not be read says `unknown` rather than guessing_
+_probed 2026-10-22T12:24:05Z · anything that could not be read says `unknown` rather than guessing_
 
 ### Production
 
@@ -83,7 +83,7 @@ _probed 2026-10-22T12:16:11Z · anything that could not be read says `unknown` r
 ### Work queue
 
 - open issues: none
-- open PRs: none
+- open PRs: #65 feat: derive a status ledger from the system instead of restating it
 - `npm test` at refresh time: **96 passed** in 8 files
 
 <!-- status:live:end -->
