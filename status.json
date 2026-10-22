@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-22T12:16:11Z",
+  "generatedAt": "2026-10-22T12:25:43Z",
   "repo": {
     "openDecisions": [
       {
@@ -157,12 +157,12 @@
     ]
   },
   "live": {
-    "generatedAt": "2026-10-22T12:16:11Z",
+    "generatedAt": "2026-10-22T12:25:43Z",
     "site": {
       "status": 200,
       "bundle": "/assets/index-CiwaYOWW.js",
       "wwwRedirect": "308 → https://publisense.app/",
-      "checkedAt": "2026-10-22T12:16:11Z"
+      "checkedAt": "2026-10-22T12:25:43Z"
     },
     "data": {
       "counts": {
@@ -209,7 +209,12 @@
     },
     "github": {
       "issues": [],
-      "prs": []
+      "prs": [
+        {
+          "number": 65,
+          "title": "feat: derive a status ledger from the system instead of restating it"
+        }
+      ]
     },
     "deployedCommit": {
       "sha": "d9bd6f1",
