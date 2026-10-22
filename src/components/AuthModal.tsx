@@ -41,6 +41,8 @@ export const AuthModal: React.FC = () => {
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [showDevPersonas, setShowDevPersonas] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  /** The new password has been accepted; show confirmation, not the form again. */
+  const [resetDone, setResetDone] = useState(false);
   const [caps, setCaps] = useState<AuthCapabilities>({
     email: true,
     google: false,
@@ -99,6 +101,16 @@ export const AuthModal: React.FC = () => {
     clearAuthLinkMessage();
   }, [isAuthModalOpen, authLinkMessage, authLinkMode, clearAuthLinkMessage]);
 
+  /**
+   * The reset step is a one-off, not a mode of the sign-in form: once the modal
+   * closes, the next time it opens it must be the ordinary sign-in panel again.
+   */
+  React.useEffect(() => {
+    if (isAuthModalOpen) return;
+    setResetDone(false);
+    setMode('signin');
+  }, [isAuthModalOpen]);
+
   if (!isAuthModalOpen) return null;
 
   const handleFormSubmit = async (e: React.FormEvent) => {
@@ -145,9 +157,8 @@ export const AuthModal: React.FC = () => {
         const res = await completePasswordReset(password);
         if (res.error) setErrorMsg(res.error);
         else {
-          setStatusMsg('Password updated. You are signed in.');
-          setMode('signin');
           setPassword('');
+          setResetDone(true);
         }
       }
     } finally {
@@ -236,8 +247,85 @@ export const AuthModal: React.FC = () => {
           </button>
         </div>
 
-        {/* IF SIGNED IN: Account & Sign Out Panel */}
-        {currentUser ? (
+        {/* IF A RESET LINK BROUGHT THEM HERE: choose a password, and nothing
+            else. This must come before the signed-in panel — a recovery link
+            creates a session, so `currentUser` is set and the account panel
+            would otherwise hide the one thing the user came for. */}
+        {mode === 'newpassword' ? (
+          resetDone ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div
+                className="mono"
+                style={{
+                  fontSize: '11px',
+                  padding: '7px 10px',
+                  borderRadius: '6px',
+                  color: 'var(--accent-emerald)',
+                  background: 'var(--accent-emerald-bg)',
+                  border: '1px solid var(--accent-emerald-border)',
+                }}
+              >
+                Password updated. You are signed in — use the new password next time.
+              </div>
+              <button
+                type="button"
+                className="btn-primary"
+                style={{ width: '100%', height: '34px', justifyContent: 'center' }}
+                onClick={closeAuthModal}
+              >
+                Continue to Publisense →
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <p className="mono" style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: 0 }}>
+                Your reset link worked. Choose the password you want for {currentUser?.email || 'your account'}.
+              </p>
+
+              <div>
+                <label className="mono" style={{ display: 'block', fontSize: '10.5px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                  NEW PASSWORD *
+                </label>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  autoFocus
+                  className="reply-input"
+                  style={{ width: '100%', minWidth: 0 }}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+
+              {errorMsg && (
+                <div
+                  className="mono"
+                  style={{
+                    fontSize: '11px',
+                    padding: '7px 10px',
+                    borderRadius: '6px',
+                    color: 'var(--accent-rose)',
+                    background: 'var(--accent-rose-bg)',
+                    border: '1px solid var(--accent-rose-border)',
+                  }}
+                >
+                  {errorMsg}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={loading}
+                style={{ width: '100%', height: '34px', justifyContent: 'center', marginTop: '4px' }}
+              >
+                {loading ? 'Saving...' : 'Set New Password →'}
+              </button>
+            </form>
+          )
+        ) : currentUser ? (
           <div>
             <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
@@ -437,7 +525,7 @@ export const AuthModal: React.FC = () => {
               {mode !== 'magic' && mode !== 'reset' && (
                 <div>
                   <label className="mono" style={{ display: 'block', fontSize: '10.5px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                    {mode === 'newpassword' ? 'NEW PASSWORD *' : 'PASSWORD *'}
+                    PASSWORD *
                   </label>
                   <input
                     type="password"
@@ -563,8 +651,6 @@ export const AuthModal: React.FC = () => {
                   ? 'Create Account →'
                   : mode === 'reset'
                   ? (resetSent ? 'Send Again →' : 'Send Reset Link →')
-                  : mode === 'newpassword'
-                  ? 'Set New Password →'
                   : 'Send Magic Link →'}
               </button>
             </form>

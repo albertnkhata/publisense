@@ -19,7 +19,8 @@
 
 ### D-014 · A reset link signs you in but never lets you set a password
 
-**Status:** 🔴 OPEN · **Raised:** 2026-10-21 · **Issue:** #61 · **Attempts:** #59, #60 (both failed, reverted)
+**Status:** 🟡 FIXED IN #62 — awaiting one live confirmation on the production origin ·
+**Raised:** 2026-10-21 · **Issue:** #61 · **Attempts:** #59, #60 (failed, reverted)
 
 **What happens.** Click the emailed reset link and you are signed in, on the feed, with no
 "choose a new password" step. The password you have forgotten is still the password. Confirmed
@@ -27,37 +28,77 @@ on production with freshly minted links, repeatedly, as the first and only consu
 token.
 
 **Mechanism.** The link 303s to `https://publisense.app#access_token=…&type=recovery`.
-`supabase-js` consumes that fragment during client initialisation and signs the user in. Any
-code that reads `window.location.href` afterwards sees the fragment already gone, so a recovery
-link is indistinguishable from an ordinary visit and the password step is never opened. The
-sign-in then fires `onAuthStateChange`, whose handler closes the auth modal — so even a step
-that did open would be shut.
+`supabase-js` consumes that fragment during client initialisation and signs the user in, then
+clears it. Two things then fail:
 
-**Three attempts, all falsified by a live test, all reverted:**
+1. Nothing durable remembered *why* the user arrived, so no step opened.
+2. Even a step that did open could be shut a tick later: `onAuthStateChange` closed the modal on
+   the session, and the events arrive in whatever order initialisation and storage produce.
+
+**Three earlier attempts, all falsified by a live test, all reverted:**
 
 1. Guarded `setIsAuthModalOpen(false)` with `event !== 'PASSWORD_RECOVERY'` (#59). Inert — the
    modal had never been opened, so there was nothing to keep open.
-2. Read `classifyAuthCallback` at module scope in `StoreContext` (#60). Still too late:
-   `createClient` is constructed earlier in the same import chain.
+2. Read `classifyAuthCallback` at module scope in `StoreContext` (#60). Too late in practice.
 3. Captured `window.location.href` in `lib/supabase.ts` **above** `createClient` (#60). Ordering
    verified byte-close in the shipped bundle (capture 23646, client 23853) — and production
    still logged in with no password field.
 
-What follows from (3): the fragment is consumed before even a top-of-module capture runs, most
-likely inside the vendored Supabase chunk during import evaluation. URL-based classification may
-not be reachable at all.
+**Fixed in #62 — the mechanism is observed from inside the client, not from the URL afterwards.**
 
-**Not yet tried, and the recommended next step.** Open the password step from the
-`PASSWORD_RECOVERY` event alone — it fires reliably (it is how the session appears at all) and
-needs no URL. Every attempt above bundled it with URL logic, so this mechanism has never been
-isolated and tested on its own.
+- `lib/supabase.ts` passes `detectSessionInUrl` as a *function*. auth-js calls it during
+  initialisation, while the redirect params are still readable, so `type=recovery` is recorded at
+  the only moment it is guaranteed to exist. The function returns auth-js's own predicate
+  unchanged, so which URLs the client consumes is untouched.
+- The same module subscribes to `onAuthStateChange` immediately after `createClient` (module
+  scope, before React mounts) and marks the signal on `PASSWORD_RECOVERY` — belt and braces, and
+  the only signal that survives the fragment being cleared.
+- `lib/recoverySignal.ts` holds the flag. `StoreContext` reads it on mount *and* subscribes, so
+  neither a mark that lands before mount nor one that lands after is missed.
+- `AuthModal` renders the "choose a new password" panel **ahead of** the signed-in account panel.
+  This was a second, independent reason the step never appeared: a recovery session sets
+  `currentUser`, and the account panel was rendering instead of the password field.
+- `shouldCloseAuthModalOnAuthEvent(event, pending)` decides dismissal. A name-only guard is not
+  enough — `INITIAL_SESSION` can land *after* `PASSWORD_RECOVERY`, and on that ordering the modal
+  the recovery just opened gets closed with nothing to reopen it. Observed live: one click of the
+  same build showed no password field, the next showed the panel; the differing factor was the
+  event order.
 
-**Tooling note for the next session.** This cannot be tested on a preview: Supabase forces
-`redirect_to` back to `publisense.app` regardless of the project allow-list, and supabase-js
-will not consume a recovery fragment on a non-allow-listed origin. Hand-injecting the fragment
-does not work either. Production is the only origin that can exercise it — so treat each live
-reset link as a single-use test and do not spend it probing. A mail scanner or a `curl -D -` on
-the link burns it.
+**Corrections to the earlier record** (so the next session does not inherit a wrong model):
+
+- **The fragment is still there at module evaluation.** An instrumented build logged, in the real
+  browser: `module-eval` at t=675 ms with the full `#access_token=…&type=recovery` hash,
+  `detectSessionInUrl(type: recovery)` at t=681. The earlier conclusion that "the fragment is
+  consumed before even a top-of-module capture runs" is **not supported** — attempt (3) must have
+  failed for another reason (most likely the modal being closed by the session event).
+- **A recovery token can be driven at a non-production origin.** `POST /auth/v1/recover` ignores a
+  body `redirect_to` (the mail still pointed at `publisense.app`), but the **verify URL** honours
+  it: `/auth/v1/verify?token=…&type=recovery&redirect_to=http://localhost:5173` 303s to that
+  origin when it is allow-listed (`http://localhost:5173` already is). That is how #62 was proven
+  end to end before merging — see below.
+- A **synthetic** `#access_token=fake…` fragment is still useless as proof: the session fails to
+  be created, auth-js never clears the hash (because clearing happens after a successful
+  `GET /user`), and the app's old URL-based branch then opens the modal anyway. It passes on
+  broken code.
+
+**Evidence for #62.**
+
+- Local gates: typecheck, `npm test` (96 cases, 26 new), build, and the `service_role` bundle guard
+  all pass. The new integration test drives the **real** `@supabase/auth-js` the app ships, with
+  our exported client options and a stub transport, and asserts: the client clears the fragment,
+  the params hook marks the signal before that, an early listener catches `PASSWORD_RECOVERY`,
+  and neither a plain visit nor a `magiclink` redirect is mistaken for a recovery.
+- Live, before merge: throwaway confirmed user → real reset mail from `auth@publisense.app` →
+  browser as first and only consumer of the token → landed on the built bundle at the allow-listed
+  `http://localhost:5173` → **NEW PASSWORD panel appeared**, password accepted, confirmation
+  panel shown, `USER_UPDATED` did not dismiss it → `POST /auth/v1/token?grant_type=password`
+  returned **200 with the new password and 400 `invalid_credentials` with the previous one**.
+
+**Still open.** One real reset on `https://publisense.app` after this merges, to confirm the
+production origin and the deployed bundle. Issue #61 stays open until that click succeeds.
+
+**Spend live links carefully.** Each is single-use; a mail scanner or a `curl -D -` burns it.
+Send the browser straight at the link and read the resulting state.
 
 ---
 ### D-013 · Password reset and emailed auth links had no recovery path
