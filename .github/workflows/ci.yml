@@ -39,6 +39,22 @@ jobs:
           fi
           echo "OK: no service_role in bundle"
 
+  status:
+    name: Status ledger is current
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # STATUS.md is generated, so a stale copy means the reading surface lies.
+      # The script has no dependencies, so no `npm ci` is needed. This compares
+      # the repo-derived block only; the live block runs on its own schedule.
+      - name: Regenerate and compare the repo-derived block
+        run: npm run status -- --check
+
   migrations:
     name: Migrations apply cleanly
     runs-on: ubuntu-latest
