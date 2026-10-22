@@ -17,9 +17,57 @@
 
 ## Open
 
+### D-014 · A reset link signs you in but never lets you set a password
+
+**Status:** 🔴 OPEN · **Raised:** 2026-10-21 · **Attempts:** #59, #60 (both failed, reverted)
+
+**What happens.** Click the emailed reset link and you are signed in, on the feed, with no
+"choose a new password" step. The password you have forgotten is still the password. Confirmed
+on production with freshly minted links, repeatedly, as the first and only consumer of each
+token.
+
+**Mechanism.** The link 303s to `https://publisense.app#access_token=…&type=recovery`.
+`supabase-js` consumes that fragment during client initialisation and signs the user in. Any
+code that reads `window.location.href` afterwards sees the fragment already gone, so a recovery
+link is indistinguishable from an ordinary visit and the password step is never opened. The
+sign-in then fires `onAuthStateChange`, whose handler closes the auth modal — so even a step
+that did open would be shut.
+
+**Three attempts, all falsified by a live test, all reverted:**
+
+1. Guarded `setIsAuthModalOpen(false)` with `event !== 'PASSWORD_RECOVERY'` (#59). Inert — the
+   modal had never been opened, so there was nothing to keep open.
+2. Read `classifyAuthCallback` at module scope in `StoreContext` (#60). Still too late:
+   `createClient` is constructed earlier in the same import chain.
+3. Captured `window.location.href` in `lib/supabase.ts` **above** `createClient` (#60). Ordering
+   verified byte-close in the shipped bundle (capture 23646, client 23853) — and production
+   still logged in with no password field.
+
+What follows from (3): the fragment is consumed before even a top-of-module capture runs, most
+likely inside the vendored Supabase chunk during import evaluation. URL-based classification may
+not be reachable at all.
+
+**Not yet tried, and the recommended next step.** Open the password step from the
+`PASSWORD_RECOVERY` event alone — it fires reliably (it is how the session appears at all) and
+needs no URL. Every attempt above bundled it with URL logic, so this mechanism has never been
+isolated and tested on its own.
+
+**Tooling note for the next session.** This cannot be tested on a preview: Supabase forces
+`redirect_to` back to `publisense.app` regardless of the project allow-list, and supabase-js
+will not consume a recovery fragment on a non-allow-listed origin. Hand-injecting the fragment
+does not work either. Production is the only origin that can exercise it — so treat each live
+reset link as a single-use test and do not spend it probing. A mail scanner or a `curl -D -` on
+the link burns it.
+
+---
 ### D-013 · Password reset and emailed auth links had no recovery path
 
-**Status:** ✅ RESOLVED 2026-10-21 · **Raised:** 2026-10-21 · **PR:** #58
+**Status:** ⚠️ PARTIAL 2026-10-21 · **Raised:** 2026-10-21 · **PR:** #58 · **Reopened as D-014**
+
+> **2026-10-22 correction.** The UI below exists and works, but the end-to-end reset it was
+> meant to deliver does not: clicking a mailed reset link signs the user in without ever
+> offering a new password. That is **D-014**, which is open. Read "resolved" below as
+> "the affordances were built", not "a user can now reset their password".
 
 **What was wrong.** Two gaps in the same flow, both invisible until a user hit them:
 
