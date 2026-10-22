@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-22T15:01:52Z",
+  "generatedAt": "2026-10-22T15:14:12Z",
   "repo": {
     "openDecisions": [
       {
@@ -157,12 +157,12 @@
     ]
   },
   "live": {
-    "generatedAt": "2026-10-22T15:01:52Z",
+    "generatedAt": "2026-10-22T15:14:12Z",
     "site": {
       "status": 200,
       "bundle": "/assets/index-CiwaYOWW.js",
       "wwwRedirect": "308 → https://publisense.app/",
-      "checkedAt": "2026-10-22T15:01:52Z"
+      "checkedAt": "2026-10-22T15:14:12Z"
     },
     "data": {
       "counts": {
@@ -212,9 +212,9 @@
       "prs": []
     },
     "deployedCommit": {
-      "sha": "81a67a2",
-      "state": "READY",
-      "createdAt": "2026-10-22T15:01:40.593Z"
+      "sha": "cb62429",
+      "state": "BUILDING",
+      "createdAt": "2026-10-22T15:14:12.599Z"
     },
     "unitTests": {
       "files": 8,
