@@ -1,0 +1,224 @@
+{
+  "generatedAt": "2026-10-22T12:16:11Z",
+  "repo": {
+    "openDecisions": [
+      {
+        "id": "D-012",
+        "title": "The Google consent screen shows no app logo",
+        "revisit": "when a distinctive brand mark exists, or if a sensitive scope forces a review anyway"
+      },
+      {
+        "id": "D-011",
+        "title": "Every visible signal and comment in production is seeded fixture content",
+        "revisit": "before announce"
+      },
+      {
+        "id": "D-007",
+        "title": "Background rows for other users have no email in the client",
+        "revisit": ""
+      },
+      {
+        "id": "D-003",
+        "title": "Test coverage is narrow — no automatic user-flow test in CI",
+        "revisit": ""
+      },
+      {
+        "id": "D-002",
+        "title": "`service_role` key exists with no server-side consumer",
+        "revisit": ""
+      }
+    ],
+    "resolved": [
+      "D-014",
+      "D-013",
+      "D-010",
+      "D-005",
+      "D-009",
+      "D-008",
+      "D-006",
+      "D-004",
+      "D-001"
+    ],
+    "misplaced": [],
+    "roadmap": [
+      {
+        "name": "Phase 0 — Foundation & High-Craft Baseline",
+        "headingSaysComplete": true,
+        "headingSaysCurrent": false,
+        "done": 4,
+        "todo": 0
+      },
+      {
+        "name": "Phase 1 — Open Index Polish & Frictionless Community Loop",
+        "headingSaysComplete": true,
+        "headingSaysCurrent": false,
+        "done": 0,
+        "todo": 0
+      },
+      {
+        "name": "Phase 2 — Real Auth, Permalinks & Social Reputation",
+        "headingSaysComplete": true,
+        "headingSaysCurrent": false,
+        "done": 0,
+        "todo": 0
+      },
+      {
+        "name": "Phase 3 — Builder Claiming & Official Team Loops",
+        "headingSaysComplete": true,
+        "headingSaysCurrent": false,
+        "done": 0,
+        "todo": 0
+      },
+      {
+        "name": "Phase 4 — Security, Integrity & RLS Lockdown",
+        "headingSaysComplete": true,
+        "headingSaysCurrent": false,
+        "done": 4,
+        "todo": 0
+      },
+      {
+        "name": "Phase 5 — MVP Deploy Gate",
+        "headingSaysComplete": true,
+        "headingSaysCurrent": false,
+        "done": 6,
+        "todo": 0
+      },
+      {
+        "name": "Phase 6 — Intelligence & Pro Tier (Post-MVP)",
+        "headingSaysComplete": false,
+        "headingSaysCurrent": false,
+        "done": 0,
+        "todo": 0
+      }
+    ],
+    "tests": {
+      "files": 8,
+      "cases": 96
+    },
+    "gates": [
+      {
+        "name": "Typecheck",
+        "runs": [
+          "npm run typecheck"
+        ],
+        "scripted": false
+      },
+      {
+        "name": "Tests",
+        "runs": [
+          "npm test"
+        ],
+        "scripted": false
+      },
+      {
+        "name": "Build",
+        "runs": [
+          "npm run build"
+        ],
+        "scripted": false
+      },
+      {
+        "name": "Assert no service_role key in bundle",
+        "runs": [],
+        "scripted": true
+      },
+      {
+        "name": "Regenerate and compare the repo-derived block",
+        "runs": [
+          "npm run status -- --check"
+        ],
+        "scripted": false
+      },
+      {
+        "name": "Stub the Supabase auth schema",
+        "runs": [],
+        "scripted": true
+      },
+      {
+        "name": "Apply schema then migrations in order",
+        "runs": [],
+        "scripted": true
+      },
+      {
+        "name": "Assert RLS is enabled on every public table",
+        "runs": [],
+        "scripted": true
+      },
+      {
+        "name": "Assert no world-open write policy exists",
+        "runs": [],
+        "scripted": true
+      },
+      {
+        "name": "Report public read-policy count",
+        "runs": [],
+        "scripted": true
+      }
+    ]
+  },
+  "live": {
+    "generatedAt": "2026-10-22T12:16:11Z",
+    "site": {
+      "status": 200,
+      "bundle": "/assets/index-CiwaYOWW.js",
+      "wwwRedirect": "308 → https://publisense.app/",
+      "checkedAt": "2026-10-22T12:16:11Z"
+    },
+    "data": {
+      "counts": {
+        "products": 13,
+        "organizations": 7,
+        "posts": 8,
+        "comments": 9,
+        "post_votes": 4,
+        "comment_votes": 0,
+        "public_profiles": 10,
+        "claim_decisions": 0
+      },
+      "trueCounts": {
+        "products": 13,
+        "organizations": 7,
+        "posts": 8,
+        "comments": 9,
+        "post_votes": 4,
+        "comment_votes": 0,
+        "public_profiles": 10,
+        "claim_decisions": 0
+      },
+      "fixtures": {
+        "profiles": 10,
+        "fixtureProfiles": 7,
+        "memberProfiles": 3
+      },
+      "authUsers": 3
+    },
+    "auth": {
+      "providers": [
+        "google",
+        "email"
+      ],
+      "mailerAutoconfirm": false,
+      "smtpSender": "auth@publisense.app",
+      "consentScreen": {
+        "appName": "Publisense",
+        "supportEmail": "albertnkhata.s@gmail.com",
+        "termsLinked": true,
+        "privacyLinked": true,
+        "unverifiedBanner": false
+      }
+    },
+    "github": {
+      "issues": [],
+      "prs": []
+    },
+    "deployedCommit": {
+      "sha": "d9bd6f1",
+      "state": "READY",
+      "createdAt": "2026-10-22T07:12:01.931Z"
+    },
+    "unitTests": {
+      "files": 8,
+      "cases": 96
+    }
+  }
+}
