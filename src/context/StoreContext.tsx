@@ -18,6 +18,7 @@ import {
 import { approvalOutcome, rejectionOutcome } from '../lib/claimRequests';
 import { profileProvisioningPayload } from '../lib/profileProvisioning';
 import { classifyAuthCallback, explainAuthError, explainSendFailure } from '../lib/authRecovery';
+import { recoverySignal, shouldCloseAuthModalOnAuthEvent } from '../lib/recoverySignal';
 import {
   SEED_ORGANIZATIONS,
   SEED_PRODUCTS,
@@ -228,6 +229,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setAuthLinkMode('newpassword');
     setIsAuthModalOpen(true);
   }, []);
+
+  /**
+   * A mailed reset link is the only way in to "choose a new password", and the
+   * URL cannot carry that fact: supabase consumes the redirect fragment while
+   * the client initialises and clears it before the first effect runs, so by the
+   * time anything in React looks at `window.location` a recovery landing is
+   * indistinguishable from an ordinary visit. `lib/supabase.ts` therefore records the event as it
+   * happens (`PASSWORD_RECOVERY`, or the redirect params seen during
+   * initialisation) and this reads it back — on mount for the flag that was
+   * already set, and by subscription for one that lands afterwards.
+   */
+  useEffect(() => {
+    if (recoverySignal.peek()) onRecoveryVerified();
+    return recoverySignal.subscribe(() => onRecoveryVerified());
+  }, [onRecoveryVerified]);
   const [isCreateProductModalOpen, setIsCreateProductModalOpen] = useState(false);
 
   const [commentLikes, setCommentLikes] = useState<Record<string, string[]>>(() => {
@@ -636,6 +652,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const closeAuthModal = useCallback(() => {
     setIsAuthModalOpen(false);
     setAuthModalPrompt(undefined);
+    // The reset prompt has been delivered; do not raise it again on the next
+    // mount. The user can always ask for a fresh link.
+    recoverySignal.clear();
   }, []);
 
   const openCreateProductModal = useCallback(() => {
@@ -842,10 +861,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
         syncSupabaseUserToProfile(session.user).then(() => setDataVersion((v) => v + 1));
-        setIsAuthModalOpen(false);
+        // A recovery session is not a sign-in the user asked for: it is the
+        // reset flow's "continue to set a password" moment, and it must not be
+        // dismissed. Which events may close the modal (and which orderings would
+        // otherwise close it by accident) is decided in the helper, where it is
+        // tested.
+        if (shouldCloseAuthModalOnAuthEvent(event, recoverySignal.peek())) {
+          setIsAuthModalOpen(false);
+        }
       } else {
         // Signed out: drop anything the session was allowed to see.
         setDataVersion((v) => v + 1);
@@ -997,6 +1023,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (error) {
         return { error: error.message };
       }
+      // Done: nothing more to prompt for, on this load or a later one.
+      recoverySignal.clear();
       return {};
     },
     []
