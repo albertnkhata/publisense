@@ -19,7 +19,7 @@
 
 ### D-014 · A reset link signs you in but never lets you set a password
 
-**Status:** 🔴 OPEN · **Raised:** 2026-10-21 · **Attempts:** #59, #60 (both failed, reverted)
+**Status:** 🔴 OPEN · **Raised:** 2026-10-21 · **Issue:** #61 · **Attempts:** #59, #60 (both failed, reverted)
 
 **What happens.** Click the emailed reset link and you are signed in, on the feed, with no
 "choose a new password" step. The password you have forgotten is still the password. Confirmed
@@ -62,7 +62,7 @@ the link burns it.
 ---
 ### D-013 · Password reset and emailed auth links had no recovery path
 
-**Status:** ⚠️ PARTIAL 2026-10-21 · **Raised:** 2026-10-21 · **PR:** #58 · **Reopened as D-014**
+**Status:** ⚠️ PARTIAL 2026-10-21 · **Raised:** 2026-10-21 · **PR:** #58 · **Reopened as D-014** (issue #61)
 
 > **2026-10-22 correction.** The UI below exists and works, but the end-to-end reset it was
 > meant to deliver does not: clicking a mailed reset link signs the user in without ever
