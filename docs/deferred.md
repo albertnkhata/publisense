@@ -17,61 +17,6 @@
 
 ## Open
 
-### D-013 · Password reset and emailed auth links had no recovery path
-
-**Status:** ⚠️ PARTIAL 2026-10-21 · **Raised:** 2026-10-21 · **PR:** #58 · **Reopened as D-014** (issue #61)
-
-> **2026-10-22 correction.** The UI below exists and works, but the end-to-end reset it was
-> meant to deliver does not: clicking a mailed reset link signs the user in without ever
-> offering a new password. That is **D-014**, which is open. Read "resolved" below as
-> "the affordances were built", not "a user can now reset their password".
-
-**What was wrong.** Two gaps in the same flow, both invisible until a user hit them:
-
-1. **No password reset at all.** No "Forgot password?" affordance anywhere, and
-   `resetPasswordForEmail` was never called. A user who mistyped their password at signup, or
-   forgot it, had no recovery path — the only option was a second account.
-2. **Emailed links never completed.** `mailer_autoconfirm = false`, so both signup and recovery
-   depend on a mailed link, but nothing consumed it.
-
-**The second one was worse than it looked, and a live round-trip is what found it.** Supabase
-mails `/auth/v1/verify?token=…&type=recovery`, which **303-redirects with the session in the URL
-fragment** (`#access_token=…&type=recovery`); `supabase-js` consumes that itself. The first
-implementation assumed a `?token_hash=` link and read only search params — so a real reset landed
-the user **signed in with no way to choose a new password**, and a spent link failed silently.
-Unit tests and DOM probes passed on that wrong model; only a real email exposed it.
-
-**Fixed.** `src/lib/authRecovery.ts` (pure, 22 tests) plus wiring in `StoreContext`/`AuthModal`:
-
-- forgot-password → email-only step → "link sent"
-- a fragment session is its own case: `type=recovery` opens the **New Password** step, hash cleared
-- the `?token_hash=` branch is kept for projects configured that way (`verifyOtp` path)
-- a link that will not verify explains itself and offers a resend; reload cannot replay a spent token
-- "expired" is claimed only when the provider says expired — `access_denied` alone is not proof
-- reset requests answer identically whether or not the address exists (no account enumeration)
-
-**Verified against a real mailbox** (throwaway address), not just an API 200:
-
-```
-signup  -> 200, confirmation_sent_at set
-mail    -> "Confirm your email address"  from auth@publisense.app   arrived
-recover -> 200
-mail    -> "Reset your password"         from auth@publisense.app   arrived
-reset   -> link followed, password changed
-        -> sign-in OLD password 400 REJECTED / NEW password 200 ACCEPTED
-```
-
-**Residual, not fixed here:**
-
-- no client-side resend cooldown, so Supabase's 60s `smtp_max_frequency` can be tripped
-  (`explainSendFailure` now *words* it as a wait; there is no countdown)
-- the 303 hop itself could not be exercised against a local build — `redirect_to` is pinned to the
-  allow-listed site URL — so the final UI check used the fragment form directly
-- **a mail scanner fetching the link consumes the token**, which is why "expired or already used"
-  will sometimes be shown to a user who never clicked anything
-
----
-
 ### D-012 · The Google consent screen shows no app logo
 
 **Status:** 🟢 DEFERRED by owner decision 2026-10-21 — auto-verification bounced twice; not pursuing now · **Raised:** 2026-10-21 · **Revisit:** when a distinctive brand mark exists, or if a sensitive scope forces a review anyway
@@ -117,23 +62,26 @@ favicon. That improves the product regardless of the consent screen.
 
 ### D-011 · Every visible signal and comment in production is seeded fixture content
 
-**Status:** 🟡 accepted for now (owner decision 2026-10-20) · **Raised:** 2026-10-20 · **Revisit:** before announce
+**Status:** 🟡 accepted for now (owner decision 2026-10-20) · **Raised:** 2026-10-20 · **Last re-verified:** 2026-10-22 · **Revisit:** before announce
 
 **Decision:** keep the demo content in place while the product is still being
 polished. Recorded so the risk is deliberate rather than forgotten — it is not a bug
 that got lost, it is a choice that has to be revisited out loud before the app is
 shown to anyone outside.
 
-The live site presents eight posts, nine comments and eight profiles as community
-activity. **All of it is fixture data.** Verified against production with the anon
-key and the service_role key:
+The live site presents eight posts, nine comments, four votes and seven personas as
+community activity. **All of it is fixture data.** Re-verified against production
+2026-10-22 (`wyjfgrgxmhumyzwcrywj`):
 
 ```
-posts.author_id      -> usr-maya 2, usr-elena 1, usr-jonas 1, usr-lucas 1,
-                        usr-marcus 1, usr-noah 1, usr-albert 1   (100% fixtures)
-comments.author_id   -> usr-noah 3, usr-maya 2, usr-marcus 1, usr-elena 1,
-                        usr-jonas 1, usr-albert 1                (100% fixtures)
-auth.users           -> 2 real accounts (both the owner's), 0 real community members
+posts.author_id      -> 8/8 authored by fixture personas (usr-maya 2, usr-elena 1,
+                        usr-jonas 1, usr-lucas 1, usr-marcus 1, usr-noah 1,
+                        usr-albert 1)
+comments.author_id   -> 9/9 authored by fixture personas
+post_votes           -> 4/4 cast by fixture personas
+profiles             -> 10 total: 7 fixture personas (@publisense.invalid, `usr-*` ids,
+                        which can never map to an auth user) + 3 owner accounts
+auth.users           -> 3, all owner-controlled (1 hotmail, 2 gmail); 0 community members
 ```
 
 The personas are named, avatar'd, and attributed to real-looking domains
@@ -164,119 +112,6 @@ truthfulness exposure, not an engineering one, so it is the owner's call.
 
 ---
 
-### D-010 · Claimed boards are inert — an approval path no human could reach
-
-**Status:** 🟢 approval path live · **Raised:** 2026-10-20 · **Unblocked + shipped:** 2026-10-21 (#34, #36, #37)
-
-**What the flow does.** `claim_product_board(product, work_email)` is a
-`SECURITY DEFINER` RPC. It validates the work email against the product's own domain,
-writes `claim_status = 'pending'` and the claimant's id, and changes no privileges:
-no role, no organisation ownership. Correct — a request, not a grant.
-
-**What was actually broken.** `approve_product_claim(product)` already existed,
-`SECURITY DEFINER`, and it does the right things: verifies the product and its
-organisation, promotes the claimant to `maintainer`, binds `managed_org_id`. But it
-gates on `profiles.role = 'admin'` for `auth.uid()`, and the only `admin` row in the
-database was the seeded demo persona `usr-albert@publisense.invalid` — a fixture with
-no auth user behind it that can never sign in.
-
-So this was never a missing-UI problem. **No human account could approve anything**,
-which meant every claim request was a dead end no matter what surfaced it. Nothing in
-the product had a real administrator.
-
-**Fixed.** Migration `0011_bootstrap_owner_admin.sql` promotes the owner account to
-`admin`. It disables `guard_profile_privileges_trg` for exactly one statement, because
-the guard correctly refuses role changes by non-admins and therefore also blocks the
-creation of the first one — the circularity has to be broken somewhere, and a
-reviewable migration with a single email-identified row is the narrowest place.
-
-**Verified against production**, with a throwaway org, product and user:
-
-- claim lands `pending`, product stays unverified, claimant gets no privileges
-- the claimant **cannot** approve their own claim (`not_admin`), and the product stays pending
-- an admin approval verifies product + organisation, promotes the claimant to `maintainer`, binds `managed_org_id`
-- re-approval is **idempotent** (`ok: true`, same values) rather than refused — harmless, but the function should arguably return `already_verified`; noted, not fixed
-- everything removed afterwards, counts back to baseline
-
-**Shipped.** Settings carries a claim queue for administrators only: product,
-organisation, claimant email and when they asked, oldest first, one Approve action.
-Verified end to end against production — a pending claim approved through that screen
-left the product `verified`, its organisation verified and the claimant `maintainer`
-bound to it, with the queue emptying afterwards.
-
-**A prerequisite bug this surfaced.** Provisioning a `profiles` row on sign-in used to
-write `role: 'user'` and `managed_org_id: null` as though they were defaults. They were
-overwrites: the profiles read that proves the account already exists is still in flight
-on a cold load, so an admin who signed in was silently demoted — their own admin role is
-what made the guard permit the change — and a maintainer's organisation binding would
-have been rejected invisibly. The client now provisions with `ON CONFLICT DO NOTHING`
-and display fields only, then adopts the authoritative row. `profileProvisioningPayload()`
-has tests asserting it cannot carry a role or an organisation.
-
-**Decisions are now recorded.** `public.claim_decisions` logs product, action, actor id
-and email, an optional note and a timestamp for every approval and rejection. RLS is on,
-admin-readable only, and there is no insert/update/delete policy — rows are written inside
-the `SECURITY DEFINER` functions, so a decision cannot be forged or erased over the REST
-API. Rejection resets the claim to `unclaimed` (board claimable again) rather than adding a
-terminal `rejected` status, which would need cooldown and re-request rules nobody has
-designed. Approval now refuses a second call with `already_verified` instead of
-double-logging one decision. Both functions are revoked from `anon`.
-
-Verified through the live UI, not just the RPCs: declined a real pending claim from
-Settings with a reason; the board came back `unclaimed` with every claim field cleared and
-unverified, and the decision row carried the reviewer's email and the note.
-
-**The claimant is now told.** Both decisions insert a `notifications` row inside the same
-`SECURITY DEFINER` function that decides, so there is no path that decides without telling
-or tells without deciding. A rejection carries the reviewer's note — "we said no" with no
-reason is the silence this replaced. `notifications.kind` was a checked list that did not
-include the new kinds; it was extended rather than reusing `upvote`, so the database still
-says what a row means.
-
-This surfaced two defects behind it. The app never read `notifications` at all — it invented
-them in browser state — and the catalogue load ran once at mount before Supabase restored
-the session, so anything RLS-filtered came back empty. And the read-state write was written
-as `void supabase...update(...)`, which sends nothing: a supabase-js builder is lazy and
-requires `.then()` or `await`. Verified by spying on fetch during the click — zero requests,
-while the same PATCH as that user returned 200 — then `PATCH -> 204` and `is_read = true`
-after the fix.
-
-**Requests are acknowledged and routed too.** A valid claim writes `claim_requested` back to
-the claimant (stating that reviews are manual, with no invented turnaround) and `claim_pending`
-to each admin, so a request no longer waits on someone happening to open Settings. Refused
-attempts notify nobody, a repeat submission by the same claimant updates the stored address
-without paging admins twice, and the fan-out joins `auth.users` so the seeded admin profile
-with no signable-in account is skipped rather than burying real requests. Verified 11/11 in
-production, then seen in the bell as the admin: "Claim waiting: … Review it in Settings."
-
-**The claim lifecycle is now emailed.** `pg_net` makes the HTTPS call from Postgres to Resend,
-with the key in Supabase Vault (`resend_api_key`) and the send performed by a
-`SECURITY DEFINER` trigger function that is revoked from `anon` and `authenticated` — no API
-key in the browser and nothing to deploy. Only the four claim kinds are emailed; votes and
-comments stay in the app because they are frequent and would train people to ignore the ones
-that matter. Reserved domains (`.invalid`, `.test`, `.example`, `localhost`) are skipped so
-demo fixtures never bounce, and a recipient with no address is logged `skipped`.
-
-`email_log` records every attempt and `email_delivery` joins pg_net's response, so a 401 or
-422 reads as `failed` rather than `queued` forever — a silent send failure is worse than no
-email, because the in-app row makes it look delivered.
-
-Delivered and verified: claim requested, claim waiting and claim rejected each arrived in a
-real Gmail INBOX with `dkim=pass` and `spf=pass` from `notify@publisense.app`.
-
-Two limits worth stating. The Vault key is **full-access** — a send-only key would be tighter
-and swapping it is one `vault.update_secret`. And the migrations CI job runs on stock
-Postgres without `pg_net` or `supabase_vault`, so it proves this migration parses and applies
-in order but cannot exercise delivery; delivery is verified live instead.
-
-**Still open.** Email is fire-and-forget with no retry: a send that fails after the request is
-queued shows as `failed` in `email_delivery` and nothing re-attempts it. Votes, comments and
-status changes remain in-app only. The "work email matches the domain" check proves
-nothing about mailbox control; it is labelled weak in the function itself and remains a
-manual trust decision, which is precisely why the reject path and the note exist.
-
----
-
 ### D-007 · Background rows for other users have no email in the client
 
 **Status:** 🟢 cosmetic/minor · **Deferred:** 2026-10-20 · **PR:** #16
@@ -302,59 +137,9 @@ other users. Guarded at every current call site.
 
 ---
 
-### D-005 · Email delivery — RESOLVED
-
-**Status:** ✅ **RESOLVED 2026-10-20** · **Deferred:** 2026-10-20 · **PR:** #15
-
-**What was wrong at deferral.** `mailer_autoconfirm: true` and every SMTP field
-empty (`smtp_host`, `smtp_port`, `smtp_user`, `smtp_admin_email`, `smtp_sender_name`
-all `None`). With confirmation required, signup returned `HTTP 200` but **no
-session**, and no email was ever sent — there was no mailer. Magic link and password
-reset were dead, and a forgotten password was unrecoverable.
-
-**What was wrong in the middle state.** SMTP was pointed at Resend using a key
-scoped to `ridgewoodinsights.com`, sending as `auth@ridgewoodinsights.com`. Mail was
-delivered, but Gmail filed every message as **spam**: that apex's SPF is
-`include:zohomail.com` (Zoho owns its mail) while Resend transmits through Amazon
-SES, so SPF failed for the sender domain.
-
-**How it was fixed — a sending domain the app actually owns.**
-
-1. `publisense.app` added to Resend (region `eu-west-1`) and its four records
-   written into the Vercel DNS zone: DKIM at `resend._domainkey`, SPF TXT and
-   feedback MX on the `send` subdomain, and the `rsend` return-path CNAME.
-   Resend reports `verified` on all four.
-2. Supabase SMTP sender moved to `Publisense <auth@publisense.app>`, and — the step
-   that matters — `smtp_pass` swapped to the **full-access** Resend key. Changing the
-   sender while keeping the old domain-scoped key makes every send fail with
-   `500 Error sending magic link email`, because Resend refuses a `from` address the
-   key is not authorised for. That looks like an SMTP outage and is not one.
-3. `rate_limit_email_sent` raised 2 → 30.
-
-**Verified end to end, by reading the mailbox rather than trusting a 200:**
-
-```
-POST /auth/v1/otp {albertnkhata.s@gmail.com}          -> 200
-Resend:  2026-10-20 20:34:21  from "Publisense" <auth@publisense.app>  delivered
-Gmail:   labels = [INBOX]   (not SPAM)
-         dkim=pass header.i=@publisense.app header.s=resend
-         dkim=pass header.i=@amazonses.com
-         spf=pass (google.com: domain of ... designates ...)
-```
-
-Magic link is now enabled in the UI (`VITE_AUTH_MAGIC_LINK=true`) and email
-confirmation is back on (`mailer_autoconfirm: false`), so addresses are verified at
-signup and password reset works.
-
-**Reversal if the sending domain is retired:** PATCH `/config/auth` with
-`smtp_admin_email` + a key authorised for that domain. Do not change the sender
-without changing the key.
-
----
-
 ### D-003 · Test coverage is narrow — no automatic user-flow test in CI
 
-**Status:** 🟡 ship-with-risk · **Deferred:** 2026-10-20 · **Partly addressed:** #23, #32, #33
+**Status:** 🟡 ship-with-risk · **Deferred:** 2026-10-20 · **Partly addressed:** #23, #32, #33, #62 (`npm test` is now 96 cases across 8 files; `smoke:live` still cannot run in CI)
 
 **Covered now.**
 
@@ -509,6 +294,225 @@ trap described in the ops notes: it ships whatever commit that preview was built
 
 **Spend live links carefully.** Each is single-use; a mail scanner or a `curl -D -` burns it.
 Send the browser straight at the link and read the resulting state.
+
+---
+
+### D-013 · Password reset and emailed auth links had no recovery path
+
+**Status:** ✅ RESOLVED 2026-10-22 · **Raised:** 2026-10-21 · **PR:** #58, #62 · **Reopened as D-014** (issue #61, closed by #62)
+
+> **Closed 2026-10-22.** The affordances below were only half the story: they shipped in #58, but a
+> real mailed link still signed the user in without offering a new password. That gap is `D-014`,
+> fixed in #62 and confirmed on production — the reset now completes. Read on as the record of how
+> the reset UI was built.
+
+
+**What was wrong.** Two gaps in the same flow, both invisible until a user hit them:
+
+1. **No password reset at all.** No "Forgot password?" affordance anywhere, and
+   `resetPasswordForEmail` was never called. A user who mistyped their password at signup, or
+   forgot it, had no recovery path — the only option was a second account.
+2. **Emailed links never completed.** `mailer_autoconfirm = false`, so both signup and recovery
+   depend on a mailed link, but nothing consumed it.
+
+**The second one was worse than it looked, and a live round-trip is what found it.** Supabase
+mails `/auth/v1/verify?token=…&type=recovery`, which **303-redirects with the session in the URL
+fragment** (`#access_token=…&type=recovery`); `supabase-js` consumes that itself. The first
+implementation assumed a `?token_hash=` link and read only search params — so a real reset landed
+the user **signed in with no way to choose a new password**, and a spent link failed silently.
+Unit tests and DOM probes passed on that wrong model; only a real email exposed it.
+
+**Fixed.** `src/lib/authRecovery.ts` (pure, 22 tests) plus wiring in `StoreContext`/`AuthModal`:
+
+- forgot-password → email-only step → "link sent"
+- a fragment session is its own case: `type=recovery` opens the **New Password** step, hash cleared
+- the `?token_hash=` branch is kept for projects configured that way (`verifyOtp` path)
+- a link that will not verify explains itself and offers a resend; reload cannot replay a spent token
+- "expired" is claimed only when the provider says expired — `access_denied` alone is not proof
+- reset requests answer identically whether or not the address exists (no account enumeration)
+
+**Verified against a real mailbox** (throwaway address), not just an API 200:
+
+```
+signup  -> 200, confirmation_sent_at set
+mail    -> "Confirm your email address"  from auth@publisense.app   arrived
+recover -> 200
+mail    -> "Reset your password"         from auth@publisense.app   arrived
+reset   -> link followed, password changed
+        -> sign-in OLD password 400 REJECTED / NEW password 200 ACCEPTED
+```
+
+**Residual, not fixed here:**
+
+- no client-side resend cooldown, so Supabase's 60s `smtp_max_frequency` can be tripped
+  (`explainSendFailure` now *words* it as a wait; there is no countdown)
+- the 303 hop itself could not be exercised against a local build — `redirect_to` is pinned to the
+  allow-listed site URL — so the final UI check used the fragment form directly
+- **a mail scanner fetching the link consumes the token**, which is why "expired or already used"
+  will sometimes be shown to a user who never clicked anything
+
+---
+
+### D-010 · Claimed boards are inert — an approval path no human could reach
+
+**Status:** ✅ RESOLVED 2026-10-21 · **Raised:** 2026-10-20 · **Shipped:** #34, #36, #37 · **Verified:** approval, rejection, decision log and claimant notification exercised end to end in production
+
+**What the flow does.** `claim_product_board(product, work_email)` is a
+`SECURITY DEFINER` RPC. It validates the work email against the product's own domain,
+writes `claim_status = 'pending'` and the claimant's id, and changes no privileges:
+no role, no organisation ownership. Correct — a request, not a grant.
+
+**What was actually broken.** `approve_product_claim(product)` already existed,
+`SECURITY DEFINER`, and it does the right things: verifies the product and its
+organisation, promotes the claimant to `maintainer`, binds `managed_org_id`. But it
+gates on `profiles.role = 'admin'` for `auth.uid()`, and the only `admin` row in the
+database was the seeded demo persona `usr-albert@publisense.invalid` — a fixture with
+no auth user behind it that can never sign in.
+
+So this was never a missing-UI problem. **No human account could approve anything**,
+which meant every claim request was a dead end no matter what surfaced it. Nothing in
+the product had a real administrator.
+
+**Fixed.** Migration `0011_bootstrap_owner_admin.sql` promotes the owner account to
+`admin`. It disables `guard_profile_privileges_trg` for exactly one statement, because
+the guard correctly refuses role changes by non-admins and therefore also blocks the
+creation of the first one — the circularity has to be broken somewhere, and a
+reviewable migration with a single email-identified row is the narrowest place.
+
+**Verified against production**, with a throwaway org, product and user:
+
+- claim lands `pending`, product stays unverified, claimant gets no privileges
+- the claimant **cannot** approve their own claim (`not_admin`), and the product stays pending
+- an admin approval verifies product + organisation, promotes the claimant to `maintainer`, binds `managed_org_id`
+- re-approval is **idempotent** (`ok: true`, same values) rather than refused — harmless, but the function should arguably return `already_verified`; noted, not fixed
+- everything removed afterwards, counts back to baseline
+
+**Shipped.** Settings carries a claim queue for administrators only: product,
+organisation, claimant email and when they asked, oldest first, one Approve action.
+Verified end to end against production — a pending claim approved through that screen
+left the product `verified`, its organisation verified and the claimant `maintainer`
+bound to it, with the queue emptying afterwards.
+
+**A prerequisite bug this surfaced.** Provisioning a `profiles` row on sign-in used to
+write `role: 'user'` and `managed_org_id: null` as though they were defaults. They were
+overwrites: the profiles read that proves the account already exists is still in flight
+on a cold load, so an admin who signed in was silently demoted — their own admin role is
+what made the guard permit the change — and a maintainer's organisation binding would
+have been rejected invisibly. The client now provisions with `ON CONFLICT DO NOTHING`
+and display fields only, then adopts the authoritative row. `profileProvisioningPayload()`
+has tests asserting it cannot carry a role or an organisation.
+
+**Decisions are now recorded.** `public.claim_decisions` logs product, action, actor id
+and email, an optional note and a timestamp for every approval and rejection. RLS is on,
+admin-readable only, and there is no insert/update/delete policy — rows are written inside
+the `SECURITY DEFINER` functions, so a decision cannot be forged or erased over the REST
+API. Rejection resets the claim to `unclaimed` (board claimable again) rather than adding a
+terminal `rejected` status, which would need cooldown and re-request rules nobody has
+designed. Approval now refuses a second call with `already_verified` instead of
+double-logging one decision. Both functions are revoked from `anon`.
+
+Verified through the live UI, not just the RPCs: declined a real pending claim from
+Settings with a reason; the board came back `unclaimed` with every claim field cleared and
+unverified, and the decision row carried the reviewer's email and the note.
+
+**The claimant is now told.** Both decisions insert a `notifications` row inside the same
+`SECURITY DEFINER` function that decides, so there is no path that decides without telling
+or tells without deciding. A rejection carries the reviewer's note — "we said no" with no
+reason is the silence this replaced. `notifications.kind` was a checked list that did not
+include the new kinds; it was extended rather than reusing `upvote`, so the database still
+says what a row means.
+
+This surfaced two defects behind it. The app never read `notifications` at all — it invented
+them in browser state — and the catalogue load ran once at mount before Supabase restored
+the session, so anything RLS-filtered came back empty. And the read-state write was written
+as `void supabase...update(...)`, which sends nothing: a supabase-js builder is lazy and
+requires `.then()` or `await`. Verified by spying on fetch during the click — zero requests,
+while the same PATCH as that user returned 200 — then `PATCH -> 204` and `is_read = true`
+after the fix.
+
+**Requests are acknowledged and routed too.** A valid claim writes `claim_requested` back to
+the claimant (stating that reviews are manual, with no invented turnaround) and `claim_pending`
+to each admin, so a request no longer waits on someone happening to open Settings. Refused
+attempts notify nobody, a repeat submission by the same claimant updates the stored address
+without paging admins twice, and the fan-out joins `auth.users` so the seeded admin profile
+with no signable-in account is skipped rather than burying real requests. Verified 11/11 in
+production, then seen in the bell as the admin: "Claim waiting: … Review it in Settings."
+
+**The claim lifecycle is now emailed.** `pg_net` makes the HTTPS call from Postgres to Resend,
+with the key in Supabase Vault (`resend_api_key`) and the send performed by a
+`SECURITY DEFINER` trigger function that is revoked from `anon` and `authenticated` — no API
+key in the browser and nothing to deploy. Only the four claim kinds are emailed; votes and
+comments stay in the app because they are frequent and would train people to ignore the ones
+that matter. Reserved domains (`.invalid`, `.test`, `.example`, `localhost`) are skipped so
+demo fixtures never bounce, and a recipient with no address is logged `skipped`.
+
+`email_log` records every attempt and `email_delivery` joins pg_net's response, so a 401 or
+422 reads as `failed` rather than `queued` forever — a silent send failure is worse than no
+email, because the in-app row makes it look delivered.
+
+Delivered and verified: claim requested, claim waiting and claim rejected each arrived in a
+real Gmail INBOX with `dkim=pass` and `spf=pass` from `notify@publisense.app`.
+
+Two limits worth stating. The Vault key is **full-access** — a send-only key would be tighter
+and swapping it is one `vault.update_secret`. And the migrations CI job runs on stock
+Postgres without `pg_net` or `supabase_vault`, so it proves this migration parses and applies
+in order but cannot exercise delivery; delivery is verified live instead.
+
+**Still open.** Email is fire-and-forget with no retry: a send that fails after the request is
+queued shows as `failed` in `email_delivery` and nothing re-attempts it. Votes, comments and
+status changes remain in-app only. The "work email matches the domain" check proves
+nothing about mailbox control; it is labelled weak in the function itself and remains a
+manual trust decision, which is precisely why the reject path and the note exist.
+
+---
+
+### D-005 · Email delivery — RESOLVED
+
+**Status:** ✅ **RESOLVED 2026-10-20** · **Deferred:** 2026-10-20 · **PR:** #15
+
+**What was wrong at deferral.** `mailer_autoconfirm: true` and every SMTP field
+empty (`smtp_host`, `smtp_port`, `smtp_user`, `smtp_admin_email`, `smtp_sender_name`
+all `None`). With confirmation required, signup returned `HTTP 200` but **no
+session**, and no email was ever sent — there was no mailer. Magic link and password
+reset were dead, and a forgotten password was unrecoverable.
+
+**What was wrong in the middle state.** SMTP was pointed at Resend using a key
+scoped to `ridgewoodinsights.com`, sending as `auth@ridgewoodinsights.com`. Mail was
+delivered, but Gmail filed every message as **spam**: that apex's SPF is
+`include:zohomail.com` (Zoho owns its mail) while Resend transmits through Amazon
+SES, so SPF failed for the sender domain.
+
+**How it was fixed — a sending domain the app actually owns.**
+
+1. `publisense.app` added to Resend (region `eu-west-1`) and its four records
+   written into the Vercel DNS zone: DKIM at `resend._domainkey`, SPF TXT and
+   feedback MX on the `send` subdomain, and the `rsend` return-path CNAME.
+   Resend reports `verified` on all four.
+2. Supabase SMTP sender moved to `Publisense <auth@publisense.app>`, and — the step
+   that matters — `smtp_pass` swapped to the **full-access** Resend key. Changing the
+   sender while keeping the old domain-scoped key makes every send fail with
+   `500 Error sending magic link email`, because Resend refuses a `from` address the
+   key is not authorised for. That looks like an SMTP outage and is not one.
+3. `rate_limit_email_sent` raised 2 → 30.
+
+**Verified end to end, by reading the mailbox rather than trusting a 200:**
+
+```
+POST /auth/v1/otp {albertnkhata.s@gmail.com}          -> 200
+Resend:  2026-10-20 20:34:21  from "Publisense" <auth@publisense.app>  delivered
+Gmail:   labels = [INBOX]   (not SPAM)
+         dkim=pass header.i=@publisense.app header.s=resend
+         dkim=pass header.i=@amazonses.com
+         spf=pass (google.com: domain of ... designates ...)
+```
+
+Magic link is now enabled in the UI (`VITE_AUTH_MAGIC_LINK=true`) and email
+confirmation is back on (`mailer_autoconfirm: false`), so addresses are verified at
+signup and password reset works.
+
+**Reversal if the sending domain is retired:** PATCH `/config/auth` with
+`smtp_admin_email` + a key authorised for that domain. Do not change the sender
+without changing the key.
 
 ---
 
