@@ -29,28 +29,20 @@ import {
   SEED_FOLLOWS,
   SEED_NOTIFICATIONS,
 } from '../data/seedData';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, initialUrl } from '../lib/supabase';
 
 /**
- * The auth callback, read from the URL *before* supabase-js gets a chance to
- * consume it.
+ * The auth callback, taken from `initialUrl` - the page URL as first loaded.
  *
- * Import order matters here and is the whole point: `../lib/supabase` is
- * imported above, and creating its client strips `#access_token=...` off the
- * URL as part of initialising. Anything that reads `window.location.href` from
- * inside a component effect therefore sees a URL with the fragment already
- * gone, cannot tell a recovery link from an ordinary visit, and never opens the
- * "choose a new password" step - which is exactly the bug that let a reset link
- * sign the user in and leave them with a password they had forgotten.
- *
- * Reading it once at module scope, before the client exists, is what makes the
- * classification trustworthy. It is deliberately a single read: the value
- * describes the page as it was first loaded, and must not follow later
- * navigations.
+ * `../lib/supabase` captures that above its `createClient` call, because
+ * creating the client strips `#access_token=...` off the URL during its own
+ * initialisation. Reading `window.location.href` from anywhere later (an effect,
+ * say) sees the fragment already gone: a recovery link then looks like an
+ * ordinary visit, and the "choose a new password" step never opens - which is
+ * how a reset link ended up signing people in and leaving them holding the
+ * password they had forgotten.
  */
-const callbackFromFirstLoad = classifyAuthCallback(
-  typeof window === 'undefined' ? '' : window.location.href
-);
+const callbackFromFirstLoad = classifyAuthCallback(initialUrl);
 
 interface RelationalStoreState {
   organizations: Organization[];
