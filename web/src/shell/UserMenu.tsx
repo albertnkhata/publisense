@@ -1,16 +1,18 @@
 import { useTheme } from '../lib/ThemeProvider';
 import { MQ, useMediaQuery } from '../lib/useMediaQuery';
-import type { Viewer } from '../lib/viewer';
+import { useViewer, type Viewer } from '../lib/viewer';
 import { cx } from '../lib/cx';
-import { Icon, Menu, MenuItem, MenuSeparator, UserAvatar } from '../ui';
+import { Icon, Menu, MenuItem, MenuSeparator, UserAvatar, useToast } from '../ui';
 
 /**
  * The avatar menu at the foot of the nav rail. Holds the theme toggle.
- * Sign out is disabled until auth exists (step 4).
+ * Settings opens /settings (profile, notifications, account).
  */
 export function UserMenu({ viewer, collapsed }: { viewer: Viewer; collapsed: boolean }) {
   const { theme, pref, toggle, setPref } = useTheme();
   const belowLg = useMediaQuery(MQ.lg);
+  const { signOut } = useViewer();
+  const { toast } = useToast();
   return (
     <Menu
       side="top"
@@ -51,7 +53,14 @@ export function UserMenu({ viewer, collapsed }: { viewer: Viewer; collapsed: boo
         </MenuItem>
       ) : null}
       <MenuSeparator />
-      <MenuItem icon="sign-out" danger disabled description="Available once sign-in exists">
+      <MenuItem
+        icon="sign-out"
+        danger
+        onSelect={async () => {
+          await signOut();
+          toast('Signed out');
+        }}
+      >
         Sign out
       </MenuItem>
       {belowLg ? (

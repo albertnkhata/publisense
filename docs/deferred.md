@@ -169,29 +169,43 @@ by hand and by this script, and nothing verifies it automatically.
 
 ---
 
+## Resolved
+
 ### D-002 · `service_role` key exists with no server-side consumer
 
-**Status:** 🟡 ship-with-risk · **Deferred:** 2026-10-20 · **Trigger met:** 2026-10-20
+**Status:** ✅ RESOLVED 2026-10-24 · decision **A (keep it)** · **Deferred:** 2026-10-20 · **PR:** v2 step 4, Auth and account (branch `v2/auth`)
 
-The `service_role` key is provisioned and stored in the Notion API Keys DB. It
-**bypasses all RLS**. Nothing in the app currently needs it — there is no API
-route or edge function.
+**Decision.** Keep the key, and give it exactly one consumer: the `delete-account` Supabase
+Edge Function (`supabase/functions/delete-account/`), as FOUNDATION section 12 planned. Every
+other privileged path stays an `is_platform_admin()`-gated `security definer` RPC; nothing else
+holds the key.
 
-**Deliberate because:** it may be needed for admin operations later.
+**How it is contained.**
 
-**Revisit trigger was "when RLS is locked down (D-006)". That has happened** — 32
-scoped policies are live. So this is now a decision, not a pending condition:
-- **A** — keep it (D-010 claim approval and any admin console will need a
-  privileged path; a `service_role` server function or an `is_admin()`-gated RPC)
-- **B** — revoke and rotate it, and use admin-gated RPCs only
+- The key is read from the function's runtime environment (`SUPABASE_SERVICE_ROLE_KEY`, injected
+  by Supabase). It is not in the repo, not in any `VITE_` variable, and the CI bundle guard
+  (`grep service_role dist/`) still runs on both the v1 and v2 builds.
+- The function verifies the caller's JWT with the auth server before doing anything, acts only
+  on the caller's own user id, refuses while the caller is the sole owner of a board or hub (the
+  `v2_guard_last_owner` trigger refuses the cascade too) or the last platform admin, removes the
+  caller's avatar objects through the Storage API, then calls `auth.admin.deleteUser`.
+- `supabase/tests/v2_rls_test.sql` checks what that delete does to the v2 tables: profile, token,
+  prefs, votes, follows and memberships go; posts and replies stay with a null author; a sole
+  owner's delete is refused.
 
-**The cost:** a live all-powerful credential sitting unused. Verified it is
-**not** in the client bundle (CI now fails the build if `service_role` appears in
-`dist/assets/*.js`), but blast radius if ever leaked is total.
+**Still to do outside the code.** Deploy it (`supabase functions deploy delete-account
+--project-ref wyjfgrgxmhumyzwcrywj`, JWT verification on). Until then the Settings delete
+button answers with a failure message and nothing is deleted. Rotating the key is unaffected:
+the function reads it at runtime.
+
+**The original entry, kept as the record:**
+
+> The `service_role` key is provisioned and stored in the Notion API Keys DB. It **bypasses all
+> RLS**. Nothing in the app currently needs it: there is no API route or edge function. Options
+> were **A** keep it (admin operations will need a privileged path) or **B** revoke and rotate it
+> and use admin-gated RPCs only. The cost: a live all-powerful credential sitting unused.
 
 ---
-
-## Resolved
 
 ### D-014 · A reset link signs you in but never lets you set a password
 

@@ -56,20 +56,11 @@ export function UserPage() {
 }
 
 export const NotificationsPage = () => <Placeholder title="Notifications" icon="bell" step={5} />;
-export const SettingsPage = () => <Placeholder title="Settings" icon="settings" step={4} />;
-export const PrivacyPage = () => <Placeholder title="Privacy" icon="lock" step={4} />;
-export const TermsPage = () => <Placeholder title="Terms" icon="flag" step={4} />;
-export const AuthResetPage = () => <Placeholder title="Reset your password" icon="lock" step={4} />;
-
-export function UnsubscribePage() {
-  // One click, no sign-in (FOUNDATION §9). The token is consumed in step 4.
-  const [params] = useSearchParams();
-  return (
-    <Placeholder title="Unsubscribe" icon="mail" step={4}>
-      {params.get('token') ? 'Unsubscribe link received.' : null}
-    </Placeholder>
-  );
-}
+// Step 4: account screens.
+export { SettingsPage } from './SettingsPage';
+export { PrivacyPage, TermsPage } from './LegalPages';
+export { AuthResetPage } from './AuthResetPage';
+export { UnsubscribePage } from './UnsubscribePage';
 
 export const AdminReportsPage = () => <Placeholder title="Reports" icon="flag" step={8} />;
 export const AdminDisputesPage = () => <Placeholder title="Ownership disputes" icon="shield" step={8} />;

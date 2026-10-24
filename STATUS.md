@@ -18,11 +18,10 @@ _derived from `docs/deferred.md` · the ids link to the entry, which is canonica
 - **D-011** · Every visible signal and comment in production is seeded fixture content — revisit: before announce
 - **D-007** · Background rows for other users have no email in the client
 - **D-003** · Test coverage is narrow — no automatic user-flow test in CI
-- **D-002** · `service_role` key exists with no server-side consumer
 
-### Resolved (9)
+### Resolved (10)
 
-**D-014** · **D-013** · **D-010** · **D-005** · **D-009** · **D-008** · **D-006** · **D-004** · **D-001**
+**D-002** · **D-014** · **D-013** · **D-010** · **D-005** · **D-009** · **D-008** · **D-006** · **D-004** · **D-001**
 
 ### Roadmap phases
 

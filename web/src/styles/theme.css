@@ -41,6 +41,15 @@
   color-scheme: light;
 }
 
+/* Third-party brand marks (the Google "G" on Continue with Google). Same in both
+ * themes, never used for our own UI. */
+:root {
+  --google-blue: #4285F4;
+  --google-green: #34A853;
+  --google-yellow: #FBBC05;
+  --google-red: #EA4335;
+}
+
 [data-theme='dark'] {
   --bg-page: #141414;
   --bg-card: #1B1B1C;

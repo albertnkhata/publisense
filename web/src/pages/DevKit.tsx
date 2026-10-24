@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import fixtures from '../dev/fixtures.json';
 import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
+import { AuthDialog, type AuthMode } from '../shell/AuthDialog';
 import {
   BoardAvatar,
   Button,
@@ -44,7 +45,8 @@ import {
  */
 export default function DevKit() {
   usePageTitle('Kit');
-  const { viewer, setPreviewSignedIn } = useViewer();
+  const { viewer, preview } = useViewer();
+  const [auth, setAuth] = useState<AuthMode | null>(null);
   return (
     <div className="min-h-dvh bg-page text-ink">
       <header className="flex flex-wrap items-center gap-4 border-b border-line px-6 py-4">
@@ -52,19 +54,30 @@ export default function DevKit() {
           <h1 className="m-0 text-xl font-bold">Publisense kit</h1>
           <p className="m-0 text-sm text-ink-muted">Tokens and primitives from FOUNDATION §3–4, in both themes.</p>
         </div>
-        <label className="flex items-center gap-2 text-sm text-ink-secondary">
-          <input
-            type="checkbox"
-            checked={Boolean(viewer)}
-            onChange={(e) => setPreviewSignedIn(e.target.checked)}
-            className="size-4 accent-brand"
-          />
-          Preview the shell signed in
-        </label>
+        {preview ? (
+          <label className="flex items-center gap-2 text-sm text-ink-secondary">
+            <input
+              type="checkbox"
+              checked={preview.signedIn}
+              onChange={(e) => preview.set(e.target.checked)}
+              className="size-4 accent-brand"
+            />
+            Preview the shell signed in
+          </label>
+        ) : (
+          <span className="text-sm text-ink-muted">{viewer ? `Signed in as @${viewer.handle}` : 'Signed out'}</span>
+        )}
+        <Button variant="secondary" size="sm" onClick={() => setAuth('signin')}>
+          Sign-in dialog
+        </Button>
+        <Button variant="secondary" size="sm" onClick={() => setAuth('signup')}>
+          Sign-up dialog
+        </Button>
         <Link to="/" className="text-sm font-semibold text-brand no-underline hover:underline">
           Open the app shell
         </Link>
       </header>
+      {auth ? <AuthDialog open initialMode={auth} onClose={() => setAuth(null)} /> : null}
       <div className="grid grid-cols-2 max-lg:grid-cols-1">
         <section data-theme="light" aria-label="Light theme" className="min-w-0 bg-page p-6 text-ink max-sm:p-4">
           <KitContent theme="Light" />

@@ -6,6 +6,7 @@ import { useShortcut } from '../lib/useShortcut';
 import { useViewer } from '../lib/viewer';
 import { Button, Icon, Tooltip, type IconName } from '../ui';
 import { BrandSymbol } from './BrandMark';
+import { useAuthDialog } from './auth';
 import { useComposer } from './composer';
 import { UserMenu } from './UserMenu';
 
@@ -26,8 +27,9 @@ function readCollapsed(): boolean {
  * Hidden at sm, where the TabBar takes over.
  */
 export function NavRail() {
-  const { viewer } = useViewer();
+  const { viewer, ready } = useViewer();
   const { openComposer } = useComposer();
+  const { openAuth } = useAuthDialog();
   const belowLg = useMediaQuery(MQ.lg);
   const [manual, setManual] = useState<boolean>(readCollapsed);
   const collapsed = manual || belowLg;
@@ -121,14 +123,13 @@ export function NavRail() {
 
       {viewer ? (
         <UserMenu viewer={viewer} collapsed={collapsed} />
-      ) : (
+      ) : !ready ? null : (
         <div className="flex flex-col gap-2 border-t border-line pt-3">
-          {/* Sign-in arrives in step 4 (AuthDialog). Disabled rather than faked. */}
           <Tooltip content="Sign in" side="right" disabled={!collapsed}>
             <button
               type="button"
-              disabled
-              className="flex h-row w-full items-center overflow-hidden rounded-md border-0 bg-transparent text-left text-sm font-medium text-ink-secondary disabled:opacity-45"
+              onClick={() => openAuth('signin')}
+              className="flex h-row w-full items-center overflow-hidden rounded-md border-0 bg-transparent text-left text-sm font-medium text-ink-secondary transition-colors duration-120 hover:bg-subtle hover:text-ink"
             >
               <span className="grid h-row w-gutter shrink-0 place-items-center">
                 <Icon name="sign-in" size={18} strokeWidth={1.75} />
@@ -137,7 +138,7 @@ export function NavRail() {
             </button>
           </Tooltip>
           {!collapsed ? (
-            <Button block disabled>
+            <Button block onClick={() => openAuth('signup')}>
               Create account
             </Button>
           ) : null}
