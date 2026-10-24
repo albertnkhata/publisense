@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-24T20:36:19Z",
+  "generatedAt": "2026-10-24T20:38:27Z",
   "repo": {
     "openDecisions": [
       {
@@ -240,12 +240,12 @@
     ]
   },
   "live": {
-    "generatedAt": "2026-10-24T20:36:19Z",
+    "generatedAt": "2026-10-24T20:38:27Z",
     "site": {
       "status": 200,
       "bundle": "/assets/index-DfKyFsVt.js",
       "wwwRedirect": "308 → https://publisense.app/",
-      "checkedAt": "2026-10-24T20:36:19Z"
+      "checkedAt": "2026-10-24T20:38:27Z"
     },
     "data": {
       "counts": {
@@ -291,10 +291,13 @@
       "prs": []
     },
     "deployedCommit": {
-      "sha": "279a1da",
+      "sha": "207cbbe",
       "state": "READY",
-      "createdAt": "2026-10-24T13:22:22.216Z"
+      "createdAt": "2026-10-24T20:34:01.312Z"
     },
-    "unitTests": "unknown"
+    "unitTests": {
+      "files": 26,
+      "cases": 324
+    }
   }
 }

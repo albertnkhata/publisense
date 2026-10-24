@@ -79,13 +79,13 @@ _CI steps read from `.github/workflows/ci.yml`; v2 test counts are under v2 buil
 
 <!-- status:live:start — refreshed by `node scripts/status.mjs --live`; may lag until the next scheduled refresh -->
 
-_probed 2026-10-24T20:36:19Z · anything that could not be read says `unknown` rather than guessing_
+_probed 2026-10-24T20:38:27Z · anything that could not be read says `unknown` rather than guessing_
 
 ### Production
 
 - https://publisense.app → **200** · served entry bundle `/assets/index-DfKyFsVt.js`
 - www → 308 → https://publisense.app/
-- production deployment: `279a1da` (READY, 2026-10-24T13:22:22.216Z)
+- production deployment: `207cbbe` (READY, 2026-10-24T20:34:01.312Z)
 
 ### Data
 
@@ -103,6 +103,7 @@ _probed 2026-10-24T20:36:19Z · anything that could not be read says `unknown` r
 
 - open issues: none
 - open PRs: none
+- `npm test` at refresh time: **324 passed** in 26 files
 
 <!-- status:live:end -->
 
