@@ -14,7 +14,7 @@ const CASES: Array<[string, string]> = [
   ['/b/supabase/manage', 'Manage supabase'],
   ['/h/acme', 'acme'],
   ['/h/acme/manage', 'Manage acme'],
-  ['/post/123', 'Post 123'],
+  ['/post/123', 'Post not found'], // not a post id: answered without a request
   ['/u/alex', '@alex'],
   ['/notifications', 'Notifications'],
   ['/settings', 'Settings'],

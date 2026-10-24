@@ -6,7 +6,9 @@ import { Placeholder } from './Placeholder';
  * step that replaces it. Param-driven titles prove the real paths resolve.
  */
 
-export const HomePage = () => <Placeholder title="Home" icon="home" step={5} />;
+// Step 5: feed and posts.
+export { HomePage } from './HomePage';
+export { PostPage } from './PostPage';
 export const ExplorePage = () => <Placeholder title="Explore" icon="explore" step={6} />;
 
 export function SearchPage() {
@@ -43,11 +45,6 @@ export function HubPage() {
 export function HubManagePage() {
   const { hub } = useParams();
   return <Placeholder title={`Manage ${hub ?? 'hub'}`} icon="settings" step={7} />;
-}
-
-export function PostPage() {
-  const { id } = useParams();
-  return <Placeholder title={`Post ${id ?? ''}`.trim()} icon="reply" step={5} />;
 }
 
 export function UserPage() {

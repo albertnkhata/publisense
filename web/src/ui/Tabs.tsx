@@ -20,6 +20,8 @@ export interface TabsProps<T extends string> {
   /** Prefix for tab/panel ids so a TabPanel can point back at its tab. */
   idBase?: string;
   className?: string;
+  /** Draw the full-width underline (default). Off when a parent row draws it. */
+  bordered?: boolean;
 }
 
 export function tabId(base: string, value: string) {
@@ -29,7 +31,7 @@ export function panelId(base: string, value: string) {
   return `${base}-panel-${value}`;
 }
 
-export function Tabs<T extends string>({ items, value, onChange, label, idBase, className }: TabsProps<T>) {
+export function Tabs<T extends string>({ items, value, onChange, label, idBase, className, bordered = true }: TabsProps<T>) {
   const fallback = useId();
   const base = idBase ?? fallback;
   const listRef = useRef<HTMLDivElement>(null);
@@ -55,7 +57,7 @@ export function Tabs<T extends string>({ items, value, onChange, label, idBase, 
       role="tablist"
       aria-label={label}
       onKeyDown={onKeyDown}
-      className={cx('flex gap-6 overflow-x-auto border-b border-line', className)}
+      className={cx('flex gap-6 overflow-x-auto', bordered && 'border-b border-line', className)}
     >
       {items.map((t) => {
         const selected = t.value === value;
