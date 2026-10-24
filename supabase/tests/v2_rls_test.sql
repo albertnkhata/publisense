@@ -79,8 +79,8 @@ insert into public.block (scope, scope_id, user_id) select 'board'::public.v2_sc
 update public.board set claimed_at = now() where slug = 'cursor';
 insert into public.platform_admin (user_id) select staff from ids;
 
-select pg_temp.expect('seed: 14 boards, 1 hub, figma hub holds 3',
-  (select count(*) from public.board) = 14 and (select count(*) from public.hub) = 1
+select pg_temp.expect('seed: 13 boards, 1 hub, figma hub holds 3',
+  (select count(*) from public.board) = 13 and (select count(*) from public.hub) = 1
   and (select count(*) from public.board b join public.hub h on h.id = b.hub_id where h.slug = 'figma') = 3);
 select pg_temp.expect('sign-up makes a profile and an email token',
   (select count(*) from public.profile where id in (select alice from ids union select bob from ids)) = 2
@@ -101,7 +101,7 @@ select pg_temp.expect_error('shared subdomain refused (acme.vercel.app)',
 
 select pg_temp.as_user(null);
 select pg_temp.expect('anon reads boards and hubs',
-  (select count(*) from public.board) = 14 and (select count(*) from public.hub) = 1);
+  (select count(*) from public.board) = 13 and (select count(*) from public.hub) = 1);
 select pg_temp.expect_error('anon cannot post',
   $$insert into public.post (board_id, type, title) select cursor, 'bug', 'Anon post' from ids$$);
 select pg_temp.expect_error('anon cannot read notifications', $$select * from public.notification$$);
@@ -469,7 +469,7 @@ insert into auth.users (id, email) values
 create temp table s7 as
 select (select id from public.board where slug = 'figma')  as figma,
        (select id from public.board where slug = 'figjam') as figjam,
-       (select id from public.board where slug = 'arc')    as arc,
+       (select id from public.board where slug = 'raycast') as raycast,
        '00000000-0000-4000-8000-000000000071'::uuid as gina,
        '00000000-0000-4000-8000-000000000072'::uuid as hank;
 grant select on s7 to anon, authenticated;
@@ -524,35 +524,35 @@ select pg_temp.expect('step 7: a claimed board cannot be claimed again',
 
 -- attempts, expiry, rate limit
 select pg_temp.as_user('00000000-0000-4000-8000-00000000000d');
-select public.start_domain_email('dave@arc.net', 'arc.net');
+select public.start_domain_email('dave@raycast.com', 'raycast.com');
 select pg_temp.as_owner();
 update public.domain_challenge set code_hash = public.v2_code_hash('salt', '111111') where user_id = '00000000-0000-4000-8000-00000000000d';
 select pg_temp.as_user('00000000-0000-4000-8000-00000000000d');
-select public.verify_domain_email('dave@arc.net', '000001'), public.verify_domain_email('dave@arc.net', '000002'),
-       public.verify_domain_email('dave@arc.net', '000003'), public.verify_domain_email('dave@arc.net', '000004');
+select public.verify_domain_email('dave@raycast.com', '000001'), public.verify_domain_email('dave@raycast.com', '000002'),
+       public.verify_domain_email('dave@raycast.com', '000003'), public.verify_domain_email('dave@raycast.com', '000004');
 select pg_temp.expect('step 7: the fifth wrong code locks the challenge',
-  public.verify_domain_email('dave@arc.net', '000005') ->> 'error' = 'too_many_attempts'
-  and public.verify_domain_email('dave@arc.net', '111111') ->> 'error' = 'too_many_attempts');
-select public.start_domain_email('dave@arc.net', 'arc.net');
+  public.verify_domain_email('dave@raycast.com', '000005') ->> 'error' = 'too_many_attempts'
+  and public.verify_domain_email('dave@raycast.com', '111111') ->> 'error' = 'too_many_attempts');
+select public.start_domain_email('dave@raycast.com', 'raycast.com');
 select pg_temp.as_owner();
 update public.domain_challenge set code_hash = public.v2_code_hash('salt', '222222'), expires_at = now() - interval '1 minute'
  where user_id = '00000000-0000-4000-8000-00000000000d' and attempts = 0;
 select pg_temp.as_user('00000000-0000-4000-8000-00000000000d');
 select pg_temp.expect('step 7: an expired code is refused',
-  public.verify_domain_email('dave@arc.net', '222222') ->> 'error' = 'expired');
-select public.start_domain_email('dave@arc.net', 'arc.net'), public.start_domain_email('dave@arc.net', 'arc.net'),
-       public.start_domain_email('dave@arc.net', 'arc.net');
+  public.verify_domain_email('dave@raycast.com', '222222') ->> 'error' = 'expired');
+select public.start_domain_email('dave@raycast.com', 'raycast.com'), public.start_domain_email('dave@raycast.com', 'raycast.com'),
+       public.start_domain_email('dave@raycast.com', 'raycast.com');
 select pg_temp.expect('step 7: five codes an hour, then rate_limited',
-  public.start_domain_email('dave@arc.net', 'arc.net') ->> 'error' = 'rate_limited');
+  public.start_domain_email('dave@raycast.com', 'raycast.com') ->> 'error' = 'rate_limited');
 
 -- DNS
 select pg_temp.expect('step 7: DNS check hands out a stable TXT token',
-  public.start_domain_dns('arc.net') ->> 'token' like 'publisense-verify=%'
-  and public.start_domain_dns('arc.net') ->> 'token' = public.start_domain_dns('ARC.net') ->> 'token');
+  public.start_domain_dns('raycast.com') ->> 'token' like 'publisense-verify=%'
+  and public.start_domain_dns('raycast.com') ->> 'token' = public.start_domain_dns('RAYCAST.com') ->> 'token');
 select pg_temp.expect('step 7: ... and the board shows the claim as pending',
-  'arc.net' = any (public.my_pending_dns()));
+  'raycast.com' = any (public.my_pending_dns()));
 select pg_temp.expect('step 7: without pg_net the DNS lookup reports dns_unavailable',
-  public.check_domain_dns('arc.net') ->> 'error' = 'dns_unavailable'
+  public.check_domain_dns('raycast.com') ->> 'error' = 'dns_unavailable'
   and public.check_domain_dns('nothing.example') ->> 'error' = 'no_challenge');
 
 -- hub claim
@@ -577,7 +577,7 @@ select pg_temp.as_user('00000000-0000-4000-8000-000000000071');
 select pg_temp.expect('step 7: joining needs the domain proved first',
   public.request_join('board', (select linear from ids), 'gina@linear.app') ->> 'error' = 'not_verified'
   and public.request_join('board', (select linear from ids), 'gina@other.org') ->> 'error' = 'wrong_domain'
-  and public.request_join('board', (select arc from s7), 'gina@arc.net') ->> 'error' = 'not_claimed');
+  and public.request_join('board', (select raycast from s7), 'gina@raycast.com') ->> 'error' = 'not_claimed');
 select pg_temp.as_owner();
 insert into public.verified_domain (domain, verified_by, method) values
   ('linear.app', '00000000-0000-4000-8000-000000000071', 'email'),
@@ -647,7 +647,7 @@ select pg_temp.expect('step 7: with a second owner, the first can step down',
 select pg_temp.as_user('00000000-0000-4000-8000-00000000000d');
 select pg_temp.expect('step 7: a dispute needs a reason, a claimed board and a proved domain',
   public.open_dispute('board', (select linear from ids), 'short', 'dave@linear.app') ->> 'error' = 'reason_length'
-  and public.open_dispute('board', (select arc from s7), 'Nobody at Arc runs this board', 'dave@arc.net') ->> 'error' = 'not_claimed'
+  and public.open_dispute('board', (select raycast from s7), 'Nobody at Raycast runs this board', 'dave@raycast.com') ->> 'error' = 'not_claimed'
   and public.open_dispute('board', (select linear from ids), 'A former contractor still controls it', 'dave@other.org') ->> 'error' = 'wrong_domain');
 select pg_temp.expect('step 7: a dispute is filed once',
   (public.open_dispute('board', (select linear from ids), 'A former contractor still controls it', 'dave@linear.app') ->> 'ok')::boolean
@@ -907,7 +907,7 @@ select pg_temp.expect_error('step 8: the last admin cannot be deleted even by a 
 
 -- ------------------------------------------------------------ add a product (0024)
 -- State carried over: carol is the only platform admin, erin signs in with @figma.com,
--- the 14 seeded boards are live. New boards wait in the review queue as 'pending'.
+-- the 13 seeded boards are live. New boards wait in the review queue as 'pending'.
 
 select pg_temp.as_owner();
 select pg_temp.expect('add product: existing boards are live and keep their site as the dedupe key',
@@ -986,7 +986,7 @@ select pg_temp.as_user(null);
 select pg_temp.expect('add product: anon sees neither the pending board nor its post',
   not exists (select 1 from public.board where slug = 'acme-notes')
   and not exists (select 1 from public.post where title = 'Offline mode for the desktop app')
-  and (select count(*) from public.board) = 14);
+  and (select count(*) from public.board) = 13);
 select pg_temp.as_user('00000000-0000-4000-8000-00000000000a');
 select pg_temp.expect('add product: another user sees neither, and learns only that it waits for review',
   not exists (select 1 from public.board where slug = 'acme-notes')
