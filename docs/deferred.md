@@ -173,7 +173,7 @@ by hand and by this script, and nothing verifies it automatically.
 
 ### D-002 · `service_role` key exists with no server-side consumer
 
-**Status:** ✅ RESOLVED 2026-10-24 · decision **A (keep it)** · **Deferred:** 2026-10-20 · **PR:** v2 step 4, Auth and account (branch `v2/auth`)
+**Status:** ✅ RESOLVED 2026-10-24 · decision **A (keep it)** · **Deferred:** 2026-10-20 · **PR:** #77 (v2 step 4, Auth and account)
 
 **Decision.** Keep the key, and give it exactly one consumer: the `delete-account` Supabase
 Edge Function (`supabase/functions/delete-account/`), as FOUNDATION section 12 planned. Every
