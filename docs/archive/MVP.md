@@ -1,3 +1,7 @@
+> **Archived 2026-10-24.** This is the v1 MVP definition, frozen as history. v1 was retired at the v2 cutover
+> (see [`docs/v2/CUTOVER.md`](../v2/CUTOVER.md)) and its code removed from the repo; the last commit
+> with v1 code is `279a1da`. Current progress: [`docs/v2/BUILD.md`](../v2/BUILD.md).
+
 # Publisense — MVP Definition
 
 > **Purpose.** This document exists to stop the project getting bogged down. It

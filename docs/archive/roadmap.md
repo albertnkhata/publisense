@@ -1,3 +1,7 @@
+> **Archived 2026-10-24.** This is the v1 roadmap, frozen as history. v1 was retired at the v2 cutover
+> (see [`docs/v2/CUTOVER.md`](../v2/CUTOVER.md)) and its code removed from the repo; source links point at
+> commit `279a1da`, the last commit with v1 in it. Current progress: [`docs/v2/BUILD.md`](../v2/BUILD.md).
+
 # Publisense — Product & Engineering Roadmap
 
 > [!IMPORTANT]
@@ -29,10 +33,10 @@ flowchart LR
 
 ## Phase 0 — Foundation & High-Craft Baseline ✅ *(Completed)*
 
-- [x] **High-Craft UI System** ([`index.css`](./src/index.css), [`ThemeContext.tsx`](./src/context/ThemeContext.tsx)): Obsidian Dark ↔ Alabaster Light themes, `1px` hairline geometry, `28px` workspace gutter, `Inter` + `JetBrains Mono`.
-- [x] **Core Open Index & `/p/:slug` Product Pages** ([`HomePage.tsx`](./src/pages/HomePage.tsx)): Symmetrical Hero, Central Omni-Bar (`Search /` ↔ `+ Post C`), Feed Filter Bar, and Right Discovery Rail.
-- [x] **Full-Width Signal Card + Bottom Upvote Pill Bar** ([`SignalCard.tsx`](./src/components/SignalCard.tsx)): Highlighted `Top Community Workaround` (indigo) & `Builder Note` (emerald) callouts + inline expandable community threads.
-- [x] **Supabase Relational Database & Seed Catalog** ([`schema.sql`](./supabase/schema.sql), [`StoreContext.tsx`](./src/context/StoreContext.tsx)): 8 core relational tables + seed catalog. Firebase completely removed.
+- [x] **High-Craft UI System** ([`index.css`](https://github.com/albertnkhata/publisense/blob/279a1da/src/index.css), [`ThemeContext.tsx`](https://github.com/albertnkhata/publisense/blob/279a1da/src/context/ThemeContext.tsx)): Obsidian Dark ↔ Alabaster Light themes, `1px` hairline geometry, `28px` workspace gutter, `Inter` + `JetBrains Mono`.
+- [x] **Core Open Index & `/p/:slug` Product Pages** ([`HomePage.tsx`](https://github.com/albertnkhata/publisense/blob/279a1da/src/pages/HomePage.tsx)): Symmetrical Hero, Central Omni-Bar (`Search /` ↔ `+ Post C`), Feed Filter Bar, and Right Discovery Rail.
+- [x] **Full-Width Signal Card + Bottom Upvote Pill Bar** ([`SignalCard.tsx`](https://github.com/albertnkhata/publisense/blob/279a1da/src/components/SignalCard.tsx)): Highlighted `Top Community Workaround` (indigo) & `Builder Note` (emerald) callouts + inline expandable community threads.
+- [x] **Supabase Relational Database & Seed Catalog** ([`schema.sql`](../../supabase/schema.sql), [`StoreContext.tsx`](https://github.com/albertnkhata/publisense/blob/279a1da/src/context/StoreContext.tsx)): 8 core relational tables + seed catalog. Firebase completely removed.
 
 ---
 
@@ -40,10 +44,10 @@ flowchart LR
 
 | Milestone | Scope & Deliverables | Target Files |
 | :--- | :--- | :--- |
-| **1.1 Instant Product Indexing from Omni-Bar** ✅ | Allow users typing an unknown `@Product` directly in the Omni-Bar composer to create + tag that product inline in one step (auto-generating slug & category without leaving the composer). | [`HomePage.tsx`](./src/pages/HomePage.tsx) |
-| **1.2 Upvoting & Auto-Pinning Workarounds** ✅ | Users can upvote individual replies/workarounds (`likesCount`), automatically promoting the highest-upvoted `'workaround'` comment into the card's `Top Community Workaround` callout box. Persisted via `comment_votes` + a trigger-maintained `likes_count` (migration `0008`, PR #24 — previously the vote was silently dropped). | [`SignalCard.tsx`](./src/components/SignalCard.tsx), [`StoreContext.tsx`](./src/context/StoreContext.tsx) |
-| **1.3 Duplicate Detection in Omni-Bar** ✅ | As a user types a new signal headline in `+ Post` mode, show live matching existing signals below the bar so they can `+1 / Same Issue` an existing post instead of fragmenting votes. | [`HomePage.tsx`](./src/pages/HomePage.tsx) |
-| **1.4 Real-Time 7d Velocity Calculation** ✅ | Computes `7d Velocity` dynamically from `post_votes`, `post_reposts`, and new `posts` timestamps over the trailing 7 days, dynamically driving the Right Rail `Trending Products` leaderboard. | [`HomePage.tsx`](./src/pages/HomePage.tsx), [`StoreContext.tsx`](./src/context/StoreContext.tsx) |
+| **1.1 Instant Product Indexing from Omni-Bar** ✅ | Allow users typing an unknown `@Product` directly in the Omni-Bar composer to create + tag that product inline in one step (auto-generating slug & category without leaving the composer). | [`HomePage.tsx`](https://github.com/albertnkhata/publisense/blob/279a1da/src/pages/HomePage.tsx) |
+| **1.2 Upvoting & Auto-Pinning Workarounds** ✅ | Users can upvote individual replies/workarounds (`likesCount`), automatically promoting the highest-upvoted `'workaround'` comment into the card's `Top Community Workaround` callout box. Persisted via `comment_votes` + a trigger-maintained `likes_count` (migration `0008`, PR #24 — previously the vote was silently dropped). | [`SignalCard.tsx`](https://github.com/albertnkhata/publisense/blob/279a1da/src/components/SignalCard.tsx), [`StoreContext.tsx`](https://github.com/albertnkhata/publisense/blob/279a1da/src/context/StoreContext.tsx) |
+| **1.3 Duplicate Detection in Omni-Bar** ✅ | As a user types a new signal headline in `+ Post` mode, show live matching existing signals below the bar so they can `+1 / Same Issue` an existing post instead of fragmenting votes. | [`HomePage.tsx`](https://github.com/albertnkhata/publisense/blob/279a1da/src/pages/HomePage.tsx) |
+| **1.4 Real-Time 7d Velocity Calculation** ✅ | Computes `7d Velocity` dynamically from `post_votes`, `post_reposts`, and new `posts` timestamps over the trailing 7 days, dynamically driving the Right Rail `Trending Products` leaderboard. | [`HomePage.tsx`](https://github.com/albertnkhata/publisense/blob/279a1da/src/pages/HomePage.tsx), [`StoreContext.tsx`](https://github.com/albertnkhata/publisense/blob/279a1da/src/context/StoreContext.tsx) |
 
 ---
 
@@ -51,10 +55,10 @@ flowchart LR
 
 | Milestone | Scope & Deliverables | Target Files |
 | :--- | :--- | :--- |
-| **2.1 Supabase Auth (Email / Magic Link / OAuth)** ✅ | Upgraded [`AuthModal`](./src/components/AuthModal.tsx) to support real Supabase Email/Password, Magic Link and Google OAuth sessions with automatic profile hydration. Provider buttons are rendered from the project's live `GET /auth/v1/settings`, so a provider the project has not enabled is never offered (GitHub is one of those). Google verified end to end 2026-10-22 — issue #5. | [`AuthModal.tsx`](./src/components/AuthModal.tsx), [`StoreContext.tsx`](./src/context/StoreContext.tsx) |
-| **2.2 Dedicated Signal Permalinks (`/post/:id`)** ✅ | Dedicated permalink view ([`PostDetailPage.tsx`](./src/pages/PostDetailPage.tsx)) in the high-craft design system with expanded community threads, maintainer triage controls, and related board signals. | [`PostDetailPage.tsx`](./src/pages/PostDetailPage.tsx), [`App.tsx`](./src/App.tsx) |
-| **2.3 Contributor Profiles (`/u/:handle`)** ✅ | "Product Sense Portfolio" page ([`ProfilePage.tsx`](./src/pages/ProfilePage.tsx)) showing a user's logged signals, authored workarounds, community impact score, and backed products. | [`ProfilePage.tsx`](./src/pages/ProfilePage.tsx), [`App.tsx`](./src/App.tsx) |
-| **2.4 In-App Notifications Drawer** ✅ | Topbar notification bell (`🔔`) with unread count badge, mark-all-read action, and direct navigation to `/post/:id` when signals receive workarounds or status changes. | [`AppShell.tsx`](./src/components/AppShell.tsx), [`StoreContext.tsx`](./src/context/StoreContext.tsx) |
+| **2.1 Supabase Auth (Email / Magic Link / OAuth)** ✅ | Upgraded [`AuthModal`](https://github.com/albertnkhata/publisense/blob/279a1da/src/components/AuthModal.tsx) to support real Supabase Email/Password, Magic Link and Google OAuth sessions with automatic profile hydration. Provider buttons are rendered from the project's live `GET /auth/v1/settings`, so a provider the project has not enabled is never offered (GitHub is one of those). Google verified end to end 2026-10-22 — issue #5. | [`AuthModal.tsx`](https://github.com/albertnkhata/publisense/blob/279a1da/src/components/AuthModal.tsx), [`StoreContext.tsx`](https://github.com/albertnkhata/publisense/blob/279a1da/src/context/StoreContext.tsx) |
+| **2.2 Dedicated Signal Permalinks (`/post/:id`)** ✅ | Dedicated permalink view ([`PostDetailPage.tsx`](https://github.com/albertnkhata/publisense/blob/279a1da/src/pages/PostDetailPage.tsx)) in the high-craft design system with expanded community threads, maintainer triage controls, and related board signals. | [`PostDetailPage.tsx`](https://github.com/albertnkhata/publisense/blob/279a1da/src/pages/PostDetailPage.tsx), [`App.tsx`](https://github.com/albertnkhata/publisense/blob/279a1da/src/App.tsx) |
+| **2.3 Contributor Profiles (`/u/:handle`)** ✅ | "Product Sense Portfolio" page ([`ProfilePage.tsx`](https://github.com/albertnkhata/publisense/blob/279a1da/src/pages/ProfilePage.tsx)) showing a user's logged signals, authored workarounds, community impact score, and backed products. | [`ProfilePage.tsx`](https://github.com/albertnkhata/publisense/blob/279a1da/src/pages/ProfilePage.tsx), [`App.tsx`](https://github.com/albertnkhata/publisense/blob/279a1da/src/App.tsx) |
+| **2.4 In-App Notifications Drawer** ✅ | Topbar notification bell (`🔔`) with unread count badge, mark-all-read action, and direct navigation to `/post/:id` when signals receive workarounds or status changes. | [`AppShell.tsx`](https://github.com/albertnkhata/publisense/blob/279a1da/src/components/AppShell.tsx), [`StoreContext.tsx`](https://github.com/albertnkhata/publisense/blob/279a1da/src/context/StoreContext.tsx) |
 
 ---
 
@@ -62,9 +66,9 @@ flowchart LR
 
 | Milestone | Scope & Deliverables | Target Files |
 | :--- | :--- | :--- |
-| **3.1 Domain-Verified Board Claiming** ✅ | Allows builders to claim their `/p/:slug` board via company work email domain, earning maintainer permissions after human approval. The write goes through `claim_product_board(p_product_id, p_work_email)` (`SECURITY DEFINER`, migration `0009`, PR #25) — the client never writes `role`. A claim **parks as `pending` and grants nothing**; approval is admin-only, and the review queue with approve/decline, decision log and claimant notification shipped 2026-10-21 (PRs #34, #36, #37 — `D-010`). | [`HomePage.tsx`](./src/pages/HomePage.tsx), [`StoreContext.tsx`](./src/context/StoreContext.tsx) |
-| **3.2 Inline Maintainer Triage Controls** ✅ | Verified maintainers can update signal status (`Planned`, `In Progress`, `Shipped`) and author official emerald `Builder Notes` directly from [`SignalCard`](./src/components/SignalCard.tsx) in the feed. | [`SignalCard.tsx`](./src/components/SignalCard.tsx) |
-| **3.3 Changelog & "Shipped" Rollup Banner** ✅ | Dedicated summary banner on `/p/:slug` celebrating shipped community requests, tracking team responsiveness rate, and closing the community feedback loop. | [`HomePage.tsx`](./src/pages/HomePage.tsx) |
+| **3.1 Domain-Verified Board Claiming** ✅ | Allows builders to claim their `/p/:slug` board via company work email domain, earning maintainer permissions after human approval. The write goes through `claim_product_board(p_product_id, p_work_email)` (`SECURITY DEFINER`, migration `0009`, PR #25) — the client never writes `role`. A claim **parks as `pending` and grants nothing**; approval is admin-only, and the review queue with approve/decline, decision log and claimant notification shipped 2026-10-21 (PRs #34, #36, #37 — `D-010`). | [`HomePage.tsx`](https://github.com/albertnkhata/publisense/blob/279a1da/src/pages/HomePage.tsx), [`StoreContext.tsx`](https://github.com/albertnkhata/publisense/blob/279a1da/src/context/StoreContext.tsx) |
+| **3.2 Inline Maintainer Triage Controls** ✅ | Verified maintainers can update signal status (`Planned`, `In Progress`, `Shipped`) and author official emerald `Builder Notes` directly from [`SignalCard`](https://github.com/albertnkhata/publisense/blob/279a1da/src/components/SignalCard.tsx) in the feed. | [`SignalCard.tsx`](https://github.com/albertnkhata/publisense/blob/279a1da/src/components/SignalCard.tsx) |
+| **3.3 Changelog & "Shipped" Rollup Banner** ✅ | Dedicated summary banner on `/p/:slug` celebrating shipped community requests, tracking team responsiveness rate, and closing the community feedback loop. | [`HomePage.tsx`](https://github.com/albertnkhata/publisense/blob/279a1da/src/pages/HomePage.tsx) |
 
 ---
 
@@ -149,7 +153,7 @@ with `-- --keep` to leave the identity behind for inspection.
 
 ## Phase 5 — MVP Deploy Gate ✅ *(Completed)*
 
-See [`MVP.md`](./MVP.md) and [`docs/deferred.md`](./docs/deferred.md) for shipping criteria.
+See [`MVP.md`](./MVP.md) and [`docs/deferred.md`](../deferred.md) for shipping criteria.
 
 All five "must ship" items in `MVP.md` are satisfied: RLS locked down, signup provisioning via
 `handle_new_user`, auth email deliverable, a real deploy target, and a bundle with no `service_role`.
@@ -160,9 +164,9 @@ What is left before an **announce** is no longer engineering:
 - accept or close the two standing risk items (`D-002`, `D-003`).
 
 - [x] **Wire Remaining Page Routes**:
-  - `ExplorePage.tsx` (`/explore`), `OrgPage.tsx` (`/org/:slug`), and `SettingsPage.tsx` (`/settings`) routed in [`App.tsx`](./src/App.tsx) and linked via [`AppShell.tsx`](./src/components/AppShell.tsx).
+  - `ExplorePage.tsx` (`/explore`), `OrgPage.tsx` (`/org/:slug`), and `SettingsPage.tsx` (`/settings`) routed in [`App.tsx`](https://github.com/albertnkhata/publisense/blob/279a1da/src/App.tsx) and linked via [`AppShell.tsx`](https://github.com/albertnkhata/publisense/blob/279a1da/src/components/AppShell.tsx).
 - [x] **Deploy V2 to Production**:
-  - Deployed to Vercel with [`vercel.json`](./vercel.json) SPA rewrites, security headers, and production Supabase environment variables.
+  - Deployed to Vercel with [`vercel.json`](https://github.com/albertnkhata/publisense/blob/279a1da/vercel.json) SPA rewrites, security headers, and production Supabase environment variables.
   - Custom domain **https://publisense.app** is live on the same project (`www.publisense.app` 308-redirects to the apex); `publisense.vercel.app` keeps serving as the fallback host.
 - [x] **Auth Email Cleanup (D-005)**: Supabase SMTP runs through Resend on the app's own verified domain — sender `Publisense <auth@publisense.app>`, SPF/DKIM passing, delivered to the inbox. Magic link is enabled and email confirmation is required again.
 - [x] **Password Reset, End to End**: mailed reset link opens a **New Password** step (not a silent sign-in), the new password is accepted, and sign-in with it works — verified live on the apex domain 2026-10-22 (`D-013`/`D-014`, PR #62, issue #61).

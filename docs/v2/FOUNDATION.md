@@ -175,6 +175,6 @@ CI runs on GitHub Actions once the repo is public; until then the gates are run 
 
 ## 12. Registers
 
-- `roadmap.md` is frozen as v1 history and points here; `STATUS.md` reads `BUILD.md` for v2 progress.
+- `roadmap.md` is frozen as v1 history (moved to `docs/archive/roadmap.md` when v1 code was removed) and points here; `STATUS.md` reads `BUILD.md` for v2 progress.
 - `docs/deferred.md` entries get a status: *carried into v2*, *void at cutover* or *resolved*. Nothing is deleted. D-002 resolves in step 4, when the delete-account Edge Function becomes the first server-side user of `service_role`.
 - D-012 (consent-screen logo) now means "design one distinctive mark, then resubmit", not "resubmit the speech bubble".
