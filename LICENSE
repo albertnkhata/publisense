@@ -1,0 +1,88 @@
+Copyright (c) 2026 Albert Nkhata. All rights reserved.
+
+Publisense — proprietary software. Source available for viewing only.
+
+This repository is public so that its history, tests and design can be read. Being
+able to read it does not make it open source, and does not grant you a licence to
+use it.
+
+1. NO LICENCE GRANTED
+
+   No permission or licence, express or implied, is granted to copy, reproduce,
+   modify, adapt, translate, merge, publish, distribute, sublicense, sell, rent,
+   host, deploy or otherwise use this software or any part of it, in source or
+   compiled form, except as expressly stated in section 2.
+
+2. WHAT YOU MAY DO
+
+   (a) Read the source code and documentation, here and where GitHub displays it.
+
+   (b) Fork and clone this repository through GitHub's own features, and keep that
+       fork on GitHub, solely so you can read it and read its history. GitHub's
+       Terms of Service already allow this much for public repositories; nothing
+       in this licence narrows that, and nothing in it extends beyond it.
+
+   Any other use requires prior written permission from the copyright holder.
+
+3. WHAT YOU MAY NOT DO
+
+   Without prior written permission from the copyright holder, you may not, in
+   whole or in part:
+
+   (a) use this software to run, host or provide any product, service or internal
+       tool, whether or not you charge for it, including staging, demonstration
+       or evaluation environments;
+
+   (b) create derivative works, or incorporate any part of it into another
+       project, product or codebase;
+
+   (c) redistribute it, publish it, or make it available to anyone else,
+       including as a package, template, boilerplate, starter kit, tutorial,
+       course material or hosted preview;
+
+   (d) use it, or any part of it, to train, fine-tune, distill or evaluate a
+       machine-learning model, or to generate training data for one;
+
+   (e) use the name "Publisense", its logo, or any confusingly similar mark, other
+       than to refer factually to this repository;
+
+   (f) remove or alter this licence, or any copyright, attribution or other
+       proprietary notice.
+
+4. NO TRADEMARK OR PATENT RIGHTS
+
+   No right is granted in any trademark, service mark, trade name, logo or trade
+   dress. No patent licence is granted, expressly or by implication, estoppel or
+   otherwise.
+
+5. THIRD-PARTY COMPONENTS
+
+   Dependencies, assets and other third-party components keep their own licences
+   and are not covered by this one. This licence does not grant you rights to them
+   beyond what their own licences allow.
+
+6. CONTRIBUTIONS
+
+   If you submit a pull request, patch, issue text or any other contribution, you
+   grant the copyright holder a perpetual, worldwide, non-exclusive, royalty-free,
+   irrevocable licence to use, reproduce, modify, distribute and relicense that
+   contribution in any form, and you confirm you have the right to grant it. Do not
+   contribute anything you are not free to license on those terms.
+
+7. NO WARRANTY
+
+   THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+   FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT.
+
+8. LIMITATION OF LIABILITY
+
+   IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT
+   OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+   SOFTWARE.
+
+9. ENFORCEMENT
+
+   This licence terminates automatically on any breach. The copyright holder
+   reserves all rights and remedies available at law and in equity.
