@@ -36,6 +36,12 @@ const PATHS = {
   'arrow-left': <path d="M19 12H5M12 19l-7-7 7-7" />,
   'arrow-up': <path d="M12 19V5M5 12l7-7 7 7" />,
   'arrow-up-right': <path d="M7 17 17 7M8 7h9v9" />,
+  globe: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18" />
+    </>
+  ),
   sidebar: (
     <>
       <rect x="3" y="4" width="18" height="16" rx="3" />

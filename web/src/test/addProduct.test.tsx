@@ -386,11 +386,11 @@ describe('entry points', () => {
 // ------------------------------------------------------------------ pending boards
 
 describe('pending boards', () => {
-  it('show their creator a quiet Pending review pill and who added them', async () => {
+  it('show their creator a quiet Pending review pill, with "Added by" hidden for now', async () => {
     renderApp('/b/acme-notes');
     expect(await screen.findByRole('heading', { level: 1, name: /Acme Notes/ })).toBeTruthy();
     expect(screen.getByText('Pending review')).toBeTruthy();
-    expect(screen.getByRole('link', { name: '@alice' }).getAttribute('href')).toBe('/u/alice');
+    expect(screen.queryByText(/Added by/)).toBeNull();
   });
 
   it('drop "Added by" once the board is claimed, and live boards have no pill', async () => {

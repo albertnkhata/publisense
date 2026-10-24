@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 
 /**
  * BoardHeader / HubHeader layout (FOUNDATION §5): logo, name, description,
- * stats line, and actions (Manage when permitted, Follow, Post feedback).
+ * meta line (site, hub, who added it), stats line, and actions (Manage when permitted, Follow, Post feedback).
  * Stacks at md with the actions spanning the width, as in the mockup.
  */
 export function ScopeHeader({
@@ -10,6 +10,7 @@ export function ScopeHeader({
   title,
   tag,
   description,
+  meta,
   stats,
   actions,
 }: {
@@ -17,6 +18,8 @@ export function ScopeHeader({
   title: string;
   tag?: ReactNode;
   description?: ReactNode;
+  /** Quiet links under the description; items wrap as whole units on narrow screens. */
+  meta?: ReactNode;
   stats?: ReactNode;
   actions?: ReactNode;
 }) {
@@ -29,12 +32,21 @@ export function ScopeHeader({
           {tag}
         </h1>
         {description ? <p className="mt-0 mb-2 text-base text-ink-secondary">{description}</p> : null}
+        {meta ? (
+          <div data-scope-meta className="mb-2 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-muted">
+            {meta}
+          </div>
+        ) : null}
         {stats ? <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-muted">{stats}</div> : null}
       </div>
       {actions ? <div className="flex shrink-0 gap-2 max-md:w-full max-md:*:flex-1">{actions}</div> : null}
     </header>
   );
 }
+
+/** One item on the meta line: a muted link with a leading icon, as the mockup's hub link. */
+export const metaLink =
+  'inline-flex max-w-full min-w-0 items-center gap-1 text-ink-secondary no-underline hover:text-ink hover:underline hover:underline-offset-2';
 
 export function Stat({ value, label }: { value: ReactNode; label: string }) {
   return (
