@@ -172,6 +172,13 @@ jobs:
           $$;
           SQL
 
+      # Storage, the API roles' use of auth, and Supabase's default grants: what the
+      # v2 migrations (0016-0019) and their tests rely on beyond auth.users.
+      - name: Stub the rest of the Supabase platform
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -f supabase/tests/supabase_stub.sql
+
       - name: Apply schema then migrations in order
         env:
           PGPASSWORD: postgres
@@ -221,6 +228,23 @@ jobs:
             exit 1
           fi
           echo "OK: no world-open write policies"
+
+      # FOUNDATION section 8, exercised as the real API roles: column grants, RLS,
+      # triggers and RPCs together. Runs in a transaction that rolls back.
+      - name: v2 permission tests
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_rls_test.sql
+
+      # Local sample content must keep applying (twice, to prove it is idempotent).
+      # It is never applied to production.
+      - name: v2 dev seed applies
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_seed_dev.sql
+          psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_seed_dev.sql
 
       - name: Report public read-policy count
         env:

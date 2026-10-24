@@ -182,6 +182,13 @@
         "scripted": true
       },
       {
+        "name": "Stub the rest of the Supabase platform",
+        "runs": [
+          "psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -f supabase/tests/supabase_stub.sql"
+        ],
+        "scripted": false
+      },
+      {
         "name": "Apply schema then migrations in order",
         "runs": [],
         "scripted": true
@@ -193,6 +200,18 @@
       },
       {
         "name": "Assert no world-open write policy exists",
+        "runs": [],
+        "scripted": true
+      },
+      {
+        "name": "v2 permission tests",
+        "runs": [
+          "psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_rls_test.sql"
+        ],
+        "scripted": false
+      },
+      {
+        "name": "v2 dev seed applies",
         "runs": [],
         "scripted": true
       },

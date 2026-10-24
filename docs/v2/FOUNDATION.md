@@ -122,7 +122,7 @@ Supabase Storage, two public-read buckets:
 - `avatars/{user_id}/{uuid}.{ext}`: only the owner writes under their own `user_id` prefix.
 - `board-logos/{board_id}/{uuid}.{ext}`: only owners and admins of that board (or its hub) write.
 
-Limits: images only (png, jpg, webp, svg sanitised), 1 MB, square crop done client-side. Rows store the path, not a URL. Old files are deleted on replace. Seeded posts' media stay external links.
+Limits: images only (png, jpg, webp), 1 MB, square crop done client-side. SVG waits for a server-side sanitiser: a client-side one is no guard, since anyone can upload straight to the Storage API. Rows store the path inside the bucket, not a URL. On replace, the api layer removes the old object through the Storage API (Supabase refuses direct deletes from `storage.objects`). Seeded posts' media stay external links.
 
 ## 7. State machines
 
@@ -142,7 +142,7 @@ Limits: images only (png, jpg, webp, svg sanitised), 1 MB, square crop done clie
 | Delete account | | self | | | (blocked while sole owner) |
 | Decide reports and ownership disputes | | | | | platform admin only |
 
-Enforced in RLS and `security definer` RPCs; the UI mirrors it but is never the guard.
+Enforced in RLS and `security definer` RPCs; the UI mirrors it but is never the guard. Implemented in `supabase/migrations/0017_v2_rls.sql` in two layers: column GRANTs decide what a client may write at all (counters, status, `hidden_at`, `claimed_at` are never client-writable), policies decide which rows. Status and hiding go through RPCs (`set_post_status`, `set_post_hidden`, `set_reply_hidden`) so every change leaves an audit row. `supabase/tests/v2_rls_test.sql` checks this table as the real API roles in CI.
 
 ## 9. Routes
 
