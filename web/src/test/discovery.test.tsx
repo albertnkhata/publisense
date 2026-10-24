@@ -223,7 +223,7 @@ describe('board header meta line', () => {
     expect(screen.getAllByRole('link', { name: 'figma.com' })).toHaveLength(1);
   });
 
-  it('shows a GitHub repo as owner/repo, and joins "Added by" on the same line', async () => {
+  it('shows a GitHub repo as owner/repo, with "Added by" hidden for now', async () => {
     boardsApi.fetchBoard.mockResolvedValue({
       ...CURSOR,
       site: 'github.com/vercel/next.js',
@@ -232,8 +232,8 @@ describe('board header meta line', () => {
     renderAt('/b/cursor');
     const line = await metaLine('Cursor');
     expect(within(line).getByRole('link', { name: 'github.com/vercel/next.js' }).getAttribute('href')).toBe('https://github.com/vercel/next.js');
-    expect(within(line).getByRole('link', { name: '@kim' }).getAttribute('href')).toBe('/u/kim');
-    expect(screen.getAllByText(/Added by/)).toHaveLength(1);
+    expect(within(line).queryByRole('link', { name: '@kim' })).toBeNull();
+    expect(screen.queryByText(/Added by/)).toBeNull();
   });
 
   it('leaves the line out when there is nothing to show', async () => {

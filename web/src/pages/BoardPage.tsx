@@ -237,6 +237,9 @@ function Feedback({
   );
 }
 
+/** "Added by @handle" is hidden for now (Oct 2026); created_by is still stored. Flip to bring it back. */
+const SHOW_ADDED_BY = false;
+
 /**
  * The line under the tagline: the product's own site (new tab), its hub, and who
  * added it while unclaimed. Each item is a whole flex unit, so on a phone the line
@@ -244,7 +247,7 @@ function Feedback({
  */
 function boardMeta(board: BoardWithHub): ReactNode {
   const site = siteLink(board.site);
-  const addedBy = !board.claimed_at && board.creator ? board.creator : null;
+  const addedBy = SHOW_ADDED_BY && !board.claimed_at && board.creator ? board.creator : null;
   if (!site && !board.hub && !addedBy) return null;
   return (
     <>
