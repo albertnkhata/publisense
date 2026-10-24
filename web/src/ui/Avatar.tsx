@@ -90,11 +90,14 @@ export interface HubAvatarProps {
   size?: AvatarSize;
   /** How many tiles to show before stopping (default 3). */
   max?: number;
+  /** Keep the width of `max` tiles even when fewer show, so rows line up. */
+  reserve?: boolean;
   className?: string;
 }
 
-export function HubAvatar({ name, boards, size = 'sm', max = 3, className }: HubAvatarProps) {
+export function HubAvatar({ name, boards, size = 'sm', max = 3, reserve = false, className }: HubAvatarProps) {
   const shown = boards.slice(0, max);
+  const spacers = reserve ? Math.max(0, max - shown.length) : 0;
   return (
     <span role="img" aria-label={name} className={cx('inline-flex shrink-0 items-center', className)}>
       {shown.map((b, i) => (
@@ -108,6 +111,9 @@ export function HubAvatar({ name, boards, size = 'sm', max = 3, className }: Hub
           ring
           className={i > 0 ? '-ml-2' : undefined}
         />
+      ))}
+      {Array.from({ length: spacers }, (_, i) => (
+        <BoardAvatar key={`spacer-${i}`} name="" size={size} decorative className="invisible -ml-2" />
       ))}
     </span>
   );

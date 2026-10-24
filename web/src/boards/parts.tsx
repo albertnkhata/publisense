@@ -198,6 +198,7 @@ export function HubRow({ hub }: { hub: Hub }) {
         name={`${hub.name} hub`}
         size="md"
         boards={hub.boards.map((b) => ({ name: b.name, color: b.color, logoSrc: logoSrc(b) }))}
+        reserve
         className="min-w-10"
       />
       <span className="flex min-w-0 flex-col">
