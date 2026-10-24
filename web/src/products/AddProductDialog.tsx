@@ -136,7 +136,9 @@ function AddProductDialog({ opts, onClose }: { opts: AddProductOptions; onClose:
   const [name, setName] = useState(start.name);
   const [tagline, setTagline] = useState('');
   const [category, setCategory] = useState<BoardCategory | null>(null);
-  const [touched, setTouched] = useState({ name: Boolean(start.name), tagline: false });
+  // A name carried over from the search box is only a guess: the site's own name
+  // replaces it until the person types in the field.
+  const [touched, setTouched] = useState({ name: false, tagline: false });
   const [errors, setErrors] = useState<Partial<Record<keyof NewProduct, string>>>({});
   const [failure, setFailure] = useState<string | null>(null);
   const [lateMatch, setLateMatch] = useState<LinkMatch | null>(null);
