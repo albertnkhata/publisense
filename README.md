@@ -41,3 +41,13 @@ pre-ship step, flagged as such in `STATUS.md`.
 The catalogue in production is currently seeded demo content, not members. `STATUS.md` prints the
 seeded-versus-real split every time it refreshes, because the difference between "8 posts" and
 "8 posts from nobody" is the whole story (see `D-011`).
+
+## License
+
+**Proprietary. Source available for viewing only.** See [`LICENSE`](./LICENSE).
+
+This repository is public so its history, tests and design can be read. That is not a
+grant of rights: no permission is given to run it, host it, reuse it in another project,
+redistribute it, or train a model on it. Any other use needs written permission from the
+copyright holder. It is deliberately **not** an OSI-approved open source license, so
+GitHub will not show a license badge — that is the intended state, not a missing file.
