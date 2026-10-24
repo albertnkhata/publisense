@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
 import {
   compactCount,
   covered,
@@ -51,6 +51,9 @@ export function HubPage() {
     );
   }
   if (!hub) return <ScopeNotFound kind="hub" />;
+  // A former slug resolves to the company it belongs to: send the reader to the current
+  // address instead of showing two URLs for one page (0028).
+  if (slug && hub.slug !== slug) return <Navigate to={`/h/${hub.slug}`} replace />;
   return <HubView hub={hub} />;
 }
 
@@ -118,6 +121,13 @@ function HubView({ hub }: { hub: Hub }) {
           </>
         }
       />
+      {hub.former_names.length || hub.legal_name ? (
+        <p className="mt-0 mb-3 text-sm text-ink-muted">
+          {hub.former_names.length ? <>Formerly {hub.former_names.join(', ')}.</> : null}
+          {hub.former_names.length && hub.legal_name ? ' ' : null}
+          {hub.legal_name ? <>Legal entity: {hub.legal_name}.</> : null}
+        </p>
+      ) : null}
       <p className="mt-0 mb-4 flex flex-wrap items-center gap-2 text-sm text-ink-secondary">
         <HubVoice hub={hub} manages={Boolean(role.data)} />
       </p>

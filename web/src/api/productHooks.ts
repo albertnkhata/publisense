@@ -11,6 +11,7 @@ import {
   fetchLinkPreview,
   fetchProductQueue,
   removeHubDomain,
+  renameHub,
   searchCompanies,
   storeBoardLogo,
   type BoardDecision,
@@ -129,6 +130,20 @@ export function useHubDomain() {
       void qc.invalidateQueries({ queryKey: ['admin-products'] });
       void qc.invalidateQueries({ queryKey: boardKeys.hubs });
       void qc.invalidateQueries({ queryKey: ['product-link'] });
+    },
+  });
+}
+
+/** Rename a company; the name it used before stays on record (0028). Platform admins. */
+export function useRenameHub() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { hubId: string; name: string; slug?: string; source?: string }) =>
+      renameHub(v.hubId, v.name, v.slug, v.source),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: productKeys.adminCompanies });
+      void qc.invalidateQueries({ queryKey: boardKeys.hubs });
+      void qc.invalidateQueries({ queryKey: ['hub'] });
     },
   });
 }
