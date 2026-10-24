@@ -4,9 +4,9 @@ import { dedupePosts, useFeed, type FeedScope, type FeedSort } from '../api';
 import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { LoadError, PostList, PostListSkeleton } from '../posts/PostList';
-import { useRequireAuth } from '../shell/auth';
+import { useAuthDialog, useRequireAuth } from '../shell/auth';
 import { useComposer } from '../shell/composer';
-import { Button, EmptyState, Icon, Menu, MenuItemRadio, MenuLabel, Tabs, UserAvatar } from '../ui';
+import { Button, Card, EmptyState, Icon, Menu, MenuItemRadio, MenuLabel, Tabs, UserAvatar } from '../ui';
 
 /**
  * Home feed (FOUNDATION §11 step 5). Scope (All / Following, signed in only) and
@@ -37,6 +37,7 @@ export function HomePage() {
       <h1 id="page-title" className="sr-only">
         Home
       </h1>
+      {viewer ? null : <HomePitch />}
       <ComposerTrigger />
       <div className={viewer ? 'flex items-center justify-between gap-3 border-b border-line' : 'flex items-center justify-end gap-3'}>
         {viewer ? (
@@ -58,6 +59,43 @@ export function HomePage() {
         <Feed scope={scope} sort={sort} viewerId={viewer?.id ?? null} />
       </div>
     </section>
+  );
+}
+
+/** Pitch copy for signed-out visitors, kept here so tests and docs quote one source. */
+export const PITCH = {
+  title: 'Feedback, straight to the teams who build your tools',
+  body: 'Every product gets a board. Post what’s broken or missing, upvote what matters, and the team replies and ships.',
+  join: 'Join Publisense',
+  claim: 'Claim your product’s board',
+  claimReason: 'claim your product’s board',
+};
+
+/**
+ * Signed-out pitch above the composer, after Substack's signed-out home: the
+ * visitor lands in the real feed with one card saying what this is. Not
+ * dismissible; signed-in viewers never see it. Claiming needs an account, so
+ * the secondary action opens sign-up with that reason.
+ */
+function HomePitch() {
+  const { openAuth } = useAuthDialog();
+  return (
+    <Card as="section" aria-labelledby="home-pitch-title" className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1">
+        <h2 id="home-pitch-title" className="m-0 text-lg font-bold text-ink">
+          {PITCH.title}
+        </h2>
+        <p className="m-0 text-base text-ink-secondary">{PITCH.body}</p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" onClick={() => openAuth('signup')}>
+          {PITCH.join}
+        </Button>
+        <Button size="sm" variant="secondary" onClick={() => openAuth('signup', PITCH.claimReason)}>
+          {PITCH.claim}
+        </Button>
+      </div>
+    </Card>
   );
 }
 
