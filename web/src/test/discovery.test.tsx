@@ -181,7 +181,7 @@ describe('board page', () => {
     boardsApi.fetchIsBoardTeam.mockResolvedValue(true);
     renderAt('/b/figjam', true);
     expect((await screen.findByRole('link', { name: 'Manage' })).getAttribute('href')).toBe('/b/figjam/manage');
-    expect(screen.getByRole('link', { name: /Figma hub/ }).getAttribute('href')).toBe('/h/figma');
+    expect(screen.getByRole('link', { name: 'Figma' }).getAttribute('href')).toBe('/h/figma');
     expect(screen.getByText('You manage this board')).toBeTruthy();
   });
 });
@@ -210,16 +210,17 @@ describe('board header meta line', () => {
     expect(screen.queryByRole('link', { name: /hub/ })).toBeNull();
   });
 
-  it('adds the hub link with its icon when the board belongs to a hub, once', async () => {
+  it('adds the company (hub) link with its icon, as the company name, when the board belongs to a hub, once', async () => {
     boardsApi.fetchBoard.mockResolvedValue({ ...FIGMA, site: 'figma.com', hub: { id: FIGMA_HUB.id, slug: 'figma', name: 'Figma' } });
     renderAt('/b/figma');
     const line = await metaLine('Figma');
-    const hub = within(line).getByRole('link', { name: 'Figma hub' });
+    const hub = within(line).getByRole('link', { name: 'Figma' });
+    expect(hub.getAttribute('title')).toBe('All Figma products');
     expect(hub.getAttribute('href')).toBe('/h/figma');
     expect(hub.querySelector('svg')).toBeTruthy();
     expect(within(line).getByRole('link', { name: 'figma.com' }).getAttribute('target')).toBe('_blank');
     // Neither link is duplicated anywhere on the page.
-    expect(screen.getAllByRole('link', { name: 'Figma hub' })).toHaveLength(1);
+    expect(screen.getAllByRole('link', { name: 'Figma' }).filter((a) => a.getAttribute('href') === '/h/figma')).toHaveLength(1);
     expect(screen.getAllByRole('link', { name: 'figma.com' })).toHaveLength(1);
   });
 

@@ -5,6 +5,7 @@ import {
   covered,
   dedupePosts,
   logoSrc,
+  onHubDomain,
   siteDomain,
   useClaimHub,
   useHub,
@@ -177,14 +178,16 @@ function HubVoice({ hub, manages }: { hub: Hub; manages: boolean }) {
       </>
     );
   }
-  if (hub.primary_domain && covered(verified.data, hub.primary_domain)) {
+  // 0026: proof of any of the company's domains claims the hub.
+  const provedDomain = hub.domains.find((d) => covered(verified.data, d)) ?? null;
+  if (provedDomain) {
     return (
       <>
-        <span>{hub.primary_domain} is verified.</span>
+        <span>{provedDomain} is verified.</span>
         <ClaimLink
           onClick={() =>
             claimHub.mutate(
-              { id: hub.id, name: hub.name, domain: hub.primary_domain },
+              { id: hub.id, name: hub.name, domain: provedDomain },
               { onSuccess: () => toast(`You manage the ${hub.name} hub now`), onError: (e) => toast(e instanceof Error ? e.message : 'Something went wrong.') },
             )
           }
@@ -194,7 +197,7 @@ function HubVoice({ hub, manages }: { hub: Hub; manages: boolean }) {
       </>
     );
   }
-  const onDomain = hub.boards.find((b) => !b.claimed_at && siteDomain(b.site) === hub.primary_domain);
+  const onDomain = hub.boards.find((b) => !b.claimed_at && onHubDomain(hub, siteDomain(b.site)));
   return (
     <>
       <span>No team has claimed this hub yet. Anyone can follow and post here.</span>

@@ -10,6 +10,7 @@ import {
   useLinkPreview,
   validateProduct,
   type BoardCategory,
+  type CompanyChoice,
   type LinkMatch,
   type NewProduct,
 } from '../api';
@@ -20,10 +21,13 @@ import { useViewer } from '../lib/viewer';
 import { useAuthDialog } from '../shell/auth';
 import { useComposer } from '../shell/composer';
 import { BoardAvatar, Button, Dialog, Field, Icon, Input, useToast } from '../ui';
+import { CompanyPicker } from './CompanyPicker';
 
 /**
  * Add a product (0024). Paste a link (a product website or a GitHub repo); the name,
- * one-line description and logo fill in from it; pick a category. If the product is
+ * one-line description and logo fill in from it; pick a category. Company (0026, optional)
+ * is prefilled when the link is on a company's domain, else a typeahead over companies
+ * with "New company: …"; empty is fine (indie products, GitHub repos). If the product is
  * already here the form says so and links to it instead. New boards wait for review,
  * and the person who added one goes straight to posting on it.
  *
@@ -136,6 +140,10 @@ function AddProductDialog({ opts, onClose }: { opts: AddProductOptions; onClose:
   const [errors, setErrors] = useState<Partial<Record<keyof NewProduct, string>>>({});
   const [failure, setFailure] = useState<string | null>(null);
   const [lateMatch, setLateMatch] = useState<LinkMatch | null>(null);
+  const [company, setCompany] = useState<CompanyChoice | null>(null);
+  const [companyText, setCompanyText] = useState('');
+  /** The person picked, changed or cleared the company themselves; stop prefilling. */
+  const [companyTouched, setCompanyTouched] = useState(false);
 
   const debounced = useDebounced(link.trim(), 300);
   const parsed = parseLink(debounced);
@@ -144,6 +152,23 @@ function AddProductDialog({ opts, onClose }: { opts: AddProductOptions; onClose:
   const preview = useLinkPreview(debounced, Boolean(parsed) && check.isSuccess && !match);
   const icon = useLoadedImage(!match ? preview.data?.icon_url : null);
   const linkInvalid = debounced.length > 0 && !parsed;
+  const domainHub = !match && check.data?.kind === 'site' ? (check.data.hub ?? null) : null;
+
+  // Prefill Company from the link's domain until the person touches the field, and drop
+  // the prefill again when the link moves off that domain.
+  useEffect(() => {
+    if (companyTouched || !check.data) return;
+    if (domainHub) {
+      if (company?.kind !== 'hub' || company.id !== domainHub.id) setCompany({ kind: 'hub', id: domainHub.id, slug: domainHub.slug, name: domainHub.name, status: 'live' });
+    } else if (company) {
+      setCompany(null);
+    }
+  }, [domainHub, company, companyTouched, check.data]);
+  const suggested = (() => {
+    const c = preview.data?.company?.trim();
+    if (!c || domainHub || c.toLowerCase() === name.trim().toLowerCase()) return null;
+    return c;
+  })();
 
   // Autofill whatever the person has not typed themselves.
   const filled = useRef<string | null>(null);
@@ -158,7 +183,8 @@ function AddProductDialog({ opts, onClose }: { opts: AddProductOptions; onClose:
   const submit = (e?: FormEvent) => {
     e?.preventDefault();
     if (create.isPending) return;
-    const v = { link, name, tagline, category: category ?? undefined };
+    const chosen: CompanyChoice | null = company ?? (companyText.trim() ? { kind: 'new', name: companyText.replace(/\s+/g, ' ').trim() } : null);
+    const v = { link, name, tagline, category: category ?? undefined, company: chosen };
     const found = validateProduct(v);
     setErrors(found);
     if (Object.keys(found).length || !category || match) return;
@@ -166,7 +192,7 @@ function AddProductDialog({ opts, onClose }: { opts: AddProductOptions; onClose:
     // Send the canonical repo link GitHub answered with (a renamed repo resolves to its new name).
     const sendLink = preview.data?.kind === 'github' ? `https://${preview.data.canonical}` : link;
     create.mutate(
-      { link: sendLink, name, tagline, category },
+      { link: sendLink, name, tagline, category, ...(chosen ? { company: chosen } : {}) },
       {
         onSuccess: ({ created }) => {
           onClose();
@@ -213,7 +239,6 @@ function AddProductDialog({ opts, onClose }: { opts: AddProductOptions; onClose:
         <Field
           label="Link"
           error={errors.link ?? (linkInvalid ? 'Paste a product website or a GitHub repo link.' : undefined)}
-          hint={!blocked && check.data?.hub ? `It joins the ${check.data.hub.name} hub.` : undefined}
         >
           <Input
             ref={linkRef}
@@ -259,6 +284,32 @@ function AddProductDialog({ opts, onClose }: { opts: AddProductOptions; onClose:
                 }}
               />
             </Field>
+
+            <CompanyPicker
+              value={company}
+              onChange={(c) => {
+                setCompany(c);
+                setCompanyTouched(true);
+                setErrors((x) => ({ ...x, company: undefined }));
+              }}
+              text={companyText}
+              onText={(t) => {
+                setCompanyText(t);
+                setErrors((x) => ({ ...x, company: undefined }));
+              }}
+              removable={!domainHub}
+              suggestion={suggested}
+              error={errors.company}
+              hint={
+                !domainHub
+                  ? undefined
+                  : company?.kind === 'hub' && company.id === domainHub.id
+                    ? `${check.data?.canonical ?? 'This domain'} belongs to ${domainHub.name}.`
+                    : !company && !companyText.trim()
+                      ? `Left empty, it joins ${domainHub.name}, which owns ${check.data?.canonical ?? 'this domain'}.`
+                      : undefined
+              }
+            />
 
             <Field label="Description" optional error={errors.tagline} aside={`${tagline.length}/${PRODUCT_TAGLINE_MAX}`}>
               <Input

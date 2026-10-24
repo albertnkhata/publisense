@@ -23,6 +23,9 @@ export { AdminDisputesPage, AdminReportsPage, AdminTeamPage } from './AdminPages
 // Add a product (0024): the admin review queue.
 export { AdminProductsPage } from './AdminPages';
 
+// Companies (0026): hubs and their domains.
+export { AdminCompaniesPage } from './AdminPages';
+
 // Step 4: account screens.
 export { SettingsPage } from './SettingsPage';
 export { PrivacyPage, TermsPage } from './LegalPages';

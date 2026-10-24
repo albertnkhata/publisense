@@ -1,6 +1,6 @@
 import { getSupabase } from './supabase';
 import { ApiError, type PersonRef } from './posts';
-import { BOARD_COLUMNS, type Board, type BoardCategory, type BoardWithHub } from './boards';
+import { BOARD_COLUMNS, withDomains, type Board, type BoardCategory, type BoardWithHub, type HubRef, type HubStatus } from './boards';
 import { parseLink, type LinkKind } from '../lib/link';
 
 /*
@@ -12,7 +12,11 @@ import { parseLink, type LinkKind } from '../lib/link';
  *   createBoard        the only way to create a board (security-definer RPC, rate-limited)
  *   storeBoardLogo     asks link-preview to copy the logo into board-logos (best effort)
  *   fetchProductQueue / decideBoard   the admin "New products" queue
+ *   searchCompanies    live hubs by name, for the form's Company typeahead (0026)
+ *   fetchCompanies / addHubDomain / removeHubDomain   the admin "Companies" list (0026)
  */
+
+export const COMPANY_NAME_MAX = 60;
 
 export const PRODUCT_NAME_MAX = 60;
 export const PRODUCT_TAGLINE_MAX = 120;
@@ -41,7 +45,8 @@ export interface LinkCheck {
   kind: LinkKind;
   canonical: string;
   match: LinkMatch | null;
-  hub: { slug: string; name: string } | null;
+  /** The live company whose domain covers the link (0026: any of its domains). */
+  hub: { id: string; slug: string; name: string } | null;
 }
 
 export interface LinkPreview {
@@ -50,6 +55,20 @@ export interface LinkPreview {
   name: string;
   description: string;
   icon_url: string | null;
+  /** og:site_name / application-name when the page gives one (0026); a suggestion only. */
+  company?: string | null;
+}
+
+/** A company as the form and the admin modal hold it. */
+export type CompanyChoice =
+  | { kind: 'hub'; id: string; slug: string; name: string; status?: HubStatus }
+  | { kind: 'new'; name: string };
+
+export interface CompanyOption {
+  id: string;
+  slug: string;
+  name: string;
+  primary_domain: string | null;
 }
 
 const MESSAGES: Record<string, string> = {
@@ -65,6 +84,12 @@ const MESSAGES: Record<string, string> = {
   not_found: 'We couldn’t find that product.',
   decided: 'Someone already reviewed this one.',
   reason_length: 'Keep the reason under 500 characters.',
+  company_length: `Keep the company name to ${COMPANY_NAME_MAX} characters.`,
+  company_not_found: 'That company isn’t on Publisense any more. Pick another or leave it empty.',
+  invalid_company: 'Pick a company or leave it empty.',
+  invalid_domain: 'Enter a domain like acme.com.',
+  shared_domain: 'That’s a shared domain (like github.com or substack.com), so no company can own it.',
+  domain_taken: 'Another company already owns that domain.',
 };
 
 export const productMessage = (code: string | undefined) => (code && MESSAGES[code]) || 'Something went wrong. Try again.';
@@ -101,6 +126,16 @@ export async function checkProductLink(link: string): Promise<LinkCheck> {
   return { kind: res.kind, canonical: res.canonical, match: res.match ?? null, hub: res.hub ?? null };
 }
 
+/** Live companies whose name contains the term, for the typeahead. */
+export async function searchCompanies(term: string): Promise<CompanyOption[]> {
+  const t = term.trim().slice(0, COMPANY_NAME_MAX);
+  if (!t) return [];
+  const like = `%${t.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+  const { data, error } = await getSupabase().from('hub').select('id, slug, name, primary_domain').eq('status', 'live').ilike('name', like).order('name').limit(6);
+  if (error) throw error;
+  return (data ?? []) as CompanyOption[];
+}
+
 /**
  * Autofill from the Edge Function. Never throws: a site we cannot read (blocked,
  * slow, private) just gets no autofill, and the person types the name themselves.
@@ -121,6 +156,8 @@ export interface NewProduct {
   name: string;
   tagline: string;
   category: BoardCategory;
+  /** Optional (0026): an existing company, or a new one by name. */
+  company?: CompanyChoice | null;
 }
 
 export interface CreatedBoard {
@@ -129,6 +166,7 @@ export interface CreatedBoard {
   name: string;
   status: Board['status'];
   hub: string | null;
+  hub_status: HubStatus | null;
   can_claim: boolean;
 }
 
@@ -139,6 +177,7 @@ export function validateProduct(p: Partial<NewProduct>): Partial<Record<keyof Ne
   if (!name || name.length > PRODUCT_NAME_MAX) errors.name = productMessage('name_length');
   if ((p.tagline ?? '').trim().length > PRODUCT_TAGLINE_MAX) errors.tagline = productMessage('tagline_length');
   if (!p.category) errors.category = productMessage('invalid_category');
+  if (p.company?.kind === 'new' && (!p.company.name.trim() || p.company.name.trim().length > COMPANY_NAME_MAX)) errors.company = productMessage('company_length');
   return errors;
 }
 
@@ -148,8 +187,18 @@ export async function createBoard(p: NewProduct): Promise<CreatedBoard> {
     p_name: p.name.trim(),
     p_tagline: p.tagline.trim(),
     p_category: p.category,
+    ...(p.company?.kind === 'hub' ? { p_hub_id: p.company.id } : {}),
+    ...(p.company?.kind === 'new' ? { p_company_name: p.company.name.replace(/\s+/g, ' ').trim() } : {}),
   });
-  return { id: res.id, slug: res.slug, name: res.name, status: res.status, hub: res.hub ?? null, can_claim: Boolean(res.can_claim) };
+  return {
+    id: res.id,
+    slug: res.slug,
+    name: res.name,
+    status: res.status,
+    hub: res.hub ?? null,
+    hub_status: res.hub_status ?? null,
+    can_claim: Boolean(res.can_claim),
+  };
 }
 
 /** Copy the product's logo into board-logos. Best effort: the tile keeps its initial otherwise. */
@@ -172,7 +221,10 @@ export interface QueuedBoard extends BoardWithHub {
 }
 
 const QUEUE_SELECT =
-  `${BOARD_COLUMNS}, review_note, reviewed_at, hub:hub!hub_id(id, slug, name), ` + 'creator:profile!board_created_by_fkey(id, handle, name, avatar_path)';
+  `${BOARD_COLUMNS}, review_note, reviewed_at, hub:hub!hub_id(id, slug, name, status, primary_domain, hub_domain(domain, created_at)), ` +
+  'creator:profile!board_created_by_fkey(id, handle, name, avatar_path)';
+
+type RawQueued = QueuedBoard & { hub: (HubRef & { hub_domain?: Array<{ domain: string; created_at?: string }> }) | null };
 
 /** Pending boards oldest first, or the latest decisions. RLS: platform admins see every pending board. */
 export async function fetchProductQueue(status: 'pending' | 'decided'): Promise<QueuedBoard[]> {
@@ -180,7 +232,7 @@ export async function fetchProductQueue(status: 'pending' | 'decided'): Promise<
   q = status === 'pending' ? q.eq('status', 'pending').order('created_at') : q.not('reviewed_at', 'is', null).order('reviewed_at', { ascending: false }).limit(50);
   const { data, error } = await q;
   if (error) throw error;
-  return (data ?? []) as unknown as QueuedBoard[];
+  return ((data ?? []) as unknown as RawQueued[]).map((b) => ({ ...b, hub: b.hub ? withDomains(b.hub) : null }));
 }
 
 export interface BoardDecision {
@@ -190,6 +242,12 @@ export interface BoardDecision {
   tagline?: string;
   category?: BoardCategory;
   reason?: string;
+  /**
+   * The company on approval (0026). Absent: keep the board's current one (its pending
+   * company is approved with it). 'set' moves it to another hub, 'none' drops it.
+   * `hubName` renames the board's pending company (with 'keep') or a pending hub picked with 'set'.
+   */
+  hub?: { mode: 'keep' | 'set' | 'none'; id?: string; name?: string };
 }
 
 export async function decideBoard(d: BoardDecision): Promise<void> {
@@ -200,5 +258,44 @@ export async function decideBoard(d: BoardDecision): Promise<void> {
     p_tagline: d.approve ? (d.tagline ?? null) : null,
     p_category: d.approve ? (d.category ?? null) : null,
     p_reason: d.approve ? null : d.reason?.trim() || null,
+    ...(d.approve && d.hub
+      ? { p_hub_mode: d.hub.mode, p_hub_id: d.hub.mode === 'set' ? (d.hub.id ?? null) : null, p_hub_name: d.hub.name?.trim() || null }
+      : {}),
   });
+}
+
+// ------------------------------------------------------------------ admin: companies (0026)
+
+export interface AdminCompany {
+  id: string;
+  slug: string;
+  name: string;
+  status: HubStatus;
+  primary_domain: string | null;
+  domains: string[];
+  board_count: number;
+}
+
+/** Every company that is not rejected, live first then pending, with its domains. RLS: platform admins see them all. */
+export async function fetchCompanies(): Promise<AdminCompany[]> {
+  const { data, error } = await getSupabase()
+    .from('hub')
+    .select('id, slug, name, status, primary_domain, hub_domain(domain, created_at), board(count)')
+    .neq('status', 'rejected')
+    .order('name');
+  if (error) throw error;
+  type Raw = Omit<AdminCompany, 'domains' | 'board_count'> & { hub_domain?: Array<{ domain: string; created_at?: string }>; board?: Array<{ count: number }> };
+  return ((data ?? []) as unknown as Raw[]).map((h) => {
+    const { board, ...rest } = h;
+    return { ...withDomains(rest), board_count: board?.[0]?.count ?? 0 };
+  });
+}
+
+export async function addHubDomain(hubId: string, domain: string): Promise<string> {
+  const res = await rpc<RpcResult & { domain: string }>('add_hub_domain', { p_hub: hubId, p_domain: domain.trim() });
+  return res.domain;
+}
+
+export async function removeHubDomain(hubId: string, domain: string): Promise<void> {
+  await rpc('remove_hub_domain', { p_hub: hubId, p_domain: domain });
 }

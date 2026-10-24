@@ -270,7 +270,7 @@ describe('search', () => {
     board({ id: 'l', name: 'Linear', tagline: 'Issue tracking and product planning' }),
   ];
   const hubs: Hub[] = [
-    { id: 'h', slug: 'figma', name: 'Figma', description: 'Figma, FigJam and Figma Slides', primary_domain: 'figma.com', claimed_at: null, created_at: '', follower_count: 0, boards: boards.slice(0, 2) },
+    { id: 'h', slug: 'figma', name: 'Figma', description: 'Figma, FigJam and Figma Slides', primary_domain: 'figma.com', domains: ['figma.com'], claimed_at: null, created_at: '', follower_count: 0, boards: boards.slice(0, 2) },
   ];
 
   it('matches boards and hubs word by word, names first', () => {

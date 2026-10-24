@@ -1063,5 +1063,201 @@ select pg_temp.as_owner();
 select pg_temp.expect_error('add product: the canonical index refuses a second board for one site',
   $$insert into public.board (slug, name, site) values ('cursor-two', 'Cursor two', 'www.cursor.com')$$);
 
+-- ------------------------------------------------------------ companies (0026)
+-- State carried over: carol is the only platform admin; the Figma hub (figma.com) is
+-- live and alice owns it. A hub is a company and can own several domains.
+
+select pg_temp.as_owner();
+insert into auth.users (id, email) values
+  ('00000000-0000-4000-8000-000000002601', 'henry@claude.ai'),
+  ('00000000-0000-4000-8000-000000002602', 'ivy@ivy-tools.dev'),
+  ('00000000-0000-4000-8000-000000002603', 'jack@example.org'),
+  ('00000000-0000-4000-8000-000000002604', 'kim@claude.com'),
+  ('00000000-0000-4000-8000-000000002605', 'lena@example.org');
+create temp table s26 (k text primary key, v jsonb);
+grant select, insert on s26 to anon, authenticated;
+
+select pg_temp.expect('companies: existing hubs are live and their primary_domain moved into hub_domain',
+  not exists (select 1 from public.hub where status <> 'live')
+  and exists (select 1 from public.hub_domain d join public.hub h on h.id = d.hub_id
+               where h.slug = 'figma' and d.domain = 'figma.com' and h.primary_domain = 'figma.com'));
+
+-- A company with two domains (claude.com first, so claude.ai is NOT its primary domain),
+-- and one that owns only two subdomains of a big domain.
+insert into public.hub (slug, name, description) values ('anthropic', 'Anthropic', 'Claude and Claude Code'),
+                                                        ('google', 'Google', '');
+insert into public.hub_domain (domain, hub_id, created_at)
+select 'claude.com', id, now() - interval '1 minute' from public.hub where slug = 'anthropic' union all
+select 'claude.ai', id, clock_timestamp() from public.hub where slug = 'anthropic' union all
+select 'gemini.google.com', id, clock_timestamp() from public.hub where slug = 'google';
+update public.board set hub_id = (select id from public.hub where slug = 'anthropic') where slug = 'claude';
+select pg_temp.expect('companies: primary_domain follows the hub''s first domain',
+  (select primary_domain from public.hub where slug = 'anthropic') = 'claude.com'
+  and (select primary_domain from public.hub where slug = 'google') = 'gemini.google.com');
+select pg_temp.expect_error('companies: one domain belongs to at most one hub',
+  $$insert into public.hub_domain (domain, hub_id) select 'claude.ai', id from public.hub where slug = 'figma'$$);
+select pg_temp.expect_error('companies: a shared host can never be a hub domain',
+  $$insert into public.hub_domain (domain, hub_id) select 'substack.com', id from public.hub where slug = 'figma'$$);
+select pg_temp.expect_error('companies: ... nor github.com',
+  $$insert into public.hub_domain (domain, hub_id) select 'github.com', id from public.hub where slug = 'figma'$$);
+select pg_temp.expect_error('companies: ... nor a primary_domain written straight onto the hub',
+  $$update public.hub set primary_domain = 'vercel.app' where slug = 'google'$$);
+
+select pg_temp.as_user('00000000-0000-4000-8000-000000002603');
+select pg_temp.expect_error('companies: clients cannot write hub domains', $$insert into public.hub_domain (domain, hub_id) select 'x.dev', id from public.hub where slug = 'figma'$$);
+select pg_temp.expect_error('companies: ... nor make a hub', $$insert into public.hub (slug, name) values ('mine', 'Mine')$$);
+select pg_temp.expect('companies: a link matches its company across all of the hub''s domains, most specific first',
+  public.check_product_link('https://claude.com/product/claude-code') -> 'hub' ->> 'slug' = 'anthropic'
+  and public.check_product_link('app.claude.ai/new') -> 'hub' ->> 'slug' = 'anthropic'
+  and public.check_product_link('claude.ai') -> 'match' ->> 'slug' = 'claude'
+  and public.check_product_link('gemini.google.com/app') -> 'hub' ->> 'slug' = 'google'
+  and public.check_product_link('docs.google.com') -> 'hub' = 'null'::jsonb
+  and public.check_product_link('github.com/anthropics/claude-code') -> 'hub' = 'null'::jsonb
+  and (public.check_product_link('claude.com/x') -> 'hub' ->> 'id') is not null);
+select pg_temp.as_user('00000000-0000-4000-8000-000000002604');
+insert into s26 values ('noco', public.create_board('https://code.claude.com', 'Claude Code Web', '', 'code'));
+select pg_temp.expect('companies: with no company given, a site still joins the hub that owns its domain',
+  (select v ->> 'hub' = 'anthropic' and v ->> 'hub_status' = 'live' from s26 where k = 'noco'));
+
+-- A new company: pending, its creator's, with the product's domain as its first domain.
+select pg_temp.as_user('00000000-0000-4000-8000-000000002602');
+insert into s26 values ('ivy1', public.create_board('https://www.ivy-tools.dev', 'Ivy Notes', '', 'prod', null, '  Ivy   Labs '));
+select pg_temp.expect('companies: a new company is created pending, slugged from its name, with the site''s domain',
+  (select (v ->> 'ok')::boolean and v ->> 'hub' = 'ivy-labs' and v ->> 'hub_status' = 'pending' from s26 where k = 'ivy1')
+  and (select status = 'pending' and name = 'Ivy Labs' and created_by = '00000000-0000-4000-8000-000000002602'
+              and primary_domain = 'ivy-tools.dev' from public.hub where slug = 'ivy-labs')
+  and (select b.hub_id = h.id from public.board b, public.hub h where b.slug = 'ivy-notes' and h.slug = 'ivy-labs')
+  and exists (select 1 from public.hub_domain where domain = 'ivy-tools.dev'));
+insert into s26 values ('ivy2', public.create_board('https://ivy-docs.dev', 'Ivy Docs', '', 'prod', null, 'ivy labs'));
+select pg_temp.expect('companies: the creator''s second product reuses their pending company by name',
+  (select v ->> 'hub' from s26 where k = 'ivy2') = 'ivy-labs'
+  and (select count(*) from public.hub where lower(name) = 'ivy labs') = 1);
+
+select pg_temp.as_user(null);
+select pg_temp.expect('companies: anon sees neither the pending company nor its domains',
+  not exists (select 1 from public.hub where slug = 'ivy-labs')
+  and not exists (select 1 from public.hub_domain where domain = 'ivy-tools.dev')
+  and exists (select 1 from public.hub_domain where domain = 'claude.ai'));
+select pg_temp.as_user('00000000-0000-4000-8000-000000002603');
+select pg_temp.expect('companies: another user sees neither, and a pending company never prefills their form',
+  not exists (select 1 from public.hub where slug = 'ivy-labs')
+  and not exists (select 1 from public.hub_domain where domain = 'ivy-tools.dev')
+  and public.check_product_link('https://blog.ivy-tools.dev') -> 'hub' = 'null'::jsonb);
+insert into s26 values ('jack1', public.create_board('https://ivy-fan.dev', 'Ivy Fan', '', 'prod', null, 'Ivy Labs'));
+select pg_temp.expect('companies: someone else naming the same new company gets their own pending one',
+  (select v ->> 'hub' = 'ivy-labs-2' and v ->> 'hub_status' = 'pending' from s26 where k = 'jack1'));
+select pg_temp.as_owner();
+insert into s26 values ('ivyhub', to_jsonb((select id from public.hub where slug = 'ivy-labs'))),
+                       ('jackhub', to_jsonb((select id from public.hub where slug = 'ivy-labs-2'))),
+                       ('anthropic', to_jsonb((select id from public.hub where slug = 'anthropic')));
+select pg_temp.as_user('00000000-0000-4000-8000-000000002603');
+select pg_temp.expect('companies: a live company named in any case is joined, not duplicated',
+  (select (public.create_board('https://claude-tools.dev', 'Claude Tools', '', 'ai', null, 'ANTHROPIC')) ->> 'hub') = 'anthropic'
+  and (select count(*) from public.hub where lower(name) = 'anthropic') = 1);
+select pg_temp.expect('companies: p_hub_id must be a live company',
+  public.create_board('https://jack-two.dev', 'Jack Two', '', 'prod', (select (v #>> '{}')::uuid from s26 where k = 'ivyhub')) ->> 'error' = 'company_not_found');
+select pg_temp.as_user('00000000-0000-4000-8000-000000002605');
+insert into s26 values ('repo', public.create_board('https://github.com/lena/widgets', 'Widgets', '', 'dev', null, 'Lena Co'));
+insert into s26 values ('stack', public.create_board('https://lena.substack.com', 'Lena Letters', '', 'prod', null, 'Lena Letters Ltd'));
+select pg_temp.expect('companies: a GitHub repo or a shared host gives a new company no domain',
+  (select v ->> 'hub' = 'lena-co' from s26 where k = 'repo')
+  and (select primary_domain is null from public.hub where slug = 'lena-co')
+  and (select primary_domain is null from public.hub where slug = 'lena-letters-ltd')
+  and not exists (select 1 from public.hub_domain d join public.hub h on h.id = d.hub_id where h.slug in ('lena-co', 'lena-letters-ltd')));
+select pg_temp.expect('companies: a company name is at most 60 characters; an existing hub id is joined',
+  public.create_board('https://lena-two.dev', 'Lena Two', '', 'prod', null, repeat('c', 61)) ->> 'error' = 'company_length'
+  and public.create_board('https://lena-three.dev', 'Lena Three', '', 'prod', (select (v #>> '{}')::uuid from s26 where k = 'anthropic')) ->> 'hub' = 'anthropic');
+select pg_temp.expect('companies: the per-person pending limit still applies',
+  public.create_board('https://lena-four.dev', 'Lena Four', '', 'prod', null, 'Lena Four Inc') ->> 'error' = 'too_many_pending'
+  and not exists (select 1 from public.hub where slug = 'lena-four-inc'));
+
+-- Platform admins see every pending company and its domains.
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000c');
+select pg_temp.expect('companies: admins see pending companies and their domains',
+  exists (select 1 from public.hub where slug = 'ivy-labs')
+  and exists (select 1 from public.hub_domain where domain = 'ivy-tools.dev'));
+select pg_temp.as_user('00000000-0000-4000-8000-000000002603');
+select pg_temp.expect('companies: non-admins cannot change a company''s domains',
+  public.add_hub_domain((select (v #>> '{}')::uuid from s26 where k = 'anthropic'), 'anthropic.com') ->> 'error' = 'not_allowed'
+  and public.remove_hub_domain((select (v #>> '{}')::uuid from s26 where k = 'anthropic'), 'claude.ai') ->> 'error' = 'not_allowed');
+select pg_temp.as_user(null);
+select pg_temp.expect_error('companies: anon cannot call the domain RPCs',
+  $$select public.add_hub_domain((select (v #>> '{}')::uuid from s26 where k = 'anthropic'), 'anthropic.com')$$);
+
+-- Admin: approve a board with its pending company (renamed), move one to an existing
+-- company, reject one whose company then has nothing left.
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000c');
+insert into s26 values ('d1', public.decide_board((select (v ->> 'id')::uuid from s26 where k = 'ivy1'), true, null, null, null, null, 'keep', null, 'Ivy Labs Inc'));
+select pg_temp.expect('companies: approving a board approves its pending company, renamed',
+  (select v ->> 'hub' from s26 where k = 'd1') = 'ivy-labs-inc'
+  and (select status = 'live' and name = 'Ivy Labs Inc' and reviewed_by is not null from public.hub where id = (select (v #>> '{}')::uuid from s26 where k = 'ivyhub'))
+  and (select status = 'live' from public.board where slug = 'ivy-notes'));
+insert into s26 values ('d2', public.decide_board((select (v ->> 'id')::uuid from s26 where k = 'jack1'), true, null, null, null, null, 'set',
+                      (select (v #>> '{}')::uuid from s26 where k = 'ivyhub')));
+select pg_temp.expect('companies: moving a board to an existing company retires the pending one it leaves',
+  (select v ->> 'hub' from s26 where k = 'd2') = 'ivy-labs-inc'
+  and (select status = 'rejected' from public.hub where id = (select (v #>> '{}')::uuid from s26 where k = 'jackhub')));
+insert into s26 values ('d3', public.decide_board((select (v ->> 'id')::uuid from s26 where k = 'stack'), false));
+select pg_temp.expect('companies: rejecting the only board of a pending company rejects the company too',
+  (select (v ->> 'ok')::boolean from s26 where k = 'd3')
+  and (select status = 'rejected' from public.hub where slug = 'lena-letters-ltd'));
+insert into s26 values ('d4', public.decide_board((select (v ->> 'id')::uuid from s26 where k = 'repo'), true, null, null, null, null, 'none'));
+select pg_temp.expect('companies: approving with no company detaches it',
+  (select (v ->> 'ok')::boolean from s26 where k = 'd4')
+  and (select hub_id is null from public.board where slug = 'widgets')
+  and (select status = 'rejected' from public.hub where slug = 'lena-co'));
+select pg_temp.expect('companies: admins add a domain (any link form) and are refused shared or taken ones',
+  public.add_hub_domain((select (v #>> '{}')::uuid from s26 where k = 'anthropic'), 'https://www.Anthropic.com/news') ->> 'domain' = 'anthropic.com'
+  and public.add_hub_domain((select (v #>> '{}')::uuid from s26 where k = 'anthropic'), 'figma.com') -> 'hub' ->> 'slug' = 'figma'
+  and public.add_hub_domain((select (v #>> '{}')::uuid from s26 where k = 'anthropic'), 'github.com') ->> 'error' = 'shared_domain'
+  and public.add_hub_domain((select (v #>> '{}')::uuid from s26 where k = 'anthropic'), 'gmail.com') ->> 'error' = 'shared_domain'
+  and public.add_hub_domain((select (v #>> '{}')::uuid from s26 where k = 'anthropic'), 'github.com/anthropics/x') ->> 'error' = 'invalid_domain');
+insert into s26 values ('d5', public.remove_hub_domain((select (v #>> '{}')::uuid from s26 where k = 'anthropic'), 'claude.com'));
+select pg_temp.expect('companies: removing the primary domain hands primary to the next one',
+  (select (v ->> 'ok')::boolean from s26 where k = 'd5')
+  and (select primary_domain from public.hub where slug = 'anthropic') = 'claude.ai');
+insert into s26 values ('d6', public.add_hub_domain((select (v #>> '{}')::uuid from s26 where k = 'anthropic'), 'claude.com'));
+select pg_temp.expect('companies: ... and adding it back keeps claude.ai as primary',
+  (select v ->> 'domain' from s26 where k = 'd6') = 'claude.com'
+  and (select primary_domain from public.hub where slug = 'anthropic') = 'claude.ai');
+
+select pg_temp.as_user(null);
+select pg_temp.expect('companies: once approved, the company and its domain are public',
+  exists (select 1 from public.hub where slug = 'ivy-labs-inc')
+  and exists (select 1 from public.hub_domain where domain = 'ivy-tools.dev')
+  and not exists (select 1 from public.hub where slug in ('ivy-labs-2', 'lena-co')));
+
+-- Claiming across domains. Make claude.com primary again, then prove only claude.ai.
+select pg_temp.as_owner();
+delete from public.hub_domain where domain in ('claude.ai', 'anthropic.com');
+insert into public.hub_domain (domain, hub_id) select 'claude.ai', id from public.hub where slug = 'anthropic';
+insert into public.verified_domain (domain, verified_by, method) values ('claude.ai', '00000000-0000-4000-8000-000000002601', 'email');
+select pg_temp.expect('companies: claude.com is the primary domain now',
+  (select primary_domain from public.hub where slug = 'anthropic') = 'claude.com');
+select pg_temp.as_user('00000000-0000-4000-8000-000000002601');
+select pg_temp.expect('companies: claiming a board offers its company when ANY of the company''s domains is proved',
+  public.claim_board((select id from public.board where slug = 'claude')) ->> 'hub' = 'anthropic');
+insert into s26 values ('d7', public.claim_hub((select (v #>> '{}')::uuid from s26 where k = 'anthropic')));
+select pg_temp.expect('companies: claim_hub accepts proof of a non-primary domain',
+  (select (v ->> 'ok')::boolean from s26 where k = 'd7')
+  and public.is_scope_admin('hub', (select (v #>> '{}')::uuid from s26 where k = 'anthropic')));
+select pg_temp.as_owner();
+insert into public.verified_domain (domain, verified_by, method) values ('claude.com', '00000000-0000-4000-8000-000000002604', 'email');
+select pg_temp.as_user('00000000-0000-4000-8000-000000002604');
+select pg_temp.expect('companies: a join request may come from any of the company''s domains',
+  (public.request_join('hub', (select (v #>> '{}')::uuid from s26 where k = 'anthropic'), 'kim@claude.com') ->> 'ok')::boolean
+  and public.request_join('hub', (select (v #>> '{}')::uuid from s26 where k = 'anthropic'), 'kim@example.org') ->> 'error' = 'wrong_domain');
+select pg_temp.as_user('00000000-0000-4000-8000-000000002601');
+select pg_temp.expect('companies: the team adds someone on another of its domains',
+  public.add_team_member('hub', (select (v #>> '{}')::uuid from s26 where k = 'anthropic'), 'kim@claude.com') ->> 'handle' is not null);
+select pg_temp.as_owner();
+select pg_temp.expect('companies: a parent of a hub domain counts as on it (google.com and gemini.google.com)',
+  public.v2_scope_mail_domain('hub', (select id from public.hub where slug = 'google'), 'google.com') = 'gemini.google.com'
+  and public.v2_scope_mail_domain('hub', (select id from public.hub where slug = 'google'), 'mail.google.com') is null
+  and public.v2_scope_mail_domain('hub', (select id from public.hub where slug = 'google'), 'example.org') is null);
+select pg_temp.as_user('00000000-0000-4000-8000-000000002603');
+select pg_temp.expect('companies: a pending or rejected company cannot be claimed',
+  public.claim_hub((select (v #>> '{}')::uuid from s26 where k = 'jackhub')) ->> 'error' = 'not_found');
+
 \echo 'v2 RLS tests: all passed'
 rollback;

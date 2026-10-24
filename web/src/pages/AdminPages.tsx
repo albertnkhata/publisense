@@ -8,9 +8,14 @@ import {
   PRODUCT_CATEGORIES,
   PRODUCT_NAME_MAX,
   PRODUCT_TAGLINE_MAX,
+  useAdminCompanies,
   useDecideBoard,
+  useHubDomain,
   useProductQueue,
+  type AdminCompany,
   type BoardCategory,
+  type BoardDecision,
+  type CompanyChoice,
   type QueuedBoard,
   plural,
   shortAge,
@@ -36,11 +41,12 @@ import { useViewer } from '../lib/viewer';
 import { ConfirmDialog } from '../posts/dialogs';
 import { LoadError } from '../posts/PostList';
 import { useAuthDialog } from '../shell/auth';
-import { BoardAvatar, Button, Dialog, EmptyState, Field, Input, Select, SkeletonBlock, Tabs, Textarea, UserAvatar, useToast } from '../ui';
+import { CompanyPicker } from '../products/CompanyPicker';
+import { BoardAvatar, Button, Dialog, EmptyState, Field, Icon, IconButton, Input, Select, SkeletonBlock, Tabs, Textarea, UserAvatar, useToast } from '../ui';
 import { NotFound } from './NotFound';
 
 /**
- * Platform-admin screens (FOUNDATION §9): /admin/products (0024), /admin/reports,
+ * Platform-admin screens (FOUNDATION §9): /admin/products (0024), /admin/companies (0026), /admin/reports,
  * /admin/disputes and /admin/team. Only Publisense staff (platform_admin) see them; anyone else gets
  * the ordinary not-found page, so the screens do not announce themselves. RLS and
  * the 0022 RPCs are the real guard.
@@ -85,6 +91,9 @@ function AdminNav() {
     <nav aria-label="Admin" className="mb-4 flex flex-wrap gap-2">
       <NavLink to="/admin/products" className={item}>
         New products
+      </NavLink>
+      <NavLink to="/admin/companies" className={item}>
+        Companies
       </NavLink>
       <NavLink to="/admin/reports" className={item}>
         Reports
@@ -173,7 +182,6 @@ function ProductCard({ b }: { b: QueuedBoard }) {
       <p className="mt-0 mb-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-ink-muted uppercase">
         {b.site?.startsWith('github.com/') ? 'GitHub repo' : 'Website'}
         <span className="rounded-pill bg-subtle px-2 font-medium normal-case">{categoryLabel(b.category)}</span>
-        {b.hub ? <span className="rounded-pill bg-subtle px-2 font-medium normal-case">{b.hub.name} hub</span> : null}
         {!pending ? <span className="rounded-pill bg-subtle px-2 font-medium normal-case">{b.status === 'live' ? 'Approved' : 'Rejected'}</span> : null}
       </p>
       <div className="flex items-center gap-3">
@@ -196,6 +204,18 @@ function ProductCard({ b }: { b: QueuedBoard }) {
         · added by <Person p={b.creator} /> · {shortAge(b.created_at)}
         {b.post_count ? ` · ${plural(b.post_count, 'post', 'posts')}` : ''}
       </p>
+      <p className="mt-1 mb-0 flex flex-wrap items-center gap-2 text-sm text-ink-muted" data-company>
+        <Icon name="hub" size={13} />
+        {b.hub ? (
+          <>
+            <span className="font-semibold text-ink-secondary">{b.hub.name}</span>
+            {b.hub.status === 'pending' ? <span className="rounded-pill bg-subtle px-2 text-xs font-medium">New company</span> : null}
+            {b.hub.domains?.length ? <span>{b.hub.domains.join(', ')}</span> : null}
+          </>
+        ) : (
+          <span>No company</span>
+        )}
+      </p>
       {!pending && b.review_note ? <p className="mt-3 mb-0 rounded-md bg-subtle px-3 py-2 text-sm text-ink">{b.review_note}</p> : null}
       {pending ? (
         <div className="mt-3 flex flex-wrap gap-2">
@@ -216,17 +236,40 @@ function ProductCard({ b }: { b: QueuedBoard }) {
 function ApproveDialog({ b, onClose }: { b: QueuedBoard; onClose: () => void }) {
   const { toast } = useToast();
   const decide = useDecideBoard();
+  const original = b.hub;
   const [name, setName] = useState(b.name);
   const [tagline, setTagline] = useState(b.tagline);
   const [category, setCategory] = useState<BoardCategory>(b.category ?? 'prod');
+  const [company, setCompany] = useState<CompanyChoice | null>(
+    original ? { kind: 'hub', id: original.id, slug: original.slug, name: original.name, ...(original.status ? { status: original.status } : {}) } : null,
+  );
+  const [companyText, setCompanyText] = useState('');
+  const [companyName, setCompanyName] = useState(original?.name ?? '');
   const [error, setError] = useState<string | null>(null);
   const formId = `approve-${b.id}`;
+  const keepsNew = Boolean(original && original.status === 'pending' && company?.kind === 'hub' && company.id === original.id);
+
+  const hubDecision = (): BoardDecision['hub'] | 'unpicked' => {
+    if (!company) {
+      if (companyText.trim()) return 'unpicked';
+      return original ? { mode: 'none' } : undefined;
+    }
+    if (company.kind !== 'hub') return 'unpicked';
+    if (original && company.id === original.id) {
+      return keepsNew && companyName.trim() && companyName.trim() !== original.name ? { mode: 'keep', name: companyName.trim() } : undefined;
+    }
+    return { mode: 'set', id: company.id };
+  };
+
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return setError('Give it a name.');
+    if (keepsNew && !companyName.trim()) return setError('Give the company a name, or remove it.');
+    const hub = hubDecision();
+    if (hub === 'unpicked') return setError('Pick a company from the list, or clear the field.');
     setError(null);
     decide.mutate(
-      { id: b.id, approve: true, name: name.trim(), tagline: tagline.trim(), category },
+      { id: b.id, approve: true, name: name.trim(), tagline: tagline.trim(), category, ...(hub ? { hub } : {}) },
       {
         onSuccess: () => {
           toast(`${name.trim()} is live`);
@@ -258,6 +301,28 @@ function ApproveDialog({ b, onClose }: { b: QueuedBoard; onClose: () => void }) 
         <Field label="Name" aside={`${name.length}/${PRODUCT_NAME_MAX}`}>
           <Input value={name} maxLength={PRODUCT_NAME_MAX} onChange={(e) => setName(e.target.value)} autoComplete="off" />
         </Field>
+        <CompanyPicker
+          value={company}
+          onChange={setCompany}
+          text={companyText}
+          onText={setCompanyText}
+          allowNew={false}
+          hint={
+            keepsNew
+              ? 'New company. Approving the product approves it too.'
+              : original?.status === 'pending'
+                ? `The new company ${original.name} is dropped if no other product uses it.`
+                : undefined
+          }
+        />
+        {keepsNew && original ? (
+          <div className="flex flex-col gap-4 rounded-md border border-line bg-subtle px-4 py-3">
+            <Field label="Company name" aside={`${companyName.length}/60`}>
+              <Input value={companyName} maxLength={60} onChange={(e) => setCompanyName(e.target.value)} autoComplete="off" />
+            </Field>
+            <DomainEditor hubId={original.id} name={companyName.trim() || original.name} domains={original.domains ?? []} />
+          </div>
+        ) : null}
         <Field label="Description" optional aside={`${tagline.length}/${PRODUCT_TAGLINE_MAX}`}>
           <Input value={tagline} maxLength={PRODUCT_TAGLINE_MAX} onChange={(e) => setTagline(e.target.value)} autoComplete="off" />
         </Field>
@@ -277,6 +342,125 @@ function ApproveDialog({ b, onClose }: { b: QueuedBoard; onClose: () => void }) 
         ) : null}
       </form>
     </Dialog>
+  );
+}
+
+/** A company's domains: remove one, or add one (platform admins; saved straight away). */
+function DomainEditor({ hubId, name, domains }: { hubId: string; name: string; domains: string[] }) {
+  const change = useHubDomain();
+  const [draft, setDraft] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const add = () => {
+    const d = draft.trim();
+    if (!d) return;
+    setError(null);
+    change.mutate(
+      { hubId, domain: d },
+      { onSuccess: () => setDraft(''), onError: (err) => setError(err instanceof Error ? err.message : 'Something went wrong. Try again.') },
+    );
+  };
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-sm font-semibold text-ink">Domains</span>
+      {domains.length ? (
+        <ul aria-label={`${name} domains`} className="m-0 flex list-none flex-wrap gap-2 p-0">
+          {domains.map((d) => (
+            <li key={d} className="inline-flex h-7 items-center gap-1 rounded-pill border border-line bg-card pr-1 pl-3 font-mono text-sm text-ink">
+              {d}
+              <IconButton
+                icon="close"
+                size="sm"
+                label={`Remove ${d}`}
+                disabled={change.isPending}
+                onClick={() => {
+                  setError(null);
+                  change.mutate({ hubId, domain: d, remove: true }, { onError: (err) => setError(err instanceof Error ? err.message : 'Something went wrong. Try again.') });
+                }}
+              />
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="m-0 text-sm text-ink-muted">No domains yet. Products on a company’s domains join it automatically.</p>
+      )}
+      <div className="flex gap-2">
+        <Input
+          aria-label={`Add a domain to ${name}`}
+          value={draft}
+          placeholder="acme.com"
+          autoComplete="off"
+          spellCheck={false}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              add();
+            }
+          }}
+        />
+        <Button variant="secondary" onClick={add} loading={change.isPending && Boolean(draft.trim())} disabled={!draft.trim()}>
+          Add
+        </Button>
+      </div>
+      {error ? (
+        <p role="alert" className="m-0 text-sm text-danger">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ companies (0026)
+
+export function AdminCompaniesPage() {
+  return (
+    <AdminGate title="Companies">
+      <CompanyList />
+    </AdminGate>
+  );
+}
+
+function CompanyList() {
+  const list = useAdminCompanies();
+  if (list.isPending) return <SkeletonBlock className="h-8 w-full" />;
+  if (list.isError) return <LoadError title="We couldn’t load companies" onRetry={() => void list.refetch()} retrying={list.isRefetching} />;
+  const rows = list.data ?? [];
+  if (rows.length === 0) {
+    return (
+      <Quiet>
+        <b className="block font-semibold text-ink">No companies yet</b>
+        Companies appear when someone adds a product with one, or approves one here.
+      </Quiet>
+    );
+  }
+  return (
+    <ul className="m-0 flex list-none flex-col gap-3 p-0" aria-label="Companies">
+      {rows.map((h) => (
+        <li key={h.id}>
+          <CompanyCard h={h} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function CompanyCard({ h }: { h: AdminCompany }) {
+  return (
+    <Card>
+      <p className="mt-0 mb-3 flex flex-wrap items-center gap-2">
+        {h.status === 'live' ? (
+          <Link to={`/h/${h.slug}`} className="text-base font-semibold text-ink no-underline hover:underline">
+            {h.name}
+          </Link>
+        ) : (
+          <span className="text-base font-semibold text-ink">{h.name}</span>
+        )}
+        {h.status === 'pending' ? <span className="rounded-pill bg-subtle px-2 text-xs font-medium text-ink-muted">Waiting for review</span> : null}
+        <span className="text-sm text-ink-muted">{plural(h.board_count, 'product')}</span>
+      </p>
+      <DomainEditor hubId={h.id} name={h.name} domains={h.domains} />
+    </Card>
   );
 }
 
