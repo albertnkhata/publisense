@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import pitchGradient from '../assets/pitch-gradient.webp';
 import { useSearchParams } from 'react-router';
 import { dedupePosts, useFeed, type FeedScope, type FeedSort } from '../api';
 import { usePageTitle } from '../lib/usePageTitle';
@@ -65,9 +66,9 @@ export function HomePage() {
 /** Pitch copy for signed-out visitors, kept here so tests and docs quote one source. */
 export const PITCH = {
   title: 'Feedback, straight to the teams who build your tools',
-  body: 'Every product gets a board. Post what’s broken or missing, upvote what matters, and the team replies and ships.',
+  body: 'Post what’s broken, upvote what matters, and watch the team ship it.',
   join: 'Join Publisense',
-  claim: 'Claim your product’s board',
+  claim: 'Claim your board',
   claimReason: 'claim your product’s board',
 };
 
@@ -76,24 +77,43 @@ export const PITCH = {
  * visitor lands in the real feed with one card saying what this is. Not
  * dismissible; signed-in viewers never see it. Claiming needs an account, so
  * the secondary action opens sign-up with that reason.
+ *
+ * The card sits on a decorative gradient image under a dark scrim and uses the
+ * theme-independent on-image tokens, so it reads the same (light text on a
+ * dark card) in both themes. It deliberately does not set data-theme: dialogs
+ * inherit the opener's theme scope, and sign-up should follow the page. The
+ * secondary action is a translucent outline button made for the image.
  */
 function HomePitch() {
   const { openAuth } = useAuthDialog();
   return (
-    <Card as="section" aria-labelledby="home-pitch-title" className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1">
-        <h2 id="home-pitch-title" className="m-0 text-lg font-bold text-ink">
-          {PITCH.title}
-        </h2>
-        <p className="m-0 text-base text-ink-secondary">{PITCH.body}</p>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" onClick={() => openAuth('signup')}>
-          {PITCH.join}
-        </Button>
-        <Button size="sm" variant="secondary" onClick={() => openAuth('signup', PITCH.claimReason)}>
-          {PITCH.claim}
-        </Button>
+    <Card
+      as="section"
+      padding="none"
+      aria-labelledby="home-pitch-title"
+      className="relative isolate overflow-hidden px-5 py-6 text-center max-md:px-4 max-md:py-5"
+    >
+      <img src={pitchGradient} alt="" aria-hidden="true" className="absolute inset-0 -z-10 size-full object-cover" />
+      <div aria-hidden="true" className="absolute inset-0 -z-10 bg-linear-to-b from-scrim/40 to-scrim" />
+      <div className="flex flex-col items-center gap-4 max-md:gap-3">
+        <div className="flex flex-col items-center gap-1">
+          <h2 id="home-pitch-title" className="m-0 text-xl font-bold text-balance text-on-image max-md:text-lg">
+            {PITCH.title}
+          </h2>
+          <p className="m-0 text-base text-balance text-on-image-muted">{PITCH.body}</p>
+        </div>
+        <div className="flex items-center justify-center gap-2">
+          <Button size="sm" onClick={() => openAuth('signup')}>
+            {PITCH.join}
+          </Button>
+          <button
+            type="button"
+            onClick={() => openAuth('signup', PITCH.claimReason)}
+            className="inline-flex h-7 items-center justify-center rounded-md border border-on-image-line bg-on-image/10 px-3 text-sm font-semibold whitespace-nowrap text-on-image backdrop-blur-md transition-colors duration-120 ease-out select-none hover:bg-on-image/20"
+          >
+            {PITCH.claim}
+          </button>
+        </div>
       </div>
     </Card>
   );
