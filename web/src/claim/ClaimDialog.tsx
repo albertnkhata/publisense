@@ -4,6 +4,7 @@ import {
   checkDns,
   covered,
   DNS_NOT_FOUND,
+  isPostable,
   logoSrc,
   REASON_MAX,
   REASON_MIN,
@@ -336,7 +337,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
     body = <p className="m-0 py-6 text-center text-sm text-ink-muted">Loading…</p>;
   } else if (step === 'pick') {
     const q = query.trim().toLowerCase();
-    const list = boards.data.filter((b) => !q || b.name.toLowerCase().includes(q));
+    const list = boards.data.filter((b) => isPostable(b, viewerId) && (!q || b.name.toLowerCase().includes(q)));
     body = (
       <>
         <Input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Enter product name" aria-label="Product" autoComplete="off" autoFocus />

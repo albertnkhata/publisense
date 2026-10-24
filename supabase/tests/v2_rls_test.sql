@@ -268,7 +268,8 @@ select pg_temp.expect_error('anon cannot read email tokens', $$select * from pub
 select pg_temp.as_owner();
 select pg_temp.expect('unsubscribe turned off every email kind',
   (select count(*) from public.notification_pref
-    where user_id = '00000000-0000-4000-8000-00000000000b' and channel = 'email' and not enabled) = 8);
+    where user_id = '00000000-0000-4000-8000-00000000000b' and channel = 'email' and not enabled)
+  = cardinality(enum_range(null::public.v2_notification_kind)));
 
 -- ------------------------------------------------------------ storage
 
@@ -903,6 +904,164 @@ select pg_temp.expect('step 8: a removed admin loses the queue and the log',
 select pg_temp.as_owner();
 select pg_temp.expect_error('step 8: the last admin cannot be deleted even by a cascade',
   $$delete from public.platform_admin$$);
+
+-- ------------------------------------------------------------ add a product (0024)
+-- State carried over: carol is the only platform admin, erin signs in with @figma.com,
+-- the 14 seeded boards are live. New boards wait in the review queue as 'pending'.
+
+select pg_temp.as_owner();
+select pg_temp.expect('add product: existing boards are live and keep their site as the dedupe key',
+  not exists (select 1 from public.board where status <> 'live')
+  and (select canonical from public.board where slug = 'figjam') = 'figma.com/figjam');
+
+-- The link parser (web/src/lib/link.ts mirrors it on these same cases).
+select pg_temp.expect('add product: links parse to a kind and a canonical key',
+  public.v2_parse_link('https://www.Cursor.com/pricing?x=1#top') = '{"kind":"site","canonical":"cursor.com","full":"cursor.com/pricing"}'::jsonb
+  and public.v2_parse_link('cursor.com') ->> 'canonical' = 'cursor.com'
+  and public.v2_parse_link('http://acme.dev:8080/') ->> 'canonical' = 'acme.dev'
+  and public.v2_parse_link('https://github.com/Vercel/Next.js.git') = '{"kind":"github","canonical":"github.com/vercel/next.js","full":"github.com/vercel/next.js.git"}'::jsonb
+  and public.v2_parse_link('https://github.com/vercel/next.js/tree/canary/docs') ->> 'canonical' = 'github.com/vercel/next.js'
+  and public.v2_parse_link('https://github.com/features/copilot') = '{"kind":"site","canonical":"github.com","full":"github.com/features/copilot"}'::jsonb
+  and public.v2_parse_link('https://github.com/vercel') ->> 'kind' = 'site');
+select pg_temp.expect('add product: non-http, IP, credential and single-label links are refused',
+  public.v2_parse_link('javascript:alert(1)') is null and public.v2_parse_link('ftp://acme.dev') is null
+  and public.v2_parse_link('http://127.0.0.1/') is null and public.v2_parse_link('http://10.0.0.8:3000') is null
+  and public.v2_parse_link('https://user:pw@acme.dev') is null and public.v2_parse_link('http://localhost') is null
+  and public.v2_parse_link('http://[::1]/') is null and public.v2_parse_link('acme dev.com') is null
+  and public.v2_parse_link('') is null);
+
+select pg_temp.as_user(null);
+select pg_temp.expect_error('add product: anon cannot create a board',
+  $$select public.create_board('https://acme-notes.dev', 'Acme Notes', '', 'prod')$$);
+select pg_temp.expect_error('add product: anon cannot probe links', $$select public.check_product_link('cursor.com')$$);
+
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000b');
+select pg_temp.expect('add product: a pasted link finds the live board (path and www ignored)',
+  public.check_product_link('https://www.cursor.com/pricing') -> 'match' = '{"slug":"cursor","name":"Cursor","status":"live","mine":false}'::jsonb);
+select pg_temp.expect('add product: a link under a board''s path finds that board (FigJam, not Figma)',
+  public.check_product_link('figma.com/figjam/board/123') -> 'match' ->> 'slug' = 'figjam'
+  and public.check_product_link('figma.com/files') -> 'match' ->> 'slug' = 'figma'
+  and public.check_product_link('https://github.com/features/copilot') -> 'match' ->> 'slug' = 'github-copilot');
+select pg_temp.expect('add product: a new site has no match; a figma.com subdomain joins the Figma hub',
+  public.check_product_link('https://acme-notes.dev') -> 'match' = 'null'::jsonb
+  and public.check_product_link('https://sites.figma.com') -> 'hub' ->> 'slug' = 'figma'
+  and public.check_product_link('nope') ->> 'error' = 'invalid_link');
+select pg_temp.expect_error('add product: no direct insert into board',
+  $$insert into public.board (slug, name, site) values ('acme-notes', 'Acme Notes', 'acme-notes.dev')$$);
+
+create temp table s10 (k text primary key, v jsonb);
+grant select, insert on s10 to anon, authenticated;
+insert into s10 values ('a', public.create_board('https://www.acme-notes.dev/', '  Acme   Notes ', 'Notes for small teams', 'prod'));
+select pg_temp.expect('add product: create_board answers ok, pending, with a slug from the name',
+  (select (v ->> 'ok')::boolean and v ->> 'status' = 'pending' and v ->> 'slug' = 'acme-notes'
+          and v ->> 'name' = 'Acme Notes' and v -> 'hub' = 'null'::jsonb and not (v ->> 'can_claim')::boolean from s10 where k = 'a'));
+select pg_temp.expect('add product: the row is pending, created by the caller, keyed by host, followed by its creator',
+  (select status = 'pending' and created_by = ids.bob and site = 'acme-notes.dev' and canonical = 'acme-notes.dev'
+          and category = 'prod' and claimed_at is null and follower_count = 1
+     from public.board, ids where slug = 'acme-notes'));
+select pg_temp.expect('add product: the creator sees their pending board and is told it is theirs on a repeat',
+  exists (select 1 from public.board where slug = 'acme-notes')
+  and public.check_product_link('acme-notes.dev') -> 'match' = '{"slug":"acme-notes","name":"Acme Notes","status":"pending","mine":true}'::jsonb
+  and public.create_board('https://acme-notes.dev/login', 'Acme', '', 'prod') -> 'match' ->> 'slug' = 'acme-notes'
+  and public.create_board('https://cursor.com', 'Cursor again', '', 'code') ->> 'error' = 'exists');
+select pg_temp.expect_error('add product: the creator cannot make it live themselves',
+  $$update public.board set status = 'live' where slug = 'acme-notes'$$);
+select pg_temp.expect('add product: field checks',
+  public.create_board('https://b1.dev', '', '', 'prod') ->> 'error' = 'name_length'
+  and public.create_board('https://b1.dev', repeat('n', 61), '', 'prod') ->> 'error' = 'name_length'
+  and public.create_board('https://b1.dev', 'B1', repeat('t', 121), 'prod') ->> 'error' = 'tagline_length'
+  and public.create_board('https://b1.dev', 'B1', '', 'games') ->> 'error' = 'invalid_category'
+  and public.create_board('ftp://b1.dev', 'B1', '', 'prod') ->> 'error' = 'invalid_link');
+
+-- The creator's first post on it is theirs alone until approval.
+insert into public.post (board_id, type, title) select (select id from public.board where slug = 'acme-notes'), 'feature', 'Offline mode for the desktop app';
+select pg_temp.as_owner();
+insert into s10 values ('post', to_jsonb((select id from public.post where title = 'Offline mode for the desktop app'))),
+                       ('acme', to_jsonb((select id from public.board where slug = 'acme-notes')));
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000b');
+select pg_temp.expect('add product: the creator posts on their pending board and reads it back',
+  exists (select 1 from public.post where title = 'Offline mode for the desktop app'));
+
+select pg_temp.as_user(null);
+select pg_temp.expect('add product: anon sees neither the pending board nor its post',
+  not exists (select 1 from public.board where slug = 'acme-notes')
+  and not exists (select 1 from public.post where title = 'Offline mode for the desktop app')
+  and (select count(*) from public.board) = 14);
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000a');
+select pg_temp.expect('add product: another user sees neither, and learns only that it waits for review',
+  not exists (select 1 from public.board where slug = 'acme-notes')
+  and not exists (select 1 from public.post where title = 'Offline mode for the desktop app')
+  and public.check_product_link('acme-notes.dev') -> 'match' = '{"status":"pending","mine":false}'::jsonb
+  and public.create_board('acme-notes.dev', 'Acme', '', 'prod') -> 'match' = '{"status":"pending","mine":false}'::jsonb);
+select pg_temp.expect_error('add product: another user cannot post on a pending board',
+  $$insert into public.post (board_id, type, title) select (v #>> '{}')::uuid, 'bug', 'Sneaking in' from s10 where k = 'acme'$$);
+select pg_temp.expect_error('add product: ... nor vote on its posts',
+  $$insert into public.vote (post_id) select (v #>> '{}')::uuid from s10 where k = 'post'$$);
+select pg_temp.expect('add product: ... nor claim it (it does not exist for them)',
+  public.claim_board((select (v #>> '{}')::uuid from s10 where k = 'acme')) ->> 'error' = 'not_found');
+
+-- Rate limit: three pending boards per person.
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000b');
+insert into s10 values ('b', public.create_board('https://beta-tool.io', 'Beta Tool', '', 'dev')),
+                       ('c', public.create_board('https://gamma.app', 'Gamma', '', 'ai'));
+select pg_temp.expect('add product: a fourth pending board is refused',
+  (select bool_and((v ->> 'ok')::boolean) from s10 where k in ('b', 'c'))
+  and public.create_board('https://delta.so', 'Delta', '', 'prod') ->> 'error' = 'too_many_pending');
+
+-- GitHub repos and hubs.
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000d');
+insert into s10 values ('gh', public.create_board('https://github.com/Vercel/Next.js', 'next.js', 'The React Framework', 'dev'));
+select pg_temp.expect('add product: a GitHub repo is keyed by owner/repo and joins no hub',
+  (select (v ->> 'ok')::boolean and v ->> 'slug' = 'next-js' and v -> 'hub' = 'null'::jsonb from s10 where k = 'gh')
+  and (select site = 'github.com/vercel/next.js' and canonical = 'github.com/vercel/next.js' and hub_id is null
+         from public.board where slug = 'next-js')
+  and public.check_product_link('github.com/vercel/next.js/issues') -> 'match' ->> 'slug' = 'next-js'
+  and public.check_product_link('github.com/vercel/swr') -> 'match' = 'null'::jsonb);
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000e');
+insert into s10 values ('fs', public.create_board('https://sites.figma.com', 'Figma Sites', 'Publish sites from Figma', 'design'));
+select pg_temp.expect('add product: a site on a hub''s domain joins the hub; the adder''s work email offers the claim',
+  (select v ->> 'hub' = 'figma' and (v ->> 'can_claim')::boolean from s10 where k = 'fs')
+  and (select hub_id = ids.figma_hub from public.board, ids where slug = 'figma-sites')
+  and not (select (v ->> 'can_claim')::boolean from s10 where k = 'gh'));
+select pg_temp.expect('add product: the creator may claim their own pending board once the domain is proved',
+  public.claim_board((select id from public.board where slug = 'figma-sites')) ->> 'error' = 'not_verified');
+
+-- Review queue: platform admins only.
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000b');
+select pg_temp.expect('add product: non-admins cannot decide',
+  public.decide_board((select (v #>> '{}')::uuid from s10 where k = 'acme'), true) ->> 'error' = 'not_allowed');
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000c');
+select pg_temp.expect('add product: admins see the whole queue',
+  (select count(*) from public.board where status = 'pending') = 5);
+select pg_temp.expect('add product: an admin approves with edits',
+  (public.decide_board((select (v #>> '{}')::uuid from s10 where k = 'acme'), true, 'Acme Notes HQ', 'Team notes that sync', 'code') ->> 'ok')::boolean
+  and public.decide_board((select (v #>> '{}')::uuid from s10 where k = 'acme'), true) ->> 'error' = 'decided');
+select pg_temp.expect('add product: ... and rejects with a reason',
+  (public.decide_board((select (v ->> 'id')::uuid from s10 where k = 'b'), false, null, null, null, 'Duplicate of an existing product') ->> 'ok')::boolean
+  and public.decide_board((select (v ->> 'id')::uuid from s10 where k = 'c'), false, null, null, null, repeat('x', 501)) ->> 'error' = 'reason_length');
+
+select pg_temp.as_user(null);
+select pg_temp.expect('add product: once approved the board and its first post are public',
+  exists (select 1 from public.board where slug = 'acme-notes' and status = 'live' and name = 'Acme Notes HQ'
+            and tagline = 'Team notes that sync' and category = 'code' and reviewed_by is not null)
+  and exists (select 1 from public.post where title = 'Offline mode for the desktop app'));
+select pg_temp.expect('add product: a rejected board stays out of sight',
+  not exists (select 1 from public.board where slug = 'beta-tool'));
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000b');
+select pg_temp.expect('add product: the creator hears both answers in-app',
+  exists (select 1 from public.notification where kind = 'product' and data ->> 'status' = 'approved' and data ->> 'slug' = 'acme-notes')
+  and exists (select 1 from public.notification where kind = 'product' and data ->> 'status' = 'rejected'
+                and data ->> 'reason' = 'Duplicate of an existing product'));
+select pg_temp.expect('add product: the creator still sees their rejected board, with the reason',
+  (select status = 'rejected' and review_note = 'Duplicate of an existing product' from public.board where slug = 'beta-tool'));
+select pg_temp.expect_error('add product: nobody posts on a rejected board',
+  $$insert into public.post (board_id, type, title) select id, 'bug', 'Still here?' from public.board where slug = 'beta-tool'$$);
+select pg_temp.expect('add product: a rejected site can be added again, and a slot frees up',
+  (public.create_board('https://beta-tool.io', 'Beta Tool', '', 'dev') ->> 'slug') = 'beta-tool-2');
+
+select pg_temp.as_owner();
+select pg_temp.expect_error('add product: the canonical index refuses a second board for one site',
+  $$insert into public.board (slug, name, site) values ('cursor-two', 'Cursor two', 'www.cursor.com')$$);
 
 \echo 'v2 RLS tests: all passed'
 rollback;

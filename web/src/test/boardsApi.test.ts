@@ -86,6 +86,8 @@ const board = (over: Partial<Board>): Board => ({
   created_at: '2026-10-01T00:00:00Z',
   follower_count: 0,
   post_count: 0,
+  status: 'live',
+  created_by: null,
   ...over,
 });
 

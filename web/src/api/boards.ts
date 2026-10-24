@@ -11,6 +11,8 @@ import { ApiError, searchPosts, type Post } from './posts';
  */
 
 export type BoardCategory = 'ai' | 'code' | 'dev' | 'design' | 'prod' | 'browser';
+/** 0024: new boards wait for review; existing boards are live. */
+export type BoardStatus = 'pending' | 'live' | 'rejected';
 
 export interface Board {
   id: string;
@@ -26,6 +28,9 @@ export interface Board {
   created_at: string;
   follower_count: number;
   post_count: number;
+  status: BoardStatus;
+  /** Who added it (0024); null for the seeded catalogue or a deleted account. */
+  created_by: string | null;
 }
 
 export interface HubRef {
@@ -39,6 +44,10 @@ export interface HubRef {
 
 export interface BoardWithHub extends Board {
   hub: HubRef | null;
+  /** "Added by @handle" until the board is claimed. */
+  creator?: { id: string; handle: string; name: string; avatar_path: string | null } | null;
+  /** Why a board was not approved (its creator and staff only). */
+  review_note?: string | null;
 }
 
 export interface Hub {
@@ -55,7 +64,7 @@ export interface Hub {
 }
 
 export const BOARD_COLUMNS =
-  'id, slug, name, tagline, site, color, logo_path, category, hub_id, claimed_at, created_at, follower_count, post_count';
+  'id, slug, name, tagline, site, color, logo_path, category, hub_id, claimed_at, created_at, follower_count, post_count, status, created_by';
 const HUB_COLUMNS = 'id, slug, name, description, primary_domain, claimed_at, created_at, follower_count';
 
 /** Explore's category chips, in the mockup's order and wording. */
@@ -68,6 +77,16 @@ export const CATEGORIES: Array<{ value: 'all' | BoardCategory; label: string }> 
   { value: 'prod', label: 'Productivity' },
   { value: 'browser', label: 'Browsers' },
 ];
+
+/**
+ * Boards that belong in public lists (Explore, search, hubs, trending). RLS also lets
+ * a creator and platform admins read pending boards; those stay off the lists.
+ */
+export const isLive = (b: Pick<Board, 'status'>) => (b.status ?? 'live') === 'live';
+
+/** Boards the composer may offer: live ones, plus the viewer's own pending boards. */
+export const isPostable = (b: Pick<Board, 'status' | 'created_by'>, viewerId: string | null) =>
+  isLive(b) || (b.status === 'pending' && Boolean(viewerId) && b.created_by === viewerId);
 
 const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 export const isSlug = (s: string | null | undefined): s is string => Boolean(s && s.length <= 40 && SLUG_RE.test(s));
@@ -98,7 +117,9 @@ export async function fetchBoard(slug: string): Promise<BoardWithHub | null> {
   if (!isSlug(slug)) return null;
   const { data, error } = await getSupabase()
     .from('board')
-    .select(`${BOARD_COLUMNS}, hub:hub!hub_id(id, slug, name, claimed_at, primary_domain)`)
+    .select(
+      `${BOARD_COLUMNS}, review_note, hub:hub!hub_id(id, slug, name, claimed_at, primary_domain), creator:profile!board_created_by_fkey(id, handle, name, avatar_path)`,
+    )
     .eq('slug', slug)
     .maybeSingle();
   if (error) throw error;
@@ -128,7 +149,7 @@ export async function fetchHub(slug: string): Promise<Hub | null> {
 }
 
 function sortHubBoards(h: Hub): Hub {
-  return { ...h, boards: [...(h.boards ?? [])].sort((a, b) => a.name.localeCompare(b.name)) };
+  return { ...h, boards: [...(h.boards ?? [])].filter(isLive).sort((a, b) => a.name.localeCompare(b.name)) };
 }
 
 /** Live posts and roadmap items on a set of boards, for the tab counts. */
@@ -163,6 +184,7 @@ export function rankTrending(boards: Board[], recentPosts: Array<{ board_id: str
   const recent = new Map<string, number>();
   for (const p of recentPosts) recent.set(p.board_id, (recent.get(p.board_id) ?? 0) + 1);
   return boards
+    .filter(isLive)
     .map((b) => ({ ...b, recent: recent.get(b.id) ?? 0 }))
     .sort((a, b) => b.recent - a.recent || b.post_count - a.post_count || b.follower_count - a.follower_count || a.name.localeCompare(b.name))
     .slice(0, limit);
@@ -255,7 +277,7 @@ export function matchCatalogue(q: string, boards: Board[], hubs: Hub[]): { board
   const term = ilikeTerm(q);
   if (term.length < 1) return { boards: [], hubs: [] };
   const matchedBoards = boards
-    .filter((b) => matchesAll(`${b.name} ${b.tagline}`, term))
+    .filter((b) => isLive(b) && matchesAll(`${b.name} ${b.tagline}`, term))
     .sort((a, b) => Number(matchesAll(b.name, term)) - Number(matchesAll(a.name, term)) || b.follower_count - a.follower_count || a.name.localeCompare(b.name));
   const matchedHubs = hubs.filter(
     (h) => matchesAll(`${h.name} ${h.description}`, term) || h.boards.some((b) => matchesAll(b.name, term)),

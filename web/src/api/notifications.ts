@@ -11,6 +11,7 @@ export const NOTIFICATION_KINDS = [
   'follow',
   'claim',
   'join',
+  'product',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 export const CHANNELS = ['in_app', 'email'] as const;
@@ -25,6 +26,7 @@ export const KIND_COPY: Record<NotificationKind, { label: string; hint: string }
   follow: { label: 'New followers', hint: 'Someone follows you' },
   claim: { label: 'Board claims', hint: 'Updates on boards you claim or manage' },
   join: { label: 'Team requests', hint: 'Requests to join your team, and answers to yours' },
+  product: { label: 'Products you add', hint: 'A product you added is approved, or not' },
 };
 
 export interface PrefRow {
@@ -124,7 +126,7 @@ export interface AppNotification {
   } | null;
   /** The reply's text, for reply and mention notifications. */
   quote: string | null;
-  /** Board or hub named by a claim or join notification. */
+  /** Board or hub named by a claim, join or product notification. */
   scope: { name: string; slug: string; color: string | null } | null;
 }
 
