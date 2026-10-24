@@ -7,3 +7,5 @@ export * from './auth';
 export * from './profile';
 export * from './notifications';
 export * from './account';
+export * from './posts';
+export * from './postHooks';

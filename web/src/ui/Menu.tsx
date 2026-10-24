@@ -177,7 +177,7 @@ export function Menu({ trigger, children, label, side = 'bottom', align = 'start
 }
 
 const itemClass =
-  'flex w-full items-center gap-3 rounded-sm border-0 bg-transparent px-3 py-2 text-left text-sm font-medium text-ink no-underline ' +
+  'flex w-full items-center gap-3 rounded-sm border-0 bg-transparent px-3 py-2 text-left text-sm font-medium no-underline ' +
   'outline-none hover:bg-subtle focus-visible:bg-subtle focus:bg-subtle aria-disabled:cursor-default aria-disabled:opacity-45';
 
 export interface MenuItemProps {
@@ -217,7 +217,7 @@ export function MenuItem({ children, icon, description, kbd, danger, disabled, o
     onSelect?.();
     ctx?.close(!to);
   };
-  const classes = cx('group', itemClass, danger && 'text-danger');
+  const classes = cx('group', itemClass, danger ? 'text-danger' : 'text-ink');
   const content = <ItemContent icon={icon} description={description} kbd={kbd}>{children}</ItemContent>;
   if (to && !disabled) {
     return (
@@ -259,7 +259,7 @@ export function MenuItemRadio({
       role="menuitemradio"
       aria-checked={checked}
       tabIndex={-1}
-      className={cx(itemClass, 'justify-between aria-checked:font-semibold')}
+      className={cx(itemClass, 'justify-between text-ink aria-checked:font-semibold')}
       onClick={() => {
         onSelect();
         ctx?.close(true);

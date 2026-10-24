@@ -287,6 +287,71 @@ insert into storage.objects (bucket_id, name)
 select 'board-logos', cursor || '/22222222-2222-4222-8222-222222222222.png' from ids;
 select pg_temp.expect('board owner uploads its logo', true);
 
+-- ------------------------------------------------------------ step 5: the app's writes, with RETURNING
+-- The feed and post page write through PostgREST with `return=representation`, so
+-- every write below also needs the row back through the SELECT policies. RLS filters
+-- a write on someone else's row to zero rows (no error); the api layer reports that.
+
+create temp table s5 (post uuid, reply uuid);
+insert into s5 values (null, null);
+grant select, update on s5 to anon, authenticated;
+
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000b');
+-- (Inserted without RETURNING: the composer is step 6. See the PR notes on insert-returning.)
+insert into public.post (board_id, type, title, body) select linear, 'feature', 'Step five sample post', 'details' from ids;
+update s5 set post = (select id from public.post where title = 'Step five sample post' and author_id = auth.uid());
+select pg_temp.expect('step 5: the author sees their new post', (select post is not null from s5));
+
+with u as (
+  update public.post set type = 'bug', title = 'Step five sample, edited', body = ''
+   where id = (select post from s5)
+  returning id, type, title, body, edited_at)
+select pg_temp.expect('step 5: author edit returns the row with edited_at stamped',
+  (select count(*) = 1 and bool_and(edited_at is not null and type = 'bug') from u));
+
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000a');
+with u as (update public.post set title = 'Hijacked title' where id = (select post from s5) returning id)
+select pg_temp.expect('step 5: editing someone else''s post changes zero rows', (select count(*) = 0 from u));
+with d as (delete from public.post where id = (select post from s5) returning id)
+select pg_temp.expect('step 5: deleting someone else''s post deletes zero rows', (select count(*) = 0 from d));
+
+insert into public.vote (post_id) select post from s5;
+select pg_temp.expect('step 5: upvote sends post_id only; user_id, count and auto-follow are server-side',
+  (select vote_count = 1 from public.post where id = (select post from s5))
+  and exists (select 1 from public.follow where user_id = auth.uid() and target = 'post' and target_id = (select post from s5)));
+select pg_temp.expect_error('step 5: a second upvote is a unique violation (the app treats 23505 as done)',
+  $$insert into public.vote (post_id) select post from s5$$);
+select pg_temp.expect_error('step 5: following a post twice is a unique violation (the app treats 23505 as done)',
+  $$insert into public.follow (target, target_id) select 'post', post from s5$$);
+
+with r as (
+  insert into public.reply (post_id, parent_id, body) select post, null, 'A reply from Alice' from s5
+  returning id, author_id, is_official)
+update s5 set reply = (select id from r)
+ where (select author_id from r) = '00000000-0000-4000-8000-00000000000a' and not (select is_official from r);
+select pg_temp.expect('step 5: a reply comes back with its author set by the server', (select reply is not null from s5));
+with u as (update public.reply set body = 'A reply from Alice, edited' where id = (select reply from s5) returning id, edited_at)
+select pg_temp.expect('step 5: reply author edit returns the row with edited_at', (select count(*) = 1 and bool_and(edited_at is not null) from u));
+
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000b');
+insert into public.reply (post_id, parent_id, body) select post, reply, 'Bob answers in the thread' from s5;
+with u as (update public.reply set body = 'Hijacked' where id = (select reply from s5) returning id)
+select pg_temp.expect('step 5: editing someone else''s reply changes zero rows', (select count(*) = 0 from u));
+
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000a');
+with d as (delete from public.reply where id = (select reply from s5) returning id)
+select pg_temp.expect('step 5: reply author delete returns the deleted row', (select count(*) = 1 from d));
+select pg_temp.expect('step 5: deleting a reply takes its thread with it and the counter follows',
+  (select reply_count = 0 from public.post where id = (select post from s5)));
+delete from public.vote where post_id = (select post from s5) and user_id = auth.uid();
+select pg_temp.expect('step 5: removing an upvote lowers the count',
+  (select vote_count = 0 from public.post where id = (select post from s5)));
+
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000b');
+with d as (delete from public.post where id = (select post from s5) returning id)
+select pg_temp.expect('step 5: post author delete returns the deleted row', (select count(*) = 1 from d));
+select pg_temp.as_owner();
+
 -- ------------------------------------------------------------ deletion
 
 select pg_temp.as_user('00000000-0000-4000-8000-00000000000a');
