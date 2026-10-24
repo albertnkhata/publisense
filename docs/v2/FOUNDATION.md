@@ -143,7 +143,7 @@ Limits: images only (png, jpg, webp), 1 MB, square crop done client-side. SVG wa
 | Delete account | | self | | | (blocked while sole owner) |
 | Decide reports and ownership disputes | | | | | platform admin only |
 
-Enforced in RLS and `security definer` RPCs; the UI mirrors it but is never the guard. Implemented in `supabase/migrations/0017_v2_rls.sql` in two layers: column GRANTs decide what a client may write at all (counters, status, `hidden_at`, `claimed_at` are never client-writable), policies decide which rows. Status and hiding go through RPCs (`set_post_status`, `set_post_hidden`, `set_reply_hidden`) so every change leaves an audit row. `supabase/tests/v2_rls_test.sql` checks this table as the real API roles in CI.
+Enforced in RLS and `security definer` RPCs; the UI mirrors it but is never the guard. Implemented in `supabase/migrations/0017_v2_rls.sql` in two layers: column GRANTs decide what a client may write at all (counters, status, `hidden_at`, `claimed_at` are never client-writable), policies decide which rows. Status and hiding go through RPCs (`set_post_status`, `set_post_hidden`, `set_reply_hidden`) so every change leaves an audit row. `0020_v2_post_read_policy.sql` (step 6) writes the post read rule against the row itself so an author's `insert … returning` can read back the post it just created. `supabase/tests/v2_rls_test.sql` checks this table as the real API roles in CI.
 
 ## 9. Routes
 
@@ -170,7 +170,7 @@ CI runs on GitHub Actions once the repo is public; until then the gates are run 
 5. **Feed + post**: home feed, PostCard, PostPage, votes, replies, author edit/delete
 6. **Boards + hubs**: board page with Roadmap and Changelog, hub page, Explore, search, composer with similar posts
 7. **Claim + team**: claim flow, hub claim, Manage inbox, team, join and dispute
-8. **Moderation**: merge with undo, reports queue, hide, block, admin team page (appoint and remove platform admins, audited)
+8. **Moderation + people**: merge with undo, reports queue, hide, block, admin team page (appoint and remove platform admins, audited), user profile (`/u/:handle`, with people in search) and the notifications page (`/notifications`)
 9. **Cutover**: smoke tests, `pg_dump` snapshot, drop v1 tables and code, deploy
 
 ## 12. Registers

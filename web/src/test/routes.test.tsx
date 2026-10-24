@@ -9,10 +9,10 @@ const CASES: Array<[string, string]> = [
   ['/', 'Home'],
   ['/explore', 'Explore'],
   ['/search?q=dark%20mode', 'Search'],
-  ['/b/supabase', 'supabase'],
-  ['/b/supabase?tab=roadmap', 'supabase'],
+  ['/b/supabase', 'Loading board'], // board and hub pages fetch first (no Supabase here)
+  ['/b/supabase?tab=roadmap', 'Loading board'],
   ['/b/supabase/manage', 'Manage supabase'],
-  ['/h/acme', 'acme'],
+  ['/h/acme', 'Loading hub'],
   ['/h/acme/manage', 'Manage acme'],
   ['/post/123', 'Post not found'], // not a post id: answered without a request
   ['/u/alex', '@alex'],

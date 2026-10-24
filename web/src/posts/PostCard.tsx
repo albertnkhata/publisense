@@ -20,11 +20,13 @@ export interface PostCardProps {
   variant?: 'feed' | 'page';
   /** Called after the author deletes it (the post page navigates away). */
   onDeleted?: () => void;
+  /** On a board page the board is already named, so the crumb is left out (mockup). */
+  hideBoard?: boolean;
 }
 
 const linkClass = 'text-inherit no-underline hover:underline hover:underline-offset-2';
 
-export function PostCard({ post, variant = 'feed', onDeleted }: PostCardProps) {
+export function PostCard({ post, variant = 'feed', onDeleted, hideBoard = false }: PostCardProps) {
   const navigate = useNavigate();
   const page = variant === 'page';
   const href = `/post/${post.id}`;
@@ -50,7 +52,7 @@ export function PostCard({ post, variant = 'feed', onDeleted }: PostCardProps) {
       )}
     >
       <div className="relative min-w-0 pl-gutter">
-        <PostHead post={post} />
+        <PostHead post={post} hideBoard={hideBoard} />
         <div className="absolute -top-1 -right-2">
           <PostMenu post={post} {...(onDeleted ? { onDeleted } : {})} />
         </div>
@@ -82,7 +84,7 @@ export function PostCard({ post, variant = 'feed', onDeleted }: PostCardProps) {
 }
 
 /** Row 1: who and when (or the board, for seeded posts). Row 2: board crumb and type. */
-function PostHead({ post }: { post: Post }) {
+function PostHead({ post, hideBoard }: { post: Post; hideBoard: boolean }) {
   const kind = postKind(post);
   const board = post.board;
   const age = ago(post.created_at);
@@ -156,10 +158,16 @@ function PostHead({ post }: { post: Post }) {
         {edited}
       </div>
       <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-        {boardLink}
-        <Dot>
+        {hideBoard ? (
           <TypePill type={post.type} />
-        </Dot>
+        ) : (
+          <>
+            {boardLink}
+            <Dot>
+              <TypePill type={post.type} />
+            </Dot>
+          </>
+        )}
       </div>
     </>
   );

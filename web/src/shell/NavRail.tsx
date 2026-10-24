@@ -45,7 +45,7 @@ export function NavRail() {
     });
   }, []);
   useShortcut('[', toggle, { enabled: !belowLg });
-  useShortcut('c', openComposer, { enabled: Boolean(viewer) });
+  useShortcut('c', () => openComposer(), { enabled: Boolean(viewer) });
 
   return (
     <aside
@@ -107,7 +107,7 @@ export function NavRail() {
         <Tooltip content="Post feedback" kbd="C" side="right" disabled={!collapsed}>
           <button
             type="button"
-            onClick={openComposer}
+            onClick={() => openComposer()}
             className="flex h-row w-full items-center overflow-hidden rounded-md border-0 bg-brand text-left text-sm font-semibold whitespace-nowrap text-on-brand transition-colors duration-120 hover:bg-brand-hover"
           >
             <span className="grid h-row w-gutter shrink-0 place-items-center">

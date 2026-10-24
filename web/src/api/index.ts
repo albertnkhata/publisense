@@ -9,3 +9,5 @@ export * from './notifications';
 export * from './account';
 export * from './posts';
 export * from './postHooks';
+export * from './boards';
+export * from './boardHooks';

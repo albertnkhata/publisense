@@ -33,7 +33,7 @@ export function TabBar() {
           {({ isActive }) => <TabIcon name="explore" active={isActive} />}
         </NavLink>
         {viewer ? (
-          <button type="button" aria-label="Post feedback" onClick={openComposer} className="flex h-8 items-center justify-center border-0 bg-transparent">
+          <button type="button" aria-label="Post feedback" onClick={() => openComposer()} className="flex h-8 items-center justify-center border-0 bg-transparent">
             <span className="grid h-7 w-8 place-items-center rounded-md bg-brand text-on-brand">
               <Icon name="plus" size={20} strokeWidth={2.2} />
             </span>

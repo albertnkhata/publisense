@@ -173,7 +173,7 @@ jobs:
           SQL
 
       # Storage, the API roles' use of auth, and Supabase's default grants: what the
-      # v2 migrations (0016-0019) and their tests rely on beyond auth.users.
+      # v2 migrations (0016-0020) and their tests rely on beyond auth.users.
       - name: Stub the rest of the Supabase platform
         env:
           PGPASSWORD: postgres
