@@ -99,7 +99,8 @@ Each primitive owns its keyboard and ARIA behaviour once, so screens never re-im
 | Entity | Key fields | Notes |
 |---|---|---|
 | `profile` | id, handle, name, avatar_path, bio | 1:1 with `auth.users`, created by trigger. No role column: power comes from memberships and `platform_admin` |
-| `platform_admin` | user_id, granted_by, granted_at | Hark-side staff who handle the reports queue and ownership disputes. Seeded by migration, never client-writable; checked by an `is_platform_admin()` helper inside RLS |
+| `platform_admin` | user_id, granted_by, granted_at | Hark-side staff who handle the reports queue and ownership disputes. The first admin is seeded by migration; after that only `grant_platform_admin` / `revoke_platform_admin` RPCs, callable by platform admins alone, change it (step 8). Never client-writable as a table; checked by an `is_platform_admin()` helper inside RLS |
+| `platform_admin_event` | id, user_id, action (grant \| revoke), actor_id, at | Audit log of every appointment and removal; the last admin can never be removed |
 | `board` | id, slug, name, tagline, site, color, logo_path, category, hub_id?, claimed_at | The product. Public face |
 | `hub` | id, slug, name, description, primary_domain, claimed_at | Public group of boards. Needs no verification to exist |
 | `verified_domain` | id, domain, verified_by, method (email \| dns), verified_at | A user proves control of a domain. Shared domains (gmail.com, vercel.app…) are refused |
@@ -122,7 +123,7 @@ Supabase Storage, two public-read buckets:
 - `avatars/{user_id}/{uuid}.{ext}`: only the owner writes under their own `user_id` prefix.
 - `board-logos/{board_id}/{uuid}.{ext}`: only owners and admins of that board (or its hub) write.
 
-Limits: images only (png, jpg, webp, svg sanitised), 1 MB, square crop done client-side. Rows store the path, not a URL. Old files are deleted on replace. Seeded posts' media stay external links.
+Limits: images only (png, jpg, webp), 1 MB, square crop done client-side. SVG waits for a server-side sanitiser: a client-side one is no guard, since anyone can upload straight to the Storage API. Rows store the path inside the bucket, not a URL. On replace, the api layer removes the old object through the Storage API (Supabase refuses direct deletes from `storage.objects`). Seeded posts' media stay external links.
 
 ## 7. State machines
 
@@ -142,11 +143,11 @@ Limits: images only (png, jpg, webp, svg sanitised), 1 MB, square crop done clie
 | Delete account | | self | | | (blocked while sole owner) |
 | Decide reports and ownership disputes | | | | | platform admin only |
 
-Enforced in RLS and `security definer` RPCs; the UI mirrors it but is never the guard.
+Enforced in RLS and `security definer` RPCs; the UI mirrors it but is never the guard. Implemented in `supabase/migrations/0017_v2_rls.sql` in two layers: column GRANTs decide what a client may write at all (counters, status, `hidden_at`, `claimed_at` are never client-writable), policies decide which rows. Status and hiding go through RPCs (`set_post_status`, `set_post_hidden`, `set_reply_hidden`) so every change leaves an audit row. `supabase/tests/v2_rls_test.sql` checks this table as the real API roles in CI.
 
 ## 9. Routes
 
-`/` home · `/explore` · `/search?q=` · `/b/:board` (tabs `?tab=roadmap|changelog`) · `/b/:board/manage` · `/h/:hub` · `/h/:hub/manage` · `/post/:id` · `/u/:handle` · `/notifications` · `/settings` · `/privacy` · `/terms` · `/auth/reset` · `/unsubscribe?token=` (one click, no sign-in) · `/admin/reports` · `/admin/disputes` (platform admins only).
+`/` home · `/explore` · `/search?q=` · `/b/:board` (tabs `?tab=roadmap|changelog`) · `/b/:board/manage` · `/h/:hub` · `/h/:hub/manage` · `/post/:id` · `/u/:handle` · `/notifications` · `/settings` · `/privacy` · `/terms` · `/auth/reset` · `/unsubscribe?token=` (one click, no sign-in) · `/admin/reports` · `/admin/disputes` · `/admin/team` (platform admins only: pick a user by handle, grant or revoke, see the log).
 
 ## 10. Mockup shortcuts that do not carry over
 
@@ -169,7 +170,7 @@ CI runs on GitHub Actions once the repo is public; until then the gates are run 
 5. **Feed + post**: home feed, PostCard, PostPage, votes, replies, author edit/delete
 6. **Boards + hubs**: board page with Roadmap and Changelog, hub page, Explore, search, composer with similar posts
 7. **Claim + team**: claim flow, hub claim, Manage inbox, team, join and dispute
-8. **Moderation**: merge with undo, reports queue, hide, block
+8. **Moderation**: merge with undo, reports queue, hide, block, admin team page (appoint and remove platform admins, audited)
 9. **Cutover**: smoke tests, `pg_dump` snapshot, drop v1 tables and code, deploy
 
 ## 12. Registers

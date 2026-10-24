@@ -54,9 +54,12 @@ _test declarations counted by regex over `src/**/*.test.ts`; CI steps read from 
 - CI · Assert no service_role key in bundle: inline script
 - CI · Regenerate and compare the repo-derived block: `npm run status -- --check`
 - CI · Stub the Supabase auth schema: inline script
+- CI · Stub the rest of the Supabase platform: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -f supabase/tests/supabase_stub.sql`
 - CI · Apply schema then migrations in order: inline script
 - CI · Assert RLS is enabled on every public table: inline script
 - CI · Assert no world-open write policy exists: inline script
+- CI · v2 permission tests: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_rls_test.sql`
+- CI · v2 dev seed applies: inline script
 - CI · Report public read-policy count: inline script
 
 <!-- status:repo-derived:end -->
