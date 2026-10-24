@@ -3,7 +3,7 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ':(exclude)STATUS.md' ':(exclude)status.json' ':(exclude)roadmap.md' ':(exclude)README.md' ':(exclude)LICENSE' ':(exclude).gitignore' ':(exclude)MVP.md' ':(exclude)docs' ':(exclude).github'",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ':(exclude)STATUS.md' ':(exclude)status.json' ':(exclude)roadmap.md' ':(exclude)README.md' ':(exclude)LICENSE' ':(exclude).gitignore' ':(exclude)MVP.md' ':(exclude)docs' ':(exclude).github' ':(exclude)web'",
   "rewrites": [
     { "source": "/((?!assets/).*)", "destination": "/index.html" }
   ],

@@ -123,6 +123,53 @@
         "scripted": true
       },
       {
+        "name": "Install",
+        "runs": [
+          "npm ci"
+        ],
+        "scripted": false
+      },
+      {
+        "name": "Typecheck",
+        "runs": [
+          "npm run typecheck"
+        ],
+        "scripted": false
+      },
+      {
+        "name": "Tests",
+        "runs": [
+          "npm test"
+        ],
+        "scripted": false
+      },
+      {
+        "name": "Style gate",
+        "runs": [
+          "node scripts/check-style.mjs"
+        ],
+        "scripted": false
+      },
+      {
+        "name": "Build",
+        "runs": [
+          "npm run build"
+        ],
+        "scripted": false
+      },
+      {
+        "name": "Every utility class produces CSS",
+        "runs": [
+          "node scripts/check-classes.mjs"
+        ],
+        "scripted": false
+      },
+      {
+        "name": "Assert no service_role key in bundle",
+        "runs": [],
+        "scripted": true
+      },
+      {
         "name": "Regenerate and compare the repo-derived block",
         "runs": [
           "npm run status -- --check"

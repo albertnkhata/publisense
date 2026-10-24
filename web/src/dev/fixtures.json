@@ -1,0 +1,10 @@
+{
+  "_note": "Kit-page sample data only. Board colours are data (board.color), never CSS, which is why they live here and not in a component.",
+  "boards": [
+    { "name": "Cursor", "color": "#18181B" },
+    { "name": "Supabase", "color": "#1F9D6B" },
+    { "name": "Linear", "color": "#5E6AD2" },
+    { "name": "Raycast", "color": "#E5484D" },
+    { "name": "Figma", "color": "#A259FF" }
+  ]
+}
