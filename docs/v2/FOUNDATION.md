@@ -25,7 +25,7 @@ Everything else (the components, `StoreContext`, the CSS, seed data, the type an
 ## 2. Stack
 
 - React 19 + TypeScript + Vite. The repo already uses them, and nothing in the mockup argues against them.
-- **Styling:** plain CSS with custom-property tokens (section 3), co-located per component (`Button.css`) and imported through one `tokens.css`. Tailwind is dropped. The mockup is token-driven CSS already, so porting it 1:1 is cheaper than translating it to utility classes, and it stops values from drifting again.
+- **Styling:** Tailwind 4 with a **locked theme**. `src/styles/theme.css` opens its `@theme` block with `--*: initial`, which clears Tailwind's default palette, type scale, radii and spacing, then defines only the tokens in section 3. Utilities therefore exist only for our values (`bg-card`, `text-ink-muted`, `rounded-md`, `text-sm`). Light and dark switch by redefining the same CSS variables under `[data-theme=dark]`. Long class strings live inside primitives (section 4), so screens compose primitives rather than repeating utilities. The mockup's semantic CSS is translated, not copied.
 - **Routing:** `react-router` with real paths (section 7). The mockup's `#hash` routes are a mockup shortcut.
 - **Server state:** `@supabase/supabase-js` behind a thin `api/` layer, cached with TanStack Query. Components never call Supabase directly.
 - **Client state:** React state, plus one small UI store (theme, open dialog, toasts). No global god-context.
@@ -34,7 +34,7 @@ Everything else (the components, `StoreContext`, the CSS, seed data, the type an
 
 ## 3. Design tokens (normalised)
 
-The mockup drifted to 19 font sizes, 14 radii, about 100 raw hex values and 63 inline styles. v2 uses only these tokens, and the CSS lint fails on a raw colour or a px font size outside `tokens.css`.
+The mockup drifted to 19 font sizes, 14 radii, about 100 raw hex values and 63 inline styles. v2 uses only these tokens. CI fails on arbitrary values (`text-[13px]`, `bg-[#…]`, `rounded-[7px]`), on raw hex colours outside `theme.css`, and on `style={{…}}`, except for data-driven values such as `--board-color`.
 
 **Colour** (light / dark), from the mockup's variables:
 
@@ -149,7 +149,7 @@ Enforced in RLS and `security definer` RPCs; the UI mirrors it but is never the 
 ## 11. Build order (one PR each, CI green before merge)
 
 1. **Foundation**: this document plus the reference mockup *(this PR)*
-2. **Scaffold**: fresh `src/`, tokens, primitives with a `/dev/kit` page, CSS lint, AppShell with real routes, theme
+2. **Scaffold**: fresh `src/`, tokens, primitives with a `/dev/kit` page, the arbitrary-value check in CI, AppShell with real routes, theme
 3. **Schema v2**: new migrations for section 6, RLS for section 8, seed for the mockup's boards and hub, CI gates updated
 4. **Auth + account**: AuthDialog, AccountDialog (password, notification preferences, export, delete via an Edge Function)
 5. **Feed + post**: home feed, PostCard, PostPage, votes, replies, author edit/delete
