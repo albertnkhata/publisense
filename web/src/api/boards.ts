@@ -10,7 +10,10 @@ import { ApiError, searchPosts, type Post } from './posts';
  * following a hub does not need a follow per board.
  */
 
-export type BoardCategory = 'ai' | 'code' | 'dev' | 'design' | 'prod' | 'browser';
+export type BoardCategory =
+  | 'ai' | 'code' | 'dev' | 'design' | 'prod' | 'browser'
+  | 'comms' | 'social' | 'media' | 'finance' | 'shopping' | 'gaming'
+  | 'education' | 'health' | 'travel' | 'other';
 /** 0024: new boards wait for review; existing boards are live. */
 export type BoardStatus = 'pending' | 'live' | 'rejected';
 
@@ -128,6 +131,16 @@ export const CATEGORIES: Array<{ value: 'all' | BoardCategory; label: string }> 
   { value: 'design', label: 'Design' },
   { value: 'prod', label: 'Productivity' },
   { value: 'browser', label: 'Browsers' },
+  { value: 'comms', label: 'Communication' },
+  { value: 'social', label: 'Social' },
+  { value: 'media', label: 'Media' },
+  { value: 'finance', label: 'Finance' },
+  { value: 'shopping', label: 'Shopping' },
+  { value: 'gaming', label: 'Gaming' },
+  { value: 'education', label: 'Education' },
+  { value: 'health', label: 'Health' },
+  { value: 'travel', label: 'Travel' },
+  { value: 'other', label: 'Other' },
 ];
 
 /**

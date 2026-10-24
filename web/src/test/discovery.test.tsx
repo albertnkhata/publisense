@@ -313,6 +313,15 @@ describe('explore', () => {
     expect(screen.getByRole('button', { name: 'Dev platforms' }).getAttribute('aria-pressed')).toBe('true');
   });
 
+  it('shows only category chips that have products, plus the one in the URL', async () => {
+    renderAt('/explore?cat=travel');
+    expect(await screen.findByText('No products in this category yet.')).toBeTruthy();
+    const chips = within(screen.getByRole('toolbar', { name: 'Categories' }));
+    expect(chips.getByRole('button', { name: 'Code editors' })).toBeTruthy();
+    expect(chips.getByRole('button', { name: 'Travel' }).getAttribute('aria-pressed')).toBe('true');
+    expect(chips.queryByRole('button', { name: 'Shopping' })).toBeNull();
+  });
+
   it('says when nothing matches', async () => {
     renderAt('/explore?q=zzz');
     expect(await screen.findByText('No products match “zzz”.')).toBeTruthy();

@@ -278,6 +278,14 @@ describe('add a product', () => {
     expect(within(composer).queryByText('Is this your product?')).toBeNull();
   });
 
+  it('offers every category, including Shopping and Other', async () => {
+    renderApp();
+    const dialog = await openForm();
+    expect(within(dialog).getAllByRole('radio')).toHaveLength(16);
+    expect(within(dialog).getByRole('radio', { name: 'Shopping' })).toBeTruthy();
+    expect(within(dialog).getByRole('radio', { name: 'Other' })).toBeTruthy();
+  });
+
   it('shows no helper line under Link, and still takes a GitHub repo link', async () => {
     productsApi.checkProductLink.mockResolvedValue({ kind: 'github', canonical: 'github.com/acme/notes', match: null, hub: null });
     renderApp();
