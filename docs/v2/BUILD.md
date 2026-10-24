@@ -11,3 +11,5 @@ One PR per step; see [FOUNDATION.md](./FOUNDATION.md) section 11.
 - [x] 7. Claiming and teams: claim, hub claim, Manage inbox, team, join requests, disputes
 - [x] 8. Moderation and people: merge and unmerge, reports queue, hide, block, admin queues, admin team (appoint/remove platform admins, audited), user profile (`/u/:handle`), notifications (`/notifications`)
 - [ ] 9. Cutover: smoke tests, pg_dump, drop v1, deploy
+
+Step 9 runbook: [CUTOVER.md](./CUTOVER.md) (written 2026-10-24; not yet applied).
