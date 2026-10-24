@@ -83,7 +83,7 @@ describe('board page', () => {
   it('shows the header, tab counts and the board’s feed', async () => {
     renderAt('/b/cursor');
     expect(await screen.findByRole('heading', { level: 1, name: 'Cursor' })).toBeTruthy();
-    expect(screen.getByText('The AI code editor · cursor.com')).toBeTruthy();
+    expect(screen.getByText('The AI code editor')).toBeTruthy();
     expect(screen.getByText('92')).toBeTruthy();
     expect(screen.getByText('4.1k')).toBeTruthy();
     expect(await screen.findByText('Composer drops edits')).toBeTruthy();
@@ -183,6 +183,64 @@ describe('board page', () => {
     expect((await screen.findByRole('link', { name: 'Manage' })).getAttribute('href')).toBe('/b/figjam/manage');
     expect(screen.getByRole('link', { name: /Figma hub/ }).getAttribute('href')).toBe('/h/figma');
     expect(screen.getByText('You manage this board')).toBeTruthy();
+  });
+});
+
+describe('board header meta line', () => {
+  const metaLine = async (name: string) => {
+    await screen.findByRole('heading', { level: 1, name });
+    const line = document.querySelector<HTMLElement>('[data-scope-meta]');
+    expect(line).toBeTruthy();
+    return line!;
+  };
+
+  it('links the product’s site under the tagline, with its icon, in a new tab', async () => {
+    renderAt('/b/cursor');
+    const line = await metaLine('Cursor');
+    const site = within(line).getByRole('link', { name: 'cursor.com' });
+    expect(site.getAttribute('href')).toBe('https://cursor.com/');
+    expect(site.getAttribute('target')).toBe('_blank');
+    expect(site.getAttribute('rel')).toBe('noopener noreferrer');
+    expect(site.querySelector('svg')).toBeTruthy();
+    // The line sits after the tagline, and the tagline no longer carries the domain.
+    const tagline = screen.getByText('The AI code editor');
+    expect(tagline.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(tagline.textContent).not.toContain('cursor.com');
+    // No hub link on a board without a hub.
+    expect(screen.queryByRole('link', { name: /hub/ })).toBeNull();
+  });
+
+  it('adds the hub link with its icon when the board belongs to a hub, once', async () => {
+    boardsApi.fetchBoard.mockResolvedValue({ ...FIGMA, site: 'figma.com', hub: { id: FIGMA_HUB.id, slug: 'figma', name: 'Figma' } });
+    renderAt('/b/figma');
+    const line = await metaLine('Figma');
+    const hub = within(line).getByRole('link', { name: 'Figma hub' });
+    expect(hub.getAttribute('href')).toBe('/h/figma');
+    expect(hub.querySelector('svg')).toBeTruthy();
+    expect(within(line).getByRole('link', { name: 'figma.com' }).getAttribute('target')).toBe('_blank');
+    // Neither link is duplicated anywhere on the page.
+    expect(screen.getAllByRole('link', { name: 'Figma hub' })).toHaveLength(1);
+    expect(screen.getAllByRole('link', { name: 'figma.com' })).toHaveLength(1);
+  });
+
+  it('shows a GitHub repo as owner/repo, and joins "Added by" on the same line', async () => {
+    boardsApi.fetchBoard.mockResolvedValue({
+      ...CURSOR,
+      site: 'github.com/vercel/next.js',
+      creator: { id: TEST_VIEWER.id, handle: 'kim', name: 'Kim', avatar_path: null },
+    });
+    renderAt('/b/cursor');
+    const line = await metaLine('Cursor');
+    expect(within(line).getByRole('link', { name: 'github.com/vercel/next.js' }).getAttribute('href')).toBe('https://github.com/vercel/next.js');
+    expect(within(line).getByRole('link', { name: '@kim' }).getAttribute('href')).toBe('/u/kim');
+    expect(screen.getAllByText(/Added by/)).toHaveLength(1);
+  });
+
+  it('leaves the line out when there is nothing to show', async () => {
+    boardsApi.fetchBoard.mockResolvedValue({ ...CURSOR, site: null });
+    renderAt('/b/cursor');
+    await screen.findByRole('heading', { level: 1, name: 'Cursor' });
+    expect(document.querySelector('[data-scope-meta]')).toBeNull();
   });
 });
 

@@ -7,6 +7,7 @@ import {
   useBoard,
   useChangelog,
   siteDomain,
+  siteLink,
   useIsBoardTeam,
   useMyRequests,
   usePendingDns,
@@ -20,7 +21,7 @@ import {
 } from '../api';
 import { BackLink, ChoiceMenu, FollowScopeButton, type Choice } from '../boards/parts';
 import { Changelog, Roadmap } from '../boards/Roadmap';
-import { ScopeHeader, Stat } from '../boards/ScopeHeader';
+import { metaLink, ScopeHeader, Stat } from '../boards/ScopeHeader';
 import { useClaim } from '../claim/ClaimDialog';
 import { cx } from '../lib/cx';
 import { usePageTitle } from '../lib/usePageTitle';
@@ -114,34 +115,12 @@ function Board({ board }: { board: BoardWithHub }) {
         logo={<BoardAvatar name={board.name} color={board.color} logoSrc={logoSrc(board)} size="xl" decorative />}
         title={board.name}
         tag={<ReviewPill board={board} />}
-        description={
-          <>
-            {board.tagline}
-            {board.site ? `${board.tagline ? ' · ' : ''}${board.site}` : ''}
-          </>
-        }
+        description={board.tagline || null}
+        meta={boardMeta(board)}
         stats={
           <>
             <Stat value={board.post_count} label={board.post_count === 1 ? 'post' : 'posts'} />
             <Stat value={compactCount(board.follower_count)} label={board.follower_count === 1 ? 'follower' : 'followers'} />
-            {board.hub ? (
-              <Link
-                to={`/h/${board.hub.slug}`}
-                title={`All ${board.hub.name} boards`}
-                className="inline-flex items-center gap-1 text-ink-secondary no-underline hover:text-ink hover:underline hover:underline-offset-2"
-              >
-                <Icon name="hub" size={12} />
-                {board.hub.name} hub
-              </Link>
-            ) : null}
-            {!board.claimed_at && board.creator ? (
-              <span>
-                Added by{' '}
-                <Link to={`/u/${board.creator.handle}`} className="font-medium text-ink-secondary no-underline hover:text-ink hover:underline hover:underline-offset-2">
-                  @{board.creator.handle}
-                </Link>
-              </span>
-            ) : null}
             {board.status === 'rejected' ? null : <ClaimState board={board} team={Boolean(team.data)} />}
           </>
         }
@@ -254,6 +233,41 @@ function Feedback({
           hideBoard
         />
       )}
+    </>
+  );
+}
+
+/**
+ * The line under the tagline: the product's own site (new tab), its hub, and who
+ * added it while unclaimed. Each item is a whole flex unit, so on a phone the line
+ * wraps between items rather than inside them. Null when there is nothing to show.
+ */
+function boardMeta(board: BoardWithHub): ReactNode {
+  const site = siteLink(board.site);
+  const addedBy = !board.claimed_at && board.creator ? board.creator : null;
+  if (!site && !board.hub && !addedBy) return null;
+  return (
+    <>
+      {site ? (
+        <a href={site.href} target="_blank" rel="noopener noreferrer" title={`${board.name} website (opens in a new tab)`} className={metaLink}>
+          <Icon name="globe" size={13} />
+          <span className="truncate">{site.label}</span>
+        </a>
+      ) : null}
+      {board.hub ? (
+        <Link to={`/h/${board.hub.slug}`} title={`All ${board.hub.name} boards`} className={metaLink}>
+          <Icon name="hub" size={13} />
+          <span className="truncate">{board.hub.name} hub</span>
+        </Link>
+      ) : null}
+      {addedBy ? (
+        <span>
+          Added by{' '}
+          <Link to={`/u/${addedBy.handle}`} className="font-medium text-ink-secondary no-underline hover:text-ink hover:underline hover:underline-offset-2">
+            @{addedBy.handle}
+          </Link>
+        </span>
+      ) : null}
     </>
   );
 }

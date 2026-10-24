@@ -67,6 +67,27 @@ export const BOARD_COLUMNS =
   'id, slug, name, tagline, site, color, logo_path, category, hub_id, claimed_at, created_at, follower_count, post_count, status, created_by';
 const HUB_COLUMNS = 'id, slug, name, description, primary_domain, claimed_at, created_at, follower_count';
 
+/**
+ * A board's site as a safe outbound link: `href` always https (or the http it was
+ * given), `label` the display domain without scheme or "www." ("linear.app"), keeping
+ * the owner/repo path for GitHub repos ("github.com/vercel/next.js"). Null for an
+ * empty or unparseable site, so a bad row never renders a broken link.
+ */
+export function siteLink(site: string | null | undefined): { href: string; label: string } | null {
+  const raw = (site ?? '').trim();
+  if (!raw) return null;
+  let url: URL;
+  try {
+    url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+  } catch {
+    return null;
+  }
+  if (!/^https?:$/.test(url.protocol) || !url.hostname.includes('.')) return null;
+  const host = url.hostname.replace(/^www\./, '');
+  const repo = host === 'github.com' ? url.pathname.split('/').filter(Boolean).slice(0, 2) : [];
+  return { href: url.href, label: repo.length === 2 ? `${host}/${repo.join('/')}` : host };
+}
+
 /** Explore's category chips, in the mockup's order and wording. */
 export const CATEGORIES: Array<{ value: 'all' | BoardCategory; label: string }> = [
   { value: 'all', label: 'All' },

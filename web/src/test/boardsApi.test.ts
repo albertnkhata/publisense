@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   compactCount,
+  siteLink,
   fetchBoard,
   fetchPostCounts,
   ilikeTerm,
@@ -329,5 +330,22 @@ describe('helpers', () => {
     expect(compactCount(950)).toBe('950');
     expect(compactCount(4100)).toBe('4.1k');
     expect(compactCount(12_400)).toBe('12k');
+  });
+});
+
+describe('siteLink', () => {
+  it.each([
+    ['linear.app', 'https://linear.app/', 'linear.app'],
+    ['www.figma.com', 'https://www.figma.com/', 'figma.com'],
+    ['https://cursor.com/pricing', 'https://cursor.com/pricing', 'cursor.com'],
+    ['http://example.org', 'http://example.org/', 'example.org'],
+    ['github.com/vercel/next.js', 'https://github.com/vercel/next.js', 'github.com/vercel/next.js'],
+    ['github.com/vercel/next.js/tree/canary', 'https://github.com/vercel/next.js/tree/canary', 'github.com/vercel/next.js'],
+  ])('%s', (site, href, label) => {
+    expect(siteLink(site)).toEqual({ href, label });
+  });
+
+  it.each([null, undefined, '', '   ', 'not a site', 'javascript:alert(1)', 'ftp://x.com'])('rejects %s', (site) => {
+    expect(siteLink(site)).toBeNull();
   });
 });
