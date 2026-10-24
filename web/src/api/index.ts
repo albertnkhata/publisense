@@ -11,3 +11,5 @@ export * from './posts';
 export * from './postHooks';
 export * from './boards';
 export * from './boardHooks';
+export * from './teams';
+export * from './teamHooks';

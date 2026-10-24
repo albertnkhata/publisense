@@ -451,5 +451,210 @@ select pg_temp.expect('the remaining owner keeps the board',
 select pg_temp.expect_error('a sole owner''s auth user cannot be deleted (last-owner trigger is the backstop)',
   $$delete from auth.users where id = '00000000-0000-4000-8000-00000000000c'$$);
 
+-- ------------------------------------------------------------ step 7: claiming, teams, join requests, disputes
+-- Mail and DNS transport (pg_net, Vault) do not exist here, so start_domain_email
+-- answers 'email_unavailable' after storing the challenge; the tests then set a
+-- known code hash as the owner, the way a delivered email would carry the code.
+
+select pg_temp.as_owner();
+insert into auth.users (id, email) values
+  ('00000000-0000-4000-8000-000000000071', 'gina@linear.app'),
+  ('00000000-0000-4000-8000-000000000072', 'hank@linear.app');
+create temp table s7 as
+select (select id from public.board where slug = 'figma')  as figma,
+       (select id from public.board where slug = 'figjam') as figjam,
+       (select id from public.board where slug = 'arc')    as arc,
+       '00000000-0000-4000-8000-000000000071'::uuid as gina,
+       '00000000-0000-4000-8000-000000000072'::uuid as hank;
+grant select on s7 to anon, authenticated;
+
+select pg_temp.as_user(null);
+select pg_temp.expect_error('step 7: anon cannot claim',
+  $$select public.claim_board((select linear from ids))$$);
+select pg_temp.expect_error('step 7: anon cannot start a domain check',
+  $$select public.start_domain_email('x@linear.app', 'linear.app')$$);
+
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000b');
+select pg_temp.expect('step 7: shared domains are refused before any mail',
+  public.start_domain_email('bob@gmail.com', 'gmail.com') ->> 'error' = 'shared_domain'
+  and public.start_domain_dns('acme.vercel.app') ->> 'error' = 'shared_domain');
+select pg_temp.expect('step 7: the email must be on the domain being proved',
+  public.start_domain_email('bob@example.org', 'linear.app') ->> 'error' = 'wrong_domain');
+select pg_temp.expect('step 7: no mail transport here, so the send reports email_unavailable',
+  public.start_domain_email('bob@linear.app', 'linear.app') ->> 'error' = 'email_unavailable');
+select pg_temp.expect_error('step 7: challenges are server-only (no client read)',
+  $$select * from public.domain_challenge$$);
+select pg_temp.expect('step 7: claiming before proving the domain is refused',
+  public.claim_board((select linear from ids)) ->> 'error' = 'not_verified');
+
+select pg_temp.as_owner();
+select pg_temp.expect('step 7: the code is stored hashed, never in clear',
+  (select code_hash ~ '^[0-9a-f]{32}\$[0-9a-f]{64}$' and work_email = 'bob@linear.app' and expires_at > now()
+     from public.domain_challenge, ids where user_id = ids.bob));
+update public.domain_challenge set code_hash = public.v2_code_hash('salt', '123456')
+ where user_id = '00000000-0000-4000-8000-00000000000b';
+
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000b');
+select pg_temp.expect('step 7: a wrong code is refused and counted',
+  public.verify_domain_email('bob@linear.app', '000000') ->> 'error' = 'wrong_code');
+select pg_temp.expect('step 7: the right code verifies the domain',
+  public.verify_domain_email('Bob@Linear.app', '123456') ->> 'domain' = 'linear.app');
+select pg_temp.expect('step 7: ... and records it as proved by email',
+  exists (select 1 from public.verified_domain, ids where verified_by = ids.bob and domain = 'linear.app' and method = 'email'));
+select pg_temp.expect('step 7: a used code cannot be replayed',
+  public.verify_domain_email('bob@linear.app', '123456') ->> 'error' = 'expired');
+select pg_temp.expect('step 7: claim board succeeds once the domain is proved',
+  (public.claim_board((select linear from ids)) ->> 'ok')::boolean);
+select pg_temp.expect('step 7: claimer is owner, board is claimed, claim notification written',
+  exists (select 1 from public.membership, ids where user_id = ids.bob and scope = 'board' and scope_id = ids.linear and role = 'owner')
+  and (select claimed_at is not null from public.board, ids where board.id = ids.linear)
+  and exists (select 1 from public.notification where kind = 'claim' and target_id = (select linear from ids)));
+select pg_temp.expect_error('step 7: membership is still not client-writable',
+  $$insert into public.membership (user_id, scope, scope_id, role) select alice, 'board'::public.v2_scope, linear, 'member'::public.v2_role from ids$$);
+
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000a');
+select pg_temp.expect('step 7: a claimed board cannot be claimed again',
+  public.claim_board((select linear from ids)) ->> 'error' = 'claimed');
+
+-- attempts, expiry, rate limit
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000d');
+select public.start_domain_email('dave@arc.net', 'arc.net');
+select pg_temp.as_owner();
+update public.domain_challenge set code_hash = public.v2_code_hash('salt', '111111') where user_id = '00000000-0000-4000-8000-00000000000d';
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000d');
+select public.verify_domain_email('dave@arc.net', '000001'), public.verify_domain_email('dave@arc.net', '000002'),
+       public.verify_domain_email('dave@arc.net', '000003'), public.verify_domain_email('dave@arc.net', '000004');
+select pg_temp.expect('step 7: the fifth wrong code locks the challenge',
+  public.verify_domain_email('dave@arc.net', '000005') ->> 'error' = 'too_many_attempts'
+  and public.verify_domain_email('dave@arc.net', '111111') ->> 'error' = 'too_many_attempts');
+select public.start_domain_email('dave@arc.net', 'arc.net');
+select pg_temp.as_owner();
+update public.domain_challenge set code_hash = public.v2_code_hash('salt', '222222'), expires_at = now() - interval '1 minute'
+ where user_id = '00000000-0000-4000-8000-00000000000d' and attempts = 0;
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000d');
+select pg_temp.expect('step 7: an expired code is refused',
+  public.verify_domain_email('dave@arc.net', '222222') ->> 'error' = 'expired');
+select public.start_domain_email('dave@arc.net', 'arc.net'), public.start_domain_email('dave@arc.net', 'arc.net'),
+       public.start_domain_email('dave@arc.net', 'arc.net');
+select pg_temp.expect('step 7: five codes an hour, then rate_limited',
+  public.start_domain_email('dave@arc.net', 'arc.net') ->> 'error' = 'rate_limited');
+
+-- DNS
+select pg_temp.expect('step 7: DNS check hands out a stable TXT token',
+  public.start_domain_dns('arc.net') ->> 'token' like 'publisense-verify=%'
+  and public.start_domain_dns('arc.net') ->> 'token' = public.start_domain_dns('ARC.net') ->> 'token');
+select pg_temp.expect('step 7: ... and the board shows the claim as pending',
+  'arc.net' = any (public.my_pending_dns()));
+select pg_temp.expect('step 7: without pg_net the DNS lookup reports dns_unavailable',
+  public.check_domain_dns('arc.net') ->> 'error' = 'dns_unavailable'
+  and public.check_domain_dns('nothing.example') ->> 'error' = 'no_challenge');
+
+-- hub claim
+select pg_temp.as_owner();
+insert into public.verified_domain (domain, verified_by, method) values ('figma.com', '00000000-0000-4000-8000-00000000000a', 'dns');
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000a');
+select pg_temp.expect('step 7: claiming a hub board offers the hub when its domain is proved',
+  public.claim_board((select figma from s7)) ->> 'hub' = 'figma');
+select pg_temp.expect('step 7: claim hub succeeds',
+  (public.claim_hub((select figma_hub from ids)) ->> 'ok')::boolean);
+select pg_temp.expect('step 7: claim hub covers every board in it',
+  (select claimed_at is not null from public.hub, ids where hub.id = ids.figma_hub)
+  and not exists (select 1 from public.board, ids where hub_id = ids.figma_hub and claimed_at is null)
+  and public.is_board_admin((select figjam from s7)));
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000e');
+select pg_temp.expect('step 7: a board in a claimed hub cannot be claimed on its own',
+  public.claim_board((select figjam from s7)) ->> 'error' = 'hub_claimed'
+  and public.claim_hub((select figma_hub from ids)) ->> 'error' = 'claimed');
+
+-- join requests
+select pg_temp.as_user('00000000-0000-4000-8000-000000000071');
+select pg_temp.expect('step 7: joining needs the domain proved first',
+  public.request_join('board', (select linear from ids), 'gina@linear.app') ->> 'error' = 'not_verified'
+  and public.request_join('board', (select linear from ids), 'gina@other.org') ->> 'error' = 'wrong_domain'
+  and public.request_join('board', (select arc from s7), 'gina@arc.net') ->> 'error' = 'not_claimed');
+select pg_temp.as_owner();
+insert into public.verified_domain (domain, verified_by, method) values
+  ('linear.app', '00000000-0000-4000-8000-000000000071', 'email'),
+  ('linear.app', '00000000-0000-4000-8000-00000000000d', 'email');
+select pg_temp.as_user('00000000-0000-4000-8000-000000000071');
+select pg_temp.expect('step 7: request to join is filed once',
+  (public.request_join('board', (select linear from ids), 'gina@linear.app') ->> 'ok')::boolean
+  and (public.request_join('board', (select linear from ids), 'gina@linear.app') ->> 'already')::boolean);
+select pg_temp.expect('step 7: one pending request',
+  (select count(*) from public.join_request where status = 'pending') = 1);
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000b');
+select pg_temp.expect('step 7: the board admins are told and can read the request',
+  exists (select 1 from public.notification where kind = 'join' and actor = '00000000-0000-4000-8000-000000000071')
+  and (select count(*) from public.join_request) = 1);
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000a');
+select pg_temp.expect('step 7: outsiders cannot decide a join request',
+  public.decide_join_request((select id from public.join_request limit 1), true) ->> 'error' is not null);
+select pg_temp.as_owner();
+create temp table s7_req as select id from public.join_request where user_id = '00000000-0000-4000-8000-000000000071';
+grant select on s7_req to authenticated;
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000a');
+select pg_temp.expect('step 7: ... not even by guessing its id',
+  public.decide_join_request((select id from s7_req), true) ->> 'error' = 'not_allowed');
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000b');
+select pg_temp.expect('step 7: approving adds a member and tells the requester',
+  (public.decide_join_request((select id from s7_req), true) ->> 'ok')::boolean
+  and public.decide_join_request((select id from s7_req), false) ->> 'error' = 'decided');
+select pg_temp.as_user('00000000-0000-4000-8000-000000000071');
+select pg_temp.expect('step 7: the new member is on the team and was notified',
+  public.is_board_team((select linear from ids))
+  and not public.is_board_admin((select linear from ids))
+  and exists (select 1 from public.notification where kind = 'join' and data ->> 'status' = 'approved')
+  and public.request_join('board', (select linear from ids), 'gina@linear.app') ->> 'error' = 'already_member');
+
+-- team management and the last-owner rule
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000b');
+select pg_temp.expect('step 7: people outside the domain cannot be added',
+  public.add_team_member('board', (select linear from ids), 'alice') ->> 'error' = 'wrong_domain'
+  and public.add_team_member('board', (select linear from ids), 'nobody@linear.app') ->> 'error' = 'not_found');
+select pg_temp.expect('step 7: an admin adds a teammate by email',
+  public.add_team_member('board', (select linear from ids), 'Hank@linear.app') ->> 'handle' = 'hank'
+  and public.add_team_member('board', (select linear from ids), '@hank') ->> 'error' = 'already_member');
+select pg_temp.as_user('00000000-0000-4000-8000-000000000071');
+select pg_temp.expect('step 7: members cannot manage the team',
+  public.add_team_member('board', (select linear from ids), 'dave') ->> 'error' = 'not_allowed'
+  and public.remove_team_member('board', (select linear from ids), (select hank from s7)) ->> 'error' = 'not_allowed');
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000b');
+select pg_temp.expect('step 7: the owner makes gina an admin',
+  (public.set_member_role('board', (select linear from ids), (select gina from s7), 'admin') ->> 'ok')::boolean);
+select pg_temp.as_user('00000000-0000-4000-8000-000000000071');
+select pg_temp.expect('step 7: only owners grant or take away ownership',
+  public.set_member_role('board', (select linear from ids), (select bob from ids), 'member') ->> 'error' = 'owners_only'
+  and public.set_member_role('board', (select linear from ids), (select hank from s7), 'owner') ->> 'error' = 'owners_only'
+  and public.remove_team_member('board', (select linear from ids), (select bob from ids)) ->> 'error' = 'owners_only');
+select pg_temp.expect('step 7: admins remove members',
+  (public.remove_team_member('board', (select linear from ids), (select hank from s7)) ->> 'ok')::boolean);
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000b');
+select pg_temp.expect('step 7: the last owner cannot step down or leave',
+  public.set_member_role('board', (select linear from ids), (select bob from ids), 'admin') ->> 'error' = 'last_owner'
+  and public.remove_team_member('board', (select linear from ids), (select bob from ids)) ->> 'error' = 'last_owner'
+  and exists (select 1 from public.membership, ids where user_id = ids.bob and scope_id = ids.linear and role = 'owner'));
+select pg_temp.expect('step 7: with a second owner, the first can step down',
+  (public.set_member_role('board', (select linear from ids), (select gina from s7), 'owner') ->> 'ok')::boolean
+  and (public.set_member_role('board', (select linear from ids), (select bob from ids), 'member') ->> 'ok')::boolean);
+
+-- disputes
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000d');
+select pg_temp.expect('step 7: a dispute needs a reason, a claimed board and a proved domain',
+  public.open_dispute('board', (select linear from ids), 'short', 'dave@linear.app') ->> 'error' = 'reason_length'
+  and public.open_dispute('board', (select arc from s7), 'Nobody at Arc runs this board', 'dave@arc.net') ->> 'error' = 'not_claimed'
+  and public.open_dispute('board', (select linear from ids), 'A former contractor still controls it', 'dave@other.org') ->> 'error' = 'wrong_domain');
+select pg_temp.expect('step 7: a dispute is filed once',
+  (public.open_dispute('board', (select linear from ids), 'A former contractor still controls it', 'dave@linear.app') ->> 'ok')::boolean
+  and (public.open_dispute('board', (select linear from ids), 'A former contractor still controls it', 'dave@linear.app') ->> 'already')::boolean);
+select pg_temp.as_user('00000000-0000-4000-8000-000000000071');
+select pg_temp.expect('step 7: the incumbent team cannot read disputes against it',
+  not exists (select 1 from public.ownership_dispute, ids where scope_id = ids.linear)
+  and public.open_dispute('board', (select linear from ids), 'I am on the team already, just testing', 'gina@linear.app') ->> 'error' = 'already_member');
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000f');
+select pg_temp.expect('step 7: platform admins see it',
+  exists (select 1 from public.ownership_dispute, ids where scope_id = ids.linear and status = 'pending'));
+select pg_temp.expect_error('step 7: the code sender is not callable over RPC',
+  $$select public.v2_send_code('a@linear.app', 'linear.app', '123456')$$);
+
 \echo 'v2 RLS tests: all passed'
 rollback;

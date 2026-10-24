@@ -8,6 +8,7 @@ import {
   shortAge,
   useCreateReply,
   useDeleteReply,
+  useIsBoardTeam,
   useReplies,
   useUpdateReply,
   validateReply,
@@ -25,6 +26,7 @@ import {
   Menu,
   MenuItemRadio,
   MenuLabel,
+  Select,
   SkeletonBlock,
   TeamPill,
   Textarea,
@@ -374,6 +376,9 @@ export function ReplyComposer({
   const requireAuth = useRequireAuth();
   const { toast } = useToast();
   const create = useCreateReply(post, viewer?.id ?? null);
+  // Team members can reply as the board on a new thread (mockup "Reply as"); the DB checks it.
+  const team = useIsBoardTeam(parentId ? undefined : post.board_id, viewer?.id ?? null);
+  const [asTeam, setAsTeam] = useState(false);
   const [body, setBody] = useState(initial);
   const [open, setOpen] = useState(Boolean(autoFocus));
   const [error, setError] = useState<string | null>(null);
@@ -384,6 +389,7 @@ export function ReplyComposer({
     setBody('');
     setError(null);
     setOpen(false);
+    setAsTeam(false);
     onDone?.();
   };
 
@@ -393,10 +399,10 @@ export function ReplyComposer({
     if (problem) return setError(problem);
     setError(null);
     create.mutate(
-      { body, parentId },
+      { body, parentId, official: Boolean(team.data && asTeam) },
       {
         onSuccess: () => {
-          toast('Reply posted');
+          toast(team.data && asTeam ? 'Official reply posted' : 'Reply posted');
           reset();
         },
         onError: (e) => setError(e instanceof Error ? e.message : 'We couldn’t post your reply. Try again.'),
@@ -447,7 +453,21 @@ export function ReplyComposer({
         </p>
       ) : null}
       {open ? (
-        <div className="mt-2 flex justify-end gap-2">
+        <div className="mt-2 flex items-center justify-end gap-2">
+          {team.data && post.board ? (
+            <label className="mr-auto flex items-center gap-2 text-sm text-ink-muted">
+              Reply as
+              <Select
+                value={asTeam ? 'team' : 'me'}
+                onChange={(e) => setAsTeam(e.target.value === 'team')}
+               
+                aria-label="Reply as"
+              >
+                <option value="me">{viewer ? `@${viewer.handle}` : 'You'}</option>
+                <option value="team">{post.board.name} team</option>
+              </Select>
+            </label>
+          ) : null}
           <Button variant="ghost" size="sm" onClick={reset} disabled={create.isPending}>
             Cancel
           </Button>

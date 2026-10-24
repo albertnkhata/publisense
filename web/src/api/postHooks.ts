@@ -208,8 +208,8 @@ export function useDeletePost() {
 export function useCreateReply(post: Post | null | undefined, viewerId: string | null) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ body, parentId }: { body: string; parentId: string | null }) => {
-      const reply = await createReply(post?.id ?? '', body, parentId);
+    mutationFn: async ({ body, parentId, official = false }: { body: string; parentId: string | null; official?: boolean }) => {
+      const reply = await createReply(post?.id ?? '', body, parentId, official);
       // Replying follows the post (mockup). Best effort: the reply already landed.
       let followed = false;
       if (post && viewerId && !post.following) {
@@ -224,7 +224,13 @@ export function useCreateReply(post: Post | null | undefined, viewerId: string |
     },
     onSuccess: ({ reply, followed }) => {
       qc.setQueryData<Reply[]>(postKeys.replies(reply.post_id), (old) => [...(old ?? []), reply]);
-      patchPost(qc, reply.post_id, (p) => ({ ...p, reply_count: p.reply_count + 1, following: followed ? true : p.following }));
+      patchPost(qc, reply.post_id, (p) => ({
+        ...p,
+        reply_count: p.reply_count + 1,
+        following: followed ? true : p.following,
+        // An official reply is quoted on the card straight away.
+        official: reply.is_official && !reply.parent_id ? { id: reply.id, body: reply.body, created_at: reply.created_at, author: reply.author } : p.official,
+      }));
     },
   });
 }

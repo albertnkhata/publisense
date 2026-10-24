@@ -4,6 +4,7 @@ import { AuthProvider } from './auth';
 import { RecoveryWatcher } from './RecoveryWatcher';
 import { useTheme } from '../lib/ThemeProvider';
 import { useShortcut } from '../lib/useShortcut';
+import { ClaimProvider } from '../claim/ClaimDialog';
 import { ComposerProvider } from './composer';
 import { NavRail } from './NavRail';
 import { RightRail } from './RightRail';
@@ -22,6 +23,7 @@ export function AppShell() {
   return (
     <AuthProvider>
     <ComposerProvider>
+    <ClaimProvider>
       <RecoveryWatcher />
       <a
         href="#main"
@@ -42,6 +44,7 @@ export function AppShell() {
         </div>
         <TabBar />
       </div>
+    </ClaimProvider>
     </ComposerProvider>
     </AuthProvider>
   );

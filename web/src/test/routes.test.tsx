@@ -11,9 +11,9 @@ const CASES: Array<[string, string]> = [
   ['/search?q=dark%20mode', 'Search'],
   ['/b/supabase', 'Loading board'], // board and hub pages fetch first (no Supabase here)
   ['/b/supabase?tab=roadmap', 'Loading board'],
-  ['/b/supabase/manage', 'Manage supabase'],
+  ['/b/supabase/manage', 'Loading board'], // Manage loads its board first
   ['/h/acme', 'Loading hub'],
-  ['/h/acme/manage', 'Manage acme'],
+  ['/h/acme/manage', 'Loading hub'],
   ['/post/123', 'Post not found'], // not a post id: answered without a request
   ['/u/alex', '@alex'],
   ['/notifications', 'Notifications'],

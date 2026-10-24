@@ -1,6 +1,7 @@
-import { Link } from 'react-router';
+import { Link, useLocation } from 'react-router';
 import { hasSupabaseConfig, logoSrc, useBoards, useTrending } from '../api';
 import { BoardAvatar, Card, SkeletonBlock } from '../ui';
+import { useClaim } from '../claim/ClaimDialog';
 import { LegalLinks } from './LegalLinks';
 import { SearchWell } from './SearchWell';
 
@@ -16,17 +17,30 @@ export function RightRail() {
         <h2 className="mt-0 mb-3 text-sm font-bold text-ink">Trending</h2>
         {hasSupabaseConfig ? <Trending /> : <p className="m-0 text-sm text-ink-muted">Boards with the most activity this week will show here.</p>}
       </Card>
-      <p className="m-0 px-2 text-sm text-ink-muted">
-        Maintain a product?{' '}
-        <Link
-          to="/explore"
-          className="font-semibold text-ink-secondary underline decoration-line-strong underline-offset-3 hover:text-brand hover:decoration-current"
-        >
-          Find its board
-        </Link>
-      </p>
+      <ClaimLine />
       <LegalLinks />
     </aside>
+  );
+}
+
+/** Mockup .claim-line: opens the claim flow on the board being viewed, else the product picker. */
+function ClaimLine() {
+  const { openClaim } = useClaim();
+  const location = useLocation();
+  const boards = useBoards();
+  const slug = /^\/b\/([a-z0-9-]+)\/?$/.exec(location.pathname)?.[1];
+  const here = slug ? boards.data?.find((b) => b.slug === slug) : undefined;
+  return (
+    <p className="m-0 px-2 text-sm text-ink-muted">
+      Maintain a product?{' '}
+      <button
+        type="button"
+        onClick={() => openClaim(here && !here.claimed_at ? { board: here.slug } : undefined)}
+        className="border-0 bg-transparent p-0 font-semibold text-ink-secondary underline decoration-line-strong underline-offset-3 hover:text-brand hover:decoration-current"
+      >
+        Claim its board
+      </button>
+    </p>
   );
 }
 

@@ -32,6 +32,9 @@ export interface HubRef {
   id: string;
   slug: string;
   name: string;
+  /** On a board's own hub (fetchBoard): whether a team claimed it, and its domain. */
+  claimed_at?: string | null;
+  primary_domain?: string | null;
 }
 
 export interface BoardWithHub extends Board {
@@ -95,7 +98,7 @@ export async function fetchBoard(slug: string): Promise<BoardWithHub | null> {
   if (!isSlug(slug)) return null;
   const { data, error } = await getSupabase()
     .from('board')
-    .select(`${BOARD_COLUMNS}, hub:hub!hub_id(id, slug, name)`)
+    .select(`${BOARD_COLUMNS}, hub:hub!hub_id(id, slug, name, claimed_at, primary_domain)`)
     .eq('slug', slug)
     .maybeSingle();
   if (error) throw error;
@@ -165,7 +168,7 @@ export function rankTrending(boards: Board[], recentPosts: Array<{ board_id: str
     .slice(0, limit);
 }
 
-/** Is the viewer on this board's team (directly or through its hub)? Mirrors RLS; Manage arrives in step 7. */
+/** Is the viewer on this board's team (directly or through its hub)? Mirrors RLS; the UI shows Manage and team controls from it. */
 export async function fetchIsBoardTeam(boardId: string): Promise<boolean> {
   const { data, error } = await getSupabase().rpc('is_board_team', { p_board: boardId });
   if (error) return false;
