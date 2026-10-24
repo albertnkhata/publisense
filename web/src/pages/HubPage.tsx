@@ -1,19 +1,34 @@
 import { useMemo } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router';
-import { compactCount, dedupePosts, logoSrc, usePostCounts, usePostList, useHub, type Hub } from '../api';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import {
+  compactCount,
+  covered,
+  dedupePosts,
+  logoSrc,
+  siteDomain,
+  useClaimHub,
+  useHub,
+  useMyRequests,
+  usePostCounts,
+  usePostList,
+  useScopeRole,
+  useVerifiedDomains,
+  type Hub,
+} from '../api';
 import { BoardRow, ChoiceMenu, FollowScopeButton, RowItem, RowList } from '../boards/parts';
 import { ScopeHeader, Stat } from '../boards/ScopeHeader';
 import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { LoadError, PostList, PostListSkeleton } from '../posts/PostList';
 import { useComposer } from '../shell/composer';
-import { BoardAvatar, Button, EmptyState, HubAvatar, Icon, TabPanel, Tabs } from '../ui';
-import { HeaderSkeleton, RoadmapTab, ScopeNotFound, SORT_CHOICES } from './BoardPage';
+import { BoardAvatar, Button, EmptyState, HubAvatar, Icon, TabPanel, Tabs, useToast } from '../ui';
+import { useClaim } from '../claim/ClaimDialog';
+import { actionLink, ClaimLink, HeaderSkeleton, RoadmapTab, ScopeNotFound, SORT_CHOICES } from './BoardPage';
 
 /**
  * Hub page (FOUNDATION §9 `/h/:hub`): a public group of boards. Feedback from
  * every board in the hub, its Boards, and a combined Roadmap. The tab and sort
- * live in the URL (`?tab=boards`, `?sort=new`). Manage (claimed hubs) is step 7.
+ * live in the URL (`?tab=boards`, `?sort=new`). Its team sees Manage.
  */
 export type HubTab = 'feedback' | 'boards' | 'roadmap';
 
@@ -40,6 +55,8 @@ export function HubPage() {
 
 function HubView({ hub }: { hub: Hub }) {
   const navigate = useNavigate();
+  const { viewer } = useViewer();
+  const role = useScopeRole('hub', hub.id, viewer?.id ?? null);
   const { openComposer } = useComposer();
   const [params, setParams] = useSearchParams();
   const tabParam = params.get('tab');
@@ -88,6 +105,11 @@ function HubView({ hub }: { hub: Hub }) {
         }
         actions={
           <>
+            {role.data ? (
+              <Link to={`/h/${hub.slug}/manage`} className={actionLink}>
+                Manage
+              </Link>
+            ) : null}
             <FollowScopeButton target="hub" id={hub.id} name={hub.name} boardCount={hub.boards.length} size="sm" />
             <Button size="sm" onClick={() => openComposer({ hub: hub.slug })}>
               Post feedback
@@ -96,16 +118,7 @@ function HubView({ hub }: { hub: Hub }) {
         }
       />
       <p className="mt-0 mb-4 flex flex-wrap items-center gap-2 text-sm text-ink-secondary">
-        {hub.claimed_at ? (
-          <span className="inline-flex items-center gap-1">
-            <span className="text-success">
-              <Icon name="check" size={13} strokeWidth={2.2} />
-            </span>
-            Verified team
-          </span>
-        ) : (
-          'No team has claimed this hub yet. Anyone can follow and post here.'
-        )}
+        <HubVoice hub={hub} manages={Boolean(role.data)} />
       </p>
       <Tabs
         idBase="hub"
@@ -135,6 +148,58 @@ function HubView({ hub }: { hub: Hub }) {
         )}
       </TabPanel>
     </section>
+  );
+}
+
+/** Mockup .hub-voice: who runs the hub, and the way in for people who work there. */
+function HubVoice({ hub, manages }: { hub: Hub; manages: boolean }) {
+  const { viewer } = useViewer();
+  const viewerId = viewer?.id ?? null;
+  const { openClaim } = useClaim();
+  const { toast } = useToast();
+  const verified = useVerifiedDomains(viewerId);
+  const claimHub = useClaimHub();
+  const mine = useMyRequests('hub', hub.id, viewerId, Boolean(hub.claimed_at) && !manages);
+  if (hub.claimed_at) {
+    return (
+      <>
+        <span className="inline-flex items-center gap-1">
+          <span className="text-success">
+            <Icon name="check" size={13} strokeWidth={2.2} />
+          </span>
+          {manages ? 'You manage this hub' : 'Verified team'}
+        </span>
+        {manages ? null : mine.data?.join ? (
+          <span className="text-ink-muted">Request to join pending</span>
+        ) : (
+          <ClaimLink onClick={() => openClaim({ hub: hub.slug })}>Work here?</ClaimLink>
+        )}
+      </>
+    );
+  }
+  if (hub.primary_domain && covered(verified.data, hub.primary_domain)) {
+    return (
+      <>
+        <span>{hub.primary_domain} is verified.</span>
+        <ClaimLink
+          onClick={() =>
+            claimHub.mutate(
+              { id: hub.id, name: hub.name, domain: hub.primary_domain },
+              { onSuccess: () => toast(`You manage the ${hub.name} hub now`), onError: (e) => toast(e instanceof Error ? e.message : 'Something went wrong.') },
+            )
+          }
+        >
+          Claim the {hub.name} hub
+        </ClaimLink>
+      </>
+    );
+  }
+  const onDomain = hub.boards.find((b) => !b.claimed_at && siteDomain(b.site) === hub.primary_domain);
+  return (
+    <>
+      <span>No team has claimed this hub yet. Anyone can follow and post here.</span>
+      <ClaimLink onClick={() => openClaim(onDomain ? { board: onDomain.slug } : { hub: hub.slug })}>Work at {hub.name}?</ClaimLink>
+    </>
   );
 }
 

@@ -119,7 +119,7 @@ describe('replies', () => {
     fireEvent.focus(box);
     fireEvent.change(box, { target: { value: '  Workaround: pin the working directory.  ' } });
     fireEvent.click(screen.getByRole('button', { name: 'Reply' }));
-    await waitFor(() => expect(api.createReply).toHaveBeenCalledWith(post.id, '  Workaround: pin the working directory.  ', null));
+    await waitFor(() => expect(api.createReply).toHaveBeenCalledWith(post.id, '  Workaround: pin the working directory.  ', null, false));
     expect(await screen.findByText('Workaround: pin the working directory.')).toBeTruthy();
     expect(screen.getByText('Reply posted')).toBeTruthy();
     expect(api.setPostFollow).toHaveBeenCalledWith(post.id, TEST_VIEWER.id, true);
@@ -139,7 +139,7 @@ describe('replies', () => {
     const box = within(item).getByRole('textbox', { name: 'Reply to this thread' });
     fireEvent.change(box, { target: { value: 'Nested answer' } });
     fireEvent.keyDown(box, { key: 'Enter', ctrlKey: true });
-    await waitFor(() => expect(api.createReply).toHaveBeenCalledWith(post.id, 'Nested answer', root.id));
+    await waitFor(() => expect(api.createReply).toHaveBeenCalledWith(post.id, 'Nested answer', root.id, false));
     expect(await screen.findByText('Nested answer')).toBeTruthy();
   });
 

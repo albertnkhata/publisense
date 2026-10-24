@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import {
   compactCount,
@@ -6,7 +6,10 @@ import {
   logoSrc,
   useBoard,
   useChangelog,
+  siteDomain,
   useIsBoardTeam,
+  useMyRequests,
+  usePendingDns,
   usePostCounts,
   usePostList,
   useRoadmap,
@@ -18,6 +21,8 @@ import {
 import { BackLink, ChoiceMenu, FollowScopeButton, type Choice } from '../boards/parts';
 import { Changelog, Roadmap } from '../boards/Roadmap';
 import { ScopeHeader, Stat } from '../boards/ScopeHeader';
+import { useClaim } from '../claim/ClaimDialog';
+import { cx } from '../lib/cx';
 import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { LoadError, PostList, PostListSkeleton } from '../posts/PostList';
@@ -128,14 +133,7 @@ function Board({ board }: { board: BoardWithHub }) {
                 {board.hub.name} hub
               </Link>
             ) : null}
-            {board.claimed_at ? (
-              <span className="inline-flex items-center gap-1">
-                <span className="text-success">
-                  <Icon name="check" size={13} strokeWidth={2.2} />
-                </span>
-                {team.data ? 'You manage this board' : 'Verified team'}
-              </span>
-            ) : null}
+            <ClaimState board={board} team={Boolean(team.data)} />
           </>
         }
         actions={
@@ -241,6 +239,58 @@ function Feedback({
         />
       )}
     </>
+  );
+}
+
+/** Mockup .bp-team / .bp-claim: who runs the board, and the way in for people who work there. */
+function ClaimState({ board, team }: { board: BoardWithHub; team: boolean }) {
+  const { viewer } = useViewer();
+  const { openClaim } = useClaim();
+  const viewerId = viewer?.id ?? null;
+  const claimed = Boolean(board.claimed_at || board.hub?.claimed_at);
+  const hubTeam = Boolean(board.hub?.claimed_at);
+  const pendingDns = usePendingDns(viewerId);
+  const mine = useMyRequests(hubTeam && board.hub ? 'hub' : 'board', hubTeam && board.hub ? board.hub.id : board.id, viewerId, claimed && !team);
+  const domain = siteDomain(board.site);
+  if (claimed) {
+    return (
+      <>
+        <span className="inline-flex items-center gap-1">
+          <span className="text-success">
+            <Icon name="check" size={13} strokeWidth={2.2} />
+          </span>
+          {team ? 'You manage this board' : 'Verified team'}
+        </span>
+        {team ? null : mine.data?.join ? (
+          <span className="text-ink-muted">Request to join pending</span>
+        ) : (
+          <ClaimLink onClick={() => openClaim({ board: board.slug })}>Work here?</ClaimLink>
+        )}
+      </>
+    );
+  }
+  if (domain && pendingDns.data?.includes(domain)) {
+    return (
+      <ClaimLink pending onClick={() => openClaim({ board: board.slug, dns: true })}>
+        Claim pending · check DNS
+      </ClaimLink>
+    );
+  }
+  return <ClaimLink onClick={() => openClaim({ board: board.slug })}>Work at {board.name}?</ClaimLink>;
+}
+
+export function ClaimLink({ children, onClick, pending }: { children: ReactNode; onClick: () => void; pending?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cx(
+        'border-0 bg-transparent p-0 text-sm underline decoration-line-strong underline-offset-3 hover:decoration-current',
+        pending ? 'font-medium text-warning' : 'text-ink-secondary hover:text-ink',
+      )}
+    >
+      {children}
+    </button>
   );
 }
 

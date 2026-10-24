@@ -16,15 +16,8 @@ export { HubPage } from './HubPage';
 export { ExplorePage } from './ExplorePage';
 export { SearchPage } from './SearchPage';
 
-export function BoardManagePage() {
-  const { board } = useParams();
-  return <Placeholder title={`Manage ${board ?? 'board'}`} icon="settings" step={7} />;
-}
-
-export function HubManagePage() {
-  const { hub } = useParams();
-  return <Placeholder title={`Manage ${hub ?? 'hub'}`} icon="settings" step={7} />;
-}
+// Step 7: claiming and teams.
+export { BoardManagePage, HubManagePage } from '../manage/ManagePage';
 
 export function UserPage() {
   const { handle } = useParams();

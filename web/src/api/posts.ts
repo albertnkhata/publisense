@@ -439,10 +439,11 @@ export async function deletePost(id: string): Promise<void> {
   if (error || !data || data.length === 0) throw failed('We couldn’t delete this post. Try again.');
 }
 
-export async function createReply(postId: string, body: string, parentId: string | null): Promise<Reply> {
+/** `official`: a team member replying as the board (the DB refuses it from anyone else). */
+export async function createReply(postId: string, body: string, parentId: string | null, official = false): Promise<Reply> {
   const { data, error } = await getSupabase()
     .from('reply')
-    .insert({ post_id: postId, parent_id: parentId, body: body.trim() })
+    .insert({ post_id: postId, parent_id: parentId, body: body.trim(), ...(official ? { is_official: true } : {}) })
     .select(REPLY_SELECT)
     .single();
   if (error || !data) {

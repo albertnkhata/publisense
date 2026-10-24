@@ -6,6 +6,7 @@ import { BoardPage } from '../pages/BoardPage';
 import { ExplorePage } from '../pages/ExplorePage';
 import { HubPage } from '../pages/HubPage';
 import { SearchPage } from '../pages/SearchPage';
+import { ClaimProvider } from '../claim/ClaimDialog';
 import { ComposerProvider } from '../shell/composer';
 import { CURSOR, FIGJAM, FIGMA, FIGMA_HUB, makeSummary, SUPABASE } from './boardFixtures';
 import { makePost } from './postFixtures';
@@ -43,6 +44,7 @@ const emptyRoadmap = { planned: [], in_progress: [], shipped: [] };
 function renderAt(path: string, signedIn = false) {
   return renderWith(
     <ComposerProvider>
+      <ClaimProvider>
       <Routes>
         <Route path="/b/:board" element={<BoardPage />} />
         <Route path="/b/:board/manage" element={<h1>Manage page</h1>} />
@@ -52,6 +54,7 @@ function renderAt(path: string, signedIn = false) {
         <Route path="/post/:id" element={<h1>Post page</h1>} />
         <Route path="/" element={<h1>Home page</h1>} />
       </Routes>
+      </ClaimProvider>
     </ComposerProvider>,
     { viewer: signedIn ? TEST_VIEWER : null, path },
   );

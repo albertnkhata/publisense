@@ -9,8 +9,8 @@ import { Button, EmptyState, Icon, Skeleton, STATUS_META, TYPE_META } from '../u
 
 /**
  * PostPage (FOUNDATION §5): the post, its status timeline, the reply thread
- * (official replies pinned) and "More on {board}". Team controls (status, merge,
- * official replies) arrive with Manage in step 7.
+ * (official replies pinned) and "More on {board}". The board's team updates the
+ * status from the ⋯ menu and can reply as the team; merge arrives in step 8.
  */
 export function PostPage() {
   const { id } = useParams();
