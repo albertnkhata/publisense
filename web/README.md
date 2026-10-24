@@ -22,10 +22,10 @@ npm run check-classes  # after build: every utility class produces CSS
 |---|---|
 | `src/styles/theme.css` | The locked theme: `@theme { --*: initial; … }` plus light/dark colour variables. The only file allowed raw colours. |
 | `src/ui/` | Primitives (FOUNDATION §4). Each owns its keyboard and ARIA behaviour. |
-| `src/shell/` | AppShell: NavRail, TopBar, RightRail, TabBar, avatar menu. |
-| `src/pages/` | Route screens. In the scaffold every route is a placeholder; `/dev/kit` shows every primitive in both themes. |
-| `src/api/` | The only code that talks to Supabase (anon key only). Query hooks arrive from step 5. |
-| `src/lib/` | Theme, preview viewer, hooks. |
+| `src/shell/` | AppShell: NavRail, TopBar, RightRail, TabBar, avatar menu, AuthDialog (`useAuthDialog`, `useRequireAuth`). |
+| `src/pages/` | Route screens. Settings, `/auth/reset`, `/unsubscribe`, `/privacy` and `/terms` are real (step 4); the rest are placeholders until their step. `/dev/kit` shows every primitive in both themes. |
+| `src/api/` | The only code that talks to Supabase (anon key only): auth, session, profile and avatar, notification preferences, unsubscribe, export, delete-account. |
+| `src/lib/` | Theme, the viewer (Supabase session + `profile` row), hooks. |
 | `scripts/` | `check-style.mjs` and `check-classes.mjs`, run in CI. |
 
 ## Token naming
@@ -38,3 +38,17 @@ Colours: `bg-page|card|subtle|elevated`, `border-line|line-strong`, `text-ink|in
 `style={{ '--board-color': board.color }}` with `bg-board`.
 
 Breakpoints are max-width variants: `max-sm:` (<520), `max-md:` (<720), `max-lg:` (<1060).
+
+## Auth in development
+
+With `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` set (see `.env.example`), the app uses the
+real session. Without them, a dev build lets `/dev/kit` flip a local signed-in preview; production
+builds never include that toggle. Tests render either state with `<ViewerProvider initial={…}>` or
+`StaticViewerProvider` and mock the api layer.
+
+Password-reset links ask to land on `/auth/reset`. That URL (and each preview origin you test from)
+must be in the Supabase project's redirect allow-list, or Supabase falls back to the Site URL; the
+app still recognises the recovery there and routes to `/auth/reset`.
+
+Delete account calls the `delete-account` Edge Function (`supabase/functions/delete-account/`),
+deployed separately with `supabase functions deploy delete-account --project-ref <ref>`.

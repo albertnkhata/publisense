@@ -21,14 +21,10 @@
         "id": "D-003",
         "title": "Test coverage is narrow — no automatic user-flow test in CI",
         "revisit": ""
-      },
-      {
-        "id": "D-002",
-        "title": "`service_role` key exists with no server-side consumer",
-        "revisit": ""
       }
     ],
     "resolved": [
+      "D-002",
       "D-014",
       "D-013",
       "D-010",

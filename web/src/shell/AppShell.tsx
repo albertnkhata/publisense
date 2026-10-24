@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 import { Outlet } from 'react-router';
+import { AuthProvider } from './auth';
+import { RecoveryWatcher } from './RecoveryWatcher';
 import { useTheme } from '../lib/ThemeProvider';
 import { useShortcut } from '../lib/useShortcut';
 import { ComposerProvider } from './composer';
@@ -18,7 +20,9 @@ export function AppShell() {
   useShortcut('d', onTheme, { ctrl: true });
 
   return (
+    <AuthProvider>
     <ComposerProvider>
+      <RecoveryWatcher />
       <a
         href="#main"
         className="sr-only z-80 rounded-md bg-card px-3 py-2 text-sm font-semibold text-ink focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
@@ -39,5 +43,6 @@ export function AppShell() {
         <TabBar />
       </div>
     </ComposerProvider>
+    </AuthProvider>
   );
 }

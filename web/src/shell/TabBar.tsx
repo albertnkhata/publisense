@@ -3,13 +3,16 @@ import { Link, NavLink } from 'react-router';
 import { cx } from '../lib/cx';
 import { useTheme } from '../lib/ThemeProvider';
 import { useViewer } from '../lib/viewer';
-import { Dialog, Icon, UserAvatar, type IconName } from '../ui';
+import { Dialog, Icon, UserAvatar, useToast, type IconName } from '../ui';
+import { useAuthDialog } from './auth';
 import { useComposer } from './composer';
 import { LegalLinks } from './LegalLinks';
 
 /** Icon-only tab bar at sm (≤520px), replacing the nav rail. */
 export function TabBar() {
-  const { viewer } = useViewer();
+  const { viewer, signOut } = useViewer();
+  const { openAuth } = useAuthDialog();
+  const { toast } = useToast();
   const { openComposer } = useComposer();
   const { theme, toggle } = useTheme();
   const [sheet, setSheet] = useState(false);
@@ -53,7 +56,7 @@ export function TabBar() {
             <UserAvatar size="sm" src={viewer.avatarUrl ?? null} />
           </button>
         ) : (
-          <button type="button" aria-label="Sign in" disabled className="flex h-8 items-center justify-center border-0 bg-transparent text-ink-muted disabled:opacity-45">
+          <button type="button" aria-label="Sign in" onClick={() => openAuth('signin')} className="flex h-8 items-center justify-center border-0 bg-transparent text-ink-muted">
             <TabIcon name="sign-in" active={false} />
           </button>
         )}
@@ -72,7 +75,15 @@ export function TabBar() {
               <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={20} strokeWidth={1.75} />
               {theme === 'dark' ? 'Light mode' : 'Dark mode'}
             </button>
-            <button type="button" disabled className={cx(sheetItem, 'text-danger disabled:opacity-45')}>
+            <button
+              type="button"
+              onClick={async () => {
+                setSheet(false);
+                await signOut();
+                toast('Signed out');
+              }}
+              className={cx(sheetItem, 'text-danger')}
+            >
               <Icon name="sign-out" size={20} strokeWidth={1.75} />
               Sign out
             </button>

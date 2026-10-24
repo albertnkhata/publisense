@@ -298,5 +298,52 @@ select pg_temp.expect('author deletes own post; its votes, replies and follows g
   and not exists (select 1 from public.follow, ids where target_id = ids.post)
   and (select post_count from public.board, ids where board.id = ids.cursor) = 0);
 
+-- ------------------------------------------------------------ account deletion
+-- What the delete-account Edge Function relies on (supabase/functions/delete-account).
+-- The function refuses sole owners up front and removes follows that point at the user;
+-- these checks cover what deleting the auth user then does to the v2 tables.
+
+insert into auth.users (id, email, raw_user_meta_data)
+values ('00000000-0000-4000-8000-000000000020', 'frank@example.org', '{"full_name":"Frank"}');
+insert into public.membership (user_id, scope, scope_id, role)
+select '00000000-0000-4000-8000-000000000020'::uuid, 'board'::public.v2_scope, cursor, 'owner'::public.v2_role from ids;
+
+select pg_temp.as_user('00000000-0000-4000-8000-000000000020');
+insert into public.post (board_id, type, title) select linear, 'bug'::public.v2_post_type, 'Frank''s post outlives his account' from ids;
+insert into public.vote (post_id) select id from public.post where title = 'Frank''s post outlives his account';
+insert into public.reply (post_id, body) select id, 'and so does this reply' from public.post where title = 'Frank''s post outlives his account';
+insert into public.follow (target, target_id) select 'board'::public.v2_follow_target, linear from ids;
+insert into public.notification_pref (kind, channel, enabled) values ('reply', 'email', false);
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000b');
+insert into public.follow (target, target_id) values ('user', '00000000-0000-4000-8000-000000000020');
+
+select pg_temp.as_owner();
+create temp table before_delete as
+select (select follower_count from public.board, ids where board.id = ids.linear) as linear_followers;
+
+-- The function's own cleanup, then the auth delete (GoTrue's admin delete does the same row delete).
+delete from public.follow where target = 'user' and target_id = '00000000-0000-4000-8000-000000000020';
+delete from auth.users where id = '00000000-0000-4000-8000-000000000020';
+
+select pg_temp.expect('deleting a co-owner removes their profile, token, prefs, votes, follows and membership',
+  not exists (select 1 from public.profile where id = '00000000-0000-4000-8000-000000000020')
+  and not exists (select 1 from public.email_token where user_id = '00000000-0000-4000-8000-000000000020')
+  and not exists (select 1 from public.notification_pref where user_id = '00000000-0000-4000-8000-000000000020')
+  and not exists (select 1 from public.vote where user_id = '00000000-0000-4000-8000-000000000020')
+  and not exists (select 1 from public.follow where user_id = '00000000-0000-4000-8000-000000000020')
+  and not exists (select 1 from public.membership where user_id = '00000000-0000-4000-8000-000000000020'));
+select pg_temp.expect('their posts and replies stay, shown as from a deleted user (author null)',
+  (select author_id is null and vote_count = 0 and reply_count = 1
+     from public.post where title = 'Frank''s post outlives his account')
+  and (select author_id is null from public.reply where body = 'and so does this reply'));
+select pg_temp.expect('counters follow the cascade (board followers back down by one)',
+  (select follower_count from public.board, ids where board.id = ids.linear)
+    = (select linear_followers - 1 from before_delete));
+select pg_temp.expect('the remaining owner keeps the board',
+  exists (select 1 from public.membership, ids
+           where user_id = ids.carol and scope = 'board' and scope_id = ids.cursor and role = 'owner'));
+select pg_temp.expect_error('a sole owner''s auth user cannot be deleted (last-owner trigger is the backstop)',
+  $$delete from auth.users where id = '00000000-0000-4000-8000-00000000000c'$$);
+
 \echo 'v2 RLS tests: all passed'
 rollback;

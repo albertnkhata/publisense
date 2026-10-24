@@ -5,13 +5,15 @@ import { useViewer } from '../lib/viewer';
 import { Button, IconButton } from '../ui';
 import { BrandSymbol } from './BrandMark';
 import { SearchWell } from './SearchWell';
+import { useAuthDialog } from './auth';
 
 /**
  * Top bar below lg, where the right rail (and its search) is hidden.
  * At sm the search collapses behind an icon and expands with a Cancel.
  */
 export function TopBar() {
-  const { viewer } = useViewer();
+  const { viewer, ready } = useViewer();
+  const { openAuth } = useAuthDialog();
   const [searching, setSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -47,8 +49,8 @@ export function TopBar() {
         <span className="hidden max-sm:contents">
           <IconButton icon="search" label="Search" onClick={() => setSearching(true)} />
         </span>
-        {!viewer ? (
-          <Button size="sm" disabled>
+        {!viewer && ready ? (
+          <Button size="sm" onClick={() => openAuth('signin')}>
             Sign in
           </Button>
         ) : null}

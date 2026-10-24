@@ -1,0 +1,182 @@
+import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import type { AuthError, Session } from '@supabase/supabase-js';
+import { getSupabase, hasSupabaseConfig, SUPABASE_ANON_KEY, SUPABASE_URL } from './supabase';
+
+/*
+ * Auth calls. Every function returns `{ error }` with copy that is safe to show:
+ * nothing here ever tells a visitor whether an email has an account
+ * (FOUNDATION §7). The copy mirrors the reference mockup.
+ */
+
+export type AuthResult = { error: string | null };
+
+export const AUTH_COPY = {
+  invalidEmail: 'Enter a valid email address.',
+  needName: 'Add your name.',
+  shortPassword: 'Use at least 8 characters.',
+  needPassword: 'Enter your password.',
+  badCredentials: 'That email and password don’t match. Try again or reset your password.',
+  unconfirmed: 'Confirm your email first. Open the link we sent when you signed up.',
+  rateLimited: 'Too many tries. Wait a minute, then try again.',
+  network: 'We couldn’t reach Publisense. Check your connection and try again.',
+  generic: 'Something went wrong. Try again.',
+  signupFailed: 'We couldn’t create that account. If you already have one, sign in or reset your password.',
+} as const;
+
+export const MIN_PASSWORD = 8;
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+export const isEmail = (v: string) => EMAIL_RE.test(v.trim());
+
+function code(err: AuthError | Error | null | undefined): string {
+  if (!err) return '';
+  const c = (err as AuthError).code ?? '';
+  return `${c} ${err.message ?? ''}`.toLowerCase();
+}
+
+/** Map a provider error to safe copy. Exported for tests. */
+export function explainAuthError(err: AuthError | Error | null | undefined, context: 'signin' | 'signup' | 'other' = 'other'): string {
+  const c = code(err);
+  if (!c.trim()) return AUTH_COPY.generic;
+  if (c.includes('rate') || c.includes('too many') || c.includes('only request this after')) return AUTH_COPY.rateLimited;
+  if (c.includes('fetch') || c.includes('network')) return AUTH_COPY.network;
+  if (context === 'signin') {
+    if (c.includes('not_confirmed') || c.includes('not confirmed')) return AUTH_COPY.unconfirmed;
+    return AUTH_COPY.badCredentials;
+  }
+  if (c.includes('weak_password') || c.includes('password should')) return err?.message || AUTH_COPY.shortPassword;
+  if (context === 'signup') return AUTH_COPY.signupFailed;
+  return AUTH_COPY.generic;
+}
+
+const origin = () => (typeof window === 'undefined' ? '' : window.location.origin);
+
+export async function signInWithPassword(email: string, password: string): Promise<AuthResult> {
+  const { error } = await getSupabase().auth.signInWithPassword({ email: email.trim(), password });
+  return { error: error ? explainAuthError(error, 'signin') : null };
+}
+
+/** `needsConfirmation` is true when the project mails a confirm link (no session yet). */
+export async function signUp(name: string, email: string, password: string): Promise<AuthResult & { needsConfirmation: boolean }> {
+  const { data, error } = await getSupabase().auth.signUp({
+    email: email.trim(),
+    password,
+    options: { data: { full_name: name.trim() }, emailRedirectTo: origin() },
+  });
+  if (error) return { error: explainAuthError(error, 'signup'), needsConfirmation: false };
+  return { error: null, needsConfirmation: !data.session };
+}
+
+/**
+ * Always resolves like a success unless the request itself was throttled or never
+ * left the browser, so the answer is the same whether or not the address exists.
+ */
+export async function requestPasswordReset(email: string): Promise<AuthResult> {
+  const { error } = await getSupabase().auth.resetPasswordForEmail(email.trim(), { redirectTo: `${origin()}/auth/reset` });
+  if (!error) return { error: null };
+  const msg = explainAuthError(error);
+  return { error: msg === AUTH_COPY.rateLimited || msg === AUTH_COPY.network ? msg : null };
+}
+
+export async function signInWithGoogle(): Promise<AuthResult> {
+  const { error } = await getSupabase().auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: typeof window === 'undefined' ? undefined : window.location.href },
+  });
+  return { error: error ? explainAuthError(error) : null };
+}
+
+export async function signOut(): Promise<void> {
+  await getSupabase().auth.signOut();
+}
+
+/** Set a new password for the signed-in (or recovery) session. */
+export async function setNewPassword(password: string): Promise<AuthResult> {
+  const { error } = await getSupabase().auth.updateUser({ password });
+  return { error: error ? explainAuthError(error) : null };
+}
+
+/**
+ * Change password from Settings: prove the current one first, then set the new
+ * one and sign out every other session (mockup: "You'll stay signed in here and be
+ * signed out everywhere else").
+ */
+export async function changePassword(email: string, current: string, next: string): Promise<AuthResult> {
+  const sb = getSupabase();
+  const check = await sb.auth.signInWithPassword({ email, password: current });
+  if (check.error) {
+    const msg = explainAuthError(check.error, 'signin');
+    return { error: msg === AUTH_COPY.badCredentials ? 'That isn’t your current password.' : msg };
+  }
+  const { error } = await sb.auth.updateUser({ password: next });
+  if (error) return { error: explainAuthError(error) };
+  await sb.auth.signOut({ scope: 'others' });
+  return { error: null };
+}
+
+/** Supabase mails a confirmation link to the new address; nothing changes until it is opened. */
+export async function changeEmail(email: string): Promise<AuthResult> {
+  const { error } = await getSupabase().auth.updateUser({ email: email.trim() }, { emailRedirectTo: `${origin()}/settings` });
+  return { error: error ? explainAuthError(error) : null };
+}
+
+// ------------------------------------------------------------------ session
+
+export interface SessionState {
+  session: Session | null;
+  /** False until the client has restored (or failed to restore) a session. */
+  ready: boolean;
+}
+
+/** Live Supabase session. Without config there is never a session. */
+export function useSession(): SessionState {
+  const [state, setState] = useState<SessionState>({ session: null, ready: !hasSupabaseConfig });
+  useEffect(() => {
+    if (!hasSupabaseConfig) return;
+    const sb = getSupabase();
+    let alive = true;
+    sb.auth.getSession().then(({ data }) => {
+      if (alive) setState({ session: data.session, ready: true });
+    });
+    const { data } = sb.auth.onAuthStateChange((_event, session) => {
+      if (alive) setState({ session, ready: true });
+    });
+    return () => {
+      alive = false;
+      data.subscription.unsubscribe();
+    };
+  }, []);
+  return state;
+}
+
+// ------------------------------------------------------------------ capabilities
+
+export interface AuthCapabilities {
+  google: boolean;
+  /** True when sign-up must be confirmed from a mailed link. */
+  confirmEmail: boolean;
+}
+
+/** Fail closed: show only what always works (email + password). */
+export const FALLBACK_CAPABILITIES: AuthCapabilities = { google: false, confirmEmail: true };
+
+/**
+ * Render only the sign-in methods the project has enabled (FOUNDATION §1,
+ * authCapabilities). `/auth/v1/settings` is public with the anon key.
+ */
+export async function fetchAuthCapabilities(): Promise<AuthCapabilities> {
+  if (!hasSupabaseConfig) return FALLBACK_CAPABILITIES;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/settings`, { headers: { apikey: SUPABASE_ANON_KEY } });
+    if (!res.ok) return FALLBACK_CAPABILITIES;
+    const body = (await res.json()) as { external?: Record<string, boolean>; mailer_autoconfirm?: boolean };
+    return { google: body.external?.google === true, confirmEmail: body.mailer_autoconfirm !== true };
+  } catch {
+    return FALLBACK_CAPABILITIES;
+  }
+}
+
+export function useAuthCapabilities(enabled = true): AuthCapabilities {
+  const q = useQuery({ queryKey: ['auth', 'capabilities'], queryFn: fetchAuthCapabilities, staleTime: Infinity, enabled });
+  return q.data ?? FALLBACK_CAPABILITIES;
+}
