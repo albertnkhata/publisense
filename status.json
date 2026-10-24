@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-22T15:22:43Z",
+  "generatedAt": "2026-10-24T20:36:19Z",
   "repo": {
     "openDecisions": [
       {
@@ -240,39 +240,35 @@
     ]
   },
   "live": {
-    "generatedAt": "2026-10-22T15:22:43Z",
+    "generatedAt": "2026-10-24T20:36:19Z",
     "site": {
       "status": 200,
-      "bundle": "/assets/index-CiwaYOWW.js",
+      "bundle": "/assets/index-DfKyFsVt.js",
       "wwwRedirect": "308 → https://publisense.app/",
-      "checkedAt": "2026-10-22T15:22:43Z"
+      "checkedAt": "2026-10-24T20:36:19Z"
     },
     "data": {
       "counts": {
-        "products": 13,
-        "organizations": 7,
-        "posts": 8,
-        "comments": 9,
-        "post_votes": 4,
-        "comment_votes": 0,
-        "public_profiles": 10,
-        "claim_decisions": 0
+        "board": 28,
+        "hub": 1,
+        "post": 0,
+        "reply": 0,
+        "vote": 0,
+        "follow": "restricted",
+        "profile": 3,
+        "status_event": 0
       },
       "trueCounts": {
-        "products": 13,
-        "organizations": 7,
-        "posts": 8,
-        "comments": 9,
-        "post_votes": 4,
-        "comment_votes": 0,
-        "public_profiles": 10,
-        "claim_decisions": 0
+        "board": 28,
+        "hub": 1,
+        "post": 0,
+        "reply": 0,
+        "vote": 0,
+        "follow": 1,
+        "profile": 3,
+        "status_event": 0
       },
-      "fixtures": {
-        "profiles": 10,
-        "fixtureProfiles": 7,
-        "memberProfiles": 3
-      },
+      "fixtures": null,
       "authUsers": 3
     },
     "auth": {
@@ -295,13 +291,10 @@
       "prs": []
     },
     "deployedCommit": {
-      "sha": "0254618",
+      "sha": "279a1da",
       "state": "READY",
-      "createdAt": "2026-10-22T15:20:58.571Z"
+      "createdAt": "2026-10-24T13:22:22.216Z"
     },
-    "unitTests": {
-      "files": 8,
-      "cases": 96
-    }
+    "unitTests": "unknown"
   }
 }
