@@ -392,6 +392,20 @@ describe('entry points', () => {
     expect((within(dialog).getByLabelText(/^Name/) as HTMLInputElement).value).toBe('Acme Notes');
   });
 
+  it('replaces a name carried over from search with the site’s own once a link is in', async () => {
+    boardsApi.searchAll.mockResolvedValue({ boards: [], hubs: [], posts: [] });
+    renderApp('/well');
+    const input = screen.getByRole('combobox', { name: /Search products/ });
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: 'acme' } });
+    fireEvent.click(await screen.findByRole('option', { name: /Can’t find it\? Add it/ }));
+    const dialog = await screen.findByRole('dialog', { name: 'Add a product' });
+    expect((within(dialog).getByLabelText(/^Name/) as HTMLInputElement).value).toBe('acme');
+    fireEvent.change(within(dialog).getByLabelText('Link'), { target: { value: 'acme-notes.dev' } });
+    await waitFor(() => expect((within(dialog).getByLabelText(/^Name/) as HTMLInputElement).value).toBe('Acme Notes'));
+    expect((within(dialog).getByLabelText(/^Description/) as HTMLInputElement).value).toBe('Notes for small teams');
+  });
+
   it('the composer’s product picker offers to add one, and lists only live boards plus your own pending ones', async () => {
     boardsApi.fetchBoards.mockResolvedValue([CURSOR, ACME, makeBoard({ id: 'b0000000-0000-4000-8000-0000000000a2', slug: 'acme-beta', name: 'Acme Beta', status: 'pending', created_by: OTHER.id })]);
     renderApp('/compose');
