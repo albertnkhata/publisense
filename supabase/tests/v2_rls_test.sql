@@ -75,6 +75,8 @@ insert into public.membership (user_id, scope, scope_id, role)
 select carol, 'board'::public.v2_scope, cursor, 'owner'::public.v2_role from ids union all
 select erin,  'hub', figma_hub, 'admin' from ids;
 insert into public.block (scope, scope_id, user_id) select 'board'::public.v2_scope, cursor, dave from ids;
+-- Carol's team exists because the board is claimed (memberships only ever exist on a claimed scope).
+update public.board set claimed_at = now() where slug = 'cursor';
 insert into public.platform_admin (user_id) select staff from ids;
 
 select pg_temp.expect('seed: 14 boards, 1 hub, figma hub holds 3',
@@ -227,8 +229,11 @@ select pg_temp.expect_error('nobody makes themselves platform admin',
   $$insert into public.platform_admin (user_id) select alice from ids$$);
 select pg_temp.expect_error('nobody writes verified domains directly',
   $$insert into public.verified_domain (domain, verified_by, method) select 'example.org', alice, 'email' from ids$$);
-insert into public.ownership_dispute (scope, scope_id, reason, work_email)
-select 'board'::public.v2_scope, cursor, 'I run the Cursor team, this owner left.', 'alice@cursor.com' from ids;
+-- Disputes arrive only through open_dispute since 0022 (step 8 tests that); this
+-- fixture row stands in for one filed that way.
+select pg_temp.as_owner();
+insert into public.ownership_dispute (user_id, scope, scope_id, reason, work_email)
+select alice, 'board'::public.v2_scope, cursor, 'I run the Cursor team, this owner left.', 'alice@cursor.com' from ids;
 
 select pg_temp.as_user('00000000-0000-4000-8000-00000000000c');
 select pg_temp.expect('team sees its own memberships',
@@ -655,6 +660,249 @@ select pg_temp.expect('step 7: platform admins see it',
   exists (select 1 from public.ownership_dispute, ids where scope_id = ids.linear and status = 'pending'));
 select pg_temp.expect_error('step 7: the code sender is not callable over RPC',
   $$select public.v2_send_code('a@linear.app', 'linear.app', '123456')$$);
+
+-- ------------------------------------------------------------ step 8: merge, reports, disputes, admins, release
+-- State carried over: carol owns the cursor board (dave is blocked there), alice owns
+-- the figma hub and the figma board, gina owns linear with bob as a member, dave has a
+-- pending dispute on linear, and staff is the only platform admin.
+
+select pg_temp.as_user('00000000-0000-4000-8000-000000000071');
+insert into public.post (board_id, type, title) select cursor, 'bug'::public.v2_post_type, 'Cursor jumps to the top after apply' from ids;
+select pg_temp.as_user('00000000-0000-4000-8000-000000000072');
+insert into public.post (board_id, type, title) select cursor, 'bug'::public.v2_post_type, 'Caret position lost after applying a diff' from ids;
+select pg_temp.as_owner();
+create temp table s8 as
+select (select id from public.post where title = 'Cursor jumps to the top after apply') as src,
+       (select id from public.post where title = 'Caret position lost after applying a diff') as dst,
+       null::uuid as reply;
+grant select on s8 to anon, authenticated;
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000a');
+insert into public.vote (post_id) select src from s8;
+insert into public.vote (post_id) select dst from s8;
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000b');
+insert into public.vote (post_id) select src from s8;
+insert into public.reply (post_id, body) select dst, 'Happens to me on every apply' from s8;
+select pg_temp.as_owner();
+update s8 set reply = (select id from public.reply where body = 'Happens to me on every apply');
+
+select pg_temp.as_user(null);
+select pg_temp.expect_error('step 8: anon cannot merge', $$select public.merge_post((select src from s8), (select dst from s8))$$);
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000b');
+select pg_temp.expect('step 8: only the board team merges',
+  public.merge_post((select src from s8), (select dst from s8)) ->> 'error' = 'not_allowed');
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000c');
+select pg_temp.expect('step 8: a post cannot be merged into itself',
+  public.merge_post((select src from s8), (select src from s8)) ->> 'error' = 'same_post');
+select pg_temp.expect('step 8: a merge across boards needs the team of both',
+  public.merge_post((select src from s8), (select id from public.post where title = 'Dave on Linear')) ->> 'error' = 'not_allowed');
+select pg_temp.expect('step 8: the team merges the duplicate; votes not already on the target move',
+  (public.merge_post((select src from s8), (select dst from s8)) ->> 'moved')::int = 1);
+select pg_temp.expect('step 8: target counts the moved vote, source is merged and points at it',
+  (select vote_count from public.post, s8 where post.id = s8.dst) = 2
+  and (select status = 'merged' and merged_into = s8.dst from public.post, s8 where post.id = s8.src)
+  and exists (select 1 from public.status_event, s8 where post_id = s8.src and "to" = 'merged' and "from" = 'open'));
+select pg_temp.as_owner();
+select pg_temp.expect('step 8: ... gina and bob follow the target, and the merge was recorded',
+  (select count(*) from public.follow, s8 where target = 'post' and target_id = s8.dst
+     and user_id in ('00000000-0000-4000-8000-000000000071', '00000000-0000-4000-8000-00000000000b')) = 2
+  and (select cardinality(moved_voters) = 1 and cardinality(moved_followers) = 2 from public.merge_record, s8 where source_post_id = s8.src));
+select pg_temp.as_user(null);
+select pg_temp.expect('step 8: the merged-away post is gone for the public',
+  not exists (select 1 from public.post, s8 where post.id = s8.src));
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000b');
+select pg_temp.expect('step 8: the duplicate''s voters are told where it went',
+  exists (select 1 from public.notification, s8 where kind = 'status_change' and target_id = s8.src
+           and data ->> 'to' = 'merged' and (data ->> 'into')::uuid = s8.dst));
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000d');
+select pg_temp.expect_error('step 8: a merged post takes no votes',
+  $$insert into public.vote (post_id) select src from s8$$);
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000c');
+select pg_temp.expect('step 8: a merged post cannot be merged again, nor merged into',
+  public.merge_post((select src from s8), (select dst from s8)) ->> 'error' = 'merged'
+  and public.merge_post((select dst from s8), (select src from s8)) ->> 'error' = 'target_unavailable');
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000b');
+select pg_temp.expect('step 8: outsiders cannot unmerge',
+  public.unmerge_post((select src from s8)) ->> 'error' = 'not_allowed');
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000c');
+select pg_temp.expect('step 8: unmerge within 10 minutes restores the status',
+  public.unmerge_post((select src from s8)) ->> 'status' = 'open');
+select pg_temp.as_owner();
+select pg_temp.expect('step 8: ... returns the votes and follows, and leaves a status_event',
+  (select vote_count from public.post, s8 where post.id = s8.dst) = 1
+  and (select vote_count from public.post, s8 where post.id = s8.src) = 2
+  and not exists (select 1 from public.follow, s8 where target = 'post' and target_id = s8.dst
+                   and user_id in ('00000000-0000-4000-8000-000000000071', '00000000-0000-4000-8000-00000000000b'))
+  and exists (select 1 from public.follow, s8 where target = 'post' and target_id = s8.dst and user_id = '00000000-0000-4000-8000-00000000000a')
+  and (select status = 'open' and merged_into is null from public.post, s8 where post.id = s8.src)
+  and exists (select 1 from public.status_event, s8 where post_id = s8.src and "from" = 'merged' and "to" = 'open')
+  and (select undone_at is not null from public.merge_record, s8 where source_post_id = s8.src));
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000c');
+select pg_temp.expect('step 8: a post that is not merged cannot be unmerged',
+  public.unmerge_post((select src from s8)) ->> 'error' = 'not_merged');
+select public.merge_post((select src from s8), (select dst from s8));
+select pg_temp.as_owner();
+update public.merge_record set merged_at = now() - interval '11 minutes' where source_post_id = (select src from s8) and undone_at is null;
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000c');
+select pg_temp.expect('step 8: after 10 minutes a merge is final',
+  public.unmerge_post((select src from s8)) ->> 'error' = 'too_late');
+
+-- reports
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000b');
+insert into public.report (target, target_id, reason) select 'post'::public.v2_report_target, dst, 'Spam or advertising' from s8;
+select pg_temp.expect_error('step 8: one report per person per target',
+  $$insert into public.report (target, target_id, reason) select 'post'::public.v2_report_target, dst, 'Again' from s8$$);
+select pg_temp.expect_error('step 8: a report cannot be filed as someone else',
+  $$insert into public.report (target, target_id, reason, reporter) select 'post'::public.v2_report_target, dst, 'Forged', alice from s8, ids$$);
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000a');
+insert into public.report (target, target_id, reason) select 'post'::public.v2_report_target, dst, 'Harassment or hate' from s8;
+insert into public.report (target, target_id, reason) select 'reply'::public.v2_report_target, reply, 'Off-topic' from s8;
+select pg_temp.expect('step 8: reporters see only their own reports',
+  not exists (select 1 from public.report where reporter <> '00000000-0000-4000-8000-00000000000a')
+  and (select count(*) from public.report, s8 where target_id in (s8.dst, s8.reply)) = 2);
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000c');
+select pg_temp.expect('step 8: board teams cannot read or decide reports',
+  not exists (select 1 from public.report)
+  and public.decide_reports('post', (select dst from s8), 'dismiss') ->> 'error' = 'not_allowed');
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000f');
+select pg_temp.expect('step 8: platform admins read the whole queue',
+  (select count(*) from public.report, s8 where status = 'open' and target_id in (s8.dst, s8.reply)) = 3);
+select pg_temp.expect('step 8: hide-and-resolve decides every open report on the target',
+  (public.decide_reports('post', (select dst from s8), 'hide') ->> 'decided')::int = 2);
+select pg_temp.expect('step 8: ... hides the post and records who decided',
+  (select hidden_at is not null from public.post, s8 where post.id = s8.dst)
+  and (select count(*) from public.report, s8 where target_id = s8.dst and status = 'actioned' and decided_by = '00000000-0000-4000-8000-00000000000f') = 2);
+select pg_temp.expect('step 8: a decided target cannot be decided twice; dismiss works on replies',
+  public.decide_reports('post', (select dst from s8), 'dismiss') ->> 'error' = 'decided'
+  and (public.decide_reports('reply', (select reply from s8), 'dismiss') ->> 'ok')::boolean);
+select pg_temp.expect('step 8: ... and dismissing leaves the reply visible',
+  (select hidden_at is null from public.reply, s8 where reply.id = s8.reply));
+select public.set_post_hidden((select dst from s8), false);
+select pg_temp.expect('step 8: platform admins unhide through the existing RPC',
+  (select hidden_at is null from public.post, s8 where post.id = s8.dst));
+
+-- disputes
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000d');
+select pg_temp.expect_error('step 8: disputes cannot be inserted directly (only open_dispute)',
+  $$insert into public.ownership_dispute (scope, scope_id, reason, work_email)
+    select 'board'::public.v2_scope, cursor, 'Inserted straight into the table', 'dave@cursor.com' from ids$$);
+select pg_temp.as_owner();
+create temp table s8d as select id from public.ownership_dispute where user_id = '00000000-0000-4000-8000-00000000000d' and status = 'pending';
+insert into public.ownership_dispute (user_id, scope, scope_id, reason, work_email)
+select '00000000-0000-4000-8000-000000000072', 'board', linear, 'Second claim on the same board', 'hank@linear.app' from ids;
+create temp table s8r as select id from public.ownership_dispute where user_id = '00000000-0000-4000-8000-000000000072';
+grant select on s8d, s8r to authenticated;
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000c');
+select pg_temp.expect('step 8: only platform admins decide disputes',
+  public.decide_dispute((select id from s8d), true) ->> 'error' = 'not_allowed');
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000f');
+select pg_temp.expect('step 8: rejecting a dispute is recorded',
+  (public.decide_dispute((select id from s8r), false) ->> 'ok')::boolean);
+select pg_temp.expect('step 8: ... and changes nothing on the board',
+  exists (select 1 from public.membership, ids where scope_id = ids.linear and user_id = '00000000-0000-4000-8000-000000000071' and role = 'owner'));
+select pg_temp.expect('step 8: approving a dispute succeeds once',
+  (public.decide_dispute((select id from s8d), true) ->> 'ok')::boolean);
+select pg_temp.expect('step 8: ... transfers ownership to the filer and removes the incumbent team',
+  (select array_agg(user_id::text || ':' || role::text) from public.membership, ids where scope = 'board' and scope_id = ids.linear)
+      = array['00000000-0000-4000-8000-00000000000d:owner']
+  and public.decide_dispute((select id from s8d), false) ->> 'error' = 'decided');
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000d');
+select pg_temp.expect('step 8: the filer is told and now manages the board',
+  exists (select 1 from public.notification where kind = 'claim' and data ->> 'dispute' = 'approved')
+  and public.is_board_admin((select linear from ids)));
+select pg_temp.as_user('00000000-0000-4000-8000-000000000072');
+select pg_temp.expect('step 8: a rejected filer is told too',
+  exists (select 1 from public.notification where kind = 'claim' and data ->> 'dispute' = 'rejected'));
+
+-- block (FOUNDATION §6: a team blocks a user from posting on its boards)
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000d');
+insert into public.block (scope, scope_id, user_id) select 'board'::public.v2_scope, linear, bob from ids;
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000b');
+select pg_temp.expect_error('step 8: a blocked user cannot post on the blocking board',
+  $$insert into public.post (board_id, type, title) select linear, 'bug', 'Bob is blocked' from ids$$);
+select pg_temp.expect_error('step 8: only the scope's owners and admins block',
+  $$insert into public.block (scope, scope_id, user_id) select 'board'::public.v2_scope, linear, dave from ids$$);
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000d');
+delete from public.block where scope = 'board' and user_id = '00000000-0000-4000-8000-00000000000b';
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000b');
+insert into public.post (board_id, type, title) select linear, 'bug'::public.v2_post_type, 'Bob is back' from ids;
+select pg_temp.expect('step 8: unblocking lets them post again', exists (select 1 from public.post where title = 'Bob is back'));
+
+-- release a claimed board or hub
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000b');
+select pg_temp.expect('step 8: only an owner can release a board',
+  public.release_scope('board', (select linear from ids)) ->> 'error' = 'owners_only');
+select pg_temp.as_owner();
+insert into public.join_request (user_id, scope, scope_id, work_email)
+select '00000000-0000-4000-8000-000000000072', 'board', linear, 'hank@linear.app' from ids;
+insert into public.block (scope, scope_id, user_id) select 'board'::public.v2_scope, linear, bob from ids;
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000d');
+select pg_temp.expect('step 8: the sole owner releases the board: unclaimed, no team, requests withdrawn, blocks lifted',
+  (public.release_scope('board', (select linear from ids)) ->> 'ok')::boolean);
+select pg_temp.as_owner();
+select pg_temp.expect('step 8: ... and it is really back to unclaimed',
+  (select claimed_at is null from public.board, ids where board.id = ids.linear)
+  and not exists (select 1 from public.membership, ids where scope_id = ids.linear)
+  and not exists (select 1 from public.join_request, ids where scope_id = ids.linear and status = 'pending')
+  and not exists (select 1 from public.block, ids where scope_id = ids.linear));
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000c');
+select pg_temp.expect('step 8: the last owner still cannot simply leave a claimed board',
+  public.remove_team_member('board', (select cursor from ids), (select carol from ids)) ->> 'error' = 'last_owner');
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000a');
+select pg_temp.expect('step 8: an owner can release a board inside a claimed hub',
+  (public.release_scope('board', (select figma from s7)) ->> 'ok')::boolean);
+select pg_temp.expect('step 8: ... its own team goes but the hub still covers it',
+  not exists (select 1 from public.membership where scope = 'board' and scope_id = (select figma from s7))
+  and (select claimed_at is not null from public.board where id = (select figma from s7))
+  and public.is_board_admin((select figma from s7)));
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000e');
+select pg_temp.expect('step 8: a hub admin who is not an owner cannot release the hub',
+  public.release_scope('hub', (select figma_hub from ids)) ->> 'error' = 'owners_only');
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000a');
+select pg_temp.expect('step 8: the hub owner releases the hub: hub and its boards unclaimed, no team left',
+  (public.release_scope('hub', (select figma_hub from ids)) ->> 'ok')::boolean);
+select pg_temp.as_owner();
+select pg_temp.expect('step 8: ... every board of the hub is claimable again',
+  (select claimed_at is null from public.hub, ids where hub.id = ids.figma_hub)
+  and not exists (select 1 from public.board, ids where hub_id = ids.figma_hub and claimed_at is not null)
+  and not exists (select 1 from public.membership, ids where scope = 'hub' and scope_id = ids.figma_hub));
+
+-- platform admins: appoint, remove, audit; lookups reveal nothing to non-admins
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000b');
+select pg_temp.expect('step 8: non-admins learn nothing from a lookup (same answer for real and made-up accounts)',
+  public.admin_find_user('carol@cursor.com') = public.admin_find_user('nobody@nowhere.test')
+  and public.admin_find_user('carol@cursor.com') ->> 'error' = 'not_allowed');
+select pg_temp.expect('step 8: non-admins cannot appoint or remove admins',
+  public.grant_platform_admin((select bob from ids)) ->> 'error' = 'not_allowed'
+  and public.revoke_platform_admin((select staff from ids)) ->> 'error' = 'not_allowed');
+select pg_temp.expect_error('step 8: platform_admin is not client-writable',
+  $$insert into public.platform_admin (user_id) select bob from ids$$);
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000f');
+select pg_temp.expect('step 8: admins look people up by email or handle',
+  public.admin_find_user('Carol@Cursor.com') -> 'user' ->> 'handle' = 'carol'
+  and (public.admin_find_user('@staff') -> 'user' ->> 'is_admin')::boolean
+  and public.admin_find_user('nobody') ->> 'error' = 'not_found');
+select pg_temp.expect('step 8: the last admin cannot be removed',
+  public.revoke_platform_admin((select staff from ids)) ->> 'error' = 'last_admin');
+select pg_temp.expect('step 8: an admin appoints another admin',
+  (public.grant_platform_admin((select carol from ids)) ->> 'ok')::boolean);
+select pg_temp.expect('step 8: ... once',
+  public.grant_platform_admin((select carol from ids)) ->> 'error' = 'already_admin');
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000c');
+select pg_temp.expect('step 8: the new admin reads the audit log',
+  exists (select 1 from public.platform_admin_event, ids where action = 'grant' and user_id = ids.carol and actor_id = ids.staff));
+select pg_temp.expect('step 8: ... and removes the first admin',
+  (public.revoke_platform_admin((select staff from ids)) ->> 'ok')::boolean);
+select pg_temp.expect('step 8: ... but now cannot remove themselves, the last admin',
+  public.revoke_platform_admin((select carol from ids)) ->> 'error' = 'last_admin');
+select pg_temp.expect('step 8: every appointment and removal is logged',
+  (select count(*) from public.platform_admin_event) = 2);
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000f');
+select pg_temp.expect('step 8: a removed admin loses the queue and the log',
+  not exists (select 1 from public.platform_admin_event) and not exists (select 1 from public.report)
+  and public.decide_reports('reply', (select reply from s8), 'resolve') ->> 'error' = 'not_allowed');
+select pg_temp.as_owner();
+select pg_temp.expect_error('step 8: the last admin cannot be deleted even by a cascade',
+  $$delete from public.platform_admin$$);
 
 \echo 'v2 RLS tests: all passed'
 rollback;
