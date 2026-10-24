@@ -188,3 +188,7 @@ Tick step 9 in `BUILD.md`, link this runbook's outcome, regenerate `STATUS.md`.
 | `make_v1_restore.sh <db> <out>` | Builds the R2 rollback script from a local restore | No (local only) |
 | `smoke.sh [v2] [v1]` | 31 HTTP/API checks; the only writes it tries are anon writes the API refuses | No |
 | `smoke-browser.mjs` | Playwright desktop + mobile load, screenshots, console errors; aborts any non-GET to Supabase | No |
+
+## 7. Since cutover
+
+The counts above are as verified on cutover day. Migration 0025 (2026-10-24) later renamed the Windsurf board to Devin Desktop (windsurf.com now redirects to devin.ai/desktop) and removed the Arc board (Arc retired, no posts or follows), so production seeds 13 boards.
