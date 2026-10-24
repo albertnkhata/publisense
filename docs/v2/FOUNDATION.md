@@ -20,6 +20,8 @@
 | SQL patterns: `handle_new_user` trigger, `guard_profile_privileges`, `security definer` RPCs that return `{ ok, error }` | Proven. They get rewritten against the v2 schema, not copied |
 | `authCapabilities` idea: render only the sign-in methods the project actually has enabled | Avoids buttons that can only fail |
 
+**Coexistence.** v1 keeps serving `publisense.app` from the same Supabase project until cutover. v2 tables are **additive** in `public`: nothing v1 reads is dropped or altered before step 9. v2 table names are singular (`post`, `reply`, `vote`, `board`…), so they never clash with v1's plural tables, so keep that convention. The v2 signup trigger is added only once v2 tables exist, and a v1 signup is re-tested afterwards, because both triggers fire on every signup. At cutover: `pg_dump` snapshot, then drop the v1 tables.
+
 Everything else (the components, `StoreContext`, the CSS, seed data, the type and severity model, the old schema) is replaced.
 
 ## 2. Stack
@@ -96,13 +98,14 @@ Each primitive owns its keyboard and ARIA behaviour once, so screens never re-im
 
 | Entity | Key fields | Notes |
 |---|---|---|
-| `profile` | id, handle, name, avatar, bio | 1:1 with `auth.users`, created by trigger. No role column: power comes from memberships |
-| `board` | id, slug, name, tagline, site, color, logo, category, hub_id?, claimed_at | The product. Public face |
+| `profile` | id, handle, name, avatar_path, bio | 1:1 with `auth.users`, created by trigger. No role column: power comes from memberships and `platform_admin` |
+| `platform_admin` | user_id, granted_by, granted_at | Hark-side staff who handle the reports queue and ownership disputes. Seeded by migration, never client-writable; checked by an `is_platform_admin()` helper inside RLS |
+| `board` | id, slug, name, tagline, site, color, logo_path, category, hub_id?, claimed_at | The product. Public face |
 | `hub` | id, slug, name, description, primary_domain, claimed_at | Public group of boards. Needs no verification to exist |
-| `domain` | id, domain, verified_by, method (email \| dns), verified_at | A user proves control of a domain. Shared domains (gmail.com, vercel.app…) are refused |
+| `verified_domain` | id, domain, verified_by, method (email \| dns), verified_at | A user proves control of a domain. Shared domains (gmail.com, vercel.app…) are refused |
 | `membership` | user_id, scope (board \| hub), scope_id, role (owner \| admin \| member) | A hub membership covers every board in the hub |
 | `join_request` | user_id, scope, work_email, status | "Work here?" |
-| `ownership_dispute` | user_id, scope, reason, work_email, status | "Report wrong owner"; goes to the platform admin queue |
+| `ownership_dispute` | user_id, scope, reason, work_email, status | "Report wrong owner"; decided by a platform admin, never by the incumbent team |
 | `post` | id, board_id, author_id?, source_url?, type (bug \| feature), status, title, body, merged_into?, hidden_at?, edited_at? | `author_id` null + `source_url` = seeded |
 | `vote` | post_id, user_id | Voting auto-follows the post |
 | `reply` | id, post_id, parent_id?, author_id, body, is_official | One level of nesting |
@@ -113,9 +116,17 @@ Each primitive owns its keyboard and ARIA behaviour once, so screens never re-im
 | `report` | target (post \| reply \| user), reason, reporter, status | Moderation queue |
 | `block` | scope_id, user_id | A team blocks a user from posting on its boards |
 
+### Storage
+
+Supabase Storage, two public-read buckets:
+- `avatars/{user_id}/{uuid}.{ext}`: only the owner writes under their own `user_id` prefix.
+- `board-logos/{board_id}/{uuid}.{ext}`: only owners and admins of that board (or its hub) write.
+
+Limits: images only (png, jpg, webp, svg sanitised), 1 MB, square crop done client-side. Rows store the path, not a URL. Old files are deleted on replace. Seeded posts' media stay external links.
+
 ## 7. State machines
 
-- **Post status:** `open → under_review → planned → in_progress → shipped`, with `closed` reachable from any state, and `merged` (terminal: votes move, the source is hidden). Only team members change status. Every change writes a `status_event`; *shipped* notifies everyone who voted or followed.
+- **Post status:** `open → under_review → planned → in_progress → shipped`, with `closed` reachable from any state, and `merged` (terminal: votes move to the target and the source is hidden). An `unmerge` RPC can reverse a merge within 10 minutes: it restores the status, returns the votes and unhides the source, and writes its own `status_event` so the timeline stays truthful. Only team members change status. Every change writes a `status_event`; *shipped* notifies everyone who voted or followed.
 - **Claim:** unclaimed → verifying (email code or DNS TXT) → claimed. On success, if the board has a hub whose `primary_domain` the user verified, offer *Claim all of {hub}*. Claimed boards show Manage to members only.
 - **Auth:** signed out → (sign in \| sign up \| forgot → sent → reset) → signed in. Sign-up shows *confirm your email* if confirmation is on. Messages never reveal whether an email exists.
 
@@ -129,12 +140,13 @@ Each primitive owns its keyboard and ARIA behaviour once, so screens never re-im
 | Change status, official reply, merge, hide | | | | ✓ | ✓ |
 | Block user, manage team, board settings | | | | | ✓ |
 | Delete account | | self | | | (blocked while sole owner) |
+| Decide reports and ownership disputes | | | | | platform admin only |
 
 Enforced in RLS and `security definer` RPCs; the UI mirrors it but is never the guard.
 
 ## 9. Routes
 
-`/` home · `/explore` · `/search?q=` · `/b/:board` (tabs `?tab=roadmap|changelog`) · `/b/:board/manage` · `/h/:hub` · `/h/:hub/manage` · `/post/:id` · `/u/:handle` · `/notifications` · `/settings` · `/privacy` · `/terms` · `/auth/reset`.
+`/` home · `/explore` · `/search?q=` · `/b/:board` (tabs `?tab=roadmap|changelog`) · `/b/:board/manage` · `/h/:hub` · `/h/:hub/manage` · `/post/:id` · `/u/:handle` · `/notifications` · `/settings` · `/privacy` · `/terms` · `/auth/reset` · `/unsubscribe?token=` (one click, no sign-in) · `/admin/reports` · `/admin/disputes` (platform admins only).
 
 ## 10. Mockup shortcuts that do not carry over
 
@@ -142,20 +154,26 @@ Enforced in RLS and `security definer` RPCs; the UI mirrors it but is never the 
 - Posts as positional arrays and posts addressed by array index → typed records with ids.
 - Global `document` click delegation on `data-*` attributes → component handlers.
 - Toasts standing in for unbuilt features → either build it or hide the control.
-- Merge without Undo → merge is reversible for 10 minutes.
+- Merge without Undo → `unmerge` within 10 minutes (section 7).
 - Keyword similarity → Postgres full-text search (`websearch_to_tsquery`) at first; semantic later.
 - `@org` accounts, the org dashboard and `#org` routes → dropped (v76 decision).
 
 ## 11. Build order (one PR each, CI green before merge)
 
+CI runs on GitHub Actions once the repo is public; until then the gates are run locally. The scaffold PR adds the three style gates from section 3 to `ci.yml`. Progress is tracked in [`BUILD.md`](./BUILD.md).
+
 1. **Foundation**: this document plus the reference mockup *(this PR)*
 2. **Scaffold**: fresh `src/`, tokens, primitives with a `/dev/kit` page, the arbitrary-value check in CI, AppShell with real routes, theme
-3. **Schema v2**: new migrations for section 6, RLS for section 8, seed for the mockup's boards and hub, CI gates updated
+3. **Schema v2**: additive migrations for section 6 (v1 untouched), RLS for section 8, Storage buckets and policies, platform admin seed, seed for the mockup's boards and hub, CI gates updated
 4. **Auth + account**: AuthDialog, AccountDialog (password, notification preferences, export, delete via an Edge Function)
 5. **Feed + post**: home feed, PostCard, PostPage, votes, replies, author edit/delete
 6. **Boards + hubs**: board page with Roadmap and Changelog, hub page, Explore, search, composer with similar posts
 7. **Claim + team**: claim flow, hub claim, Manage inbox, team, join and dispute
 8. **Moderation**: merge with undo, reports queue, hide, block
-9. **Cutover**: smoke tests, remove the old code, deploy
+9. **Cutover**: smoke tests, `pg_dump` snapshot, drop v1 tables and code, deploy
 
-Open question for the owner: whether the old Supabase tables are dropped in step 3 or left in place until cutover.
+## 12. Registers
+
+- `roadmap.md` is frozen as v1 history and points here; `STATUS.md` reads `BUILD.md` for v2 progress.
+- `docs/deferred.md` entries get a status: *carried into v2*, *void at cutover* or *resolved*. Nothing is deleted. D-002 resolves in step 4, when the delete-account Edge Function becomes the first server-side user of `service_role`.
+- D-012 (consent-screen logo) now means "design one distinctive mark, then resubmit", not "resubmit the speech bubble".
