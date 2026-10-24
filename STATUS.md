@@ -79,22 +79,19 @@ _CI steps read from `.github/workflows/ci.yml`; v2 test counts are under v2 buil
 
 <!-- status:live:start — refreshed by `node scripts/status.mjs --live`; may lag until the next scheduled refresh -->
 
-_probed 2026-10-22T15:22:43Z · anything that could not be read says `unknown` rather than guessing_
+_probed 2026-10-24T20:38:27Z · anything that could not be read says `unknown` rather than guessing_
 
 ### Production
 
-- https://publisense.app → **200** · served entry bundle `/assets/index-CiwaYOWW.js`
+- https://publisense.app → **200** · served entry bundle `/assets/index-DfKyFsVt.js`
 - www → 308 → https://publisense.app/
-- production deployment: `0254618` (READY, 2026-10-22T15:20:58.571Z)
+- production deployment: `207cbbe` (READY, 2026-10-24T20:34:01.312Z)
 
 ### Data
 
-- products **13** · organizations **7** · posts **8** · comments **9** · post_votes **4** · comment_votes **0** · public_profiles **10** · claim_decisions **0**
-- counted with an authenticated probe
-- profiles: 10 total = **7 seeded personas** + **3 accounts**
+- board **28** · hub **1** · post **0** · reply **0** · vote **0** · follow **1** · profile **3** · status_event **0**
+- counted with an authenticated probe; as an anonymous visitor these read: follow = restricted
 - auth users: **3**
-
-> ⚠️ Seeded content is a product decision, not a bug — see `D-011`. This line exists so traction is never claimed without the split.
 
 ### Auth surface
 
@@ -106,7 +103,7 @@ _probed 2026-10-22T15:22:43Z · anything that could not be read says `unknown` r
 
 - open issues: none
 - open PRs: none
-- `npm test` at refresh time: **96 passed** in 8 files
+- `npm test` at refresh time: **324 passed** in 26 files
 
 <!-- status:live:end -->
 

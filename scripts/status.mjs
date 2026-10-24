@@ -380,7 +380,10 @@ async function probeDeployedCommit() {
   const token = ENV.VERCEL_TOKEN;
   if (!token) return unknown;
   try {
-    const res = await fetch('https://api.vercel.com/v6/deployments?projectId=prj_ay0fPPdbmyDJkwknp9rqUookhOLH&target=production&state=READY&limit=1&teamId=team_0tyWsvQDIjWpLDaiPU7KqQmV', {
+    // The live project is `publisense-v2` (prj_PgTwy…), which owns publisense.app.
+    // `publisense` (prj_ay0f…) is the retired v1 project: it still exists and still
+    // has old deployments, so probing it reports a sha that is not what users get.
+    const res = await fetch('https://api.vercel.com/v6/deployments?projectId=prj_PgTwyCecfLWXDbF0mYVhQ3IhuoQ5&target=production&state=READY&limit=1&teamId=team_0tyWsvQDIjWpLDaiPU7KqQmV', {
       headers: { Authorization: `Bearer ${token}` },
     });
     const body = await res.json();
