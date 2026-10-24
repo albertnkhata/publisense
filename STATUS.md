@@ -45,6 +45,13 @@ _test declarations counted by regex over `src/**/*.test.ts`; CI steps read from 
 - CI · Tests: `npm test`
 - CI · Build: `npm run build`
 - CI · Assert no service_role key in bundle: inline script
+- CI · Install: `npm ci`
+- CI · Typecheck: `npm run typecheck`
+- CI · Tests: `npm test`
+- CI · Style gate: `node scripts/check-style.mjs`
+- CI · Build: `npm run build`
+- CI · Every utility class produces CSS: `node scripts/check-classes.mjs`
+- CI · Assert no service_role key in bundle: inline script
 - CI · Regenerate and compare the repo-derived block: `npm run status -- --check`
 - CI · Stub the Supabase auth schema: inline script
 - CI · Apply schema then migrations in order: inline script

@@ -39,6 +39,59 @@ jobs:
           fi
           echo "OK: no service_role in bundle"
 
+  web:
+    name: v2 web (typecheck, test, style gates, build)
+    runs-on: ubuntu-latest
+    # Each step sets working-directory itself (rather than `defaults.run`) so
+    # scripts/status.mjs, which reads step names and run lines, parses it.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        working-directory: web
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: web
+        run: npm run typecheck
+
+      - name: Tests
+        working-directory: web
+        run: npm test
+
+      # FOUNDATION section 3: no arbitrary values, no raw hex outside
+      # theme.css, no inline style except CSS custom properties.
+      - name: Style gate
+        working-directory: web
+        run: node scripts/check-style.mjs
+
+      - name: Build
+        working-directory: web
+        run: npm run build
+
+      # The theme is locked (--*: initial), so a class naming an undefined
+      # token compiles to nothing. Fail instead of shipping it silently.
+      - name: Every utility class produces CSS
+        working-directory: web
+        run: node scripts/check-classes.mjs
+
+      - name: Assert no service_role key in bundle
+        working-directory: web
+        run: |
+          # The service_role key bypasses RLS entirely. It must never reach a
+          # client bundle. If this fails, do not ship.
+          if grep -rqE 'service_role' dist/; then
+            echo "::error::service_role referenced in the v2 client bundle"
+            exit 1
+          fi
+          echo "OK: no service_role in v2 bundle"
+
   status:
     name: Status ledger is current
     runs-on: ubuntu-latest
