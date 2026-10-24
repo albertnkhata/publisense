@@ -10,6 +10,6 @@ One PR per step; see [FOUNDATION.md](./FOUNDATION.md) section 11.
 - [x] 6. Boards, hubs and discovery: board page, Roadmap, Changelog, hub page, Explore, search, composer
 - [x] 7. Claiming and teams: claim, hub claim, Manage inbox, team, join requests, disputes
 - [x] 8. Moderation and people: merge and unmerge, reports queue, hide, block, admin queues, admin team (appoint/remove platform admins, audited), user profile (`/u/:handle`), notifications (`/notifications`)
-- [ ] 9. Cutover: smoke tests, pg_dump, drop v1, deploy
+- [x] 9. Cutover: smoke tests, pg_dump, drop v1, deploy (done 2026-10-24: domains moved to v2, v1 tables dropped, v1 code removed)
 
-Step 9 runbook: [CUTOVER.md](./CUTOVER.md) (written 2026-10-24; not yet applied).
+Step 9 runbook and what was actually done: [CUTOVER.md](./CUTOVER.md) (applied 2026-10-24).

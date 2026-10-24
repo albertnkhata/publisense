@@ -7,38 +7,6 @@ on:
     branches: [main]
 
 jobs:
-  build:
-    name: Typecheck & build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Tests
-        run: npm test
-
-      - name: Build
-        run: npm run build
-
-      - name: Assert no service_role key in bundle
-        run: |
-          # The service_role key bypasses RLS entirely. It must never reach a
-          # client bundle. If this fails, do not ship.
-          if grep -rqE 'service_role' dist/assets/*.js; then
-            echo "::error::service_role referenced in the client bundle"
-            exit 1
-          fi
-          echo "OK: no service_role in bundle"
-
   web:
     name: v2 web (typecheck, test, style gates, build)
     runs-on: ubuntu-latest
@@ -103,10 +71,11 @@ jobs:
           node-version: 22
 
       # STATUS.md is generated, so a stale copy means the reading surface lies.
-      # The script has no dependencies, so no `npm ci` is needed. This compares
-      # the repo-derived block only; the live block runs on its own schedule.
+      # The script has no dependencies (and the repo root has no package.json since
+      # v1 was removed), so it runs on plain node. This compares the repo-derived
+      # block only; the live block runs on its own schedule.
       - name: Regenerate and compare the repo-derived block
-        run: npm run status -- --check
+        run: node scripts/status.mjs --check
 
   migrations:
     name: Migrations apply cleanly

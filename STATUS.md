@@ -2,7 +2,7 @@
 
 > **Generated file.** `STATUS.md` is written by `scripts/status.mjs`; hand edits are overwritten and
 > the CI drift check fails on them. Edit the sources instead: v2 build progress lives in [`docs/v2/BUILD.md`](./docs/v2/BUILD.md),
-> v1 intent in [`roadmap.md`](./roadmap.md) (frozen),
+> v1 intent in [`docs/archive/roadmap.md`](./docs/archive/roadmap.md) (frozen; v1 retired 2026-10-24),
 > decisions in [`docs/deferred.md`](./docs/deferred.md) (ids like `D-011`), work items in GitHub issues.
 >
 > Two blocks, two clocks: **repo-derived** changes when the repo changes and is checked in CI;
@@ -15,7 +15,7 @@
 
 _derived from `docs/v2/BUILD.md` checkbox state · one PR per step, see `docs/v2/FOUNDATION.md` section 11_
 
-**8/9 steps done** · next: step 9, Cutover
+**9/9 steps done** · complete
 
 - [x] 1. Foundation
 - [x] 2. Scaffold
@@ -25,7 +25,7 @@ _derived from `docs/v2/BUILD.md` checkbox state · one PR per step, see `docs/v2
 - [x] 6. Boards, hubs and discovery
 - [x] 7. Claiming and teams
 - [x] 8. Moderation and people
-- [ ] 9. Cutover
+- [x] 9. Cutover
 
 - v2 web tests (`web/src/**/*.test.ts(x)`): **24** files, **246** declared cases
 
@@ -44,7 +44,7 @@ _derived from `docs/deferred.md` · the ids link to the entry, which is canonica
 
 ### Roadmap phases (v1, frozen)
 
-_derived from `roadmap.md` checkbox state_
+_derived from `docs/archive/roadmap.md` checkbox state_
 
 - Phase 0 — Foundation & High-Craft Baseline — complete (4/4 checkboxes)
 - Phase 1 — Open Index Polish & Frictionless Community Loop — complete (heading)
@@ -56,13 +56,8 @@ _derived from `roadmap.md` checkbox state_
 
 ### Gates
 
-_test declarations counted by regex over `src/**/*.test.ts`; CI steps read from `.github/workflows/ci.yml`_
+_CI steps read from `.github/workflows/ci.yml`; v2 test counts are under v2 build above_
 
-- test files: **8**, declared cases: **96**
-- CI · Typecheck: `npm run typecheck`
-- CI · Tests: `npm test`
-- CI · Build: `npm run build`
-- CI · Assert no service_role key in bundle: inline script
 - CI · Install: `npm ci`
 - CI · Typecheck: `npm run typecheck`
 - CI · Tests: `npm test`
@@ -70,7 +65,7 @@ _test declarations counted by regex over `src/**/*.test.ts`; CI steps read from 
 - CI · Build: `npm run build`
 - CI · Every utility class produces CSS: `node scripts/check-classes.mjs`
 - CI · Assert no service_role key in bundle: inline script
-- CI · Regenerate and compare the repo-derived block: `npm run status -- --check`
+- CI · Regenerate and compare the repo-derived block: `node scripts/status.mjs --check`
 - CI · Stub the Supabase auth schema: inline script
 - CI · Stub the rest of the Supabase platform: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -f supabase/tests/supabase_stub.sql`
 - CI · Apply schema then migrations in order: inline script
@@ -82,7 +77,7 @@ _test declarations counted by regex over `src/**/*.test.ts`; CI steps read from 
 
 <!-- status:repo-derived:end -->
 
-<!-- status:live:start — refreshed by `npm run status -- --live`; may lag until the next scheduled refresh -->
+<!-- status:live:start — refreshed by `node scripts/status.mjs --live`; may lag until the next scheduled refresh -->
 
 _probed 2026-10-22T15:22:43Z · anything that could not be read says `unknown` rather than guessing_
 
@@ -94,8 +89,7 @@ _probed 2026-10-22T15:22:43Z · anything that could not be read says `unknown` r
 
 ### Data
 
-- products **13** · organisations **7** · posts **8** · comments **9**
-- post votes **4** · comment votes **0** · public profiles **10** · claim decisions **0**
+- products **13** · organizations **7** · posts **8** · comments **9** · post_votes **4** · comment_votes **0** · public_profiles **10** · claim_decisions **0**
 - counted with an authenticated probe
 - profiles: 10 total = **7 seeded personas** + **3 accounts**
 - auth users: **3**
@@ -127,7 +121,7 @@ is seeded content and there are no non-owner members. That is a decision with an
 ## Refreshing
 
 ```
-npm run status            # repo-derived block (no network, no secrets)
-npm run status -- --live  # + production probes; needs network, optional creds
-npm run status -- --check # exit 1 if the committed ledger is stale (CI)
+node scripts/status.mjs          # repo-derived block (no network, no secrets)
+node scripts/status.mjs --live   # + production probes; needs network, optional creds
+node scripts/status.mjs --check  # exit 1 if the committed ledger is stale (CI)
 ```

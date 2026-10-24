@@ -3,7 +3,7 @@
 The v2 rebuild. Contract: [`docs/v2/FOUNDATION.md`](../docs/v2/FOUNDATION.md); look and behaviour:
 [`docs/v2/reference-mockup.html`](../docs/v2/reference-mockup.html); progress: [`docs/v2/BUILD.md`](../docs/v2/BUILD.md).
 
-v1 (repo root `src/`) keeps serving publisense.app until cutover (step 9). Nothing here touches it.
+v2 serves publisense.app since the cutover on 2026-10-24 (Vercel project `publisense-v2`, Root Directory `web`). v1 is retired and its code removed; the last commit with it is `279a1da`.
 
 ```bash
 cd web

@@ -12,6 +12,10 @@
 > - Order: open items first, newest at the top of each section. Resolved items at the bottom.
 >
 > **Status key:** 🔴 blocks deploy · 🟡 ship-with-risk · 🟢 cosmetic/minor
+>
+> **v1 paths.** v1 was retired at the 2026-10-24 cutover and its code removed. Paths such as
+> `src/lib/…`, `npm test` or `npm run smoke:live` in older entries refer to v1 as it stood at
+> commit `279a1da`; v2 lives in `web/`.
 
 ---
 
@@ -565,5 +569,5 @@ without changing the key.
 
 ## Related
 
-- [`MVP.md`](../MVP.md) — what must ship, and what is explicitly out of scope
-- [`roadmap.md`](../roadmap.md) — phases and open issues
+- [`MVP.md`](./archive/MVP.md) — what must ship, and what is explicitly out of scope
+- [`roadmap.md`](./archive/roadmap.md) — phases and open issues

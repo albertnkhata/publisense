@@ -1,13 +1,34 @@
 # Publisense v2: cutover runbook (step 9)
 
-> **Status:** plan only, 2026-10-24. Nothing in this document has been applied. Production is
-> unchanged: v1 still serves `publisense.app`, v1 tables are intact, `0023_drop_v1.sql` is
-> written and tested locally but **not applied**. Each step below says who runs it and how to
-> undo it. Step 9 in [`BUILD.md`](./BUILD.md) stays unticked until C6 is done.
+> **Status:** applied, 2026-10-24. v2 serves `publisense.app`, the v1 tables are dropped and the v1
+> code is removed. What was actually done, with times, is in [section 0](#0-outcome-2026-10-24); the
+> rest of this document is the plan as written before cutover, kept as the record. Step 9 in
+> [`BUILD.md`](./BUILD.md) is ticked.
 
-Contents: [1 What was checked](#1-what-was-checked-2026-10-24) · [2 What v1 holds](#2-what-v1-holds-and-what-happens-to-it) ·
+Contents: [0 Outcome](#0-outcome-2026-10-24) · [1 What was checked](#1-what-was-checked-2026-10-24) · [2 What v1 holds](#2-what-v1-holds-and-what-happens-to-it) ·
 [3 Decisions before cutover](#3-decisions-the-owner-makes-before-c1) · [4 Steps](#4-the-cutover-in-order) ·
 [5 Rollback](#5-rollback) · [6 Tools](#6-tools-in-scriptscutover)
+
+---
+
+## 0. Outcome (2026-10-24)
+
+Times are CAT (UTC+02:00).
+
+| Step | What was done |
+|---|---|
+| C3 · Domain switch | About **15:07**: `publisense.app` and `www.publisense.app` moved from the v1 Vercel project `publisense` to **`publisense-v2`** (builds from `web/`, Root Directory `web`, Vite). `v2.publisense.app` stays on `publisense-v2` |
+| C4 · Drop v1 | About **15:22**: `supabase/migrations/0023_drop_v1.sql` applied to production. v1 tables, view, functions and the v1 signup trigger are gone; `email_log` and `email_delivery` kept as planned |
+| Migration history | Recorded in `supabase_migrations.schema_migrations` for **0004–0023** (they had been applied by hand) |
+| Decision 4 · `ci_probe` | **Left in production** (not dropped) |
+| Decision 5 · v1 Vercel project | Being disconnected from Git separately, so its builds do not fail on `main` now that v1 code is gone |
+| C5 · Remove v1 code | PR `v2/remove-v1`: root `src/`, the root Vite/TS/Vitest/package files, root `index.html`/`public/`/`vercel.json`/`.env.example`, `landing-mockup.html`, `scripts/smoke-live.mjs` and the v1 CI job removed. `supabase/schema.sql` and every migration kept (CI rebuilds from them; 0023 removes v1 at the end). `MVP.md` and `roadmap.md` moved to `docs/archive/`. The last commit with v1 code is `279a1da` |
+| Decision 6 · layout | v2 **stays in `web/`**; no Vercel change |
+| C6 · Close step 9 | Step 9 ticked in `BUILD.md`; `STATUS.md` regenerated |
+
+Not recorded here: which backup directory C1 produced, and the owner's choice on decision 1
+(D-011 stays open in `docs/deferred.md` until it is made) and on the optional redirect clean-up
+(decision 3). Rollback after C4 is R2 (`v1_restore.sql` from the C1 backup).
 
 ---
 

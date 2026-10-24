@@ -131,44 +131,14 @@
       {
         "n": 9,
         "title": "Cutover",
-        "done": false
+        "done": true
       }
     ],
     "webTests": {
       "files": 24,
       "cases": 246
     },
-    "tests": {
-      "files": 8,
-      "cases": 96
-    },
     "gates": [
-      {
-        "name": "Typecheck",
-        "runs": [
-          "npm run typecheck"
-        ],
-        "scripted": false
-      },
-      {
-        "name": "Tests",
-        "runs": [
-          "npm test"
-        ],
-        "scripted": false
-      },
-      {
-        "name": "Build",
-        "runs": [
-          "npm run build"
-        ],
-        "scripted": false
-      },
-      {
-        "name": "Assert no service_role key in bundle",
-        "runs": [],
-        "scripted": true
-      },
       {
         "name": "Install",
         "runs": [
@@ -219,7 +189,7 @@
       {
         "name": "Regenerate and compare the repo-derived block",
         "runs": [
-          "npm run status -- --check"
+          "node scripts/status.mjs --check"
         ],
         "scripted": false
       },
