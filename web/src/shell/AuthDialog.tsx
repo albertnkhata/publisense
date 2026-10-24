@@ -46,7 +46,10 @@ export interface AuthDialogProps {
   open: boolean;
   onClose: () => void;
   initialMode?: AuthMode;
-  /** Gated action, e.g. "upvote": the sub line becomes "Sign in to upvote. It takes a few seconds." */
+  /**
+   * Gated action, e.g. "upvote": the sub line becomes "Sign in to upvote. It takes a few seconds."
+   * ("Create an account to …" when the dialog opens on sign-up).
+   */
   reason?: string;
 }
 
@@ -143,7 +146,7 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
   const c = COPY[mode];
   const sub =
     keepReason && reason
-      ? `Sign in to ${reason}. It takes a few seconds.`
+      ? `${mode === 'signup' ? 'Create an account' : 'Sign in'} to ${reason}. It takes a few seconds.`
       : mode === 'sent'
         ? `If ${sentTo || 'that email'} has an account, a reset link is on its way. It expires in 1 hour.`
         : mode === 'confirm'

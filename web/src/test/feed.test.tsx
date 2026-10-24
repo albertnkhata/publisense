@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes } from 'react-router';
 import type { FeedPage, Post } from '../api/posts';
-import { HomePage } from '../pages/HomePage';
+import { HomePage, PITCH } from '../pages/HomePage';
 import { ComposerProvider } from '../shell/composer';
 import { renderWith, TEST_VIEWER } from './renderApp';
 import { BOARD, makePost, SUPA } from './postFixtures';
@@ -149,6 +149,46 @@ describe('home feed', () => {
     await router.navigate('/');
     fireEvent.click((await screen.findByText('Body text')).closest('article')!.querySelector('p')!);
     expect(router.state.location.pathname).toBe(`/post/${post.id}`);
+  });
+});
+
+describe('signed-out pitch', () => {
+  it('shows one pitch card above the composer when signed out', async () => {
+    api.fetchFeed.mockResolvedValue(page([makePost()]));
+    renderHome();
+    const pitch = await screen.findByRole('region', { name: PITCH.title });
+    expect(within(pitch).getByText(PITCH.body)).toBeTruthy();
+    expect(screen.getAllByRole('region', { name: PITCH.title })).toHaveLength(1);
+    // Very top of Home: before the composer bar.
+    const composer = screen.getByRole('button', { name: /What’s slowing you down/ });
+    expect(pitch.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // Not dismissible.
+    expect(within(pitch).getAllByRole('button')).toHaveLength(2);
+  });
+
+  it('is never shown to a signed-in viewer', async () => {
+    api.fetchFeed.mockResolvedValue(page([makePost()]));
+    renderHome({ signedIn: true });
+    await screen.findByRole('tab', { name: 'All' });
+    expect(screen.queryByRole('region', { name: PITCH.title })).toBeNull();
+    expect(screen.queryByRole('button', { name: PITCH.join })).toBeNull();
+    expect(screen.queryByRole('button', { name: PITCH.claim })).toBeNull();
+  });
+
+  it('Join Publisense opens sign-up', async () => {
+    api.fetchFeed.mockResolvedValue(page([makePost()]));
+    renderHome();
+    fireEvent.click(await screen.findByRole('button', { name: PITCH.join }));
+    const dialog = await screen.findByRole('dialog', { name: 'Create your account' });
+    expect(within(dialog).queryByText(/to claim your product’s board/)).toBeNull();
+  });
+
+  it('Claim your product’s board opens sign-up with the reason', async () => {
+    api.fetchFeed.mockResolvedValue(page([makePost()]));
+    renderHome();
+    fireEvent.click(await screen.findByRole('button', { name: PITCH.claim }));
+    const dialog = await screen.findByRole('dialog', { name: 'Create your account' });
+    expect(within(dialog).getByText('Create an account to claim your product’s board. It takes a few seconds.')).toBeTruthy();
   });
 });
 
