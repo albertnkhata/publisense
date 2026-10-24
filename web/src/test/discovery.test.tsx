@@ -90,9 +90,9 @@ describe('board page', () => {
     expect(screen.getByRole('tab', { name: /Feedback\s*2/ }).getAttribute('aria-selected')).toBe('true');
     expect(screen.getByRole('tab', { name: /Roadmap\s*1/ })).toBeTruthy();
     expect(postsApi.fetchPostList).toHaveBeenCalledWith(expect.objectContaining({ boardIds: [CURSOR.id], type: 'all', status: 'all', sort: 'top' }));
-    // No Manage for people outside the team; no claim control before step 7.
+    // No Manage for people outside the team; the claim way in instead.
     expect(screen.queryByRole('link', { name: 'Manage' })).toBeNull();
-    expect(screen.queryByText(/Claim this board/)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Work at Cursor?' })).toBeTruthy();
   });
 
   it('filters by type, then clears', async () => {
