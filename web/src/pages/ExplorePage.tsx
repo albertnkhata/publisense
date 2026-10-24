@@ -25,6 +25,10 @@ export function ExplorePage() {
   const cat: Cat = (CATEGORIES.find((c) => c.value === catParam)?.value ?? 'all') as Cat;
   const boards = useBoards();
   const hubs = useHubs();
+  // Only chips with something behind them: categories with a live board, plus the
+  // one in the URL. All of them while the boards are still loading.
+  const used = boards.data ? new Set(boards.data.filter(isLive).map((b) => b.category)) : null;
+  const chips = CATEGORIES.filter((c) => c.value === 'all' || c.value === cat || !used || used.has(c.value));
 
   const set = (key: 'q' | 'cat', value: string, fallback: string) => {
     const next = new URLSearchParams(params);
@@ -54,7 +58,7 @@ export function ExplorePage() {
         />
       </label>
       <ScrollRow label="Categories" className="mt-2 mb-6">
-        {CATEGORIES.map((c) => (
+        {chips.map((c) => (
           <button
             key={c.value}
             type="button"

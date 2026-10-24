@@ -21,7 +21,7 @@ export const COMPANY_NAME_MAX = 60;
 export const PRODUCT_NAME_MAX = 60;
 export const PRODUCT_TAGLINE_MAX = 120;
 
-/** The form's category choices: the six board categories with short labels. */
+/** The form's category choices: every board category (0027) with short labels. */
 export const PRODUCT_CATEGORIES: Array<{ value: BoardCategory; label: string }> = [
   { value: 'ai', label: 'AI' },
   { value: 'code', label: 'Code' },
@@ -29,6 +29,16 @@ export const PRODUCT_CATEGORIES: Array<{ value: BoardCategory; label: string }> 
   { value: 'design', label: 'Design' },
   { value: 'prod', label: 'Productivity' },
   { value: 'browser', label: 'Browser' },
+  { value: 'comms', label: 'Communication' },
+  { value: 'social', label: 'Social' },
+  { value: 'media', label: 'Media' },
+  { value: 'finance', label: 'Finance' },
+  { value: 'shopping', label: 'Shopping' },
+  { value: 'gaming', label: 'Gaming' },
+  { value: 'education', label: 'Education' },
+  { value: 'health', label: 'Health' },
+  { value: 'travel', label: 'Travel' },
+  { value: 'other', label: 'Other' },
 ];
 
 export const categoryLabel = (c: BoardCategory | null | undefined) => PRODUCT_CATEGORIES.find((x) => x.value === c)?.label ?? 'Uncategorised';
