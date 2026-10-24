@@ -6,7 +6,7 @@ import { cx } from '../lib/cx';
 import { usePageTitle } from '../lib/usePageTitle';
 import { LoadError } from '../posts/PostList';
 import { AddProductLink } from '../products/AddProductDialog';
-import { Icon, SkeletonBlock } from '../ui';
+import { Icon, ScrollRow, SkeletonBlock } from '../ui';
 
 /**
  * Explore (FOUNDATION §9 `/explore`): find products and follow their boards.
@@ -53,7 +53,7 @@ export function ExplorePage() {
           className="w-full min-w-0 appearance-none border-0 bg-transparent text-md text-ink outline-none focus-visible:outline-none"
         />
       </label>
-      <div role="toolbar" aria-label="Categories" className="mt-3 mb-6 flex gap-2 overflow-x-auto pb-1">
+      <ScrollRow label="Categories" className="mt-2 mb-6">
         {CATEGORIES.map((c) => (
           <button
             key={c.value}
@@ -68,7 +68,7 @@ export function ExplorePage() {
             {c.label}
           </button>
         ))}
-      </div>
+      </ScrollRow>
       {boards.isPending || hubs.isPending ? (
         <ExploreSkeleton />
       ) : boards.isError || hubs.isError ? (

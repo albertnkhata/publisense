@@ -8,6 +8,7 @@ export { BrandGlyph, Icon, ICON_NAMES, Silhouette, type IconName } from './Icon'
 export { IconButton } from './IconButton';
 export { Menu, MenuItem, MenuItemRadio, MenuLabel, MenuSeparator } from './Menu';
 export { StatusPill, TeamPill, TypePill, VerifiedPill, STATUS_META, TYPE_META, type PostStatus, type PostType } from './Pill';
+export { ScrollRow, scrollEdges } from './ScrollRow';
 export { Skeleton, SkeletonBlock } from './Skeleton';
 export { Spinner } from './Spinner';
 export { TabPanel, Tabs } from './Tabs';

@@ -249,6 +249,17 @@
   }
 }
 
+/* A row that scrolls sideways without drawing a scrollbar (the Explore category
+ * chips). Swipe, trackpad and shift+wheel still scroll it; ScrollRow adds
+ * chevron buttons and edge fades so the overflow stays discoverable. */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 /* Respect reduced motion everywhere, including transitions inside primitives. */
 @media (prefers-reduced-motion: reduce) {
   *,
