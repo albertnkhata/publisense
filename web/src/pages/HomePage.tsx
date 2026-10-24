@@ -65,8 +65,8 @@ export function HomePage() {
 
 /** Pitch copy for signed-out visitors, kept here so tests and docs quote one source. */
 export const PITCH = {
-  title: 'Feedback, straight to the teams who build your tools',
-  body: 'Post what’s broken, upvote what matters, and watch the team ship it.',
+  title: 'Make your voice heard',
+  body: 'Feedback on products, ranked by the people who use them.',
   join: 'Join Publisense',
   claim: 'Claim your board',
   claimReason: 'claim your product’s board',
