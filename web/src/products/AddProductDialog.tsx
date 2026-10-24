@@ -213,7 +213,7 @@ function AddProductDialog({ opts, onClose }: { opts: AddProductOptions; onClose:
         <Field
           label="Link"
           error={errors.link ?? (linkInvalid ? 'Paste a product website or a GitHub repo link.' : undefined)}
-          hint={!blocked && check.data?.hub ? `It joins the ${check.data.hub.name} hub.` : 'The product’s website, or its GitHub repo.'}
+          hint={!blocked && check.data?.hub ? `It joins the ${check.data.hub.name} hub.` : undefined}
         >
           <Input
             ref={linkRef}

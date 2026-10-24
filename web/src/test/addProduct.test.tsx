@@ -260,6 +260,18 @@ describe('add a product', () => {
     expect(within(composer).queryByText('Is this your product?')).toBeNull();
   });
 
+  it('shows no helper line under Link, and still takes a GitHub repo link', async () => {
+    productsApi.checkProductLink.mockResolvedValue({ kind: 'github', canonical: 'github.com/acme/notes', match: null, hub: null });
+    renderApp();
+    const dialog = await openForm();
+    const link = within(dialog).getByLabelText('Link');
+    expect(link.getAttribute('aria-describedby')).toBeNull();
+    expect(within(dialog).queryByText(/its GitHub repo/)).toBeNull();
+    fireEvent.change(link, { target: { value: 'https://github.com/acme/notes' } });
+    await waitFor(() => expect(productsApi.checkProductLink).toHaveBeenCalledWith('https://github.com/acme/notes'));
+    expect(within(dialog).queryByText('Paste a product website or a GitHub repo link.')).toBeNull();
+  });
+
   it('keeps what the person typed over the autofill', async () => {
     renderApp();
     const dialog = await openForm();
