@@ -99,7 +99,8 @@ Each primitive owns its keyboard and ARIA behaviour once, so screens never re-im
 | Entity | Key fields | Notes |
 |---|---|---|
 | `profile` | id, handle, name, avatar_path, bio | 1:1 with `auth.users`, created by trigger. No role column: power comes from memberships and `platform_admin` |
-| `platform_admin` | user_id, granted_by, granted_at | Hark-side staff who handle the reports queue and ownership disputes. Seeded by migration, never client-writable; checked by an `is_platform_admin()` helper inside RLS |
+| `platform_admin` | user_id, granted_by, granted_at | Hark-side staff who handle the reports queue and ownership disputes. The first admin is seeded by migration; after that only `grant_platform_admin` / `revoke_platform_admin` RPCs, callable by platform admins alone, change it (step 8). Never client-writable as a table; checked by an `is_platform_admin()` helper inside RLS |
+| `platform_admin_event` | id, user_id, action (grant \| revoke), actor_id, at | Audit log of every appointment and removal; the last admin can never be removed |
 | `board` | id, slug, name, tagline, site, color, logo_path, category, hub_id?, claimed_at | The product. Public face |
 | `hub` | id, slug, name, description, primary_domain, claimed_at | Public group of boards. Needs no verification to exist |
 | `verified_domain` | id, domain, verified_by, method (email \| dns), verified_at | A user proves control of a domain. Shared domains (gmail.com, vercel.app…) are refused |
@@ -146,7 +147,7 @@ Enforced in RLS and `security definer` RPCs; the UI mirrors it but is never the 
 
 ## 9. Routes
 
-`/` home · `/explore` · `/search?q=` · `/b/:board` (tabs `?tab=roadmap|changelog`) · `/b/:board/manage` · `/h/:hub` · `/h/:hub/manage` · `/post/:id` · `/u/:handle` · `/notifications` · `/settings` · `/privacy` · `/terms` · `/auth/reset` · `/unsubscribe?token=` (one click, no sign-in) · `/admin/reports` · `/admin/disputes` (platform admins only).
+`/` home · `/explore` · `/search?q=` · `/b/:board` (tabs `?tab=roadmap|changelog`) · `/b/:board/manage` · `/h/:hub` · `/h/:hub/manage` · `/post/:id` · `/u/:handle` · `/notifications` · `/settings` · `/privacy` · `/terms` · `/auth/reset` · `/unsubscribe?token=` (one click, no sign-in) · `/admin/reports` · `/admin/disputes` · `/admin/team` (platform admins only: pick a user by handle, grant or revoke, see the log).
 
 ## 10. Mockup shortcuts that do not carry over
 
@@ -169,7 +170,7 @@ CI runs on GitHub Actions once the repo is public; until then the gates are run 
 5. **Feed + post**: home feed, PostCard, PostPage, votes, replies, author edit/delete
 6. **Boards + hubs**: board page with Roadmap and Changelog, hub page, Explore, search, composer with similar posts
 7. **Claim + team**: claim flow, hub claim, Manage inbox, team, join and dispute
-8. **Moderation**: merge with undo, reports queue, hide, block
+8. **Moderation**: merge with undo, reports queue, hide, block, admin team page (appoint and remove platform admins, audited)
 9. **Cutover**: smoke tests, `pg_dump` snapshot, drop v1 tables and code, deploy
 
 ## 12. Registers

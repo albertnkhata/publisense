@@ -9,5 +9,5 @@ One PR per step; see [FOUNDATION.md](./FOUNDATION.md) section 11.
 - [ ] 5. Feed and posts: feed, PostCard, PostPage, votes, replies, author edit/delete
 - [ ] 6. Boards, hubs and discovery: board page, Roadmap, Changelog, hub page, Explore, search, composer
 - [ ] 7. Claiming and teams: claim, hub claim, Manage inbox, team, join requests, disputes
-- [ ] 8. Moderation: merge and unmerge, reports queue, hide, block, admin queues
+- [ ] 8. Moderation: merge and unmerge, reports queue, hide, block, admin queues, admin team (appoint/remove platform admins, audited)
 - [ ] 9. Cutover: smoke tests, pg_dump, drop v1, deploy
