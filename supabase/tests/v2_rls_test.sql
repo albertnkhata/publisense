@@ -819,7 +819,7 @@ insert into public.block (scope, scope_id, user_id) select 'board'::public.v2_sc
 select pg_temp.as_user('00000000-0000-4000-8000-00000000000b');
 select pg_temp.expect_error('step 8: a blocked user cannot post on the blocking board',
   $$insert into public.post (board_id, type, title) select linear, 'bug', 'Bob is blocked' from ids$$);
-select pg_temp.expect_error('step 8: only the scope's owners and admins block',
+select pg_temp.expect_error('step 8: only the scope''s owners and admins block',
   $$insert into public.block (scope, scope_id, user_id) select 'board'::public.v2_scope, linear, dave from ids$$);
 select pg_temp.as_user('00000000-0000-4000-8000-00000000000d');
 delete from public.block where scope = 'board' and user_id = '00000000-0000-4000-8000-00000000000b';
