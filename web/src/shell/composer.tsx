@@ -16,6 +16,7 @@ import {
 import { Link, useNavigate } from 'react-router';
 import {
   BODY_MAX,
+  isPostable,
   logoSrc,
   matchesAll,
   TITLE_MAX,
@@ -33,6 +34,7 @@ import { useViewer } from '../lib/viewer';
 import { VoteButton } from '../posts/VoteButton';
 import { BoardAvatar, Button, Dialog, Field, Icon, Input, Menu, MenuItemRadio, STATUS_META, Textarea, TYPE_META, useToast } from '../ui';
 import { useRequireAuth } from './auth';
+import { useAddProduct } from '../products/AddProductDialog';
 
 /**
  * The Composer (FOUNDATION §5): board picker (with a product picker when opened
@@ -47,6 +49,10 @@ export interface ComposerOptions {
   hub?: string;
   /** Prefill the title (search's "Post about it"). */
   title?: string;
+  /** Just added this board (Add a product): ask "What do you want to tell them?". */
+  firstPost?: boolean;
+  /** Offer "Is this your product? Claim it" (the adder's email is on the product's domain). */
+  onClaim?: () => void;
 }
 
 interface ComposerCtx {
@@ -63,7 +69,9 @@ export function ComposerProvider({ children }: { children: ReactNode }) {
       if (!requireAuth('post feedback')) return;
       // Guard against being handed a click event as `opts`.
       const clean: ComposerOptions =
-        opts && typeof opts === 'object' && !('nativeEvent' in opts) ? { board: opts.board, hub: opts.hub, title: opts.title } : {};
+        opts && typeof opts === 'object' && !('nativeEvent' in opts)
+          ? { board: opts.board, hub: opts.hub, title: opts.title, firstPost: opts.firstPost, onClaim: opts.onClaim }
+          : {};
       setState((s) => ({ open: true, opts: clean, key: s.key + 1 }));
     },
     [requireAuth],
@@ -110,7 +118,10 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
   const typeRef = useRef<HTMLButtonElement>(null);
   const formId = useId();
 
-  const board = boards.data?.find((b) => b.slug === boardSlug) ?? null;
+  const viewerId = viewer?.id ?? null;
+  const postable = useMemo(() => (boards.data ?? []).filter((b) => isPostable(b, viewerId)), [boards.data, viewerId]);
+  const board = postable.find((b) => b.slug === boardSlug) ?? null;
+  const pendingBoard = board?.status === 'pending';
   const hub = opts.hub ? (hubs.data?.find((h) => h.slug === opts.hub) ?? null) : null;
 
   // Similar posts look on the chosen board, or across the hub before one is chosen.
@@ -159,7 +170,10 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
     <Dialog
       open
       onClose={onClose}
-      title="Post feedback"
+      title={opts.firstPost ? 'What do you want to tell them?' : 'Post feedback'}
+      {...(pendingBoard && board
+        ? { description: `${board.name} is waiting for review. Until it’s approved, only you can see it and what you post on it.` }
+        : {})}
       size="lg"
       initialFocus={initialFocus}
       dismissable={!create.isPending}
@@ -176,6 +190,22 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
       }
     >
       <form id={formId} noValidate onSubmit={submit} onKeyDown={onSubmitKey} className="flex flex-col gap-5">
+        {opts.onClaim && board ? (
+          <p className="m-0 flex flex-wrap items-center gap-x-2 rounded-md border border-line bg-elevated px-3 py-2 text-sm text-ink-secondary">
+            Is this your product?
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                opts.onClaim?.();
+              }}
+              className="border-0 bg-transparent p-0 font-semibold text-brand underline-offset-3 hover:underline"
+            >
+              Claim it
+            </button>
+            <span className="text-ink-muted">to reply as its verified team.</span>
+          </p>
+        ) : null}
         <Field label="Product" error={errors.board}>
           {board ? (
             <SelectedBoard board={board} onChange={() => setBoardSlug(null)} />
@@ -196,7 +226,8 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
               ) : null}
               <BoardCombobox
                 ref={productRef}
-                boards={boards.data ?? []}
+                boards={postable}
+                onAdd={onClose}
                 loading={boards.isPending}
                 onPick={(b) => {
                   setBoardSlug(b.slug);
@@ -298,12 +329,16 @@ const BoardCombobox = function BoardCombobox({
   boards,
   loading,
   onPick,
+  onAdd,
 }: {
   ref: Ref<HTMLInputElement>;
   boards: Board[];
   loading: boolean;
   onPick: (b: Board) => void;
+  /** Called before "Add a product" opens its own dialog (the composer closes). */
+  onAdd: () => void;
 }) {
+  const addProduct = useAddProduct();
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
   const [hl, setHl] = useState(0);
@@ -391,6 +426,22 @@ const BoardCombobox = function BoardCombobox({
           ) : (
             <p className="m-0 px-3 py-3 text-sm text-ink-muted">No products match “{term}”.</p>
           )}
+          {addProduct ? (
+            <button
+              type="button"
+              tabIndex={-1}
+              onClick={() => {
+                onAdd();
+                addProduct.openAddProduct({ prefill: term });
+              }}
+              className="flex w-full items-center gap-3 border-0 border-t border-solid border-line bg-transparent px-3 py-2 text-left text-sm font-semibold text-brand hover:bg-subtle"
+            >
+              <span className="grid size-7 shrink-0 place-items-center">
+                <Icon name="plus" size={15} />
+              </span>
+              {items.length ? 'Not listed? Add a product' : `Add “${term}” as a product`}
+            </button>
+          ) : null}
         </div>
       ) : null}
     </div>

@@ -18,3 +18,5 @@ export * from './moderationHooks';
 export * from './people';
 export * from './peopleHooks';
 export * from './notificationHooks';
+export * from './products';
+export * from './productHooks';

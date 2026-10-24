@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { logoSrc, readRecentSearches, rememberSearch, SEARCH_MIN, useSearch } from '../api';
 import { cx } from '../lib/cx';
 import { useViewer } from '../lib/viewer';
+import { useAddProduct } from '../products/AddProductDialog';
 import { BoardAvatar, HubAvatar, Icon, TYPE_META } from '../ui';
 
 /**
@@ -107,6 +108,10 @@ export const SearchWell = forwardRef<HTMLInputElement, { className?: string; onS
             setQ('');
             finish();
           }}
+          close={() => {
+            setQ('');
+            finish();
+          }}
         />
       ) : null}
     </form>
@@ -121,7 +126,9 @@ function SearchPopover({
   onItems,
   goSearch,
   go,
+  close,
 }: {
+  close: () => void;
   q: string;
   listId: string;
   active: number;
@@ -139,6 +146,7 @@ function SearchPopover({
   }, [term]);
   const search = useSearch(debounced, viewer?.id ?? null, { postLimit: 4 });
   const recent = useRef(readRecentSearches()).current;
+  const addProduct = useAddProduct();
 
   const items: PopItem[] = [];
   if (!term) {
@@ -198,6 +206,25 @@ function SearchPopover({
         ),
       });
     }
+    if (addProduct && boards.length === 0 && hubs.length === 0) {
+      items.push({
+        key: 'add',
+        go: () => {
+          addProduct.openAddProduct({ prefill: term });
+          close();
+        },
+        render: () => (
+          <>
+            <IconCell>
+              <Icon name="plus" size={15} />
+            </IconCell>
+            <span className="truncate text-ink-secondary">
+              Can’t find it? <b className="font-semibold text-brand">Add it</b>
+            </span>
+          </>
+        ),
+      });
+    }
     items.push({
       key: 'all',
       go: () => goSearch(term),
@@ -236,7 +263,7 @@ function SearchPopover({
         return (
           <div key={item.key}>
             {heading ? <div className="px-3 pt-2 pb-1 text-xs font-semibold text-ink-muted uppercase">{heading}</div> : null}
-            {item.key === 'all' && i > 0 ? <div className="my-1 border-t border-line" /> : null}
+            {(item.key === 'all' || item.key === 'add') && i > 0 && items[i - 1]?.key !== 'add' ? <div className="my-1 border-t border-line" /> : null}
             <div
               id={`${listId}-${i}`}
               role="option"

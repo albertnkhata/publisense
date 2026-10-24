@@ -8,6 +8,7 @@ import { useViewer } from '../lib/viewer';
 import { PostCard } from '../posts/PostCard';
 import { LoadError, PostListSkeleton } from '../posts/PostList';
 import { useComposer } from '../shell/composer';
+import { AddProductLink } from '../products/AddProductDialog';
 import { Button, Icon, IconButton, TabPanel, Tabs, UserAvatar } from '../ui';
 
 /**
@@ -181,6 +182,9 @@ function Results({ q, tab, setTab }: { q: string; tab: SearchTab; setTab: (t: Se
         <div className="mt-4">
           <Button onClick={() => openComposer({ title: q.charAt(0).toUpperCase() + q.slice(1) })}>Post about it</Button>
         </div>
+        <p className="mt-4 mb-0 text-sm">
+          Can’t find the product? <AddProductLink prefill={q}>Add it</AddProductLink>
+        </p>
       </div>
     );
   }
@@ -226,7 +230,13 @@ function Results({ q, tab, setTab }: { q: string; tab: SearchTab; setTab: (t: Se
         {tab === 'posts' ? (
           postList(posts)
         ) : tab === 'products' ? (
-          boards.length ? boardList(boards) : <p className="m-0 px-3 py-9 text-center text-base text-ink-muted">No products match.</p>
+          boards.length ? (
+            boardList(boards)
+          ) : (
+            <p className="m-0 px-3 py-9 text-center text-base text-ink-muted">
+              No products match. <AddProductLink prefill={q}>Add it</AddProductLink>
+            </p>
+          )
         ) : (
           <div className="flex flex-col gap-6">
             {hubs.length ? (

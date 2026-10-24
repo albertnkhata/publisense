@@ -6,6 +6,7 @@ import { useTheme } from '../lib/ThemeProvider';
 import { useShortcut } from '../lib/useShortcut';
 import { ClaimProvider } from '../claim/ClaimDialog';
 import { ComposerProvider } from './composer';
+import { AddProductHost, AddProductProvider } from '../products/AddProductDialog';
 import { NavRail } from './NavRail';
 import { RightRail } from './RightRail';
 import { TabBar } from './TabBar';
@@ -22,9 +23,11 @@ export function AppShell() {
 
   return (
     <AuthProvider>
+    <AddProductProvider>
     <ComposerProvider>
     <ClaimProvider>
       <RecoveryWatcher />
+      <AddProductHost />
       <a
         href="#main"
         className="sr-only z-80 rounded-md bg-card px-3 py-2 text-sm font-semibold text-ink focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
@@ -46,6 +49,7 @@ export function AppShell() {
       </div>
     </ClaimProvider>
     </ComposerProvider>
+    </AddProductProvider>
     </AuthProvider>
   );
 }

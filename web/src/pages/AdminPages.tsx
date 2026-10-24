@@ -2,7 +2,16 @@ import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, NavLink } from 'react-router';
 import {
   avatarSrc,
+  categoryLabel,
   formatDate,
+  logoSrc,
+  PRODUCT_CATEGORIES,
+  PRODUCT_NAME_MAX,
+  PRODUCT_TAGLINE_MAX,
+  useDecideBoard,
+  useProductQueue,
+  type BoardCategory,
+  type QueuedBoard,
   plural,
   shortAge,
   useAdminEvents,
@@ -27,12 +36,12 @@ import { useViewer } from '../lib/viewer';
 import { ConfirmDialog } from '../posts/dialogs';
 import { LoadError } from '../posts/PostList';
 import { useAuthDialog } from '../shell/auth';
-import { Button, EmptyState, Field, Input, SkeletonBlock, Tabs, UserAvatar, useToast } from '../ui';
+import { BoardAvatar, Button, Dialog, EmptyState, Field, Input, Select, SkeletonBlock, Tabs, Textarea, UserAvatar, useToast } from '../ui';
 import { NotFound } from './NotFound';
 
 /**
- * Platform-admin screens (FOUNDATION §9): /admin/reports, /admin/disputes and
- * /admin/team. Only Publisense staff (platform_admin) see them; anyone else gets
+ * Platform-admin screens (FOUNDATION §9): /admin/products (0024), /admin/reports,
+ * /admin/disputes and /admin/team. Only Publisense staff (platform_admin) see them; anyone else gets
  * the ordinary not-found page, so the screens do not announce themselves. RLS and
  * the 0022 RPCs are the real guard.
  */
@@ -74,6 +83,9 @@ function AdminNav() {
     );
   return (
     <nav aria-label="Admin" className="mb-4 flex flex-wrap gap-2">
+      <NavLink to="/admin/products" className={item}>
+        New products
+      </NavLink>
       <NavLink to="/admin/reports" className={item}>
         Reports
       </NavLink>
@@ -102,6 +114,219 @@ function Person({ p, fallback = 'Deleted user' }: { p: PersonRef | null | undefi
 
 function Quiet({ children }: { children: ReactNode }) {
   return <div className="rounded-md border border-line bg-card px-4 py-9 text-center text-base text-ink-muted">{children}</div>;
+}
+
+// ------------------------------------------------------------------ new products (0024)
+
+export function AdminProductsPage() {
+  return (
+    <AdminGate title="New products">
+      <ProductQueue />
+    </AdminGate>
+  );
+}
+
+function ProductQueue() {
+  const [status, setStatus] = useState<'pending' | 'decided'>('pending');
+  const queue = useProductQueue(status);
+  const list = queue.data ?? [];
+  return (
+    <>
+      <Tabs
+        idBase="products"
+        label="Review status"
+        value={status}
+        onChange={setStatus}
+        className="mb-4"
+        items={[
+          { value: 'pending', label: 'Waiting', ...(status === 'pending' && queue.data ? { count: list.length } : {}) },
+          { value: 'decided', label: 'Decided' },
+        ]}
+      />
+      {queue.isPending ? (
+        <SkeletonBlock className="h-8 w-full" />
+      ) : queue.isError ? (
+        <LoadError title="We couldn’t load new products" onRetry={() => void queue.refetch()} retrying={queue.isRefetching} />
+      ) : list.length === 0 ? (
+        <Quiet>
+          <b className="block font-semibold text-ink">{status === 'pending' ? 'Nothing to review' : 'Nothing decided yet'}</b>
+          {status === 'pending' ? 'Products people add wait here until someone approves them.' : 'Approved and rejected products show here.'}
+        </Quiet>
+      ) : (
+        <ul className="m-0 flex list-none flex-col gap-3 p-0" aria-label={status === 'pending' ? 'Products waiting for review' : 'Decided products'}>
+          {list.map((b) => (
+            <li key={b.id}>
+              <ProductCard b={b} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  );
+}
+
+function ProductCard({ b }: { b: QueuedBoard }) {
+  const [deciding, setDeciding] = useState<'approve' | 'reject' | null>(null);
+  const pending = b.status === 'pending';
+  return (
+    <Card>
+      <p className="mt-0 mb-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-ink-muted uppercase">
+        {b.site?.startsWith('github.com/') ? 'GitHub repo' : 'Website'}
+        <span className="rounded-pill bg-subtle px-2 font-medium normal-case">{categoryLabel(b.category)}</span>
+        {b.hub ? <span className="rounded-pill bg-subtle px-2 font-medium normal-case">{b.hub.name} hub</span> : null}
+        {!pending ? <span className="rounded-pill bg-subtle px-2 font-medium normal-case">{b.status === 'live' ? 'Approved' : 'Rejected'}</span> : null}
+      </p>
+      <div className="flex items-center gap-3">
+        <BoardAvatar name={b.name} color={b.color} logoSrc={logoSrc(b)} size="lg" decorative />
+        <span className="flex min-w-0 flex-1 flex-col">
+          <Link to={`/b/${b.slug}`} className="truncate text-base font-semibold text-ink no-underline hover:underline">
+            {b.name}
+          </Link>
+          <span className="truncate text-sm text-ink-muted">{b.tagline || 'No description'}</span>
+        </span>
+      </div>
+      <p className="mt-2 mb-0 text-sm text-ink-muted">
+        {b.site ? (
+          <a href={`https://${b.site}`} target="_blank" rel="noopener noreferrer nofollow" className="font-medium text-ink-secondary no-underline hover:underline">
+            {b.site}
+          </a>
+        ) : (
+          'No link'
+        )}{' '}
+        · added by <Person p={b.creator} /> · {shortAge(b.created_at)}
+        {b.post_count ? ` · ${plural(b.post_count, 'post', 'posts')}` : ''}
+      </p>
+      {!pending && b.review_note ? <p className="mt-3 mb-0 rounded-md bg-subtle px-3 py-2 text-sm text-ink">{b.review_note}</p> : null}
+      {pending ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button size="sm" onClick={() => setDeciding('approve')}>
+            Approve…
+          </Button>
+          <Button size="sm" variant="secondary" onClick={() => setDeciding('reject')}>
+            Reject…
+          </Button>
+        </div>
+      ) : null}
+      {deciding === 'approve' ? <ApproveDialog b={b} onClose={() => setDeciding(null)} /> : null}
+      {deciding === 'reject' ? <RejectDialog b={b} onClose={() => setDeciding(null)} /> : null}
+    </Card>
+  );
+}
+
+function ApproveDialog({ b, onClose }: { b: QueuedBoard; onClose: () => void }) {
+  const { toast } = useToast();
+  const decide = useDecideBoard();
+  const [name, setName] = useState(b.name);
+  const [tagline, setTagline] = useState(b.tagline);
+  const [category, setCategory] = useState<BoardCategory>(b.category ?? 'prod');
+  const [error, setError] = useState<string | null>(null);
+  const formId = `approve-${b.id}`;
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return setError('Give it a name.');
+    setError(null);
+    decide.mutate(
+      { id: b.id, approve: true, name: name.trim(), tagline: tagline.trim(), category },
+      {
+        onSuccess: () => {
+          toast(`${name.trim()} is live`);
+          onClose();
+        },
+        onError: (err) => setError(err instanceof Error ? err.message : 'Something went wrong. Try again.'),
+      },
+    );
+  };
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title={`Approve ${b.name}?`}
+      description="It goes public with these details, and its posts become visible. The person who added it is notified."
+      dismissable={!decide.isPending}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={decide.isPending}>
+            Cancel
+          </Button>
+          <Button type="submit" form={formId} loading={decide.isPending}>
+            Approve
+          </Button>
+        </>
+      }
+    >
+      <form id={formId} noValidate onSubmit={submit} className="flex flex-col gap-4">
+        <Field label="Name" aside={`${name.length}/${PRODUCT_NAME_MAX}`}>
+          <Input value={name} maxLength={PRODUCT_NAME_MAX} onChange={(e) => setName(e.target.value)} autoComplete="off" />
+        </Field>
+        <Field label="Description" optional aside={`${tagline.length}/${PRODUCT_TAGLINE_MAX}`}>
+          <Input value={tagline} maxLength={PRODUCT_TAGLINE_MAX} onChange={(e) => setTagline(e.target.value)} autoComplete="off" />
+        </Field>
+        <Field label="Category">
+          <Select value={category} onChange={(e) => setCategory(e.target.value as BoardCategory)}>
+            {PRODUCT_CATEGORIES.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        {error ? (
+          <p role="alert" className="m-0 text-sm text-danger">
+            {error}
+          </p>
+        ) : null}
+      </form>
+    </Dialog>
+  );
+}
+
+function RejectDialog({ b, onClose }: { b: QueuedBoard; onClose: () => void }) {
+  const { toast } = useToast();
+  const decide = useDecideBoard();
+  const [reason, setReason] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const run = () => {
+    setError(null);
+    decide.mutate(
+      { id: b.id, approve: false, reason },
+      {
+        onSuccess: () => {
+          toast(`${b.name} rejected`);
+          onClose();
+        },
+        onError: (err) => setError(err instanceof Error ? err.message : 'Something went wrong. Try again.'),
+      },
+    );
+  };
+  const who = b.creator ? `@${b.creator.handle}` : 'The person who added it';
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title={`Reject ${b.name}?`}
+      description={`It stays hidden, and so do its posts. ${who} is told, with your reason if you give one.`}
+      dismissable={!decide.isPending}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={decide.isPending}>
+            Cancel
+          </Button>
+          <Button variant="danger" onClick={run} loading={decide.isPending}>
+            Reject
+          </Button>
+        </>
+      }
+    >
+      <Field label="Reason" optional hint="Shown to the person who added it." aside={`${reason.length}/500`}>
+        <Textarea rows={3} value={reason} maxLength={500} onChange={(e) => setReason(e.target.value)} placeholder="Already on Publisense as …, or not a product people can give feedback on" />
+      </Field>
+      {error ? (
+        <p role="alert" className="mt-3 mb-0 text-sm text-danger">
+          {error}
+        </p>
+      ) : null}
+    </Dialog>
+  );
 }
 
 // ------------------------------------------------------------------ reports

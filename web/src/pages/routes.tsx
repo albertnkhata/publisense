@@ -20,6 +20,9 @@ export { UserPage } from './UserPage';
 export { NotificationsPage } from './NotificationsPage';
 export { AdminDisputesPage, AdminReportsPage, AdminTeamPage } from './AdminPages';
 
+// Add a product (0024): the admin review queue.
+export { AdminProductsPage } from './AdminPages';
+
 // Step 4: account screens.
 export { SettingsPage } from './SettingsPage';
 export { PrivacyPage, TermsPage } from './LegalPages';

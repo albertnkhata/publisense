@@ -18,6 +18,8 @@ export function makeBoard(over: Partial<Board> = {}): Board {
     created_at: iso(24 * 60),
     follower_count: 4100,
     post_count: 92,
+    status: 'live',
+    created_by: null,
     ...over,
   };
 }

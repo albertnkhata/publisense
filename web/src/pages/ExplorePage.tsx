@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
 import { useSearchParams } from 'react-router';
-import { CATEGORIES, matchCatalogue, useBoards, useHubs, useTrending, useWanted, type Board, type BoardCategory, type Hub } from '../api';
+import { CATEGORIES, isLive, matchCatalogue, useBoards, useHubs, useTrending, useWanted, type Board, type BoardCategory, type Hub } from '../api';
 import { BoardCard, CardGrid, HubRow, PostRow, RowItem, RowList, Section } from '../boards/parts';
 import { cx } from '../lib/cx';
 import { usePageTitle } from '../lib/usePageTitle';
 import { LoadError } from '../posts/PostList';
+import { AddProductLink } from '../products/AddProductDialog';
 import { Icon, SkeletonBlock } from '../ui';
 
 /**
@@ -80,10 +81,11 @@ export function ExplorePage() {
           retrying={boards.isRefetching || hubs.isRefetching}
         />
       ) : q.trim() || cat !== 'all' ? (
-        <Filtered q={q.trim()} cat={cat} boards={boards.data} hubs={hubs.data} />
+        <Filtered q={q.trim()} cat={cat} boards={boards.data.filter(isLive)} hubs={hubs.data} />
       ) : (
-        <Discover boards={boards.data} hubs={hubs.data} />
+        <Discover boards={boards.data.filter(isLive)} hubs={hubs.data} />
       )}
+      {boards.isSuccess && hubs.isSuccess ? <MissingProduct q={q.trim()} /> : null}
     </section>
   );
 }
@@ -207,6 +209,15 @@ function Discover({ boards, hubs }: { boards: Board[]; hubs: Hub[] }) {
         </CardGrid>
       </Section>
     </>
+  );
+}
+
+/** Bottom of the boards list: the way to add a product that isn't here yet. */
+function MissingProduct({ q }: { q: string }) {
+  return (
+    <p className="m-0 rounded-md border border-dashed border-line-strong px-4 py-4 text-center text-base text-ink-secondary">
+      Can’t find a product you use? <AddProductLink prefill={q || undefined}>Add it</AddProductLink>
+    </p>
   );
 }
 

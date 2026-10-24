@@ -55,14 +55,14 @@ describe('notification preferences', () => {
     expect(map['reply:email']).toBe(false);
     expect(map['reply:in_app']).toBe(true);
     expect(map['join:email']).toBe(true);
-    expect(Object.keys(map)).toHaveLength(16);
+    expect(Object.keys(map)).toHaveLength(18);
   });
 
   it('shows every kind × channel and saves a toggle as an upsert', async () => {
     db.rows.notification_pref = [{ kind: 'reply', channel: 'email', enabled: false }];
     renderWith(<SettingsPage />, { viewer: TEST_VIEWER, path: '/settings' });
     const replyEmail = (await screen.findByRole('checkbox', { name: 'Replies: Email' })) as HTMLInputElement;
-    expect(screen.getAllByRole('checkbox')).toHaveLength(16);
+    expect(screen.getAllByRole('checkbox')).toHaveLength(18);
     expect(replyEmail.checked).toBe(false);
     const mentionEmail = screen.getByRole('checkbox', { name: 'Mentions: Email' }) as HTMLInputElement;
     expect(mentionEmail.checked).toBe(true);

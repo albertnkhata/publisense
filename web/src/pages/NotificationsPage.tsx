@@ -248,6 +248,34 @@ export function describeNotification(n: AppNotification, viewerId: string | null
         badge: 'team',
       };
     }
+    case 'product': {
+      const name = String(d.name ?? n.scope?.name ?? 'Your product');
+      const slug = String(d.slug ?? n.scope?.slug ?? '');
+      const href = slug ? `/b/${slug}` : '/';
+      const av = { name, color: n.scope?.color ?? null, logo: null };
+      if (d.status === 'approved') {
+        return {
+          text: (
+            <>
+              <B>{name}</B> is live. Thanks for adding it: anyone can post on its board now.
+            </>
+          ),
+          href,
+          badge: 'ship',
+          boardAvatar: av,
+        };
+      }
+      return {
+        text: (
+          <>
+            <B>{name}</B> wasn’t approved{d.reason ? <>: {String(d.reason)}</> : '.'}
+          </>
+        ),
+        href,
+        badge: 'status',
+        boardAvatar: av,
+      };
+    }
     default:
       return { text: 'Something happened', href: '/', badge: 'status' };
   }

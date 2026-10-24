@@ -113,6 +113,7 @@ function Board({ board }: { board: BoardWithHub }) {
       <ScopeHeader
         logo={<BoardAvatar name={board.name} color={board.color} logoSrc={logoSrc(board)} size="xl" decorative />}
         title={board.name}
+        tag={<ReviewPill board={board} />}
         description={
           <>
             {board.tagline}
@@ -133,7 +134,15 @@ function Board({ board }: { board: BoardWithHub }) {
                 {board.hub.name} hub
               </Link>
             ) : null}
-            <ClaimState board={board} team={Boolean(team.data)} />
+            {!board.claimed_at && board.creator ? (
+              <span>
+                Added by{' '}
+                <Link to={`/u/${board.creator.handle}`} className="font-medium text-ink-secondary no-underline hover:text-ink hover:underline hover:underline-offset-2">
+                  @{board.creator.handle}
+                </Link>
+              </span>
+            ) : null}
+            {board.status === 'rejected' ? null : <ClaimState board={board} team={Boolean(team.data)} />}
           </>
         }
         actions={
@@ -144,12 +153,19 @@ function Board({ board }: { board: BoardWithHub }) {
               </Link>
             ) : null}
             <FollowScopeButton target="board" id={board.id} name={board.name} size="sm" />
-            <Button size="sm" onClick={() => openComposer({ board: board.slug })}>
-              Post feedback
-            </Button>
+            {board.status === 'rejected' ? null : (
+              <Button size="sm" onClick={() => openComposer({ board: board.slug })}>
+                Post feedback
+              </Button>
+            )}
           </>
         }
       />
+      {board.status === 'rejected' ? (
+        <p className="mt-0 mb-4 rounded-md border border-line bg-subtle px-3 py-2 text-sm text-ink-secondary">
+          This product wasn’t approved{board.review_note ? `: ${board.review_note}` : '.'} Only you can see this board.
+        </p>
+      ) : null}
       <Tabs
         idBase="board"
         label={`${board.name} board`}
@@ -239,6 +255,23 @@ function Feedback({
         />
       )}
     </>
+  );
+}
+
+/**
+ * Quiet review state next to the name (0024). Only the person who added the board
+ * (and staff) can see a board that is not live, so only they ever see this.
+ */
+function ReviewPill({ board }: { board: BoardWithHub }) {
+  if (board.status === 'live') return null;
+  return (
+    <span
+      title={board.status === 'pending' ? 'Only you and the Publisense team can see this board until it’s approved' : undefined}
+      className="inline-flex h-6 items-center gap-1 rounded-pill border border-line px-2 text-xs font-medium text-ink-muted"
+    >
+      <Icon name={board.status === 'pending' ? 'status-review' : 'status-closed'} size={12} strokeWidth={2.2} />
+      {board.status === 'pending' ? 'Pending review' : 'Not approved'}
+    </span>
   );
 }
 
