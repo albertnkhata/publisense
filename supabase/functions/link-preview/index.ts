@@ -3,11 +3,13 @@
 // Two jobs, both for signed-in users only (JWT verification stays on, and the token
 // is checked again with the auth server here):
 //
-//   POST { url }       -> { kind, canonical, name, description, icon_url }
+//   POST { url }       -> { kind, canonical, name, description, icon_url, company }
 //                         Autofill for the Add a product form. A GitHub repo is read
 //                         from the public GitHub API (name, description, owner avatar);
 //                         any other link from its site's home page (<title>, og: and
 //                         description meta, apple-touch-icon / icon links / og:image).
+//                         `company` (0026) is og:site_name, else application-name, or
+//                         null; a GitHub repo never suggests one.
 //   POST { board_id }  -> { ok, logo_path }
 //                         After create_board: fetch the product's logo once and store it
 //                         in the board-logos bucket at {board_id}/{uuid}.{png|jpg|webp}
@@ -158,6 +160,8 @@ interface Preview {
   name: string;
   description: string;
   icon_url: string | null;
+  /** og:site_name / application-name (0026); a suggestion for the form's Company field. */
+  company: string | null;
   /** Every logo candidate, best first (used by the store step, not returned). */
   icons: string[];
 }
@@ -199,6 +203,7 @@ async function previewGithub(link: ParsedLink, deadline: number): Promise<Previe
     name: oneLine(data.name ?? repo, 60),
     description: oneLine(data.description ?? '', 120),
     icon_url: avatar,
+    company: null,
     icons: avatar ? [avatar] : [],
   };
 }
@@ -212,7 +217,15 @@ async function previewSite(link: ParsedLink, deadline: number): Promise<Preview>
   });
   const html = page.type.includes('html') || page.type === '' ? new TextDecoder().decode(page.bytes) : '';
   const meta = extractMeta(html, page.url);
-  return { kind: 'site', canonical: link.canonical, name: meta.name, description: meta.description, icon_url: meta.icons[0] ?? null, icons: meta.icons };
+  return {
+    kind: 'site',
+    canonical: link.canonical,
+    name: meta.name,
+    description: meta.description,
+    icon_url: meta.icons[0] ?? null,
+    company: meta.company,
+    icons: meta.icons,
+  };
 }
 
 async function preview(link: ParsedLink): Promise<Preview | null> {

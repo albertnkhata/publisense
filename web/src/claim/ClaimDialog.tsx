@@ -8,6 +8,7 @@ import {
   logoSrc,
   REASON_MAX,
   REASON_MIN,
+  onHubDomain,
   siteDomain,
   startDnsCheck,
   startEmailCode,
@@ -104,9 +105,14 @@ export function boardTarget(b: Board, hubs: Hub[] | undefined): Target {
   return { scope: 'board', id: b.id, name: b.name, slug: b.slug, domain: siteDomain(b.site), board: b, hub: hubs?.find((h) => h.id === b.hub_id) ?? null };
 }
 
-function hubTarget(h: Hub): Target {
-  return { scope: 'hub', id: h.id, name: h.name, slug: h.slug, domain: h.primary_domain, board: null, hub: h };
+/** A hub is proved by any of its domains (0026): start from one the viewer already proved, else the primary. */
+function hubTarget(h: Hub, verified?: string[]): Target {
+  const domain = h.domains.find((d) => covered(verified, d)) ?? h.primary_domain;
+  return { scope: 'hub', id: h.id, name: h.name, slug: h.slug, domain, board: null, hub: h };
 }
+
+/** The hub domain the viewer proved, for the "Claim all of {hub}" step. */
+const provedHubDomain = (h: Hub, verified: string[] | undefined) => h.domains.find((d) => covered(verified, d)) ?? h.primary_domain;
 
 function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => void }) {
   const { viewer } = useViewer();
@@ -161,7 +167,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
     initialised.current = true;
     if (opts.hub) {
       const h = hubs.data.find((x) => x.slug === opts.hub);
-      if (h) return enter(hubTarget(h));
+      if (h) return enter(hubTarget(h, verified.data));
     }
     if (opts.board) {
       const b = boards.data.find((x) => x.slug === opts.board);
@@ -267,7 +273,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
     run(async () => {
       const h = target?.hub;
       if (!h) return;
-      await claimHub.mutateAsync({ id: h.id, name: h.name, domain: h.primary_domain });
+      await claimHub.mutateAsync({ id: h.id, name: h.name, domain: provedHubDomain(h, verified.data) });
       setClaimed({ names: [target.name, ...h.boards.filter((b) => b.id !== target.id && !b.claimed_at).map((b) => b.name)], hub: h.name });
       setStep('done');
     });
@@ -283,7 +289,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
       const added: string[] = [];
       for (const who of list) {
         try {
-          await addMember.mutateAsync({ scope, id: scopeId, who, domain: scope === 'hub' ? (target.hub?.primary_domain ?? null) : target.domain });
+          await addMember.mutateAsync({ scope, id: scopeId, who, domain: scope === 'hub' && target.hub ? provedHubDomain(target.hub, verified.data) : target.domain });
           added.push(who);
         } catch (e) {
           setInvite(list.filter((x) => !added.includes(x)).join(', '));
@@ -377,7 +383,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
     );
   } else if (target && step === 'intro') {
     const siblings = target.hub ? target.hub.boards.filter((b) => b.id !== target.id && !b.claimed_at && siteDomain(b.site) === target.domain) : [];
-    const offersHub = target.scope === 'board' && target.hub && !target.hub.claimed_at && target.hub.primary_domain === target.domain;
+    const offersHub = target.scope === 'board' && target.hub && !target.hub.claimed_at && onHubDomain(target.hub, target.domain);
     body = (
       <form id="claim-form" onSubmit={submit(() => (isVerified ? void run(() => finish(target, 'claim')) : void sendCode('claim')))}>
         {head}
@@ -541,7 +547,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
     body = (
       <>
         <p className="mt-0 mb-3 text-sm text-ink-secondary">
-          {h.primary_domain} is verified, so you can take over the {h.name} hub and every product in it in one go. Your team is shared across them.
+          {provedHubDomain(h, verified.data)} is verified, so you can take over the {h.name} hub and every product in it in one go. Your team is shared across them.
         </p>
         <ul className="m-0 flex list-none flex-col gap-1 rounded-md border border-line p-2">
           <OrgRow
@@ -577,7 +583,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
   } else if (target && step === 'done') {
     const names = claimed.names.length ? claimed.names : [target.name];
     const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0];
-    const inviteDomain = claimed.hub && target.hub ? target.hub.primary_domain : target.domain;
+    const inviteDomain = claimed.hub && target.hub ? provedHubDomain(target.hub, verified.data) : target.domain;
     body = (
       <form id="claim-form" onSubmit={submit(() => void addTeammates())}>
         <Done title={`You manage ${list} now`}>

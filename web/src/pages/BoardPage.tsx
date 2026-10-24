@@ -241,8 +241,10 @@ function Feedback({
 const SHOW_ADDED_BY = false;
 
 /**
- * The line under the tagline: the product's own site (new tab), its hub, and who
- * added it while unclaimed. Each item is a whole flex unit, so on a phone the line
+ * The line under the tagline: the product's own site (new tab), the company that makes
+ * it (its hub, 0026: shown as the company's name, "Anthropic", rather than "Anthropic
+ * hub", since next to the site it reads as who makes the product), and who added it
+ * while unclaimed. Each item is a whole flex unit, so on a phone the line
  * wraps between items rather than inside them. Null when there is nothing to show.
  */
 function boardMeta(board: BoardWithHub): ReactNode {
@@ -258,9 +260,9 @@ function boardMeta(board: BoardWithHub): ReactNode {
         </a>
       ) : null}
       {board.hub ? (
-        <Link to={`/h/${board.hub.slug}`} title={`All ${board.hub.name} boards`} className={metaLink}>
+        <Link to={`/h/${board.hub.slug}`} title={`All ${board.hub.name} products`} className={metaLink}>
           <Icon name="hub" size={13} />
-          <span className="truncate">{board.hub.name} hub</span>
+          <span className="truncate">{board.hub.name}</span>
         </Link>
       ) : null}
       {addedBy ? (

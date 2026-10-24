@@ -236,6 +236,12 @@ function attrs(tag: string): Record<string, string> {
 export interface PageMeta {
   name: string;
   description: string;
+  /**
+   * Who makes it, when the page says (og:site_name, else application-name), for the
+   * form's Company suggestion (0026). Null when the page gives neither. Often the same
+   * as the product name (Linear); the form only offers it when it differs.
+   */
+  company: string | null;
   /** Logo candidates, best first, as absolute http(s) URLs. */
   icons: string[];
 }
@@ -256,7 +262,7 @@ function largest(sizes: string | undefined): number {
   return Math.max(0, ...sizes.split(/\s+/).map((s) => Number(/^(\d+)x\d+$/i.exec(s)?.[1] ?? 0)));
 }
 
-/** Name, one-line description and logo candidates from a page's <head>. */
+/** Name, one-line description, company and logo candidates from a page's <head>. */
 export function extractMeta(html: string, baseUrl: string): PageMeta {
   const head = html.slice(0, LIMITS.maxHtmlBytes);
   const meta: Record<string, string> = {};
@@ -269,6 +275,7 @@ export function extractMeta(html: string, baseUrl: string): PageMeta {
   const siteName = meta['og:site_name'] ?? meta['application-name'] ?? meta['apple-mobile-web-app-title'];
   const name = oneLine(siteName ? siteName : nameFromTitle(meta['og:title'] ?? title), 60);
   const description = oneLine(meta['og:description'] ?? meta['description'] ?? meta['twitter:description'] ?? '', 120);
+  const company = oneLine(meta['og:site_name'] ?? meta['application-name'] ?? '', 60) || null;
 
   const touch: Array<[number, string]> = [];
   const icon: Array<[number, string]> = [];
@@ -287,7 +294,7 @@ export function extractMeta(html: string, baseUrl: string): PageMeta {
   const og = absolute(meta['og:image'] ?? meta['twitter:image'], baseUrl);
   const fallback = absolute('/apple-touch-icon.png', baseUrl);
   const icons = [...byScore(touch), ...byScore(icon), ...(og ? [og] : []), ...(fallback ? [fallback] : [])];
-  return { name, description, icons: [...new Set(icons)] };
+  return { name, description, company, icons: [...new Set(icons)] };
 }
 
 // ------------------------------------------------------------------ images

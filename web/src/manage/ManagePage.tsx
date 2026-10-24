@@ -447,7 +447,10 @@ function HubManage({ hub, role }: { hub: Hub; role: Role }) {
               <TeamList scope="hub" scopeId={hub.id} myRole={role} scopeName={`${hub.name} hub`} />
             </Section>
             {admin ? (
-              <Section title="Invite teammates" note={`They need an @${hub.primary_domain ?? 'company'} address and a Publisense account.`}>
+              <Section
+                title="Invite teammates"
+                note={`They need ${hub.domains.length ? hub.domains.map((d) => `an @${d}`).join(' or ') : 'a company'} address and a Publisense account.`}
+              >
                 <AddTeammate scope="hub" scopeId={hub.id} domain={hub.primary_domain} />
               </Section>
             ) : null}
@@ -493,19 +496,26 @@ function HubSettings({ hub, owner }: { hub: Hub; owner: boolean }) {
           </div>
         </form>
       </Section>
-      {hub.primary_domain ? (
-        <Section title="Domain" note="Anyone with an email on this domain can be added, and its boards are covered by the hub team.">
-          <p className="m-0 flex items-center gap-3 text-base">
-            <code className="font-mono text-ink">{hub.primary_domain}</code>
-            {covered(verified.data, hub.primary_domain) ? (
-              <span className="inline-flex items-center gap-1 text-sm text-success">
-                <Icon name="check" size={13} strokeWidth={2.4} />
-                Verified by you
-              </span>
-            ) : (
-              <span className="text-sm text-ink-muted">Verified by the team</span>
-            )}
-          </p>
+      {hub.domains.length ? (
+        <Section
+          title={hub.domains.length > 1 ? 'Domains' : 'Domain'}
+          note="Anyone with an email on one of these domains can be added, and the company's boards are covered by the hub team. Publisense staff change the list."
+        >
+          <ul className="m-0 flex list-none flex-col gap-2 p-0">
+            {hub.domains.map((d) => (
+              <li key={d} className="m-0 flex items-center gap-3 text-base">
+                <code className="font-mono text-ink">{d}</code>
+                {covered(verified.data, d) ? (
+                  <span className="inline-flex items-center gap-1 text-sm text-success">
+                    <Icon name="check" size={13} strokeWidth={2.4} />
+                    Verified by you
+                  </span>
+                ) : (
+                  <span className="text-sm text-ink-muted">Verified by the team</span>
+                )}
+              </li>
+            ))}
+          </ul>
         </Section>
       ) : null}
       {owner ? <ReleaseSection scope="hub" scopeId={hub.id} name={hub.name} onReleased={() => void navigate(`/h/${hub.slug}`)} /> : null}

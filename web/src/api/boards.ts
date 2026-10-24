@@ -33,13 +33,19 @@ export interface Board {
   created_by: string | null;
 }
 
+/** 0026: a hub is a company; new ones wait for review like boards. */
+export type HubStatus = 'pending' | 'live' | 'rejected';
+
 export interface HubRef {
   id: string;
   slug: string;
   name: string;
-  /** On a board's own hub (fetchBoard): whether a team claimed it, and its domain. */
+  /** On a board's own hub (fetchBoard): whether a team claimed it, and its domains. */
   claimed_at?: string | null;
   primary_domain?: string | null;
+  /** Every domain the company owns, primary first (0026). */
+  domains?: string[];
+  status?: HubStatus;
 }
 
 export interface BoardWithHub extends Board {
@@ -55,7 +61,11 @@ export interface Hub {
   slug: string;
   name: string;
   description: string;
+  /** One of `domains` (the oldest); kept for the claim flow's wording. */
   primary_domain: string | null;
+  /** Every domain the company owns, primary first (0026). */
+  domains: string[];
+  status?: HubStatus;
   claimed_at: string | null;
   created_at: string;
   follower_count: number;
@@ -65,7 +75,28 @@ export interface Hub {
 
 export const BOARD_COLUMNS =
   'id, slug, name, tagline, site, color, logo_path, category, hub_id, claimed_at, created_at, follower_count, post_count, status, created_by';
-const HUB_COLUMNS = 'id, slug, name, description, primary_domain, claimed_at, created_at, follower_count';
+const HUB_COLUMNS = 'id, slug, name, description, primary_domain, claimed_at, created_at, follower_count, status, hub_domain(domain, created_at)';
+
+/** A hub's embedded hub_domain rows as a list, primary domain first, then oldest first. */
+export function hubDomains(h: { primary_domain?: string | null; domains?: string[]; hub_domain?: Array<{ domain: string; created_at?: string }> | null }): string[] {
+  const rows = [...(h.hub_domain ?? [])].sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? '') || a.domain.localeCompare(b.domain));
+  const list = h.domains ?? rows.map((r) => r.domain);
+  const primary = h.primary_domain ?? null;
+  const all = primary && !list.includes(primary) ? [primary, ...list] : list;
+  return primary ? [primary, ...all.filter((d) => d !== primary)] : all;
+}
+
+/** Normalise a hub row from PostgREST: `hub_domain` embed -> `domains`. */
+export function withDomains<T extends { primary_domain?: string | null; hub_domain?: Array<{ domain: string; created_at?: string }> | null; domains?: string[] }>(
+  h: T,
+): Omit<T, 'hub_domain'> & { domains: string[] } {
+  const { hub_domain: _rows, ...rest } = h;
+  return { ...rest, domains: hubDomains(h) };
+}
+
+/** Is a host one of the hub's domains, or under one? */
+export const onHubDomain = (h: { domains?: string[]; primary_domain?: string | null } | null | undefined, host: string | null | undefined) =>
+  Boolean(h && host && (h.domains ?? (h.primary_domain ? [h.primary_domain] : [])).some((d) => host === d || host.endsWith(`.${d}`)));
 
 /**
  * A board's site as a safe outbound link: `href` always https (or the http it was
@@ -139,12 +170,14 @@ export async function fetchBoard(slug: string): Promise<BoardWithHub | null> {
   const { data, error } = await getSupabase()
     .from('board')
     .select(
-      `${BOARD_COLUMNS}, review_note, hub:hub!hub_id(id, slug, name, claimed_at, primary_domain), creator:profile!board_created_by_fkey(id, handle, name, avatar_path)`,
+      `${BOARD_COLUMNS}, review_note, hub:hub!hub_id(id, slug, name, claimed_at, primary_domain, status, hub_domain(domain, created_at)), creator:profile!board_created_by_fkey(id, handle, name, avatar_path)`,
     )
     .eq('slug', slug)
     .maybeSingle();
   if (error) throw error;
-  return (data as BoardWithHub | null) ?? null;
+  const row = data as (BoardWithHub & { hub: (HubRef & { hub_domain?: Array<{ domain: string; created_at?: string }> }) | null }) | null;
+  if (!row) return null;
+  return { ...row, hub: row.hub ? withDomains(row.hub) : null };
 }
 
 /** Every hub with its boards. */
@@ -152,9 +185,10 @@ export async function fetchHubs(): Promise<Hub[]> {
   const { data, error } = await getSupabase()
     .from('hub')
     .select(`${HUB_COLUMNS}, boards:board(${BOARD_COLUMNS})`)
+    .eq('status', 'live')
     .order('name');
   if (error) throw error;
-  return ((data ?? []) as Hub[]).map(sortHubBoards);
+  return ((data ?? []) as unknown as RawHub[]).map(sortHubBoards);
 }
 
 /** One hub by slug with its boards, or null. */
@@ -166,11 +200,13 @@ export async function fetchHub(slug: string): Promise<Hub | null> {
     .eq('slug', slug)
     .maybeSingle();
   if (error) throw error;
-  return data ? sortHubBoards(data as Hub) : null;
+  return data ? sortHubBoards(data as unknown as RawHub) : null;
 }
 
-function sortHubBoards(h: Hub): Hub {
-  return { ...h, boards: [...(h.boards ?? [])].filter(isLive).sort((a, b) => a.name.localeCompare(b.name)) };
+type RawHub = Omit<Hub, 'domains'> & { domains?: string[]; hub_domain?: Array<{ domain: string; created_at?: string }> | null };
+
+function sortHubBoards(h: RawHub): Hub {
+  return { ...withDomains(h), boards: [...(h.boards ?? [])].filter(isLive).sort((a, b) => a.name.localeCompare(b.name)) };
 }
 
 /** Live posts and roadmap items on a set of boards, for the tab counts. */

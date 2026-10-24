@@ -47,6 +47,7 @@ export const FIGMA_HUB: Hub = {
   name: 'Figma',
   description: 'Figma, FigJam and Figma Slides in one place',
   primary_domain: 'figma.com',
+  domains: ['figma.com'],
   claimed_at: null,
   created_at: iso(24 * 60),
   follower_count: 210,

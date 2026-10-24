@@ -3,11 +3,15 @@ import { parseLink } from '../lib/link';
 import { fetchBoard, type Board } from './boards';
 import { boardKeys } from './boardHooks';
 import {
+  addHubDomain,
   checkProductLink,
   createBoard,
   decideBoard,
+  fetchCompanies,
   fetchLinkPreview,
   fetchProductQueue,
+  removeHubDomain,
+  searchCompanies,
   storeBoardLogo,
   type BoardDecision,
   type NewProduct,
@@ -19,6 +23,8 @@ export const productKeys = {
   check: (key: string) => ['product-link', key] as const,
   preview: (key: string) => ['product-preview', key] as const,
   queue: (status: 'pending' | 'decided') => ['admin-products', status] as const,
+  companies: (term: string) => ['company-search', term.trim().toLowerCase()] as const,
+  adminCompanies: ['admin-companies'] as const,
 };
 
 /** The link's dedupe key, so "https://www.cursor.com/" and "cursor.com" share one lookup. */
@@ -91,6 +97,38 @@ export function useDecideBoard() {
       void qc.invalidateQueries({ queryKey: boardKeys.boards });
       void qc.invalidateQueries({ queryKey: ['board'] });
       void qc.invalidateQueries({ queryKey: boardKeys.hubs });
+      void qc.invalidateQueries({ queryKey: productKeys.adminCompanies });
+    },
+  });
+}
+
+/** Live companies matching the typed name (the Company typeahead, 0026). */
+export function useCompanySearch(term: string, enabled = true) {
+  const t = term.trim();
+  return useQuery({
+    queryKey: productKeys.companies(t),
+    queryFn: () => searchCompanies(t),
+    enabled: enabled && t.length > 0,
+    staleTime: 60_000,
+    retry: false,
+  });
+}
+
+export function useAdminCompanies(enabled = true) {
+  return useQuery({ queryKey: productKeys.adminCompanies, queryFn: fetchCompanies, enabled });
+}
+
+/** Add or remove one of a company's domains (platform admins). */
+export function useHubDomain() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { hubId: string; domain: string; remove?: boolean }) =>
+      v.remove ? removeHubDomain(v.hubId, v.domain).then(() => v.domain) : addHubDomain(v.hubId, v.domain),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: productKeys.adminCompanies });
+      void qc.invalidateQueries({ queryKey: ['admin-products'] });
+      void qc.invalidateQueries({ queryKey: boardKeys.hubs });
+      void qc.invalidateQueries({ queryKey: ['product-link'] });
     },
   });
 }

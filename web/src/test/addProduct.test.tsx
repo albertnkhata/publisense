@@ -8,7 +8,7 @@ import * as rules from '../../../supabase/functions/link-preview/rules';
 import { ClaimProvider } from '../claim/ClaimDialog';
 import { BoardPage } from '../pages/BoardPage';
 import { ExplorePage } from '../pages/ExplorePage';
-import { AdminProductsPage } from '../pages/AdminPages';
+import { AdminCompaniesPage, AdminProductsPage } from '../pages/AdminPages';
 import { describeNotification } from '../pages/NotificationsPage';
 import { AddProductHost, AddProductProvider, useAddProduct } from '../products/AddProductDialog';
 import { ComposerProvider, useComposer } from '../shell/composer';
@@ -25,6 +25,10 @@ const productsApi = vi.hoisted(() => ({
   storeBoardLogo: vi.fn(),
   fetchProductQueue: vi.fn(),
   decideBoard: vi.fn(),
+  searchCompanies: vi.fn(),
+  fetchCompanies: vi.fn(),
+  addHubDomain: vi.fn(),
+  removeHubDomain: vi.fn(),
 }));
 const boardsApi = vi.hoisted(() => ({
   fetchBoard: vi.fn(),
@@ -56,6 +60,10 @@ vi.mock('../api/teams', async (importOriginal) => ({ ...(await importOriginal<ty
 const { ProductError } = await vi.importActual<typeof import('../api/products')>('../api/products');
 
 const ACME_ID = 'b0000000-0000-4000-8000-0000000000a1';
+const ANTHROPIC = { id: 'c0000000-0000-4000-8000-0000000000a1', slug: 'anthropic', name: 'Anthropic', primary_domain: 'claude.ai' };
+const ACME_CORP = { id: 'c0000000-0000-4000-8000-0000000000a2', slug: 'acme-corp', name: 'Acme Corp', primary_domain: 'acme.com' };
+const FIGMA_CO = { id: 'c0000000-0000-4000-8000-0000000000a3', slug: 'figma', name: 'Figma', primary_domain: 'figma.com' };
+const COMPANIES = [ACME_CORP, ANTHROPIC, FIGMA_CO];
 const ACME: BoardWithHub = {
   ...makeBoard({ id: ACME_ID, slug: 'acme-notes', name: 'Acme Notes', tagline: 'Notes for small teams', site: 'acme-notes.dev', category: 'prod', follower_count: 1, post_count: 0, status: 'pending', created_by: TEST_VIEWER.id }),
   hub: null,
@@ -95,6 +103,7 @@ function renderApp(path = '/', signedIn = true) {
             <Route path="/b/:board" element={<BoardPage />} />
             <Route path="/u/:handle" element={<h1>Profile page</h1>} />
             <Route path="/admin/products" element={<AdminProductsPage />} />
+            <Route path="/admin/companies" element={<AdminCompaniesPage />} />
           </Routes>
         </ClaimProvider>
       </ComposerProvider>
@@ -121,6 +130,10 @@ beforeEach(() => {
   productsApi.storeBoardLogo.mockResolvedValue(null);
   productsApi.fetchProductQueue.mockResolvedValue([]);
   productsApi.decideBoard.mockResolvedValue(undefined);
+  productsApi.searchCompanies.mockImplementation(async (term: string) => COMPANIES.filter((c) => c.name.toLowerCase().includes(term.toLowerCase())));
+  productsApi.fetchCompanies.mockResolvedValue([]);
+  productsApi.addHubDomain.mockImplementation(async (_id: string, d: string) => d);
+  productsApi.removeHubDomain.mockResolvedValue(undefined);
   boardsApi.fetchBoard.mockImplementation(async (slug: string) => (slug === 'acme-notes' ? ACME : slug === 'cursor' ? CURSOR : null));
   boardsApi.fetchBoards.mockResolvedValue([CURSOR, SUPABASE]);
   boardsApi.fetchHubs.mockResolvedValue([]);
@@ -217,6 +230,11 @@ describe('link rules', () => {
       'https://acme-notes.dev/apple-touch-icon.png',
     ]);
     expect(rules.extractMeta('<meta property="og:site_name" content="Linear">', 'https://linear.app/').name).toBe('Linear');
+    // Company (0026): og:site_name, else application-name, else null.
+    expect(meta.company).toBeNull();
+    expect(rules.extractMeta('<meta property="og:site_name" content="OpenAI"><title>Codex | OpenAI</title>', 'https://openai.com/codex').company).toBe('OpenAI');
+    expect(rules.extractMeta('<meta name="application-name" content="Figma &amp; Co"><title>FigJam</title>', 'https://figma.com/figjam').company).toBe('Figma & Co');
+    expect(rules.extractMeta('<meta name="application-name" content="App"><meta property="og:site_name" content="Site">', 'https://x.dev/').company).toBe('Site');
   });
 
   it('accept images by magic bytes only', () => {
@@ -421,6 +439,142 @@ describe('pending boards', () => {
   });
 });
 
+// ------------------------------------------------------------------ company (0026)
+
+describe('add a product: company', () => {
+  async function fillLink(dialog: HTMLElement, link: string) {
+    fireEvent.change(within(dialog).getByLabelText('Link'), { target: { value: link } });
+    await waitFor(() => expect(productsApi.checkProductLink).toHaveBeenCalled());
+  }
+  const submit = (dialog: HTMLElement) => {
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'AI' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add product' }));
+  };
+
+  it('sits right after Name, and is optional', async () => {
+    renderApp();
+    const dialog = await openForm();
+    const labels = [...dialog.querySelectorAll('label')].map((l) => l.textContent);
+    expect(labels.indexOf('CompanyOptional')).toBe(labels.findIndex((t) => t?.startsWith('Name')) + 1);
+    expect(within(dialog).getByRole('combobox', { name: /Company/ })).toBeTruthy();
+  });
+
+  it('prefills the company that owns the link’s domain, as a chip that can be changed', async () => {
+    productsApi.checkProductLink.mockResolvedValue({ kind: 'site', canonical: 'claude.com', match: null, hub: { id: ANTHROPIC.id, slug: 'anthropic', name: 'Anthropic' } });
+    productsApi.fetchLinkPreview.mockResolvedValue({ kind: 'site', canonical: 'claude.com', name: 'Claude Code', description: 'Agentic coding', icon_url: null, company: 'Anthropic' });
+    renderApp();
+    const dialog = await openForm();
+    await fillLink(dialog, 'https://claude.com/product/claude-code');
+    const chip = await within(dialog).findByRole('group', { name: /Company/ });
+    expect(within(chip).getByText('Anthropic')).toBeTruthy();
+    expect(within(dialog).getByText('claude.com belongs to Anthropic.')).toBeTruthy();
+    expect(within(chip).queryByRole('button', { name: /Remove/ })).toBeNull(); // changeable, not removable
+    await waitFor(() => expect((within(dialog).getByLabelText(/^Name/) as HTMLInputElement).value).toBe('Claude Code'));
+    submit(dialog);
+    await waitFor(() =>
+      expect(productsApi.createBoard).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'Claude Code', company: { kind: 'hub', id: ANTHROPIC.id, slug: 'anthropic', name: 'Anthropic', status: 'live' } }),
+      ),
+    );
+  });
+
+  it('changes the prefilled company through the typeahead', async () => {
+    productsApi.checkProductLink.mockResolvedValue({ kind: 'site', canonical: 'claude.com', match: null, hub: { id: ANTHROPIC.id, slug: 'anthropic', name: 'Anthropic' } });
+    renderApp();
+    const dialog = await openForm();
+    await fillLink(dialog, 'claude.com');
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Change company (Anthropic)' }));
+    const input = within(dialog).getByRole('combobox', { name: /Company/ });
+    await waitFor(() => expect(document.activeElement).toBe(input));
+    expect(within(dialog).getByText('Left empty, it joins Anthropic, which owns claude.com.')).toBeTruthy();
+    fireEvent.change(input, { target: { value: 'acme' } });
+    fireEvent.click(await within(dialog).findByRole('option', { name: /Acme Corp/ }));
+    expect(within(within(dialog).getByRole('group', { name: /Company/ })).getByText('Acme Corp')).toBeTruthy();
+    submit(dialog);
+    await waitFor(() => expect(productsApi.createBoard).toHaveBeenCalledWith(expect.objectContaining({ company: expect.objectContaining({ kind: 'hub', id: ACME_CORP.id }) })));
+  });
+
+  it('is a typeahead over companies when the domain has none, with a “New company” option', async () => {
+    renderApp();
+    const dialog = await openForm();
+    await fillLink(dialog, 'https://acme-notes.dev');
+    expect(within(dialog).queryByRole('group', { name: /Company/ })).toBeNull();
+    const input = within(dialog).getByRole('combobox', { name: /Company/ });
+    fireEvent.change(input, { target: { value: 'Acme' } });
+    const list = await within(dialog).findByRole('listbox', { name: 'Companies' });
+    await waitFor(() => expect(within(list).getAllByRole('option').map((o) => o.textContent)).toEqual(['Acme Corpacme.com', 'New company: Acme']));
+    expect(productsApi.searchCompanies).toHaveBeenCalledWith('Acme');
+    // Arrow keys and Enter pick an option.
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    const chip = within(dialog).getByRole('group', { name: /Company/ });
+    expect(within(chip).getByText('Acme')).toBeTruthy();
+    expect(within(chip).getByText('New')).toBeTruthy();
+    submit(dialog);
+    await waitFor(() => expect(productsApi.createBoard).toHaveBeenCalledWith(expect.objectContaining({ company: { kind: 'new', name: 'Acme' } })));
+  });
+
+  it('offers no “New company” when the typed name is already a company', async () => {
+    renderApp();
+    const dialog = await openForm();
+    fireEvent.change(within(dialog).getByRole('combobox', { name: /Company/ }), { target: { value: 'acme corp' } });
+    const list = await within(dialog).findByRole('listbox', { name: 'Companies' });
+    await waitFor(() => expect(within(list).getAllByRole('option')).toHaveLength(1));
+    expect(within(list).queryByText(/New company/)).toBeNull();
+  });
+
+  it('sends a typed but unpicked name as a new company', async () => {
+    renderApp();
+    const dialog = await openForm();
+    await fillLink(dialog, 'acme-notes.dev');
+    fireEvent.change(within(dialog).getByRole('combobox', { name: /Company/ }), { target: { value: '  Acme   Labs ' } });
+    submit(dialog);
+    await waitFor(() => expect(productsApi.createBoard).toHaveBeenCalledWith(expect.objectContaining({ company: { kind: 'new', name: 'Acme Labs' } })));
+  });
+
+  it('may be left empty', async () => {
+    renderApp();
+    const dialog = await openForm();
+    await fillLink(dialog, 'acme-notes.dev');
+    await waitFor(() => expect((within(dialog).getByLabelText(/^Name/) as HTMLInputElement).value).toBe('Acme Notes'));
+    submit(dialog);
+    await waitFor(() => expect(productsApi.createBoard).toHaveBeenCalled());
+    expect(productsApi.createBoard.mock.calls[0]![0]).not.toHaveProperty('company');
+  });
+
+  it('a GitHub repo gets no prefill and no suggestion', async () => {
+    productsApi.checkProductLink.mockResolvedValue({ kind: 'github', canonical: 'github.com/acme/notes', match: null, hub: null });
+    productsApi.fetchLinkPreview.mockResolvedValue({ kind: 'github', canonical: 'github.com/acme/notes', name: 'notes', description: 'Notes', icon_url: null, company: null });
+    renderApp();
+    const dialog = await openForm();
+    await fillLink(dialog, 'https://github.com/acme/notes');
+    await waitFor(() => expect((within(dialog).getByLabelText(/^Name/) as HTMLInputElement).value).toBe('notes'));
+    expect(within(dialog).queryByRole('group', { name: /Company/ })).toBeNull();
+    expect((within(dialog).getByRole('combobox', { name: /Company/ }) as HTMLInputElement).value).toBe('');
+    expect(within(dialog).queryByText(/Its site says/)).toBeNull();
+  });
+
+  it('suggests the company the site names (og:site_name) when no company owns the domain', async () => {
+    productsApi.fetchLinkPreview.mockResolvedValue({ kind: 'site', canonical: 'acme-notes.dev', name: 'Acme Notes', description: '', icon_url: null, company: 'Acme Corp' });
+    renderApp();
+    const dialog = await openForm();
+    await fillLink(dialog, 'acme-notes.dev');
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Acme Corp' }));
+    expect((within(dialog).getByRole('combobox', { name: /Company/ }) as HTMLInputElement).value).toBe('Acme Corp');
+    const list = await within(dialog).findByRole('listbox', { name: 'Companies' });
+    expect(await within(list).findByRole('option', { name: /Acme Corp/ })).toBeTruthy();
+  });
+
+  it('does not suggest a company that is just the product’s own name', async () => {
+    productsApi.fetchLinkPreview.mockResolvedValue({ kind: 'site', canonical: 'linear.app', name: 'Linear', description: '', icon_url: null, company: 'Linear' });
+    renderApp();
+    const dialog = await openForm();
+    await fillLink(dialog, 'linear.app');
+    await waitFor(() => expect((within(dialog).getByLabelText(/^Name/) as HTMLInputElement).value).toBe('Linear'));
+    expect(within(dialog).queryByText(/Its site says/)).toBeNull();
+  });
+});
+
 // ------------------------------------------------------------------ admin queue
 
 const QUEUED: QueuedBoard = { ...ACME, created_by: OTHER.id, creator: OTHER, review_note: null, reviewed_at: null };
@@ -457,6 +611,118 @@ describe('admin: new products', () => {
     renderApp('/admin/products');
     expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeTruthy();
     expect(productsApi.fetchProductQueue).not.toHaveBeenCalled();
+  });
+});
+
+describe('admin: companies on new products', () => {
+  const PENDING_HUB = { id: 'c0000000-0000-4000-8000-0000000000b1', slug: 'acme-labs', name: 'Acme Labs', status: 'pending' as const, primary_domain: 'acme-notes.dev', domains: ['acme-notes.dev'] };
+
+  it('shows each row’s company, marking a new one', async () => {
+    productsApi.fetchProductQueue.mockResolvedValue([{ ...QUEUED, hub: PENDING_HUB }, { ...QUEUED, id: 'b2', slug: 'solo', name: 'Solo', hub: null }]);
+    renderApp('/admin/products');
+    const list = await screen.findByRole('list', { name: 'Products waiting for review' });
+    const [first, second] = within(list).getAllByRole('listitem');
+    expect(within(first!).getByText('Acme Labs')).toBeTruthy();
+    expect(within(first!).getByText('New company')).toBeTruthy();
+    expect(within(first!).getByText('acme-notes.dev', { selector: 'span' })).toBeTruthy();
+    expect(within(second!).getByText('No company')).toBeTruthy();
+  });
+
+  it('approves a new company with the product, renamed, and edits its domains', async () => {
+    productsApi.fetchProductQueue.mockResolvedValue([{ ...QUEUED, hub: PENDING_HUB }]);
+    renderApp('/admin/products');
+    fireEvent.click(await screen.findByRole('button', { name: 'Approve…' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Approve Acme Notes?' });
+    expect(within(dialog).getByText('New company. Approving the product approves it too.')).toBeTruthy();
+    fireEvent.change(within(dialog).getByLabelText(/^Company name/), { target: { value: 'Acme Labs Inc' } });
+    const domains = within(dialog).getByRole('list', { name: 'Acme Labs Inc domains' });
+    expect(within(domains).getByText('acme-notes.dev')).toBeTruthy();
+    fireEvent.change(within(dialog).getByLabelText('Add a domain to Acme Labs Inc'), { target: { value: 'acme.dev' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Add' }));
+    await waitFor(() => expect(productsApi.addHubDomain).toHaveBeenCalledWith(PENDING_HUB.id, 'acme.dev'));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Remove acme-notes.dev' }));
+    await waitFor(() => expect(productsApi.removeHubDomain).toHaveBeenCalledWith(PENDING_HUB.id, 'acme-notes.dev'));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Approve' }));
+    await waitFor(() =>
+      expect(productsApi.decideBoard).toHaveBeenCalledWith({
+        id: ACME_ID,
+        approve: true,
+        name: 'Acme Notes',
+        tagline: 'Notes for small teams',
+        category: 'prod',
+        hub: { mode: 'keep', name: 'Acme Labs Inc' },
+      }),
+    );
+  });
+
+  it('moves the product to an existing company instead', async () => {
+    productsApi.fetchProductQueue.mockResolvedValue([{ ...QUEUED, hub: PENDING_HUB }]);
+    renderApp('/admin/products');
+    fireEvent.click(await screen.findByRole('button', { name: 'Approve…' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Approve Acme Notes?' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Change company (Acme Labs)' }));
+    const input = within(dialog).getByRole('combobox', { name: /Company/ });
+    fireEvent.change(input, { target: { value: 'acme' } });
+    const list = await within(dialog).findByRole('listbox', { name: 'Companies' });
+    expect(within(list).queryByText(/New company/)).toBeNull(); // admins pick, they do not create
+    fireEvent.click(await within(list).findByRole('option', { name: /Acme Corp/ }));
+    expect(within(dialog).queryByLabelText(/^Company name/)).toBeNull();
+    expect(within(dialog).getByText('The new company Acme Labs is dropped if no other product uses it.')).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Approve' }));
+    await waitFor(() => expect(productsApi.decideBoard).toHaveBeenCalledWith(expect.objectContaining({ hub: { mode: 'set', id: ACME_CORP.id } })));
+  });
+
+  it('can drop the company', async () => {
+    productsApi.fetchProductQueue.mockResolvedValue([{ ...QUEUED, hub: PENDING_HUB }]);
+    renderApp('/admin/products');
+    fireEvent.click(await screen.findByRole('button', { name: 'Approve…' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Approve Acme Notes?' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Remove Acme Labs' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Approve' }));
+    await waitFor(() => expect(productsApi.decideBoard).toHaveBeenCalledWith(expect.objectContaining({ hub: { mode: 'none' } })));
+  });
+
+  it('keeps an unchanged live company without sending a company change', async () => {
+    productsApi.fetchProductQueue.mockResolvedValue([{ ...QUEUED, hub: { ...ANTHROPIC, status: 'live' as const, domains: ['claude.ai', 'claude.com'] } }]);
+    renderApp('/admin/products');
+    fireEvent.click(await screen.findByRole('button', { name: 'Approve…' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Approve Acme Notes?' });
+    expect(within(within(dialog).getByRole('group', { name: /Company/ })).getByText('Anthropic')).toBeTruthy();
+    expect(within(dialog).queryByLabelText(/^Company name/)).toBeNull(); // live companies are renamed from their own settings
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Approve' }));
+    await waitFor(() => expect(productsApi.decideBoard).toHaveBeenCalled());
+    expect(productsApi.decideBoard.mock.calls[0]![0]).not.toHaveProperty('hub');
+  });
+
+  it('asks for a pick when a name is typed but not chosen', async () => {
+    productsApi.fetchProductQueue.mockResolvedValue([{ ...QUEUED, hub: null }]);
+    renderApp('/admin/products');
+    fireEvent.click(await screen.findByRole('button', { name: 'Approve…' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Approve Acme Notes?' });
+    fireEvent.change(within(dialog).getByRole('combobox', { name: /Company/ }), { target: { value: 'Nobody' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Approve' }));
+    expect(await within(dialog).findByText('Pick a company from the list, or clear the field.')).toBeTruthy();
+    expect(productsApi.decideBoard).not.toHaveBeenCalled();
+  });
+
+  it('the Companies tab lists companies with their domains, and adds or removes one', async () => {
+    productsApi.fetchCompanies.mockResolvedValue([
+      { id: ANTHROPIC.id, slug: 'anthropic', name: 'Anthropic', status: 'live', primary_domain: 'claude.ai', domains: ['claude.ai', 'claude.com'], board_count: 5 },
+      { ...PENDING_HUB, board_count: 1 },
+    ]);
+    productsApi.addHubDomain.mockRejectedValueOnce(new ProductError('domain_taken', 'Another company already owns that domain.'));
+    renderApp('/admin/companies');
+    const list = await screen.findByRole('list', { name: 'Companies' });
+    const [anthropic, acme] = within(list).getAllByRole('listitem').filter((li) => li.parentElement === list);
+    expect(within(anthropic!).getByRole('link', { name: 'Anthropic' }).getAttribute('href')).toBe('/h/anthropic');
+    expect(within(anthropic!).getByText('5 products')).toBeTruthy();
+    expect(within(within(anthropic!).getByRole('list', { name: 'Anthropic domains' })).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['claude.ai', 'claude.com']);
+    expect(within(acme!).getByText('Waiting for review')).toBeTruthy();
+    fireEvent.change(within(anthropic!).getByLabelText('Add a domain to Anthropic'), { target: { value: 'figma.com' } });
+    fireEvent.keyDown(within(anthropic!).getByLabelText('Add a domain to Anthropic'), { key: 'Enter' });
+    expect(await within(anthropic!).findByText('Another company already owns that domain.')).toBeTruthy();
+    fireEvent.click(within(anthropic!).getByRole('button', { name: 'Remove claude.com' }));
+    await waitFor(() => expect(productsApi.removeHubDomain).toHaveBeenCalledWith(ANTHROPIC.id, 'claude.com'));
   });
 });
 

@@ -27,6 +27,7 @@ const CASES: Array<[string, string]> = [
   ['/admin/disputes', 'Sign in'],
   ['/admin/team', 'Sign in'],
   ['/admin/products', 'Sign in'],
+  ['/admin/companies', 'Sign in'],
 ];
 
 function renderAt(path: string) {
