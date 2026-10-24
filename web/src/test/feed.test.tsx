@@ -183,7 +183,7 @@ describe('signed-out pitch', () => {
     expect(within(dialog).queryByText(/to claim your product’s board/)).toBeNull();
   });
 
-  it('Claim your product’s board opens sign-up with the reason', async () => {
+  it('Claim your board opens sign-up with the reason', async () => {
     api.fetchFeed.mockResolvedValue(page([makePost()]));
     renderHome();
     fireEvent.click(await screen.findByRole('button', { name: PITCH.claim }));
