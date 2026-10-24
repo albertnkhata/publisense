@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import {
   avatarSrc,
   dedupePosts,
@@ -164,6 +164,7 @@ function ProfileStats({ person, stats, self }: { person: PublicProfile; stats: {
 
 function ProfileActions({ person, self }: { person: PublicProfile; self: boolean }) {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const share = () => {
     const url = `${window.location.origin}/u/${person.handle}`;
     void copyText(url).then((ok) => toast(ok ? 'Profile link copied' : 'Copy failed'));
@@ -171,9 +172,9 @@ function ProfileActions({ person, self }: { person: PublicProfile; self: boolean
   if (self) {
     return (
       <div className="flex shrink-0 gap-2 max-md:order-3 max-md:w-full">
-        <Link to="/settings" className={`${actionLink} max-md:flex-1`}>
+        <Button variant="secondary" onClick={() => void navigate('/settings')} className="max-md:flex-1">
           Edit profile
-        </Link>
+        </Button>
         <Button variant="secondary" onClick={share} className="max-md:flex-1">
           Share
         </Button>

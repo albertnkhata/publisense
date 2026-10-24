@@ -174,26 +174,28 @@ export function InboxRow({ post, board }: { post: Post; board: Board | null }) {
           {board ? <> · {board.name}</> : null} · {post.author ? `@${post.author.handle}` : post.source_url ? 'Imported' : 'Deleted user'} · {shortAge(post.created_at)} · {plural(post.reply_count, 'reply', 'replies')}
         </span>
       </Link>
-      {post.status !== 'merged' ? (
-        <Button size="sm" variant="secondary" onClick={() => setMerging(true)} className="shrink-0" aria-label={`Merge ${post.title}`}>
-          Merge
-        </Button>
-      ) : null}
-      {merging ? <MergeDialog post={post} open onClose={() => setMerging(false)} onMerged={() => {}} /> : null}
-      <span className="w-select shrink-0 max-sm:w-full max-sm:flex-1">
-        <Select
-          value={post.status === 'merged' ? 'open' : post.status}
-          onChange={(e) => change(e.target.value as PostStatus)}
-          disabled={setStatus.isPending || post.status === 'merged'}
-          aria-label={`Status for ${post.title}`}
-         
-        >
-          {TEAM_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {STATUS_META[s].label}
-            </option>
-          ))}
-        </Select>
+      <span className="flex shrink-0 items-center gap-2 max-sm:w-full">
+        {post.status !== 'merged' ? (
+          <Button size="sm" variant="secondary" onClick={() => setMerging(true)} className="shrink-0" aria-label={`Merge ${post.title}`}>
+            Merge
+          </Button>
+        ) : null}
+        {merging ? <MergeDialog post={post} open onClose={() => setMerging(false)} onMerged={() => {}} /> : null}
+        <span className="w-select shrink-0 max-sm:w-auto max-sm:flex-1">
+          <Select
+            value={post.status === 'merged' ? 'open' : post.status}
+            onChange={(e) => change(e.target.value as PostStatus)}
+            disabled={setStatus.isPending || post.status === 'merged'}
+            aria-label={`Status for ${post.title}`}
+           
+          >
+            {TEAM_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {STATUS_META[s].label}
+              </option>
+            ))}
+          </Select>
+        </span>
       </span>
     </div>
   );

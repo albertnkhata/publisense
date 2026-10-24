@@ -139,7 +139,7 @@ describe('user page', () => {
     posts.fetchUpvotedPosts.mockResolvedValue([makePost({ title: 'Sync settings across machines' })]);
     people.fetchFollowedUsers.mockResolvedValue(new Set([OTHER.id]));
     renderAt(`/u/${ME.handle}`);
-    expect(await screen.findByRole('link', { name: 'Edit profile' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Edit profile' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Follow' })).toBeNull();
     expect(await screen.findByText(/3 posts waiting for a status/)).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Manage' }).getAttribute('href')).toBe('/b/cursor/manage');
