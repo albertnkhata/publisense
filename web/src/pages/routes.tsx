@@ -1,9 +1,5 @@
-import { useParams } from 'react-router';
-import { Placeholder } from './Placeholder';
-
 /*
- * Placeholder screens for every route in FOUNDATION §9. Each names the build
- * step that replaces it. Param-driven titles prove the real paths resolve.
+ * Screens for every route in FOUNDATION §9, by the build step that delivered them.
  */
 
 // Step 5: feed and posts.
@@ -19,17 +15,13 @@ export { SearchPage } from './SearchPage';
 // Step 7: claiming and teams.
 export { BoardManagePage, HubManagePage } from '../manage/ManagePage';
 
-export function UserPage() {
-  const { handle } = useParams();
-  return <Placeholder title={`@${handle ?? ''}`} icon="user" step={8} />;
-}
+// Step 8: moderation and people.
+export { UserPage } from './UserPage';
+export { NotificationsPage } from './NotificationsPage';
+export { AdminDisputesPage, AdminReportsPage, AdminTeamPage } from './AdminPages';
 
-export const NotificationsPage = () => <Placeholder title="Notifications" icon="bell" step={8} />;
 // Step 4: account screens.
 export { SettingsPage } from './SettingsPage';
 export { PrivacyPage, TermsPage } from './LegalPages';
 export { AuthResetPage } from './AuthResetPage';
 export { UnsubscribePage } from './UnsubscribePage';
-
-export const AdminReportsPage = () => <Placeholder title="Reports" icon="flag" step={8} />;
-export const AdminDisputesPage = () => <Placeholder title="Ownership disputes" icon="shield" step={8} />;

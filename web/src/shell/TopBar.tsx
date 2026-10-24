@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, NavLink } from 'react-router';
+import { useUnreadCount } from '../api';
 import { cx } from '../lib/cx';
 import { useViewer } from '../lib/viewer';
-import { Button, IconButton } from '../ui';
+import { Button, Icon, IconButton } from '../ui';
 import { BrandSymbol } from './BrandMark';
 import { SearchWell } from './SearchWell';
 import { useAuthDialog } from './auth';
@@ -15,6 +16,7 @@ export function TopBar() {
   const { viewer, ready } = useViewer();
   const { openAuth } = useAuthDialog();
   const [searching, setSearching] = useState(false);
+  const unread = useUnreadCount(viewer?.id ?? null).data ?? 0;
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -49,6 +51,7 @@ export function TopBar() {
         <span className="hidden max-sm:contents">
           <IconButton icon="search" label="Search" onClick={() => setSearching(true)} />
         </span>
+        {viewer ? <NotificationBell count={unread} /> : null}
         {!viewer && ready ? (
           <Button size="sm" onClick={() => openAuth('signin')}>
             Sign in
@@ -56,5 +59,32 @@ export function TopBar() {
         ) : null}
       </span>
     </header>
+  );
+}
+
+/** The top-bar bell below lg (the nav rail's Notifications row has the count above it). */
+function NotificationBell({ count }: { count: number }) {
+  return (
+    <NavLink
+      to="/notifications"
+      aria-label={count > 0 ? `Notifications, ${count} new` : 'Notifications'}
+      title="Notifications"
+      className={({ isActive }) =>
+        cx(
+          'relative grid size-8 place-items-center rounded-md no-underline transition-colors duration-120 hover:bg-subtle hover:text-ink max-sm:hidden',
+          isActive ? 'text-brand' : 'text-ink-secondary',
+        )
+      }
+    >
+      <Icon name="bell" size={18} strokeWidth={1.75} />
+      {count > 0 ? (
+        <span
+          aria-hidden="true"
+          className="absolute top-1 right-0 min-w-4 rounded-pill bg-brand px-1 text-center font-mono text-xs leading-4 font-semibold text-on-brand tabular-nums ring-2 ring-card"
+        >
+          {count > 99 ? '99+' : count}
+        </span>
+      ) : null}
+    </NavLink>
   );
 }

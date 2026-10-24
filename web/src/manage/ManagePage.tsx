@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import {
   compactCount,
   covered,
@@ -32,7 +32,7 @@ import { useViewer } from '../lib/viewer';
 import { HeaderSkeleton, ScopeNotFound, actionLink } from '../pages/BoardPage';
 import { useAuthDialog } from '../shell/auth';
 import { BoardAvatar, Button, EmptyState, Field, Icon, Input, TabPanel, Tabs, Textarea, useToast } from '../ui';
-import { AddTeammate, canManage, Chips, Inbox, JoinRequests, Section, TeamList, Tiles, TYPE_OPTIONS } from './parts';
+import { AddTeammate, BlockedList, canManage, Chips, Inbox, JoinRequests, ReleaseSection, Section, TeamList, Tiles, TYPE_OPTIONS } from './parts';
 
 /**
  * Manage (FOUNDATION §9 `/b/:board/manage`, `/h/:hub/manage`), the mockup's team
@@ -129,6 +129,8 @@ export function BoardManagePage() {
 }
 
 function BoardManage({ board, role }: { board: BoardWithHub; role: Role }) {
+  const { viewer } = useViewer();
+  const viewerId = viewer?.id ?? null;
   const admin = canManage(role);
   const tabs = admin ? (['triage', 'posts', 'team', 'settings'] as const) : (['triage', 'posts', 'team'] as const);
   const { tab, params, set } = useTabParam<BoardTab>(tabs, 'triage');
@@ -228,9 +230,10 @@ function BoardManage({ board, role }: { board: BoardWithHub; role: Role }) {
                 <AddTeammate scope="board" scopeId={board.id} domain={siteDomain(board.site)} />
               </Section>
             ) : null}
+            {admin ? <BlockedList scope="board" scopeId={board.id} /> : null}
           </>
         ) : (
-          <BoardSettings board={board} />
+          <BoardSettings board={board} owner={Boolean(team.data?.some((m) => m.role === 'owner' && m.user_id === viewerId))} />
         )}
       </TabPanel>
     </section>
@@ -251,7 +254,8 @@ function StatTiles({ stats }: { stats: { waiting: number; newThisWeek: number; u
   );
 }
 
-function BoardSettings({ board }: { board: Board }) {
+function BoardSettings({ board, owner }: { board: Board; owner: boolean }) {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const save = useUpdateBoardTagline();
   const logo = useBoardLogo();
@@ -324,6 +328,7 @@ function BoardSettings({ board }: { board: Board }) {
           </div>
         </form>
       </Section>
+      {owner ? <ReleaseSection scope="board" scopeId={board.id} name={board.name} onReleased={() => void navigate(`/b/${board.slug}`)} /> : null}
     </>
   );
 }
@@ -348,6 +353,7 @@ export function HubManagePage() {
 }
 
 function HubManage({ hub, role }: { hub: Hub; role: Role }) {
+  const { viewer } = useViewer();
   const admin = canManage(role);
   const tabs = admin ? (['inbox', 'boards', 'team', 'settings'] as const) : (['inbox', 'boards', 'team'] as const);
   const { tab, params, set } = useTabParam<HubTab>(tabs, 'inbox');
@@ -445,16 +451,18 @@ function HubManage({ hub, role }: { hub: Hub; role: Role }) {
                 <AddTeammate scope="hub" scopeId={hub.id} domain={hub.primary_domain} />
               </Section>
             ) : null}
+            {admin ? <BlockedList scope="hub" scopeId={hub.id} /> : null}
           </>
         ) : (
-          <HubSettings hub={hub} />
+          <HubSettings hub={hub} owner={Boolean(team.data?.some((m) => m.role === 'owner' && m.user_id === viewer?.id))} />
         )}
       </TabPanel>
     </section>
   );
 }
 
-function HubSettings({ hub }: { hub: Hub }) {
+function HubSettings({ hub, owner }: { hub: Hub; owner: boolean }) {
+  const navigate = useNavigate();
   const { viewer } = useViewer();
   const { toast } = useToast();
   const verified = useVerifiedDomains(viewer?.id ?? null);
@@ -500,6 +508,7 @@ function HubSettings({ hub }: { hub: Hub }) {
           </p>
         </Section>
       ) : null}
+      {owner ? <ReleaseSection scope="hub" scopeId={hub.id} name={hub.name} onReleased={() => void navigate(`/h/${hub.slug}`)} /> : null}
     </>
   );
 }

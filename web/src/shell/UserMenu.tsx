@@ -1,3 +1,4 @@
+import { useIsPlatformAdmin } from '../api';
 import { useTheme } from '../lib/ThemeProvider';
 import { MQ, useMediaQuery } from '../lib/useMediaQuery';
 import { useViewer, type Viewer } from '../lib/viewer';
@@ -13,6 +14,7 @@ export function UserMenu({ viewer, collapsed }: { viewer: Viewer; collapsed: boo
   const belowLg = useMediaQuery(MQ.lg);
   const { signOut } = useViewer();
   const { toast } = useToast();
+  const staff = useIsPlatformAdmin(viewer.id).data ?? false;
   return (
     <Menu
       side="top"
@@ -44,6 +46,11 @@ export function UserMenu({ viewer, collapsed }: { viewer: Viewer; collapsed: boo
       <MenuItem icon="settings" to="/settings">
         Settings
       </MenuItem>
+      {staff ? (
+        <MenuItem icon="shield" to="/admin/reports" description="Reports, disputes and the admin team">
+          Admin
+        </MenuItem>
+      ) : null}
       <MenuItem icon={theme === 'dark' ? 'sun' : 'moon'} kbd="⌃D" onSelect={toggle}>
         {theme === 'dark' ? 'Light mode' : 'Dark mode'}
       </MenuItem>

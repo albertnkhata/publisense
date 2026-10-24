@@ -126,7 +126,7 @@
       {
         "n": 8,
         "title": "Moderation and people",
-        "done": false
+        "done": true
       },
       {
         "n": 9,
@@ -135,8 +135,8 @@
       }
     ],
     "webTests": {
-      "files": 19,
-      "cases": 192
+      "files": 24,
+      "cases": 246
     },
     "tests": {
       "files": 8,

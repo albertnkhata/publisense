@@ -762,3 +762,36 @@ export async function searchPosts(q: string, viewerId: string | null, limit = 30
   if (error) throw error;
   return decorate((data ?? []) as unknown as PostRow[], viewerId);
 }
+
+// ------------------------------------------------------------------ step 8: people
+
+/** A person's live posts, newest first (their profile's Posts tab). */
+export async function fetchUserPosts(authorId: string, offset: number, viewerId: string | null): Promise<FeedPage> {
+  const { data, error } = await getSupabase()
+    .from('post')
+    .select(POST_SELECT)
+    .eq('author_id', authorId)
+    .is('hidden_at', null)
+    .neq('status', 'merged')
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .range(offset, offset + FEED_PAGE_SIZE - 1);
+  if (error) throw error;
+  const rows = (data ?? []) as unknown as PostRow[];
+  const items = await decorate(rows, viewerId);
+  return { items, next: rows.length < FEED_PAGE_SIZE ? null : offset + rows.length };
+}
+
+/** Posts the viewer upvoted, most recent vote first (only they can see this). */
+export async function fetchUpvotedPosts(viewerId: string, limit = 50): Promise<Post[]> {
+  const sb = getSupabase();
+  const votes = await sb.from('vote').select('post_id, created_at').eq('user_id', viewerId).order('created_at', { ascending: false }).limit(limit);
+  if (votes.error) throw votes.error;
+  const ids = ((votes.data ?? []) as Array<{ post_id: string }>).map((v) => v.post_id);
+  if (ids.length === 0) return [];
+  const { data, error } = await sb.from('post').select(POST_SELECT).in('id', ids).is('hidden_at', null).neq('status', 'merged');
+  if (error) throw error;
+  const order = new Map(ids.map((id, i) => [id, i]));
+  const rows = ((data ?? []) as unknown as PostRow[]).sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+  return decorate(rows, viewerId);
+}

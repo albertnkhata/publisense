@@ -1,16 +1,17 @@
 import { Link, useNavigate, useParams } from 'react-router';
-import { isPostId, usePost, usePostTitle, useRelated, useStatusEvents, type Post } from '../api';
+import { canUnmerge, isPostId, useIsBoardTeam, usePost, usePostTitle, useRelated, useStatusEvents, useUnmergePost, type Post, type StatusEvent } from '../api';
 import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { PostCard } from '../posts/PostCard';
 import { ReplySection } from '../posts/Replies';
 import { StatusTimeline } from '../posts/StatusTimeline';
-import { Button, EmptyState, Icon, Skeleton, STATUS_META, TYPE_META } from '../ui';
+import { Button, EmptyState, Icon, Skeleton, STATUS_META, TYPE_META, useToast } from '../ui';
 
 /**
  * PostPage (FOUNDATION §5): the post, its status timeline, the reply thread
  * (official replies pinned) and "More on {board}". The board's team updates the
- * status from the ⋯ menu and can reply as the team; merge arrives in step 8.
+ * status, merges and hides from the ⋯ menu and can reply as the team; for 10
+ * minutes after a merge the team can undo it from the merged notice.
  */
 export function PostPage() {
   const { id } = useParams();
@@ -53,11 +54,11 @@ function PostBody({ post }: { post: Post }) {
   const events = useStatusEvents(post.id, showTimeline);
   return (
     <>
-      {post.status === 'merged' && post.merged_into ? <MergedNotice targetId={post.merged_into} /> : null}
+      {post.status === 'merged' && post.merged_into ? <MergedNotice post={post} targetId={post.merged_into} events={events.data} /> : null}
       {post.hidden_at ? (
         <p className="m-0 flex items-center gap-2 rounded-md border border-line bg-subtle px-4 py-3 text-sm text-ink-secondary">
           <Icon name="eye-off" size={16} />
-          Hidden by the {post.board?.name ?? 'board'} team. Only you and the team can see it.
+          Hidden. Only its author, the {post.board?.name ?? 'board'} team and Publisense moderators can see it.
         </p>
       ) : null}
       <PostCard post={post} variant="page" onDeleted={() => void navigate('/', { replace: true })} />
@@ -87,19 +88,43 @@ function BackLink() {
   );
 }
 
-function MergedNotice({ targetId }: { targetId: string }) {
+function MergedNotice({ post, targetId, events }: { post: Post; targetId: string; events: StatusEvent[] | undefined }) {
+  const { viewer } = useViewer();
+  const { toast } = useToast();
   const target = usePostTitle(targetId);
+  const team = useIsBoardTeam(post.board_id, viewer?.id ?? null);
+  const unmerge = useUnmergePost();
+  const mergedAt = [...(events ?? [])].reverse().find((e) => e.to === 'merged')?.at ?? null;
+  const undoable = Boolean(team.data) && canUnmerge(mergedAt);
   return (
-    <p className="m-0 flex items-center gap-2 rounded-md border border-line bg-subtle px-4 py-3 text-sm text-ink-secondary">
+    <div className="m-0 flex items-center gap-2 rounded-md border border-line bg-subtle px-4 py-3 text-sm text-ink-secondary max-sm:flex-wrap">
       <Icon name="status-merged" size={16} />
-      <span>
+      <span className="min-w-0 flex-1">
         Merged into{' '}
         <Link to={`/post/${targetId}`} className="font-semibold text-ink underline underline-offset-2">
           {target.data?.title ?? 'another post'}
         </Link>
         . Votes and followers moved there.
       </span>
-    </p>
+      {undoable ? (
+        <Button
+          size="sm"
+          variant="secondary"
+          loading={unmerge.isPending}
+          onClick={() =>
+            unmerge.mutate(
+              { sourceId: post.id, targetId },
+              {
+                onSuccess: () => toast('Merge undone'),
+                onError: (e) => toast(e instanceof Error ? e.message : 'We couldn’t undo the merge.'),
+              },
+            )
+          }
+        >
+          Undo merge
+        </Button>
+      ) : null}
+    </div>
   );
 }
 
