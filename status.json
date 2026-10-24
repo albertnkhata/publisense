@@ -87,6 +87,57 @@
         "todo": 0
       }
     ],
+    "v2Build": [
+      {
+        "n": 1,
+        "title": "Foundation",
+        "done": true
+      },
+      {
+        "n": 2,
+        "title": "Scaffold",
+        "done": true
+      },
+      {
+        "n": 3,
+        "title": "Schema v2",
+        "done": true
+      },
+      {
+        "n": 4,
+        "title": "Auth and account",
+        "done": true
+      },
+      {
+        "n": 5,
+        "title": "Feed and posts",
+        "done": true
+      },
+      {
+        "n": 6,
+        "title": "Boards, hubs and discovery",
+        "done": true
+      },
+      {
+        "n": 7,
+        "title": "Claiming and teams",
+        "done": false
+      },
+      {
+        "n": 8,
+        "title": "Moderation and people",
+        "done": false
+      },
+      {
+        "n": 9,
+        "title": "Cutover",
+        "done": false
+      }
+    ],
+    "webTests": {
+      "files": 17,
+      "cases": 157
+    },
     "tests": {
       "files": 8,
       "cases": 96

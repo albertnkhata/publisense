@@ -37,13 +37,13 @@ export const postKeys = {
   status: (postId: string) => ['status_events', postId] as const,
 };
 
-type PostCache = InfiniteData<FeedPage, number> | Post | null | undefined;
+type PostCache = InfiniteData<FeedPage, number> | Post | Post[] | { posts: Post[] } | null | undefined;
 
 function isInfinite(v: PostCache): v is InfiniteData<FeedPage, number> {
   return Boolean(v && typeof v === 'object' && 'pages' in v);
 }
 
-/** Apply `fn` to post `id` in every cached feed page and post page. `fn` returning null removes it from feeds. */
+/** Apply `fn` to post `id` in every cached feed page, post list and post page. `fn` returning null removes it from feeds. */
 export function patchPost(qc: QueryClient, id: string, fn: (p: Post) => Post | null) {
   qc.setQueriesData<PostCache>({ queryKey: postKeys.all }, (old) => {
     if (!old) return old;
@@ -64,7 +64,21 @@ export function patchPost(qc: QueryClient, id: string, fn: (p: Post) => Post | n
       });
       return changed ? { ...old, pages } : old;
     }
-    if (old.id === id) return fn(old);
+    const patchList = (list: Post[]) =>
+      list.some((p) => p.id === id)
+        ? list.flatMap((p) => {
+            if (p.id !== id) return [p];
+            const next = fn(p);
+            return next ? [next] : [];
+          })
+        : list;
+    // Plain lists (the composer's similar posts) and search results ({ posts }).
+    if (Array.isArray(old)) return patchList(old);
+    if ('posts' in old && Array.isArray(old.posts)) {
+      const posts = patchList(old.posts);
+      return posts === old.posts ? old : { ...old, posts };
+    }
+    if ('id' in old && old.id === id) return fn(old);
     return old;
   });
 }

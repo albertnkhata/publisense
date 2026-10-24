@@ -352,6 +352,47 @@ with d as (delete from public.post where id = (select post from s5) returning id
 select pg_temp.expect('step 5: post author delete returns the deleted row', (select count(*) = 1 from d));
 select pg_temp.as_owner();
 
+-- ------------------------------------------------------------ step 6: composer and search
+-- The composer inserts with RETURNING (supabase-js insert().select()), which needs the
+-- SELECT policy to see the new row (0020). Search reads boards, hubs and posts as anon.
+
+create temp table s6 (post uuid);
+insert into s6 values (null);
+grant select, update on s6 to anon, authenticated;
+
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000b');
+with i as (
+  insert into public.post (board_id, type, title, body)
+  select linear, 'feature'::public.v2_post_type, 'Keyboard shortcut for cycles', 'Let me jump between cycles' from ids
+  returning id, author_id, status, vote_count)
+update s6 set post = (select id from i)
+ where (select author_id = '00000000-0000-4000-8000-00000000000b' and status = 'open' and vote_count = 0 from i);
+select pg_temp.expect('step 6: insert with RETURNING gives the author their new post back', (select post is not null from s6));
+select pg_temp.expect_error('step 6: the composer still cannot choose the id',
+  $$insert into public.post (id, board_id, type, title) select gen_random_uuid(), linear, 'bug', 'Chosen id' from ids$$);
+
+select pg_temp.as_user(null);
+select pg_temp.expect('step 6: anon finds the post by full-text search (similar posts, /search)',
+  exists (select 1 from public.post where search @@ websearch_to_tsquery('english', 'cycle shortcuts')));
+select pg_temp.expect('step 6: anon searches boards and hubs by name and tagline',
+  (select count(*) from public.board where name ilike '%fig%' or tagline ilike '%fig%') = 3
+  and (select count(*) from public.hub where name ilike '%fig%') = 1);
+
+select pg_temp.as_owner();
+select public.set_post_hidden((select post from s6), true) from (select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-00000000000f', true)) x;
+select pg_temp.as_user(null);
+select pg_temp.expect('step 6: a hidden post drops out of anon search',
+  not exists (select 1 from public.post where id = (select post from s6)));
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000b');
+select pg_temp.expect('step 6: its author still sees it', exists (select 1 from public.post where id = (select post from s6)));
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000a');
+select pg_temp.expect('step 6: another user does not', not exists (select 1 from public.post where id = (select post from s6)));
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000f');
+select pg_temp.expect('step 6: a platform admin does', exists (select 1 from public.post where id = (select post from s6)));
+select pg_temp.as_user('00000000-0000-4000-8000-00000000000b');
+delete from public.post where id = (select post from s6);
+select pg_temp.as_owner();
+
 -- ------------------------------------------------------------ deletion
 
 select pg_temp.as_user('00000000-0000-4000-8000-00000000000a');

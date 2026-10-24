@@ -467,3 +467,297 @@ export async function deleteReply(id: string): Promise<void> {
   const { data, error } = await getSupabase().from('reply').delete().eq('id', id).select('id');
   if (error || !data || data.length === 0) throw failed('We couldn’t delete this reply. Try again.');
 }
+
+// ------------------------------------------------------------------ step 6: boards, hubs, composer
+
+export type TypeFilter = 'all' | PostType;
+export type StatusFilter = 'all' | Exclude<PostStatus, 'merged'>;
+
+export interface PostListParams {
+  /** One board, or every board of a hub. */
+  boardIds: string[];
+  type?: TypeFilter;
+  status?: StatusFilter;
+  sort: FeedSort;
+  offset: number;
+  viewerId: string | null;
+  /** The hub feed leaves closed posts out (mockup). */
+  excludeClosed?: boolean;
+}
+
+/** A page of a board's (or hub's) feed, with the board page's filters. */
+export async function fetchPostList({ boardIds, type = 'all', status = 'all', sort, offset, viewerId, excludeClosed }: PostListParams): Promise<FeedPage> {
+  if (boardIds.length === 0) return { items: [], next: null };
+  let q = getSupabase().from('post').select(POST_SELECT).is('hidden_at', null).neq('status', 'merged');
+  q = boardIds.length === 1 ? q.eq('board_id', boardIds[0] ?? '') : q.in('board_id', boardIds);
+  if (type !== 'all') q = q.eq('type', type);
+  if (status !== 'all') q = q.eq('status', status);
+  else if (excludeClosed) q = q.neq('status', 'closed');
+  q =
+    sort === 'new'
+      ? q.order('created_at', { ascending: false }).order('id', { ascending: false })
+      : q.order('vote_count', { ascending: false }).order('created_at', { ascending: false }).order('id', { ascending: false });
+  const { data, error } = await q.range(offset, offset + FEED_PAGE_SIZE - 1);
+  if (error) throw error;
+  const rows = (data ?? []) as unknown as PostRow[];
+  const items = await decorate(rows, viewerId);
+  return { items, next: rows.length < FEED_PAGE_SIZE ? null : offset + rows.length };
+}
+
+/** A compact post row for the roadmap, changelog, Explore lists and search. */
+export interface PostSummary {
+  id: string;
+  board_id: string;
+  title: string;
+  type: PostType;
+  status: PostStatus;
+  vote_count: number;
+  reply_count: number;
+  created_at: string;
+  board: BoardRef | null;
+}
+
+const SUMMARY_SELECT = `id, board_id, title, type, status, vote_count, reply_count, created_at, board:board!board_id(${BOARD})`;
+
+export const ROADMAP_STATUSES = ['planned', 'in_progress', 'shipped'] as const;
+export type RoadmapStatus = (typeof ROADMAP_STATUSES)[number];
+export type Roadmap = Record<RoadmapStatus, PostSummary[]>;
+
+/** Planned, In progress and Shipped columns, most upvoted first. */
+export async function fetchRoadmap(boardIds: string[], perColumn = 50): Promise<Roadmap> {
+  const empty: Roadmap = { planned: [], in_progress: [], shipped: [] };
+  if (boardIds.length === 0) return empty;
+  const { data, error } = await getSupabase()
+    .from('post')
+    .select(SUMMARY_SELECT)
+    .in('board_id', boardIds)
+    .in('status', [...ROADMAP_STATUSES])
+    .is('hidden_at', null)
+    .order('vote_count', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(perColumn * ROADMAP_STATUSES.length);
+  if (error) throw error;
+  for (const p of (data ?? []) as unknown as PostSummary[]) {
+    const col = empty[p.status as RoadmapStatus];
+    if (col && col.length < perColumn) col.push(p);
+  }
+  return empty;
+}
+
+export interface ChangelogEntry {
+  /** Day the requests shipped, YYYY-MM-DD in the viewer's time zone. */
+  day: string;
+  /** Latest ship time that day (for the date label). */
+  at: string;
+  posts: Array<PostSummary & { shipped_at: string }>;
+}
+
+/** Local calendar day of an ISO time, so a changelog groups by the reader's day. */
+export function localDay(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/**
+ * Shipped requests grouped by the day they shipped, newest first. v2 has no
+ * release-notes table, so the changelog is what the status timeline already
+ * records: each post's latest move to Shipped (status_event).
+ */
+export async function fetchChangelog(boardIds: string[], limit = 100): Promise<ChangelogEntry[]> {
+  if (boardIds.length === 0) return [];
+  const sb = getSupabase();
+  const { data, error } = await sb
+    .from('post')
+    .select(SUMMARY_SELECT)
+    .in('board_id', boardIds)
+    .eq('status', 'shipped')
+    .is('hidden_at', null)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  const posts = (data ?? []) as unknown as PostSummary[];
+  if (posts.length === 0) return [];
+  const ev = await sb
+    .from('status_event')
+    .select('post_id, at')
+    .eq('to', 'shipped')
+    .in(
+      'post_id',
+      posts.map((p) => p.id),
+    )
+    .order('at', { ascending: false });
+  if (ev.error) throw ev.error;
+  const shippedAt = new Map<string, string>();
+  for (const e of (ev.data ?? []) as Array<{ post_id: string; at: string }>) {
+    if (!shippedAt.has(e.post_id)) shippedAt.set(e.post_id, e.at);
+  }
+  return groupChangelog(posts.map((p) => ({ ...p, shipped_at: shippedAt.get(p.id) ?? p.created_at })));
+}
+
+export function groupChangelog(posts: Array<PostSummary & { shipped_at: string }>): ChangelogEntry[] {
+  const byDay = new Map<string, ChangelogEntry>();
+  for (const p of posts) {
+    const day = localDay(p.shipped_at);
+    const entry = byDay.get(day) ?? { day, at: p.shipped_at, posts: [] };
+    if (p.shipped_at > entry.at) entry.at = p.shipped_at;
+    entry.posts.push(p);
+    byDay.set(day, entry);
+  }
+  const out = [...byDay.values()].sort((a, b) => (a.day < b.day ? 1 : a.day > b.day ? -1 : 0));
+  for (const e of out) e.posts.sort((a, b) => b.vote_count - a.vote_count);
+  return out;
+}
+
+/** Most upvoted open and under-review requests across every board (Explore "Most wanted"). */
+export async function fetchWanted(limit = 20): Promise<PostSummary[]> {
+  const { data, error } = await getSupabase()
+    .from('post')
+    .select(SUMMARY_SELECT)
+    .in('status', ['open', 'under_review'])
+    .is('hidden_at', null)
+    .order('vote_count', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as unknown as PostSummary[];
+}
+
+// ------------------------------------------------------------------ similar posts (composer)
+
+const SIM_STOP = new Set(
+  'the a an and or of to in on for with is are be it not when after into from this that does dont cant can have has should would add support'.split(' '),
+);
+
+/** Meaningful words of a title, roughly stemmed, as the mockup's similarity check does. */
+export function simTokens(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]+/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !SIM_STOP.has(w))
+    .map((w) => w.replace(/(ing|ed|es|s)$/, ''));
+}
+
+/**
+ * Score a candidate against what is being typed: shared words anywhere plus
+ * extra weight for shared title words. Mockup rule: at least one title word in
+ * common and a score of 2.5 or more.
+ */
+export function similarityScore(query: string, candidate: { title: string; body?: string }): number {
+  const q = new Set(simTokens(query));
+  if (q.size === 0) return 0;
+  const all = new Set(simTokens(`${candidate.title} ${candidate.body ?? ''}`));
+  const hit = [...all].filter((w) => q.has(w)).length;
+  const inTitle = simTokens(candidate.title).filter((w) => q.has(w)).length;
+  if (inTitle < 1) return 0;
+  const score = hit + inTitle * 1.5;
+  return score >= 2.5 ? score : 0;
+}
+
+/** The to_tsquery text for "any of these words" (prefix match), or null if nothing is searchable. */
+export function anyWordQuery(text: string): string | null {
+  const words = [...new Set(simTokens(text))].filter((w) => /^[a-z0-9]+$/.test(w)).slice(0, 8);
+  return words.length ? words.map((w) => `${w}:*`).join(' | ') : null;
+}
+
+/**
+ * Posts on these boards that look like the title being typed, so people upvote
+ * instead of posting a duplicate. Postgres full-text search finds candidates
+ * (FOUNDATION §10); the mockup's score decides which are close enough.
+ */
+export async function fetchSimilar(title: string, boardIds: string[], viewerId: string | null, limit = 3): Promise<Post[]> {
+  const tsq = anyWordQuery(title);
+  if (!tsq || boardIds.length === 0 || title.trim().length < 8) return [];
+  const { data, error } = await getSupabase()
+    .from('post')
+    .select(POST_SELECT)
+    .in('board_id', boardIds)
+    .is('hidden_at', null)
+    .neq('status', 'merged')
+    .textSearch('search', tsq, { config: 'english' })
+    .order('vote_count', { ascending: false })
+    .limit(25);
+  if (error) throw error;
+  const rows = ((data ?? []) as unknown as PostRow[])
+    .map((r) => ({ r, s: similarityScore(title, r) }))
+    .filter((x) => x.s > 0)
+    .sort((a, b) => b.s - a.s || b.r.vote_count - a.r.vote_count)
+    .slice(0, limit)
+    .map((x) => x.r);
+  return decorate(rows, viewerId);
+}
+
+// ------------------------------------------------------------------ create a post
+
+export interface NewPost extends PostDraft {
+  boardId: string;
+}
+
+const isRlsReadBack = (e: { code?: string; message?: string } | null) =>
+  Boolean(e && e.code === '42501' && /row-level security/i.test(e.message ?? ''));
+
+/**
+ * The composer's insert. Only board_id, type, title and body are writable; the
+ * server sets the author, status and counters, and the author follows the post.
+ *
+ * It asks for the row back (insert + select). Before migration 0020 the post
+ * SELECT policy could not see a row inside its own INSERT, so PostgREST refused
+ * the whole statement (nothing was written). In that case, and only then, it
+ * inserts without RETURNING and reads the newest matching post back.
+ */
+export async function createPost(d: NewPost, viewerId: string | null): Promise<Post> {
+  const sb = getSupabase();
+  const row = { board_id: d.boardId, type: d.type, title: d.title.trim(), body: d.body.trim() };
+  const first = await sb.from('post').insert(row).select(POST_SELECT).single();
+  let data: unknown = first.data;
+  let error = first.error;
+  if (isRlsReadBack(error)) {
+    const plain = await sb.from('post').insert(row);
+    error = plain.error;
+    if (!error) {
+      const back = await sb
+        .from('post')
+        .select(POST_SELECT)
+        .eq('board_id', row.board_id)
+        .eq('title', row.title)
+        .eq('author_id', viewerId ?? '')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      data = back.data;
+      error = back.error;
+    }
+  }
+  if (error || !data) {
+    if (error?.code === '42501') throw failed('You can’t post on this board.');
+    if (error?.code === '23514') throw failed('Check the title and details, then try again.');
+    throw failed('We couldn’t post this. Try again.');
+  }
+  const [post] = await decorate([data as PostRow], viewerId);
+  if (!post) throw failed('We couldn’t post this. Try again.');
+  // The server follows the author to their post (trigger); mirror it without a round trip.
+  return { ...post, following: viewerId ? true : post.following };
+}
+
+// ------------------------------------------------------------------ search
+
+/**
+ * Posts matching a search: Postgres full-text search over title and body
+ * (`websearch` syntax: words, "quoted phrases", -exclusions), most upvoted first.
+ */
+export async function searchPosts(q: string, viewerId: string | null, limit = 30): Promise<Post[]> {
+  const term = q.trim();
+  if (term.length < 2) return [];
+  const { data, error } = await getSupabase()
+    .from('post')
+    .select(POST_SELECT)
+    .is('hidden_at', null)
+    .neq('status', 'merged')
+    .textSearch('search', term, { type: 'websearch', config: 'english' })
+    .order('vote_count', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return decorate((data ?? []) as unknown as PostRow[], viewerId);
+}

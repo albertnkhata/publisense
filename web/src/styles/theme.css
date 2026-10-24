@@ -134,6 +134,7 @@
   --spacing-dialog: 440px;      /* not in §3: standard dialog width (mockup 400–460) */
   --spacing-dialog-lg: 600px;   /* not in §3: composer-size dialog (mockup 600) */
   --spacing-menu: 224px;        /* not in §3: menu min width (mockup user menu) */
+  --spacing-date: 120px;        /* not in §3: changelog date column (mockup .cl-entry) */
 
   /* Glass blur for the sticky top bar and tab bar (mockup: blur 12px). */
   --blur-md: 12px;
