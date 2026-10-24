@@ -5,6 +5,7 @@ import { NotFound } from './pages/NotFound';
 import {
   AdminDisputesPage,
   AdminReportsPage,
+  AdminTeamPage,
   AuthResetPage,
   BoardManagePage,
   BoardPage,
@@ -47,6 +48,7 @@ export const routes = [
       { path: 'unsubscribe', element: <UnsubscribePage /> },
       { path: 'admin/reports', element: <AdminReportsPage /> },
       { path: 'admin/disputes', element: <AdminDisputesPage /> },
+      { path: 'admin/team', element: <AdminTeamPage /> },
       { path: '*', element: <NotFound /> },
     ],
   },

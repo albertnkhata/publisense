@@ -3,6 +3,7 @@ import { Link, NavLink } from 'react-router';
 import { cx } from '../lib/cx';
 import { MQ, useMediaQuery } from '../lib/useMediaQuery';
 import { useShortcut } from '../lib/useShortcut';
+import { useUnreadCount } from '../api';
 import { useViewer } from '../lib/viewer';
 import { Button, Icon, Tooltip, type IconName } from '../ui';
 import { BrandSymbol } from './BrandMark';
@@ -33,6 +34,7 @@ export function NavRail() {
   const belowLg = useMediaQuery(MQ.lg);
   const [manual, setManual] = useState<boolean>(readCollapsed);
   const collapsed = manual || belowLg;
+  const unread = useUnreadCount(viewer?.id ?? null).data ?? 0;
 
   const toggle = useCallback(() => {
     setManual((c) => {
@@ -100,7 +102,7 @@ export function NavRail() {
       <nav aria-label="Primary" className="mb-4 flex flex-col gap-1">
         <NavRow to="/" icon="home" label="Home" collapsed={collapsed} end />
         <NavRow to="/explore" icon="explore" label="Explore" collapsed={collapsed} />
-        {viewer ? <NavRow to="/notifications" icon="bell" label="Notifications" collapsed={collapsed} /> : null}
+        {viewer ? <NavRow to="/notifications" icon="bell" label="Notifications" collapsed={collapsed} count={unread} /> : null}
       </nav>
 
       {viewer ? (
@@ -156,12 +158,14 @@ function Label({ collapsed, children }: { collapsed: boolean; children: ReactNod
   );
 }
 
-function NavRow({ to, icon, label, collapsed, end }: { to: string; icon: IconName; label: string; collapsed: boolean; end?: boolean }) {
+function NavRow({ to, icon, label, collapsed, end, count = 0 }: { to: string; icon: IconName; label: string; collapsed: boolean; end?: boolean; count?: number }) {
+  const tip = count > 0 ? `${label} · ${count} new` : label;
   return (
-    <Tooltip content={label} side="right" disabled={!collapsed}>
+    <Tooltip content={tip} side="right" disabled={!collapsed}>
       <NavLink
         to={to}
         end={end}
+        aria-label={count > 0 ? `${label}, ${count} new` : undefined}
         className={({ isActive }) =>
           cx(
             'relative flex h-row w-full items-center overflow-hidden rounded-md text-sm font-medium whitespace-nowrap no-underline transition-colors duration-120',
@@ -171,10 +175,16 @@ function NavRow({ to, icon, label, collapsed, end }: { to: string; icon: IconNam
           )
         }
       >
-        <span className="grid h-row w-gutter shrink-0 place-items-center">
+        <span className="relative grid h-row w-gutter shrink-0 place-items-center">
           <Icon name={icon} size={18} strokeWidth={1.75} />
+          {count > 0 && collapsed ? <span aria-hidden="true" className="absolute top-2 right-2 size-2 rounded-pill bg-brand ring-2 ring-card" /> : null}
         </span>
         <Label collapsed={collapsed}>{label}</Label>
+        {count > 0 && !collapsed ? (
+          <span aria-hidden="true" className="mr-2 rounded-sm border border-line bg-subtle px-1 font-mono text-xs font-semibold text-ink-muted tabular-nums">
+            {count > 99 ? '99+' : count}
+          </span>
+        ) : null}
       </NavLink>
     </Tooltip>
   );

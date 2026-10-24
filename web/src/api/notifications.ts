@@ -103,3 +103,87 @@ export async function unsubscribeAll(token: string | null): Promise<UnsubscribeO
     return 'offline';
   }
 }
+
+// ------------------------------------------------------------------ the notification list (step 8)
+
+export interface AppNotification {
+  id: string;
+  kind: NotificationKind;
+  target_type: 'post' | 'reply' | 'board' | 'hub' | 'user';
+  target_id: string;
+  post_id: string | null;
+  data: Record<string, unknown>;
+  read_at: string | null;
+  created_at: string;
+  actor: { id: string; handle: string; name: string; avatar_path: string | null } | null;
+  post: {
+    id: string;
+    title: string;
+    author_id: string | null;
+    board: { id: string; slug: string; name: string; color: string; logo_path: string | null } | null;
+  } | null;
+  /** The reply's text, for reply and mention notifications. */
+  quote: string | null;
+  /** Board or hub named by a claim or join notification. */
+  scope: { name: string; slug: string; color: string | null } | null;
+}
+
+export const NOTIFICATION_PAGE = 50;
+
+const NOTIF_SELECT =
+  'id, kind, target_type, target_id, post_id, data, read_at, created_at, ' +
+  'actor:profile!actor(id, handle, name, avatar_path), ' +
+  'post:post!post_id(id, title, author_id, board:board!board_id(id, slug, name, color, logo_path))';
+
+type NotifRow = Omit<AppNotification, 'quote' | 'scope'>;
+
+/** The viewer's newest notifications (RLS: only their own), with what each points at. */
+export async function fetchNotifications(limit = NOTIFICATION_PAGE): Promise<AppNotification[]> {
+  const sb = getSupabase();
+  const { data, error } = await sb.from('notification').select(NOTIF_SELECT).order('created_at', { ascending: false }).limit(limit);
+  if (error) throw error;
+  const rows = (data ?? []) as unknown as NotifRow[];
+  const replyIds = rows.filter((r) => r.target_type === 'reply').map((r) => r.target_id);
+  const boardIds = rows.filter((r) => r.target_type === 'board').map((r) => r.target_id);
+  const hubIds = rows.filter((r) => r.target_type === 'hub').map((r) => r.target_id);
+  const [replies, boards, hubs] = await Promise.all([
+    replyIds.length ? sb.from('reply').select('id, body').in('id', replyIds) : Promise.resolve({ data: [], error: null }),
+    boardIds.length ? sb.from('board').select('id, slug, name, color').in('id', boardIds) : Promise.resolve({ data: [], error: null }),
+    hubIds.length ? sb.from('hub').select('id, slug, name').in('id', hubIds) : Promise.resolve({ data: [], error: null }),
+  ]);
+  // Extras are best effort: a deleted reply or board just loses its quote or name.
+  const quotes = new Map(((replies.data ?? []) as Array<{ id: string; body: string }>).map((r) => [r.id, r.body]));
+  const scopes = new Map<string, { name: string; slug: string; color: string | null }>();
+  for (const b of (boards.data ?? []) as Array<{ id: string; slug: string; name: string; color: string }>) scopes.set(b.id, { name: b.name, slug: b.slug, color: b.color });
+  for (const h of (hubs.data ?? []) as Array<{ id: string; slug: string; name: string }>) scopes.set(h.id, { name: h.name, slug: h.slug, color: null });
+  return rows.map((r) => ({ ...r, quote: quotes.get(r.target_id) ?? null, scope: scopes.get(r.target_id) ?? null }));
+}
+
+export async function fetchUnreadCount(): Promise<number> {
+  const { count, error } = await getSupabase().from('notification').select('id', { count: 'exact', head: true }).is('read_at', null);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+export async function markNotificationsRead(ids: string[] | 'all', viewerId: string): Promise<void> {
+  let q = getSupabase().from('notification').update({ read_at: new Date().toISOString() }).eq('recipient', viewerId).is('read_at', null);
+  if (ids !== 'all') {
+    if (ids.length === 0) return;
+    q = q.in('id', ids);
+  }
+  const { error } = await q;
+  if (error) throw error;
+}
+
+export type NotificationGroup = 'Today' | 'This week' | 'Earlier';
+
+export function notificationGroup(iso: string, now: Date = new Date()): NotificationGroup {
+  const d = new Date(iso);
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  if (d.getTime() >= start) return 'Today';
+  if (d.getTime() >= start - 6 * 86400_000) return 'This week';
+  return 'Earlier';
+}
+
+/** Mockup tabs: Replies (reply, mention) and Activity (everything else). */
+export const notificationTab = (k: NotificationKind): 'replies' | 'activity' => (k === 'reply' || k === 'mention' ? 'replies' : 'activity');

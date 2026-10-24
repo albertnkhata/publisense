@@ -1,20 +1,21 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
-import { clearRecentSearches, readRecentSearches, rememberSearch, SEARCH_MIN, useSearch } from '../api';
-import { BoardRow, HubRow, RowItem, RowList } from '../boards/parts';
+import { Link } from 'react-router';
+import { avatarSrc, clearRecentSearches, readRecentSearches, rememberSearch, SEARCH_MIN, usePeopleSearch, useSearch } from '../api';
+import { BoardRow, HubRow, RowItem, RowList, rowLink } from '../boards/parts';
 import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { PostCard } from '../posts/PostCard';
 import { LoadError, PostListSkeleton } from '../posts/PostList';
 import { useComposer } from '../shell/composer';
-import { Button, Icon, IconButton, TabPanel, Tabs } from '../ui';
+import { Button, Icon, IconButton, TabPanel, Tabs, UserAvatar } from '../ui';
 
 /**
  * Search (FOUNDATION §9 `/search?q=`): boards ("Products"), hubs and posts.
  * Posts use Postgres full-text search; boards and hubs match by name and
  * description. Tabs Top / Posts / Products live in the URL (`&tab=posts`).
- * With no query it shows this device's recent searches. People search arrives
- * with profiles in step 8.
+ * With no query it shows this device's recent searches. People (by handle or
+ * name) are listed on the Top tab.
  */
 type SearchTab = 'top' | 'posts' | 'products';
 
@@ -161,6 +162,7 @@ function Results({ q, tab, setTab }: { q: string; tab: SearchTab; setTab: (t: Se
   const { viewer } = useViewer();
   const { openComposer } = useComposer();
   const search = useSearch(q, viewer?.id ?? null);
+  const people = usePeopleSearch(q).data ?? [];
 
   // Remember a search once its results are on screen.
   useEffect(() => {
@@ -171,7 +173,7 @@ function Results({ q, tab, setTab }: { q: string; tab: SearchTab; setTab: (t: Se
   if (search.isError) return <LoadError title="We couldn’t search right now" onRetry={() => void search.refetch()} retrying={search.isRefetching} />;
 
   const { boards, hubs, posts } = search.data;
-  if (boards.length === 0 && hubs.length === 0 && posts.length === 0) {
+  if (boards.length === 0 && hubs.length === 0 && posts.length === 0 && people.length === 0) {
     return (
       <div className="px-4 py-9 text-center text-base text-ink-muted">
         <b className="mb-1 block text-md text-ink">No results for “{q}”</b>
@@ -233,6 +235,23 @@ function Results({ q, tab, setTab }: { q: string; tab: SearchTab; setTab: (t: Se
                   {hubs.map((h) => (
                     <RowItem key={h.id}>
                       <HubRow hub={h} />
+                    </RowItem>
+                  ))}
+                </RowList>
+              </ResultSection>
+            ) : null}
+            {people.length ? (
+              <ResultSection title="People">
+                <RowList label="People">
+                  {people.map((p) => (
+                    <RowItem key={p.id}>
+                      <Link to={`/u/${p.handle}`} className={rowLink}>
+                        <UserAvatar src={avatarSrc(p)} size="md" />
+                        <span className="flex min-w-0 flex-col">
+                          <span className="truncate text-base font-semibold">{p.name || `@${p.handle}`}</span>
+                          <span className="truncate text-sm text-ink-muted">@{p.handle}</span>
+                        </span>
+                      </Link>
                     </RowItem>
                   ))}
                 </RowList>

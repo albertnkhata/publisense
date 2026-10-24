@@ -22,8 +22,10 @@ const CASES: Array<[string, string]> = [
   ['/terms', 'Terms of Service'],
   ['/auth/reset', 'Set a new password'],
   ['/unsubscribe?token=abc', 'Unsubscribe'],
-  ['/admin/reports', 'Reports'],
-  ['/admin/disputes', 'Ownership disputes'],
+  // Admin screens are for platform admins only; signed out they ask you to sign in.
+  ['/admin/reports', 'Sign in'],
+  ['/admin/disputes', 'Sign in'],
+  ['/admin/team', 'Sign in'],
 ];
 
 function renderAt(path: string) {

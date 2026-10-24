@@ -15,7 +15,7 @@
 
 _derived from `docs/v2/BUILD.md` checkbox state · one PR per step, see `docs/v2/FOUNDATION.md` section 11_
 
-**7/9 steps done** · next: step 8, Moderation and people
+**8/9 steps done** · next: step 9, Cutover
 
 - [x] 1. Foundation
 - [x] 2. Scaffold
@@ -24,10 +24,10 @@ _derived from `docs/v2/BUILD.md` checkbox state · one PR per step, see `docs/v2
 - [x] 5. Feed and posts
 - [x] 6. Boards, hubs and discovery
 - [x] 7. Claiming and teams
-- [ ] 8. Moderation and people
+- [x] 8. Moderation and people
 - [ ] 9. Cutover
 
-- v2 web tests (`web/src/**/*.test.ts(x)`): **19** files, **192** declared cases
+- v2 web tests (`web/src/**/*.test.ts(x)`): **24** files, **246** declared cases
 
 ### Open decisions and risks
 

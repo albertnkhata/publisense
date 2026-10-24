@@ -8,7 +8,9 @@ import {
   shortAge,
   useCreateReply,
   useDeleteReply,
+  useHideReply,
   useIsBoardTeam,
+  useIsPlatformAdmin,
   useReplies,
   useUpdateReply,
   validateReply,
@@ -34,6 +36,7 @@ import {
   useToast,
 } from '../ui';
 import { ConfirmDialog } from './dialogs';
+import { ReportDialog } from './ReportDialog';
 
 /**
  * The reply thread on a post page (FOUNDATION §5 PostPage: replies one level
@@ -165,8 +168,23 @@ function ReplyItem({
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const del = useDeleteReply(post.id);
+  const hide = useHideReply(post.id);
+  const team = useIsBoardTeam(post.board_id, viewer?.id ?? null);
+  const staff = useIsPlatformAdmin(viewer?.id ?? null);
+  const [reporting, setReporting] = useState(false);
   const isAuthor = Boolean(viewer && reply.author_id === viewer.id);
   const closed = post.status === 'merged' || Boolean(post.hidden_at);
+  const canHide = Boolean(team.data || staff.data);
+  const toggleHidden = () => {
+    const hidden = !reply.hidden_at;
+    hide.mutate(
+      { replyId: reply.id, hidden },
+      {
+        onSuccess: () => toast(hidden ? 'Reply hidden' : 'Reply visible again'),
+        onError: (e) => toast(e instanceof Error ? e.message : 'Something went wrong. Try again.'),
+      },
+    );
+  };
 
   let who: ReactNode;
   if (reply.is_official && post.board) {
@@ -253,8 +271,26 @@ function ReplyItem({
               </button>
             </>
           ) : null}
+          {canHide ? (
+            <button type="button" className={actClass} onClick={toggleHidden} disabled={hide.isPending}>
+              {reply.hidden_at ? 'Unhide' : 'Hide'}
+            </button>
+          ) : null}
+          {!isAuthor && !reply.is_official ? (
+            <button
+              type="button"
+              className={cx(actClass, 'hover:text-danger')}
+              onClick={() => {
+                if (!requireAuth('report replies')) return;
+                setReporting(true);
+              }}
+            >
+              Report
+            </button>
+          ) : null}
         </div>
       ) : null}
+      {reporting ? <ReportDialog target="reply" id={reply.id} subject={reply.body} open onClose={() => setReporting(false)} /> : null}
 
       {mode === 'reply' ? (
         <div className="mt-3">

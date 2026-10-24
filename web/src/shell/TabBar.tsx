@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, NavLink } from 'react-router';
+import { useIsPlatformAdmin, useUnreadCount } from '../api';
 import { cx } from '../lib/cx';
 import { useTheme } from '../lib/ThemeProvider';
 import { useViewer } from '../lib/viewer';
@@ -16,6 +17,8 @@ export function TabBar() {
   const { openComposer } = useComposer();
   const { theme, toggle } = useTheme();
   const [sheet, setSheet] = useState(false);
+  const unread = useUnreadCount(viewer?.id ?? null).data ?? 0;
+  const staff = useIsPlatformAdmin(viewer?.id ?? null).data ?? false;
 
   const tabClass = ({ isActive }: { isActive: boolean }) =>
     cx('relative flex h-8 items-center justify-center no-underline', isActive ? 'text-ink' : 'text-ink-muted');
@@ -40,8 +43,13 @@ export function TabBar() {
           </button>
         ) : null}
         {viewer ? (
-          <NavLink to="/notifications" aria-label="Notifications" className={tabClass}>
-            {({ isActive }) => <TabIcon name="bell" active={isActive} />}
+          <NavLink to="/notifications" aria-label={unread > 0 ? `Notifications, ${unread} new` : 'Notifications'} className={tabClass}>
+            {({ isActive }) => (
+              <span className="relative">
+                <TabIcon name="bell" active={isActive} />
+                {unread > 0 ? <span aria-hidden="true" className="absolute top-0 -right-1 size-2 rounded-pill bg-brand ring-2 ring-card" /> : null}
+              </span>
+            )}
           </NavLink>
         ) : null}
         {viewer ? (
@@ -71,6 +79,11 @@ export function TabBar() {
             <SheetLink to="/settings" icon="settings" onClick={() => setSheet(false)}>
               Settings
             </SheetLink>
+            {staff ? (
+              <SheetLink to="/admin/reports" icon="shield" onClick={() => setSheet(false)}>
+                Admin
+              </SheetLink>
+            ) : null}
             <button type="button" onClick={toggle} className={sheetItem}>
               <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={20} strokeWidth={1.75} />
               {theme === 'dark' ? 'Light mode' : 'Dark mode'}

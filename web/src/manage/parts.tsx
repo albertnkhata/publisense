@@ -8,10 +8,13 @@ import {
   shortAge,
   sortMembers,
   useAddMember,
+  useBlocked,
   useDecideJoin,
   useJoinRequests,
   usePostList,
+  useReleaseScope,
   useRemoveMember,
+  useSetBlocked,
   useSetMemberRole,
   useSetPostStatus,
   useTeam,
@@ -25,14 +28,16 @@ import {
 } from '../api';
 import { cx } from '../lib/cx';
 import { useViewer } from '../lib/viewer';
+import { MergeDialog } from '../posts/MergeDialog';
 import { LoadError } from '../posts/PostList';
 import { statusToast, TEAM_STATUSES } from '../posts/StatusDialog';
-import { Button, Field, IconButton, Input, Select, SkeletonBlock, STATUS_META, TYPE_META, UserAvatar, useToast } from '../ui';
+import { Button, Dialog, Field, IconButton, Input, Select, SkeletonBlock, STATUS_META, TYPE_META, UserAvatar, useToast } from '../ui';
 
 /*
  * Pieces of the Manage screens (FOUNDATION §5 ManageInbox, TeamPanel): stat
  * tiles, triage rows with a status select, the team list with roles, adding
- * teammates, and join requests. Merge, hide and block arrive in step 8.
+ * teammates, join requests, merge from a triage row, blocked people, and
+ * giving a board or hub up (release).
  */
 
 // ------------------------------------------------------------------ layout
@@ -142,6 +147,7 @@ export function Inbox({
 export function InboxRow({ post, board }: { post: Post; board: Board | null }) {
   const { toast } = useToast();
   const setStatus = useSetPostStatus();
+  const [merging, setMerging] = useState(false);
   const change = (to: PostStatus) => {
     if (to === post.status) return;
     setStatus.mutate(
@@ -168,20 +174,28 @@ export function InboxRow({ post, board }: { post: Post; board: Board | null }) {
           {board ? <> · {board.name}</> : null} · {post.author ? `@${post.author.handle}` : post.source_url ? 'Imported' : 'Deleted user'} · {shortAge(post.created_at)} · {plural(post.reply_count, 'reply', 'replies')}
         </span>
       </Link>
-      <span className="w-select shrink-0 max-sm:w-full">
-        <Select
-          value={post.status === 'merged' ? 'open' : post.status}
-          onChange={(e) => change(e.target.value as PostStatus)}
-          disabled={setStatus.isPending || post.status === 'merged'}
-          aria-label={`Status for ${post.title}`}
-         
-        >
-          {TEAM_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {STATUS_META[s].label}
-            </option>
-          ))}
-        </Select>
+      <span className="flex shrink-0 items-center gap-2 max-sm:w-full">
+        {post.status !== 'merged' ? (
+          <Button size="sm" variant="secondary" onClick={() => setMerging(true)} className="shrink-0" aria-label={`Merge ${post.title}`}>
+            Merge
+          </Button>
+        ) : null}
+        {merging ? <MergeDialog post={post} open onClose={() => setMerging(false)} onMerged={() => {}} /> : null}
+        <span className="w-select shrink-0 max-sm:w-auto max-sm:flex-1">
+          <Select
+            value={post.status === 'merged' ? 'open' : post.status}
+            onChange={(e) => change(e.target.value as PostStatus)}
+            disabled={setStatus.isPending || post.status === 'merged'}
+            aria-label={`Status for ${post.title}`}
+           
+          >
+            {TEAM_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {STATUS_META[s].label}
+              </option>
+            ))}
+          </Select>
+        </span>
       </span>
     </div>
   );
@@ -362,6 +376,131 @@ export function JoinRequests({ scopes, names }: { scopes: Array<{ scope: Scope; 
           );
         })}
       </ul>
+    </Section>
+  );
+}
+
+// ------------------------------------------------------------------ blocked people
+
+/** People blocked from posting, voting and replying on this scope's boards (FOUNDATION §6). */
+export function BlockedList({ scope, scopeId }: { scope: Scope; scopeId: string }) {
+  const { toast } = useToast();
+  const blocked = useBlocked(scope, scopeId);
+  const unblock = useSetBlocked();
+  const list = blocked.data ?? [];
+  if (list.length === 0) return null;
+  return (
+    <Section title="Blocked" note="Blocked people can still read, but can’t post, vote or reply here. Block someone from their profile.">
+      <ul className="m-0 flex list-none flex-col p-0" aria-label="Blocked people">
+        {list.map((b) => {
+          const name = b.profile?.name || b.profile?.handle || 'Deleted user';
+          return (
+            <li key={b.user_id} className="flex items-center gap-3 border-t border-line py-3 first:border-t-0">
+              <UserAvatar src={avatarSrc(b.profile)} size="md" />
+              <span className="flex min-w-0 flex-1 flex-col">
+                {b.profile ? (
+                  <Link to={`/u/${b.profile.handle}`} className="truncate text-base font-semibold text-ink no-underline hover:underline">
+                    {name}
+                  </Link>
+                ) : (
+                  <b className="truncate text-base font-semibold text-ink">{name}</b>
+                )}
+                <span className="truncate text-sm text-ink-muted">
+                  {b.profile ? `@${b.profile.handle} · ` : ''}blocked {shortAge(b.created_at)}
+                </span>
+              </span>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={unblock.isPending}
+                onClick={() =>
+                  unblock.mutate(
+                    { scope, id: scopeId, userId: b.user_id, on: false },
+                    { onSuccess: () => toast(`Unblocked ${name}`), onError: (e) => toast(e instanceof Error ? e.message : 'Something went wrong.') },
+                  )
+                }
+              >
+                Unblock
+              </Button>
+            </li>
+          );
+        })}
+      </ul>
+    </Section>
+  );
+}
+
+// ------------------------------------------------------------------ release
+
+/**
+ * "Give up this board" (owners of this exact scope). It goes back to unclaimed:
+ * the whole team is removed, open requests are withdrawn and blocks are lifted.
+ * The owner types the name to confirm, since it can't be undone from here.
+ */
+export function ReleaseSection({ scope, scopeId, name, onReleased }: { scope: Scope; scopeId: string; name: string; onReleased: () => void }) {
+  const { toast } = useToast();
+  const release = useReleaseScope();
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const what = scope === 'hub' ? 'hub' : 'board';
+  const matches = typed.trim().toLowerCase() === name.trim().toLowerCase();
+  const confirm = () => {
+    if (!matches) return setError(`Type ${name} to confirm.`);
+    setError(null);
+    release.mutate(
+      { scope, id: scopeId },
+      {
+        onSuccess: () => {
+          setOpen(false);
+          toast(`You gave up ${name}. It’s unclaimed now.`);
+          onReleased();
+        },
+        onError: (e) => setError(e instanceof Error ? e.message : 'Something went wrong. Try again.'),
+      },
+    );
+  };
+  return (
+    <Section
+      title={`Give up this ${what}`}
+      note={
+        scope === 'hub'
+          ? 'The hub and its boards go back to unclaimed. Everyone on the hub team loses access, and someone at the company can claim it again.'
+          : 'The board goes back to unclaimed. Everyone on its team loses access, and someone at the company can claim it again.'
+      }
+    >
+      <Button
+        variant="danger"
+        onClick={() => {
+          setTyped('');
+          setError(null);
+          setOpen(true);
+        }}
+      >
+        Give up {name}…
+      </Button>
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        title={`Give up ${name}?`}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setOpen(false)} disabled={release.isPending}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={confirm} loading={release.isPending} disabled={!matches}>
+              Give up {what}
+            </Button>
+          </>
+        }
+      >
+        <p className="mt-0 mb-4 text-base text-ink-secondary">
+          Your team loses access, open join requests are withdrawn and blocks are lifted. Posts, votes and replies stay.
+        </p>
+        <Field label={`Type ${name} to confirm`} error={error}>
+          <Input value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" />
+        </Field>
+      </Dialog>
     </Section>
   );
 }

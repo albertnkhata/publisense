@@ -136,6 +136,7 @@
   --spacing-menu: 224px;        /* not in §3: menu min width (mockup user menu) */
   --spacing-date: 120px;        /* not in §3: changelog date column (mockup .cl-entry) */
   --spacing-select: 160px;    /* not in §3: status and role selects in Manage rows (mockup .mg-select) */
+  --spacing-list: 300px;      /* not in §3: scrolling picker list in the merge dialog (mockup .mgm-list) */
 
   /* Glass blur for the sticky top bar and tab bar (mockup: blur 12px). */
   --blur-md: 12px;
