@@ -64,41 +64,6 @@ favicon. That improves the product regardless of the consent screen.
 
 ---
 
-### D-011 · Every post in production is imported from a public source, and nothing says so
-
-**Status:** 🟡 decided 2026-10-25 — keep the imported posts, label them as samples · **Raised:** 2026-10-20 · **Last re-verified:** 2026-10-25 · **Closes when:** the sample label ships (#111) · **Revisit:** before announce, or in any screenshot or demo shown outside the owner's circle
-
-**Decision.** Keep the imported posts rather than launch on an empty index, and mark them so nobody
-reads them as this community's own activity. Until that label exists this entry stays **open** — the
-content is correct, and being unlabelled is the whole of what is left.
-
-**What production actually holds**, re-verified 2026-10-25T09:59Z against `wyjfgrgxmhumyzwcrywj`:
-
-```
-post          -> 11 total · 11/11 carry source_url and source_author · 0/11 have an author_id
-                 (imports, not submissions) · spread over 3 boards
-vote          -> 0
-reply         -> 0
-profile       -> 3, all owner accounts · the seven fixture personas are gone
-membership    -> 0
-post.platform -> 8 unset · 2 ios · 1 desktop
-```
-
-**This is not the risk recorded on 2026-10-22.** That audit described eight posts, nine comments and four
-votes written by seven fabricated personas, one of them an admin account no human could sign in to. Those
-rows are gone: the seeded content was replaced with imports from public sources, and every post now
-credits the person who wrote it with an outbound link. The `profile` table has also lost its `email`
-column entirely, which supersedes the `@publisense.invalid` mitigation from migration `0010`.
-
-**What keeping them costs, honestly.** Not invented traction — there are no votes, no comments and no
-fictional members to mistake for a community. What is left is framing: eleven imported posts appear on
-the front page with nothing saying they came from somewhere else. Each already carries its source credit,
-so the fix is small — but until #111 ships, a visitor can read the index as activity this site generated.
-
-**Closing condition:** #111 (the label), verified on `publisense.app` rather than in the repo.
-
----
-
 ### D-007 · Background rows for other users have no email in the client
 
 **Status:** 🟢 cosmetic/minor · **Deferred:** 2026-10-20 · **PR:** #16
@@ -153,6 +118,44 @@ querying as the `anon` role, and nothing verifies it automatically.
 ---
 
 ## Resolved
+
+### D-011 · Every post in production is imported from a public source, and nothing says so
+
+**Status:** ✅ RESOLVED 2026-10-25 · decision: **no separate label** — every post already links to its source and names who wrote it · **Raised:** 2026-10-20 · **Last verified:** 2026-10-25
+
+**Decision.** Keep the imported posts and add no "sample" marker. Each one shows an outbound link to where
+it came from and the handle of the person who wrote it (`@jeff_weinstein on X ↗`), and the owner's call on
+2026-10-25 is that this is disclosure enough — the index does not need to announce itself as a demo on top
+of that.
+
+**What production holds**, re-verified 2026-10-25T09:59Z against `wyjfgrgxmhumyzwcrywj`:
+
+```
+post          -> 11 total · 11/11 carry source_url and source_author · 0/11 have an author_id
+                 (imports, not submissions) · spread over 3 boards
+vote          -> 0
+reply         -> 0
+profile       -> 3, all owner accounts · the seven fictional personas are gone
+membership    -> 0
+post.platform -> 8 unset · 2 ios · 1 desktop
+```
+
+**Why this closes instead of staying deferred.** The exposure recorded on 2026-10-20 was invented traction:
+eight posts, nine comments and four votes written by seven fabricated personas, one of them an admin account
+no human could sign in to. None of that survives. What is left is eleven imports, each credited and linked,
+with no votes, no comments and no members to mistake for a community — and a reader who follows any credit
+lands on the original. The `profile` table has also lost its `email` column entirely, which supersedes the
+`@publisense.invalid` mitigation from migration `0010`.
+
+**Label considered and rejected.** A visible "sample" marker on imported posts was scoped in #111 and
+dropped the same day: the credit line already carries the disclosure, and repeating it on every card would
+be noise. #111 was closed unbuilt.
+
+**What would reopen it:** imports that stop carrying a source link or attribution, votes or comments that
+manufacture activity around them, or any claim of community volume made over them. The ledger prints the
+imported-versus-member split on every refresh for exactly that reason.
+
+---
 
 ### D-002 · `service_role` key exists with no server-side consumer
 
