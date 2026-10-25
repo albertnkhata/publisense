@@ -42,6 +42,7 @@ export type BoardTab = 'feedback' | 'roadmap' | 'changelog';
 export const TYPE_CHOICES: Choice<TypeFilter>[] = [
   { value: 'all', label: 'All types' },
   { value: 'bug', label: 'Bugs' },
+  { value: 'friction', label: 'Friction' },
   { value: 'feature', label: 'Feature requests' },
 ];
 

@@ -89,6 +89,7 @@ export function Chips<T extends string>({ value, options, onChange, label }: { v
 export const TYPE_OPTIONS: Array<{ value: TypeFilter; label: string }> = [
   { value: 'all', label: 'All' },
   { value: 'bug', label: 'Bugs' },
+  { value: 'friction', label: 'Friction' },
   { value: 'feature', label: 'Feature requests' },
 ];
 

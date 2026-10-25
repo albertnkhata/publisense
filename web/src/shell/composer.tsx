@@ -104,6 +104,7 @@ export function useComposer() {
 
 const TYPES: Array<{ value: PostType; desc: string }> = [
   { value: 'bug', desc: 'Something’s broken or not working right' },
+  { value: 'friction', desc: 'It works, but it’s harder than it should be' },
   { value: 'feature', desc: 'A feature or change you’d like' },
 ];
 

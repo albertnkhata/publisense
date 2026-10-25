@@ -365,4 +365,9 @@ describe('device on a post (0033)', () => {
     renderPost(makePost({ platform: 'android' }));
     expect(await screen.findByText('Android')).toBeTruthy();
   });
+
+  it('labels friction posts (0034)', async () => {
+    renderPost(makePost({ type: 'friction' }));
+    expect((await screen.findAllByText('Friction')).length).toBeGreaterThan(0);
+  });
 });

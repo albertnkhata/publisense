@@ -56,7 +56,7 @@ async function chooseSupabase(dialog: HTMLElement) {
   fireEvent.click(await within(dialog).findByRole('option', { name: /Supabase/ }));
 }
 
-function chooseType(dialog: HTMLElement, label: 'Bug' | 'Feature request') {
+function chooseType(dialog: HTMLElement, label: 'Bug' | 'Friction' | 'Feature request') {
   fireEvent.click(within(dialog).getByRole('button', { name: /Type/ }));
   fireEvent.click(screen.getByRole('menuitemradio', { name: new RegExp(label) }));
 }
@@ -86,6 +86,7 @@ describe('composer', () => {
 
     await chooseSupabase(dialog);
     expect(within(dialog).getByText('Supabase')).toBeTruthy();
+    chooseType(dialog, 'Friction');
     chooseType(dialog, 'Feature request');
     fireEvent.change(within(dialog).getByRole('textbox', { name: 'Title' }), { target: { value: 'Branching for preview databases' } });
     fireEvent.change(within(dialog).getByRole('textbox', { name: /Details/ }), { target: { value: 'One per pull request.' } });
