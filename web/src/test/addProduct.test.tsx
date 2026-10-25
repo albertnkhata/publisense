@@ -749,7 +749,7 @@ describe('admin: companies on new products', () => {
     await waitFor(() => expect(productsApi.removeHubDomain).toHaveBeenCalledWith(ANTHROPIC.id, 'claude.com'));
   });
 
-  // 0028: renaming a company keeps the name it used, and the address it had keeps working.
+  // 0030: renaming a company keeps the name it used, and the address it had keeps working.
   it('renames a company from the Companies tab, keeping the old name', async () => {
     productsApi.fetchCompanies.mockResolvedValue([
       { id: ANTHROPIC.id, slug: 'anthropic', name: 'Anthropic', status: 'live', primary_domain: 'claude.ai', domains: ['claude.ai'], former_names: [], board_count: 5 },

@@ -52,7 +52,7 @@ export function HubPage() {
   }
   if (!hub) return <ScopeNotFound kind="hub" />;
   // A former slug resolves to the company it belongs to: send the reader to the current
-  // address instead of showing two URLs for one page (0028).
+  // address instead of showing two URLs for one page (0030).
   if (slug && hub.slug !== slug) return <Navigate to={`/h/${hub.slug}`} replace />;
   return <HubView hub={hub} />;
 }

@@ -68,9 +68,9 @@ export interface Hub {
   primary_domain: string | null;
   /** Every domain the company owns, primary first (0026). */
   domains: string[];
-  /** The other names this company has published under, most recent first (0028). */
+  /** The other names this company has published under, most recent first (0030). */
   former_names: string[];
-  /** The legal entity, when it differs from the trade name (0028). */
+  /** The legal entity, when it differs from the trade name (0030). */
   legal_name: string | null;
   status?: HubStatus;
   claimed_at: string | null;
@@ -80,7 +80,7 @@ export interface Hub {
   boards: Board[];
 }
 
-/** One row of a company's name history (0028). */
+/** One row of a company's name history (0030). */
 export interface HubName {
   name: string;
   slug: string;
@@ -91,7 +91,7 @@ export interface HubName {
   created_at?: string;
 }
 
-/** What a slug — current or former — resolves to (0028). */
+/** What a slug — current or former — resolves to (0030). */
 export interface HubSlug {
   hub_id: string;
   slug: string;
@@ -105,7 +105,7 @@ const HUB_COLUMNS = 'id, slug, name, description, primary_domain, claimed_at, cr
 
 /**
  * The names a company has published under before its current one, most recent first
- * (0028). The legal entity name is reported separately, so a trade name and its legal
+ * (0030). The legal entity name is reported separately, so a trade name and its legal
  * name are not listed as each other's predecessor.
  */
 export function hubFormerNames(h: { name?: string; hub_name?: HubName[] | null }): string[] {
@@ -257,7 +257,7 @@ export async function fetchHubs(): Promise<Hub[]> {
 /** One hub by slug with its boards, or null. A former slug resolves to the same company. */
 export async function fetchHub(slug: string): Promise<Hub | null> {
   if (!isSlug(slug)) return null;
-  // 0028: a company that has changed its name still answers to its old slug, so the page
+  // 0030: a company that has changed its name still answers to its old slug, so the page
   // can redirect to the current one instead of rendering "Hub not found".
   const resolved = await resolveHubSlug(slug);
   if (!resolved) return null;
@@ -270,7 +270,7 @@ export async function fetchHub(slug: string): Promise<Hub | null> {
   return data ? sortHubBoards(data as unknown as RawHub) : null;
 }
 
-/** Which company a slug belongs to, current or former (0028). */
+/** Which company a slug belongs to, current or former (0030). */
 export async function resolveHubSlug(slug: string): Promise<HubSlug | null> {
   const { data, error } = await getSupabase().rpc('resolve_hub_slug', { p_slug: slug });
   if (error) throw error;
@@ -421,7 +421,7 @@ export function matchCatalogue(q: string, boards: Board[], hubs: Hub[]): { board
   const matchedBoards = boards
     .filter((b) => isLive(b) && matchesAll(`${b.name} ${b.tagline}`, term))
     .sort((a, b) => Number(matchesAll(b.name, term)) - Number(matchesAll(a.name, term)) || b.follower_count - a.follower_count || a.name.localeCompare(b.name));
-  // A company answers to the names it used to have: searching "xAI" finds SpaceXSI (0028).
+  // A company answers to the names it used to have: searching "xAI" finds SpaceXSI (0030).
   const hubText = (h: Hub) => `${h.name} ${h.former_names.join(' ')} ${h.legal_name ?? ''} ${h.description}`;
   const matchedHubs = hubs
     .filter((h) => matchesAll(hubText(h), term) || h.boards.some((b) => matchesAll(b.name, term)))

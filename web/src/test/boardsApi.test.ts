@@ -366,7 +366,7 @@ describe('siteLink', () => {
  * 0028: a company that changes its name keeps the names it used, its old address resolves
  * to it, and searching an old name finds it.
  */
-describe('company names (0028)', () => {
+describe('company names (0030)', () => {
   const SXI = '7a000000-0000-4000-8000-000000000001';
   const history = (over: HubName[] = []): HubName[] => [
     ...over,

@@ -470,7 +470,7 @@ function CompanyCard({ h }: { h: AdminCompany }) {
 }
 
 /**
- * A company that changes its name keeps the old one (0028): the rename records history, and
+ * A company that changes its name keeps the old one (0030): the rename records history, and
  * the address it used to have resolves to it for good. Leaving the slug blank derives one
  * no other company has used.
  */

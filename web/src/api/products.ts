@@ -283,7 +283,7 @@ export interface AdminCompany {
   status: HubStatus;
   primary_domain: string | null;
   domains: string[];
-  /** Names this company used before the current one, most recent first (0028). */
+  /** Names this company used before the current one, most recent first (0030). */
   former_names: string[];
   board_count: number;
 }
@@ -317,7 +317,7 @@ export async function removeHubDomain(hubId: string, domain: string): Promise<vo
 }
 
 /**
- * Rename a company, keeping the name it used before (0028). Leave the slug out and the
+ * Rename a company, keeping the name it used before (0030). Leave the slug out and the
  * database derives one no other company has used; pass it to choose the address, and the
  * old slug keeps resolving to this company either way. Admin only.
  */

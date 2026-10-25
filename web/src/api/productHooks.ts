@@ -134,7 +134,7 @@ export function useHubDomain() {
   });
 }
 
-/** Rename a company; the name it used before stays on record (0028). Platform admins. */
+/** Rename a company; the name it used before stays on record (0030). Platform admins. */
 export function useRenameHub() {
   const qc = useQueryClient();
   return useMutation({
