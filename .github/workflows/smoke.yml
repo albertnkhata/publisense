@@ -1,0 +1,55 @@
+# Nightly live smoke test against PRODUCTION (D-003). Two parts:
+#   1. Database: supabase/tests/v2_live_smoke.sql as the real API roles (anon and
+#      signed-in users). It runs in one transaction that is rolled back, so nothing
+#      it writes is ever kept, and its throwaway users use .invalid addresses, so no
+#      email goes out.
+#   2. Site: the pages people and crawlers hit answer with the right status codes.
+# A failure fails the run, and GitHub emails the repo owner about failed scheduled runs.
+#
+# Needs the SUPABASE_DB_URL repository secret (the same one the backup uses).
+name: Live smoke test
+
+on:
+  schedule:
+    - cron: '0 1 * * *' # 01:00 UTC = 03:00 CAT, after the 00:30 backup
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-smoke
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Database checks (rolled back)
+        env:
+          DB: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          [ -n "$DB" ] || { echo "::error::SUPABASE_DB_URL secret is not set"; exit 1; }
+          DB=$(printf '%s' "$DB" | tr -d '\r\n')
+          psql "$DB" -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_live_smoke.sql
+
+      - name: Site checks
+        run: |
+          set -uo pipefail
+          fail=0
+          check() { # path expected-status
+            got=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "https://publisense.app$1")
+            if [ "$got" = "$2" ]; then echo "ok   $1 -> $got"; else echo "::error::$1 returned $got, expected $2"; fail=1; fi
+          }
+          for p in / /explore /b/cursor /h/figma /privacy /robots.txt /sitemap.xml /og.png; do check "$p" 200; done
+          check /explore/ 308
+          check /smoke-test-missing-page 404
+          n=$(curl -s --max-time 20 https://publisense.app/sitemap.xml | grep -c '<loc>' || true)
+          if [ "$n" -ge 10 ]; then echo "ok   sitemap lists $n URLs"; else echo "::error::sitemap lists only $n URLs"; fail=1; fi
+          title=$(curl -s --max-time 20 -A 'Twitterbot/1.0' https://publisense.app/b/cursor | grep -o '<title>[^<]*' | head -1)
+          case "$title" in *Cursor*) echo "ok   link preview: $title";; *) echo "::error::link preview title missing: $title"; fail=1;; esac
+          exit $fail

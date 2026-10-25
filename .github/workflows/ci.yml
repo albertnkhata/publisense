@@ -114,6 +114,8 @@ jobs:
             id uuid primary key default gen_random_uuid(),
             email text unique,
             raw_user_meta_data jsonb default '{}'::jsonb,
+            email_confirmed_at timestamptz,
+            deleted_at timestamptz,
             created_at timestamptz not null default now()
           );
 
@@ -221,6 +223,13 @@ jobs:
           set -euo pipefail
           psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_seed_dev.sql
           psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_seed_dev.sql
+
+      # The nightly production smoke suite must also pass here, on the seeded CI
+      # database, so a schema change that would break it fails the PR first.
+      - name: Live smoke suite (on CI data)
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_live_smoke.sql
 
       - name: Report public read-policy count
         env:
