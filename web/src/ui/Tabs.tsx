@@ -57,7 +57,7 @@ export function Tabs<T extends string>({ items, value, onChange, label, idBase, 
       role="tablist"
       aria-label={label}
       onKeyDown={onKeyDown}
-      className={cx('flex gap-6 overflow-x-auto', bordered && 'border-b border-line', className)}
+      className={cx('scrollbar-none flex gap-6 overflow-x-auto overflow-y-hidden', bordered && 'border-b border-line', className)}
     >
       {items.map((t) => {
         const selected = t.value === value;
