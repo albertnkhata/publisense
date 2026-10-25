@@ -58,7 +58,20 @@ config in [`web/vercel.json`](./web/vercel.json)) and serves `publisense.app`,
 
 Supabase project `wyjfgrgxmhumyzwcrywj`. Schema changes are numbered SQL files in
 `supabase/migrations/`; never edit one that has been applied, add the next number instead.
-0004–0023 are recorded in `supabase_migrations.schema_migrations`.
+Everything in that directory is recorded in `supabase_migrations.schema_migrations` —
+`0004`–`0034` today, `0005` was never used. Nothing in this repo pushes schema to the project:
+CI only proves migrations run against a throwaway database, so an operator applies them by hand,
+in order.
+
+A number is therefore claimed at **merge**, not on your branch. Two PRs written the same week
+each read the same "next" number and each use it, and only one can be right. Before merging a
+migration:
+
+- rebase onto `main` and confirm the number is still the next free one; if it is not, renumber the
+  file and any version string quoted inside it, then re-run CI;
+- merge one migration PR at a time;
+- when app code reads the new schema, merge the database half first — never let the app reach a
+  project whose schema lacks the objects it queries.
 
 CI rebuilds a database from scratch on every PR: a stub of Supabase's `auth` schema and API
 roles plus [`supabase/tests/supabase_stub.sql`](./supabase/tests/supabase_stub.sql), then
