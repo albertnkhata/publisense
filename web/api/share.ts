@@ -4,7 +4,7 @@
  * /post/:id here; people never hit this function, so a failure here can't
  * break the app. Any error still answers with the plain index.html.
  */
-import { applyMeta, boardMeta, hubMeta, postMeta, SITE, type ShareMeta } from '../src/lib/shareMeta';
+import { applyMeta, boardMeta, hubMeta, postMeta, SITE, type ShareMeta } from './_lib/shareMeta.js';
 
 interface Req { query: Record<string, string | string[] | undefined>; headers: Record<string, string | string[] | undefined> }
 interface Res { status(code: number): Res; setHeader(k: string, v: string): void; send(body: string): void }
