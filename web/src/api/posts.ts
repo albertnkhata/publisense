@@ -48,6 +48,8 @@ export interface Post {
   board_id: string;
   author_id: string | null;
   source_url: string | null;
+  /** Seeded posts: who first raised it at the source ("@jeff_weinstein"), credited as "@jeff_weinstein on X" (0032). */
+  source_author: string | null;
   type: PostType;
   status: PostStatus;
   title: string;
@@ -79,7 +81,7 @@ export const FEED_PAGE_SIZE = 20;
 const PERSON = 'id, handle, name, avatar_path';
 const BOARD = 'id, slug, name, color, logo_path';
 export const POST_SELECT =
-  'id, board_id, author_id, source_url, type, status, title, body, merged_into, hidden_at, edited_at, created_at, vote_count, reply_count, ' +
+  'id, board_id, author_id, source_url, source_author, type, status, title, body, merged_into, hidden_at, edited_at, created_at, vote_count, reply_count, ' +
   `author:profile!author_id(${PERSON}), board:board!board_id(${BOARD})`;
 const REPLY_SELECT = `id, post_id, parent_id, author_id, body, is_official, hidden_at, edited_at, created_at, author:profile!author_id(${PERSON})`;
 
@@ -109,6 +111,31 @@ export function sourceLabel(url: string | null | undefined): string {
   } catch {
     return 'the web';
   }
+}
+
+/**
+ * The original poster, when the source link names them: "@handle" for an X post,
+ * "u/name" for a Reddit profile link. Reddit threads and GitHub issues don't carry
+ * the author in the link, so staff type those.
+ */
+export function sourceAuthorFromUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const u = new URL(url.trim());
+    const host = u.hostname.replace(/^(www|mobile)\./, '');
+    const parts = u.pathname.split('/').filter(Boolean);
+    if ((host === 'x.com' || host === 'twitter.com') && parts[1] === 'status' && parts[0] !== 'i' && /^\w{1,15}$/.test(parts[0] ?? '')) return `@${parts[0]}`;
+    if ((host === 'reddit.com' || host.endsWith('.reddit.com')) && (parts[0] === 'user' || parts[0] === 'u') && parts[1]) return `u/${parts[1]}`;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/** "@jeff_weinstein on X" when the original poster is known, else "from X" (0032). */
+export function sourceCredit(p: Pick<Post, 'source_url' | 'source_author'>): string {
+  const where = sourceLabel(p.source_url);
+  return p.source_author ? `${p.source_author} on ${where}` : `from ${where}`;
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -746,6 +773,8 @@ export interface SeedPost extends NewPost {
   sourceUrl: string;
   /** When it was originally posted (YYYY-MM-DD); defaults to now. */
   postedOn?: string | null;
+  /** Who first raised it at the source ("@handle"); optional (0032). */
+  sourceAuthor?: string | null;
 }
 
 /** Is this an https link a seeded post can point back to? */
@@ -768,6 +797,7 @@ const SEED_ERRORS: Record<string, string> = {
   invalid_source: 'Use the full https link to the original post.',
   invalid_date: 'The original date can’t be in the future.',
   duplicate: 'That source is already on this board.',
+  author_length: 'The original poster’s name is too long.',
 };
 
 /**
@@ -784,6 +814,7 @@ export async function seedPost(d: SeedPost, viewerId: string | null): Promise<Po
     p_body: d.body.trim(),
     p_source_url: d.sourceUrl.trim(),
     p_posted_at: at && !Number.isNaN(at.getTime()) ? at.toISOString() : null,
+    p_source_author: d.sourceAuthor?.trim() || null,
   });
   if (error) throw failed('We couldn’t post this. Try again.');
   const res = (data ?? { ok: false }) as { ok: boolean; id?: string; error?: string };
@@ -806,6 +837,7 @@ export async function editSeededPost(id: string, d: SeededDraft, viewerId: strin
     p_body: d.body.trim(),
     p_source_url: d.sourceUrl.trim(),
     p_posted_at: at && !Number.isNaN(at.getTime()) ? at.toISOString() : null,
+    p_source_author: d.sourceAuthor?.trim() || null,
   });
   if (error) throw failed('We couldn’t save your changes. Try again.');
   const res = (data ?? { ok: false }) as { ok: boolean; error?: string };
@@ -819,6 +851,8 @@ export interface SeededDraft extends PostDraft {
   sourceUrl: string;
   /** YYYY-MM-DD, or null to keep the date it has. */
   postedOn?: string | null;
+  /** Who first raised it; empty clears it (0032). */
+  sourceAuthor?: string | null;
 }
 
 /** Staff only (0031 delete_seeded_post): remove a seeded post. */

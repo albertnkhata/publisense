@@ -1,6 +1,6 @@
 import type { MouseEvent, ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { ago, avatarSrc, boardLogoSrc, postKind, sourceLabel, useFollowPost, type Post } from '../api';
+import { ago, avatarSrc, boardLogoSrc, postKind, sourceCredit, useFollowPost, type Post } from '../api';
 import { cx } from '../lib/cx';
 import { sharePost } from '../lib/share';
 import { useViewer } from '../lib/viewer';
@@ -122,7 +122,7 @@ function PostHead({ post, hideBoard }: { post: Post; hideBoard: boolean }) {
           {post.source_url ? (
             <Dot>
               <a href={post.source_url} target="_blank" rel="noopener noreferrer" className={cx(linkClass, 'inline-flex items-center gap-1 text-ink-muted hover:text-ink')}>
-                from {sourceLabel(post.source_url)}
+                {sourceCredit(post)}
                 <Icon name="arrow-up-right" size={11} />
               </a>
             </Dot>

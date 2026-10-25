@@ -198,8 +198,8 @@ export function useEditSeededPost(viewerId: string | null) {
   return useMutation({
     mutationFn: ({ id, draft }: { id: string; draft: SeededDraft }) => editSeededPost(id, draft, viewerId),
     onSuccess: (saved) => {
-      const { type, title, body, source_url, created_at, edited_at } = saved;
-      patchPost(qc, saved.id, (p) => ({ ...p, type, title, body, source_url, created_at, edited_at }));
+      const { type, title, body, source_url, source_author, created_at, edited_at } = saved;
+      patchPost(qc, saved.id, (p) => ({ ...p, type, title, body, source_url, source_author, created_at, edited_at }));
       // A new original date can move it in date-sorted lists.
       void qc.invalidateQueries({ queryKey: ['posts', 'feed'] });
       void qc.invalidateQueries({ queryKey: ['posts', 'list'] });

@@ -2,6 +2,7 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import {
   BODY_MAX,
   isSourceUrl,
+  sourceAuthorFromUrl,
   TITLE_MAX,
   useEditSeededPost,
   useUpdatePost,
@@ -73,6 +74,7 @@ export function EditPostDialog({ post, open, onClose, seeded = false }: { post: 
   const originalDay = post.created_at.slice(0, 10);
   const [sourceUrl, setSourceUrl] = useState(post.source_url ?? '');
   const [postedOn, setPostedOn] = useState(originalDay);
+  const [sourceAuthor, setSourceAuthor] = useState(post.source_author ?? sourceAuthorFromUrl(post.source_url) ?? '');
   const [sourceError, setSourceError] = useState<string | undefined>();
   const today = new Date().toISOString().slice(0, 10);
   const [draft, setDraft] = useState<PostDraft>({ type: post.type, title: post.title, body: post.body });
@@ -84,7 +86,8 @@ export function EditPostDialog({ post, open, onClose, seeded = false }: { post: 
     draft.type === post.type &&
     draft.title.trim() === post.title &&
     draft.body.trim() === post.body &&
-    (!seeded || (sourceUrl.trim() === (post.source_url ?? '') && postedOn === originalDay));
+    (!seeded ||
+      (sourceUrl.trim() === (post.source_url ?? '') && postedOn === originalDay && sourceAuthor.trim() === (post.source_author ?? '')));
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -106,7 +109,7 @@ export function EditPostDialog({ post, open, onClose, seeded = false }: { post: 
       onError: (err: unknown) => setFailure(err instanceof Error ? err.message : 'We couldn’t save your changes. Try again.'),
     };
     if (seeded) {
-      seededUpdate.mutate({ id: post.id, draft: { ...draft, sourceUrl, postedOn: postedOn === originalDay ? null : postedOn || null } }, callbacks);
+      seededUpdate.mutate({ id: post.id, draft: { ...draft, sourceUrl, sourceAuthor, postedOn: postedOn === originalDay ? null : postedOn || null } }, callbacks);
     } else {
       authorUpdate.mutate({ id: post.id, draft }, callbacks);
     }
@@ -157,6 +160,17 @@ export function EditPostDialog({ post, open, onClose, seeded = false }: { post: 
               <Input type="date" value={postedOn} max={today} onChange={(e) => setPostedOn(e.target.value)} />
             </Field>
           </div>
+        ) : null}
+        {seeded ? (
+          <Field label="Original poster" optional hint="Credited on the card as “@name on X”, linking to the original.">
+              <Input
+                value={sourceAuthor}
+                placeholder="@handle or u/name"
+                maxLength={80}
+                autoComplete="off"
+                onChange={(e) => setSourceAuthor(e.target.value)}
+              />
+          </Field>
         ) : null}
         <Field label="Details" optional error={errors.body}>
           <Textarea
