@@ -1,0 +1,52 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { describe, expect, it } from 'vitest';
+import { applyMeta, boardMeta, isCrawler, postMeta, shareTarget } from '../lib/shareMeta';
+import { slowDown } from '../api/posts';
+
+const html = readFileSync(resolve(__dirname, '../../index.html'), 'utf8');
+
+describe('link previews', () => {
+  it('ships site-wide share tags with the 1200x630 image', () => {
+    expect(html).toContain('<meta property="og:image" content="https://publisense.app/og.png" />');
+    expect(html).toContain('<meta name="twitter:card" content="summary_large_image" />');
+  });
+
+  it('only rewrites for crawlers', () => {
+    expect(isCrawler('Twitterbot/1.0')).toBe(true);
+    expect(isCrawler('WhatsApp/2.23.20.0 A')).toBe(true);
+    expect(isCrawler('Slackbot-LinkExpanding 1.0')).toBe(true);
+    expect(isCrawler('Mozilla/5.0 (Linux; Android 14; Pixel 7 Pro) Chrome/129 Mobile Safari/537.36')).toBe(false);
+  });
+
+  it('knows which pages preview a record', () => {
+    expect(shareTarget('/b/cursor')).toEqual({ kind: 'board', key: 'cursor' });
+    expect(shareTarget('/h/figma/')).toEqual({ kind: 'hub', key: 'figma' });
+    expect(shareTarget('/b/cursor/manage')).toBeNull();
+    expect(shareTarget('/post/not-a-uuid')).toBeNull();
+    expect(shareTarget('/post/3f2b1c9e-1a2b-4c3d-8e9f-0a1b2c3d4e5f')?.kind).toBe('post');
+  });
+
+  it('rewrites title, description, url and escapes', () => {
+    const out = applyMeta(html, boardMeta({ slug: 'cursor', name: 'Cursor "AI"', tagline: 'The AI code editor' }));
+    expect(out).toContain('<title>Cursor &quot;AI&quot; feedback · Publisense</title>');
+    expect(out).toContain('<meta property="og:url" content="https://publisense.app/b/cursor" />');
+    expect(out).toContain('<link rel="canonical" href="https://publisense.app/b/cursor" />');
+    expect(out).toMatch(/og:description" content="The AI code editor\. See what people/);
+    expect(out).toContain('og:image" content="https://publisense.app/og.png"');
+  });
+
+  it('clips long post bodies', () => {
+    const m = postMeta({ id: 'x', title: 'Dark mode', body: 'a '.repeat(300), board: { name: 'Linear' } });
+    expect(m.title).toBe('Dark mode · Linear · Publisense');
+    expect(m.description.length).toBeLessThanOrEqual(200);
+    expect(m.description.endsWith('…')).toBe(true);
+  });
+});
+
+describe('rate limit words', () => {
+  it('says short break or tomorrow', () => {
+    expect(slowDown({ hint: 'short' }, 'posts')).toMatch(/short break/);
+    expect(slowDown({ hint: 'day' }, 'upvotes')).toBe('You’ve hit today’s limit for upvotes. Try again tomorrow.');
+  });
+});

@@ -176,7 +176,7 @@ function Board({ board }: { board: BoardWithHub }) {
             <button
               type="button"
               onClick={() => setParam('tab', 'feedback', 'feedback')}
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink"
+              className="inline-flex items-center gap-2 text-sm font-medium text-ink-muted hover:text-ink"
             >
               <Icon name="arrow-left" size={14} />
               Back to feedback

@@ -19,5 +19,5 @@
     "allowJs": false,
     "noEmit": true
   },
-  "include": ["src", "scripts/*.d.mts", "vite.config.ts", "vitest.config.ts"]
+  "include": ["src", "middleware.ts", "scripts/*.d.mts", "vite.config.ts", "vitest.config.ts"]
 }
