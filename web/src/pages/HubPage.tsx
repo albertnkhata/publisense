@@ -67,7 +67,6 @@ function HubView({ hub }: { hub: Hub }) {
   const tab: HubTab = tabParam === 'boards' || tabParam === 'roadmap' ? tabParam : 'feedback';
   const ids = useMemo(() => hub.boards.map((b) => b.id), [hub.boards]);
   const counts = usePostCounts(ids);
-  const totalPosts = hub.boards.reduce((n, b) => n + b.post_count, 0);
   const first = hub.boards[0];
 
   const setParam = (key: string, value: string, fallback: string) => {
@@ -103,7 +102,6 @@ function HubView({ hub }: { hub: Hub }) {
           <>
             <HubAvatar name={`${hub.name} boards`} size="xs" boards={hub.boards.map((b) => ({ name: b.name, color: b.color, logoSrc: logoSrc(b) }))} max={6} />
             <Stat value={hub.boards.length} label={hub.boards.length === 1 ? 'board' : 'boards'} />
-            <Stat value={totalPosts} label={totalPosts === 1 ? 'post' : 'posts'} />
             <Stat value={compactCount(hub.follower_count)} label={hub.follower_count === 1 ? 'follower' : 'followers'} />
           </>
         }

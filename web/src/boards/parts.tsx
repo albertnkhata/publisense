@@ -171,7 +171,7 @@ export function RowItem({ children }: { children: ReactNode }) {
   return <li className="border-t border-line first:border-t-0">{children}</li>;
 }
 
-/** Board as a row: tile, name, tagline and post count. */
+/** Board as a row: tile, name, tagline and follower count. */
 export function BoardRow({ board, extra }: { board: Board; extra?: ReactNode }) {
   return (
     <div className="flex items-center gap-3">
@@ -181,7 +181,7 @@ export function BoardRow({ board, extra }: { board: Board; extra?: ReactNode }) 
           <span className="truncate text-base font-semibold">{board.name}</span>
           <span className="truncate text-sm text-ink-muted">
             {board.tagline ? `${board.tagline} · ` : ''}
-            {plural(board.post_count, 'post')}
+            {plural(board.follower_count, 'follower')}
           </span>
         </span>
       </Link>
@@ -248,10 +248,7 @@ export function BoardCard({ board, now = new Date() }: { board: Board; now?: Dat
       </div>
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-ink-muted">
         <span>
-          <b className="font-semibold text-ink">{board.post_count}</b> {board.post_count === 1 ? 'post' : 'posts'}
-        </span>
-        <span>
-          <b className="font-semibold text-ink">{compactCount(board.follower_count)}</b> followers
+          <b className="font-semibold text-ink">{compactCount(board.follower_count)}</b> {board.follower_count === 1 ? 'follower' : 'followers'}
         </span>
         {board.claimed_at ? (
           <span className="inline-flex items-center gap-1">
