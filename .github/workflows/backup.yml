@@ -50,6 +50,9 @@ jobs:
           PASS: ${{ secrets.BACKUP_PASSPHRASE }}
         run: |
           set -euo pipefail
+          # A pasted secret often carries a trailing newline, which libpq would
+          # treat as part of the database name ("postgres\n" does not exist).
+          DB=$(printf '%s' "$DB" | tr -d '\r\n')
           stamp=$(date -u +%Y-%m-%dT%H%MZ)
           echo "STAMP=$stamp" >> "$GITHUB_ENV"
           umask 077
