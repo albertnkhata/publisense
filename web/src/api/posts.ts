@@ -741,6 +741,58 @@ export async function createPost(d: NewPost, viewerId: string | null): Promise<P
   return { ...post, following: viewerId ? true : post.following };
 }
 
+export interface SeedPost extends NewPost {
+  /** The public post this came from (https). */
+  sourceUrl: string;
+  /** When it was originally posted (YYYY-MM-DD); defaults to now. */
+  postedOn?: string | null;
+}
+
+/** Is this an https link a seeded post can point back to? */
+export function isSourceUrl(v: string): boolean {
+  const t = v.trim();
+  if (!/^https:\/\//i.test(t) || /\s/.test(t) || t.length > 2000) return false;
+  try {
+    return new URL(t).hostname.includes('.');
+  } catch {
+    return false;
+  }
+}
+
+const SEED_ERRORS: Record<string, string> = {
+  not_allowed: 'Only Publisense staff can add posts from a source.',
+  not_found: 'That product isn’t live.',
+  invalid_type: 'Choose a type.',
+  title_length: 'Titles are 3 to 140 characters.',
+  body_length: 'Details are too long.',
+  invalid_source: 'Use the full https link to the original post.',
+  invalid_date: 'The original date can’t be in the future.',
+  duplicate: 'That source is already on this board.',
+};
+
+/**
+ * Staff only (0028 seed_post): a post from a public source, with no author and a
+ * link back to the original. It renders as the board's own card, "from GitHub".
+ */
+export async function seedPost(d: SeedPost, viewerId: string | null): Promise<Post> {
+  const sb = getSupabase();
+  const at = d.postedOn ? new Date(`${d.postedOn}T12:00:00Z`) : null;
+  const { data, error } = await sb.rpc('seed_post', {
+    p_board: d.boardId,
+    p_type: d.type,
+    p_title: d.title.trim(),
+    p_body: d.body.trim(),
+    p_source_url: d.sourceUrl.trim(),
+    p_posted_at: at && !Number.isNaN(at.getTime()) ? at.toISOString() : null,
+  });
+  if (error) throw failed('We couldn’t post this. Try again.');
+  const res = (data ?? { ok: false }) as { ok: boolean; id?: string; error?: string };
+  if (!res.ok || !res.id) throw failed(SEED_ERRORS[res.error ?? ''] ?? 'We couldn’t post this. Try again.');
+  const post = await fetchPost(res.id, viewerId);
+  if (!post) throw failed('Posted, but we couldn’t load it. Refresh to see it.');
+  return post;
+}
+
 // ------------------------------------------------------------------ search
 
 /**

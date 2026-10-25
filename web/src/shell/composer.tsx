@@ -16,20 +16,25 @@ import {
 import { Link, useNavigate } from 'react-router';
 import {
   BODY_MAX,
+  isLive,
   isPostable,
+  isSourceUrl,
   logoSrc,
   matchesAll,
   TITLE_MAX,
   useBoards,
   useCreatePost,
   useHubs,
+  useIsPlatformAdmin,
   useSimilarPosts,
   validatePost,
   type Board,
   type Post,
   type PostErrors,
   type PostType,
+  sourceLabel,
 } from '../api';
+import { cx } from '../lib/cx';
 import { useViewer } from '../lib/viewer';
 import { VoteButton } from '../posts/VoteButton';
 import { BoardAvatar, Button, Dialog, Field, Icon, Input, Menu, MenuItemRadio, STATUS_META, Textarea, TYPE_META, useToast } from '../ui';
@@ -53,6 +58,8 @@ export interface ComposerOptions {
   firstPost?: boolean;
   /** Offer "Is this your product? Claim it" (the adder's email is on the product's domain). */
   onClaim?: () => void;
+  /** Staff: open on "From a source" (a seeded post with a link back, no author). */
+  seed?: boolean;
 }
 
 interface ComposerCtx {
@@ -70,7 +77,7 @@ export function ComposerProvider({ children }: { children: ReactNode }) {
       // Guard against being handed a click event as `opts`.
       const clean: ComposerOptions =
         opts && typeof opts === 'object' && !('nativeEvent' in opts)
-          ? { board: opts.board, hub: opts.hub, title: opts.title, firstPost: opts.firstPost, onClaim: opts.onClaim }
+          ? { board: opts.board, hub: opts.hub, title: opts.title, firstPost: opts.firstPost, onClaim: opts.onClaim, seed: opts.seed }
           : {};
       setState((s) => ({ open: true, opts: clean, key: s.key + 1 }));
     },
@@ -111,6 +118,14 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
   const [body, setBody] = useState('');
   const [errors, setErrors] = useState<PostErrors & { board?: string }>({});
   const [failure, setFailure] = useState<string | null>(null);
+  // Staff only: post as yourself, or seed one from a public source (0028).
+  const isAdmin = useIsPlatformAdmin(viewer?.id ?? null).data === true;
+  const [mode, setMode] = useState<'me' | 'source'>(opts.seed ? 'source' : 'me');
+  const seeding = isAdmin && mode === 'source';
+  const [sourceUrl, setSourceUrl] = useState('');
+  const [postedOn, setPostedOn] = useState('');
+  const [sourceError, setSourceError] = useState<string | undefined>();
+  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   const productRef = useRef<HTMLInputElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
@@ -119,7 +134,10 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
   const formId = useId();
 
   const viewerId = viewer?.id ?? null;
-  const postable = useMemo(() => (boards.data ?? []).filter((b) => isPostable(b, viewerId)), [boards.data, viewerId]);
+  const postable = useMemo(
+    () => (boards.data ?? []).filter((b) => (seeding ? isLive(b) : isPostable(b, viewerId))),
+    [boards.data, viewerId, seeding],
+  );
   const board = postable.find((b) => b.slug === boardSlug) ?? null;
   const pendingBoard = board?.status === 'pending';
   const hub = opts.hub ? (hubs.data?.find((h) => h.slug === opts.hub) ?? null) : null;
@@ -133,7 +151,7 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
   }, [title]);
   const similar = useSimilarPosts(debounced, similarBoards, viewer?.id ?? null);
 
-  const valid = Boolean(board && type && title.trim());
+  const valid = Boolean(board && type && title.trim() && (!seeding || sourceUrl.trim()));
 
   const submit = (e?: FormEvent) => {
     e?.preventDefault();
@@ -142,14 +160,16 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
     if (!board) found.board = 'Choose the product this is about.';
     if (!type) found.type = 'Choose a type.';
     setErrors(found);
-    if (Object.keys(found).length || !board || !type) return;
+    const badSource = seeding && !isSourceUrl(sourceUrl) ? 'Paste the full https link to the original post.' : undefined;
+    setSourceError(badSource);
+    if (Object.keys(found).length || badSource || !board || !type) return;
     setFailure(null);
     create.mutate(
-      { boardId: board.id, type, title, body },
+      seeding ? { boardId: board.id, type, title, body, sourceUrl, postedOn: postedOn || null } : { boardId: board.id, type, title, body },
       {
         onSuccess: (post) => {
           onClose();
-          toast(`Posted to ${board.name}`);
+          toast(seeding ? `Added to ${board.name} from ${sourceLabel(sourceUrl)}` : `Posted to ${board.name}`);
           void navigate(`/post/${post.id}`);
         },
         onError: (err) => setFailure(err instanceof Error ? err.message : 'We couldn’t post this. Try again.'),
@@ -165,12 +185,15 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
   };
 
   const initialFocus = board ? (type ? titleRef : typeRef) : productRef;
+  const footNote = seeding
+    ? `Shows as the board’s post, from ${isSourceUrl(sourceUrl) ? sourceLabel(sourceUrl) : 'the source'}, with no author`
+    : 'You’ll follow this post automatically';
 
   return (
     <Dialog
       open
       onClose={onClose}
-      title={opts.firstPost ? 'What do you want to tell them?' : 'Post feedback'}
+      title={seeding ? 'Add feedback from a source' : opts.firstPost ? 'What do you want to tell them?' : 'Post feedback'}
       {...(pendingBoard && board
         ? { description: `${board.name} is waiting for review. Until it’s approved, only you can see it and what you post on it.` }
         : {})}
@@ -179,12 +202,12 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
       dismissable={!create.isPending}
       footer={
         <>
-          <span className="mr-auto text-sm text-ink-muted max-sm:hidden">You’ll follow this post automatically</span>
+          <span className="mr-auto text-sm text-ink-muted max-sm:hidden">{footNote}</span>
           <Button variant="secondary" onClick={onClose} disabled={create.isPending}>
             Cancel
           </Button>
           <Button type="submit" form={formId} disabled={!valid} loading={create.isPending}>
-            Post
+            {seeding ? 'Add post' : 'Post'}
           </Button>
         </>
       }
@@ -205,6 +228,33 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
             </button>
             <span className="text-ink-muted">to reply as its verified team.</span>
           </p>
+        ) : null}
+        {isAdmin ? (
+          <div role="group" aria-label="Post as" className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-ink-muted">Post as</span>
+            {(
+              [
+                ['me', 'You'],
+                ['source', 'From a source'],
+              ] as const
+            ).map(([m, label]) => (
+              <button
+                key={m}
+                type="button"
+                aria-pressed={mode === m}
+                onClick={() => {
+                  setMode(m);
+                  setFailure(null);
+                }}
+                className={cx(
+                  'inline-flex h-7 items-center rounded-pill border px-3 text-sm font-medium transition-colors duration-120',
+                  mode === m ? 'border-brand bg-brand-soft text-brand' : 'border-line bg-card text-ink hover:border-line-strong hover:bg-subtle',
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         ) : null}
         <Field label="Product" error={errors.board}>
           {board ? (
@@ -238,6 +288,27 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
             </>
           )}
         </Field>
+
+        {seeding ? (
+          <div className="flex flex-col gap-5 sm:flex-row">
+            <Field label="Source link" error={sourceError} className="min-w-0 flex-1">
+              <Input
+                type="url"
+                inputMode="url"
+                value={sourceUrl}
+                placeholder="https://github.com/org/repo/issues/123"
+                autoComplete="off"
+                onChange={(e) => {
+                  setSourceUrl(e.target.value);
+                  setSourceError(undefined);
+                }}
+              />
+            </Field>
+            <Field label="Originally posted" optional>
+              <Input type="date" value={postedOn} max={today} onChange={(e) => setPostedOn(e.target.value)} />
+            </Field>
+          </div>
+        ) : null}
 
         <TypeField
           triggerRef={typeRef}
@@ -279,7 +350,7 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
           />
         </Field>
 
-        <p className="m-0 hidden text-center text-sm text-ink-muted max-sm:block">You’ll follow this post automatically</p>
+        <p className="m-0 hidden text-center text-sm text-ink-muted max-sm:block">{footNote}</p>
         {failure ? (
           <p role="alert" className="m-0 text-sm text-danger">
             {failure}

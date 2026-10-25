@@ -16,7 +16,7 @@ import {
   type FollowTarget,
   type Hub,
 } from './boards';
-import { createPost, fetchChangelog, fetchPostList, fetchRoadmap, fetchSimilar, fetchWanted, type NewPost, type PostListParams } from './posts';
+import { createPost, seedPost, fetchChangelog, fetchPostList, fetchRoadmap, fetchSimilar, fetchWanted, type NewPost, type PostListParams, type SeedPost } from './posts';
 import { postKeys } from './postHooks';
 
 /*
@@ -195,7 +195,7 @@ export function useSimilarPosts(title: string, boardIds: string[], viewerId: str
 export function useCreatePost(viewerId: string | null) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (d: NewPost) => createPost(d, viewerId),
+    mutationFn: (d: NewPost | SeedPost) => ('sourceUrl' in d ? seedPost(d, viewerId) : createPost(d, viewerId)),
     onSuccess: (post) => {
       qc.setQueryData(postKeys.detail(post.id, viewerId), post);
       // New posts show up in every feed, count and list that could hold them.
