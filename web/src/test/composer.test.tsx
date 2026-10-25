@@ -15,8 +15,11 @@ const boardsApi = vi.hoisted(() => ({
 const postsApi = vi.hoisted(() => ({
   fetchSimilar: vi.fn(),
   createPost: vi.fn(),
+  seedPost: vi.fn(),
   setVote: vi.fn(),
 }));
+const modApi = vi.hoisted(() => ({ fetchIsPlatformAdmin: vi.fn() }));
+vi.mock('../api/moderation', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/moderation')>()), ...modApi }));
 vi.mock('../api/boards', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/boards')>()), ...boardsApi }));
 vi.mock('../api/posts', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/posts')>()), ...postsApi }));
 
@@ -63,6 +66,7 @@ beforeEach(() => {
   boardsApi.fetchBoards.mockResolvedValue([CURSOR, FIGMA, SUPABASE]);
   boardsApi.fetchHubs.mockResolvedValue([FIGMA_HUB]);
   postsApi.fetchSimilar.mockResolvedValue([]);
+  modApi.fetchIsPlatformAdmin.mockResolvedValue(false);
 });
 
 describe('composer', () => {
@@ -174,5 +178,62 @@ describe('search popover', () => {
     fireEvent.submit(input.closest('form')!);
     expect(router.state.location.pathname).toBe('/search');
     expect(router.state.location.search).toBe('?q=dark%20mode');
+  });
+
+  describe('from a source (staff)', () => {
+    it('is not offered to people who aren’t staff', async () => {
+      renderComposer();
+      const dialog = await open();
+      await waitFor(() => expect(modApi.fetchIsPlatformAdmin).toHaveBeenCalled());
+      expect(within(dialog).queryByRole('group', { name: 'Post as' })).toBeNull();
+      expect(within(dialog).queryByLabelText('Source link')).toBeNull();
+    });
+
+    it('seeds a post with its source link and original date, with no author', async () => {
+      modApi.fetchIsPlatformAdmin.mockResolvedValue(true);
+      postsApi.seedPost.mockResolvedValue(makePost({ id: 'a0000000-0000-4000-8000-0000000000ee', title: 'Branching for preview databases' }));
+      const { router } = renderComposer();
+      const dialog = await open();
+      fireEvent.click(await within(dialog).findByRole('button', { name: 'From a source' }));
+      expect(await screen.findByRole('dialog', { name: 'Add feedback from a source' })).toBeTruthy();
+      await chooseSupabase(dialog);
+      chooseType(dialog, 'Feature request');
+      fireEvent.change(within(dialog).getByRole('textbox', { name: 'Title' }), { target: { value: 'Branching for preview databases' } });
+      const add = within(dialog).getByRole('button', { name: 'Add post' }) as HTMLButtonElement;
+      expect(add.disabled).toBe(true);
+      fireEvent.change(within(dialog).getByLabelText('Source link'), { target: { value: 'https://github.com/supabase/supabase/issues/42' } });
+      fireEvent.change(within(dialog).getByLabelText(/Originally posted/), { target: { value: '2025-03-14' } });
+      expect(within(dialog).getAllByText(/from GitHub, with no author/).length).toBeGreaterThan(0);
+      fireEvent.click(add);
+      await waitFor(() => expect(router.state.location.pathname).toBe('/post/a0000000-0000-4000-8000-0000000000ee'));
+      expect(postsApi.seedPost).toHaveBeenCalledWith(
+        expect.objectContaining({ boardId: SUPABASE.id, type: 'feature', title: 'Branching for preview databases', sourceUrl: 'https://github.com/supabase/supabase/issues/42', postedOn: '2025-03-14' }),
+        TEST_VIEWER.id,
+      );
+      expect(postsApi.createPost).not.toHaveBeenCalled();
+    });
+
+    it('asks for a full https link before seeding', async () => {
+      modApi.fetchIsPlatformAdmin.mockResolvedValue(true);
+      renderComposer();
+      const dialog = await open();
+      fireEvent.click(await within(dialog).findByRole('button', { name: 'From a source' }));
+      await chooseSupabase(dialog);
+      chooseType(dialog, 'Bug');
+      fireEvent.change(within(dialog).getByRole('textbox', { name: 'Title' }), { target: { value: 'Login loops' } });
+      fireEvent.change(within(dialog).getByLabelText('Source link'), { target: { value: 'reddit.com/r/supabase' } });
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Add post' }));
+      expect(await within(dialog).findByText('Paste the full https link to the original post.')).toBeTruthy();
+      expect(postsApi.seedPost).not.toHaveBeenCalled();
+    });
+
+    it('still posts as yourself by default', async () => {
+      modApi.fetchIsPlatformAdmin.mockResolvedValue(true);
+      postsApi.createPost.mockResolvedValue(makePost({ id: 'a0000000-0000-4000-8000-0000000000fd' }));
+      renderComposer();
+      const dialog = await open();
+      expect((await within(dialog).findByRole('button', { name: 'You' })).getAttribute('aria-pressed')).toBe('true');
+      expect(within(dialog).queryByLabelText('Source link')).toBeNull();
+    });
   });
 });
