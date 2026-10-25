@@ -50,6 +50,8 @@ export interface Post {
   source_url: string | null;
   /** Seeded posts: who first raised it at the source ("@jeff_weinstein"), credited as "@jeff_weinstein on X" (0032). */
   source_author: string | null;
+  /** The device it is about, when the poster said (0033). */
+  platform: Platform | null;
   type: PostType;
   status: PostStatus;
   title: string;
@@ -81,7 +83,7 @@ export const FEED_PAGE_SIZE = 20;
 const PERSON = 'id, handle, name, avatar_path';
 const BOARD = 'id, slug, name, color, logo_path';
 export const POST_SELECT =
-  'id, board_id, author_id, source_url, source_author, type, status, title, body, merged_into, hidden_at, edited_at, created_at, vote_count, reply_count, ' +
+  'id, board_id, author_id, source_url, source_author, platform, type, status, title, body, merged_into, hidden_at, edited_at, created_at, vote_count, reply_count, ' +
   `author:profile!author_id(${PERSON}), board:board!board_id(${BOARD})`;
 const REPLY_SELECT = `id, post_id, parent_id, author_id, body, is_official, hidden_at, edited_at, created_at, author:profile!author_id(${PERSON})`;
 
@@ -170,10 +172,21 @@ export const TITLE_MAX = 140;
 export const BODY_MAX = 10_000;
 export const REPLY_MAX = 5_000;
 
+export type Platform = 'ios' | 'android' | 'web' | 'desktop';
+export const PLATFORMS: { value: Platform; label: string }[] = [
+  { value: 'ios', label: 'iOS' },
+  { value: 'android', label: 'Android' },
+  { value: 'web', label: 'Web' },
+  { value: 'desktop', label: 'Desktop' },
+];
+export const platformLabel = (p: Platform | null | undefined) => PLATFORMS.find((x) => x.value === p)?.label ?? null;
+
 export interface PostDraft {
   type: PostType;
   title: string;
   body: string;
+  /** Optional device (0033); null or absent means not about one device. */
+  platform?: Platform | null;
 }
 export type PostErrors = Partial<Record<keyof PostDraft, string>>;
 
@@ -449,15 +462,15 @@ export async function setPostFollow(postId: string, viewerId: string, on: boolea
 }
 
 /** Author edit. Only title, body and type are writable; the DB stamps edited_at. */
-export async function updatePost(id: string, d: PostDraft): Promise<Pick<Post, 'id' | 'type' | 'title' | 'body' | 'edited_at'>> {
+export async function updatePost(id: string, d: PostDraft): Promise<Pick<Post, 'id' | 'type' | 'title' | 'body' | 'platform' | 'edited_at'>> {
   const { data, error } = await getSupabase()
     .from('post')
-    .update({ type: d.type, title: d.title.trim(), body: d.body.trim() })
+    .update({ type: d.type, title: d.title.trim(), body: d.body.trim(), platform: d.platform ?? null })
     .eq('id', id)
-    .select('id, type, title, body, edited_at')
+    .select('id, type, title, body, platform, edited_at')
     .maybeSingle();
   if (error || !data) throw failed('We couldn’t save your changes. Try again.');
-  return data as Pick<Post, 'id' | 'type' | 'title' | 'body' | 'edited_at'>;
+  return data as Pick<Post, 'id' | 'type' | 'title' | 'body' | 'platform' | 'edited_at'>;
 }
 
 /** Author delete (hard delete; its votes, replies and follows go with it). */
@@ -500,12 +513,14 @@ export async function deleteReply(id: string): Promise<void> {
 
 export type TypeFilter = 'all' | PostType;
 export type StatusFilter = 'all' | Exclude<PostStatus, 'merged'>;
+export type PlatformFilter = 'all' | Platform;
 
 export interface PostListParams {
   /** One board, or every board of a hub. */
   boardIds: string[];
   type?: TypeFilter;
   status?: StatusFilter;
+  platform?: PlatformFilter;
   sort: FeedSort;
   offset: number;
   viewerId: string | null;
@@ -514,11 +529,12 @@ export interface PostListParams {
 }
 
 /** A page of a board's (or hub's) feed, with the board page's filters. */
-export async function fetchPostList({ boardIds, type = 'all', status = 'all', sort, offset, viewerId, excludeClosed }: PostListParams): Promise<FeedPage> {
+export async function fetchPostList({ boardIds, type = 'all', status = 'all', platform = 'all', sort, offset, viewerId, excludeClosed }: PostListParams): Promise<FeedPage> {
   if (boardIds.length === 0) return { items: [], next: null };
   let q = getSupabase().from('post').select(POST_SELECT).is('hidden_at', null).neq('status', 'merged');
   q = boardIds.length === 1 ? q.eq('board_id', boardIds[0] ?? '') : q.in('board_id', boardIds);
   if (type !== 'all') q = q.eq('type', type);
+  if (platform !== 'all') q = q.eq('platform', platform);
   if (status !== 'all') q = q.eq('status', status);
   else if (excludeClosed) q = q.neq('status', 'closed');
   q =
@@ -736,7 +752,7 @@ const isRlsReadBack = (e: { code?: string; message?: string } | null) =>
  */
 export async function createPost(d: NewPost, viewerId: string | null): Promise<Post> {
   const sb = getSupabase();
-  const row = { board_id: d.boardId, type: d.type, title: d.title.trim(), body: d.body.trim() };
+  const row = { board_id: d.boardId, type: d.type, title: d.title.trim(), body: d.body.trim(), ...(d.platform ? { platform: d.platform } : {}) };
   const first = await sb.from('post').insert(row).select(POST_SELECT).single();
   let data: unknown = first.data;
   let error = first.error;
@@ -798,6 +814,7 @@ const SEED_ERRORS: Record<string, string> = {
   invalid_date: 'The original date can’t be in the future.',
   duplicate: 'That source is already on this board.',
   author_length: 'The original poster’s name is too long.',
+  invalid_platform: 'Choose iOS, Android, Web or Desktop.',
 };
 
 /**
@@ -815,6 +832,7 @@ export async function seedPost(d: SeedPost, viewerId: string | null): Promise<Po
     p_source_url: d.sourceUrl.trim(),
     p_posted_at: at && !Number.isNaN(at.getTime()) ? at.toISOString() : null,
     p_source_author: d.sourceAuthor?.trim() || null,
+    p_platform: d.platform ?? null,
   });
   if (error) throw failed('We couldn’t post this. Try again.');
   const res = (data ?? { ok: false }) as { ok: boolean; id?: string; error?: string };
@@ -838,6 +856,7 @@ export async function editSeededPost(id: string, d: SeededDraft, viewerId: strin
     p_source_url: d.sourceUrl.trim(),
     p_posted_at: at && !Number.isNaN(at.getTime()) ? at.toISOString() : null,
     p_source_author: d.sourceAuthor?.trim() || null,
+    p_platform: d.platform ?? null,
   });
   if (error) throw failed('We couldn’t save your changes. Try again.');
   const res = (data ?? { ok: false }) as { ok: boolean; error?: string };

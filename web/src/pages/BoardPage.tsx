@@ -16,6 +16,7 @@ import {
   useRoadmap,
   type BoardWithHub,
   type FeedSort,
+  type PlatformFilter,
   type StatusFilter,
   type TypeFilter,
 } from '../api';
@@ -51,6 +52,14 @@ export const STATUS_CHOICES: Choice<StatusFilter>[] = [
   { value: 'planned', label: 'Planned' },
   { value: 'in_progress', label: 'In progress' },
   { value: 'shipped', label: 'Shipped' },
+];
+
+export const PLATFORM_CHOICES: Choice<PlatformFilter>[] = [
+  { value: 'all', label: 'Any device' },
+  { value: 'ios', label: 'iOS' },
+  { value: 'android', label: 'Android' },
+  { value: 'web', label: 'Web' },
+  { value: 'desktop', label: 'Desktop' },
 ];
 
 export const SORT_CHOICES: Choice<FeedSort>[] = [
@@ -159,7 +168,7 @@ function Board({ board }: { board: BoardWithHub }) {
       />
       <TabPanel idBase="board" value={tab}>
         {tab === 'feedback' ? (
-          <Feedback board={board} params={params} setParam={setParam} clear={() => update([['type', 'all', 'all'], ['status', 'all', 'all']])} />
+          <Feedback board={board} params={params} setParam={setParam} clear={() => update([['type', 'all', 'all'], ['status', 'all', 'all'], ['device', 'all', 'all']])} />
         ) : tab === 'roadmap' ? (
           <RoadmapTab boardIds={ids} />
         ) : (
@@ -185,16 +194,18 @@ function Feedback({
   const { openComposer } = useComposer();
   const type = pick(params.get('type'), TYPE_CHOICES, 'all');
   const status = pick(params.get('status'), STATUS_CHOICES, 'all');
+  const platform = pick(params.get('device'), PLATFORM_CHOICES, 'all');
   const sort = pick(params.get('sort'), SORT_CHOICES, 'top');
-  const list = usePostList({ boardIds: [board.id], type, status, sort, viewerId: viewer?.id ?? null });
+  const list = usePostList({ boardIds: [board.id], type, status, platform, sort, viewerId: viewer?.id ?? null });
   const posts = useMemo(() => dedupePosts(list.data?.pages ?? []), [list.data]);
-  const filtered = type !== 'all' || status !== 'all';
+  const filtered = type !== 'all' || status !== 'all' || platform !== 'all';
 
   return (
     <>
-      <div className="mb-4 flex items-center gap-1">
+      <div className="mb-4 flex flex-wrap items-center gap-1">
         <ChoiceMenu label="Type" value={type} choices={TYPE_CHOICES} onChange={(v) => setParam('type', v, 'all')} set={type !== 'all'} />
         <ChoiceMenu label="Status" value={status} choices={STATUS_CHOICES} onChange={(v) => setParam('status', v, 'all')} set={status !== 'all'} />
+        <ChoiceMenu label="Device" value={platform} choices={PLATFORM_CHOICES} onChange={(v) => setParam('device', v, 'all')} set={platform !== 'all'} />
         {filtered ? (
           <button
             type="button"

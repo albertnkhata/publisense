@@ -23,6 +23,7 @@ export function makePost(over: Partial<Post> = {}): Post {
     author_id: OTHER.id,
     source_url: null,
     source_author: null,
+    platform: null,
     type: 'bug',
     status: 'open',
     title: `Post number ${n}`,
