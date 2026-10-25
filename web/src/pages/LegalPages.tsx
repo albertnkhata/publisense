@@ -11,8 +11,8 @@ import { Card } from '../ui';
  * If any of this stops being true, this file is wrong and must change with it.
  */
 
-const CONTACT = 'albertnkhata.s@gmail.com';
-const UPDATED = '24 October 2026';
+const CONTACT = 'support@publisense.app';
+const UPDATED = '25 October 2026';
 
 const linkClass = 'font-semibold text-ink underline underline-offset-2 hover:text-brand';
 
