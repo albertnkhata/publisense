@@ -84,7 +84,7 @@ describe('board page', () => {
     renderAt('/b/cursor');
     expect(await screen.findByRole('heading', { level: 1, name: 'Cursor' })).toBeTruthy();
     expect(screen.getByText('The AI code editor')).toBeTruthy();
-    expect(screen.getByText('92')).toBeTruthy();
+    expect(screen.queryByText('92')).toBeNull(); // no post count, followers only
     expect(screen.getByText('4.1k')).toBeTruthy();
     expect(await screen.findByText('Composer drops edits')).toBeTruthy();
     // No tab bar: Roadmap and Changelog sit in the ⋯ menu.

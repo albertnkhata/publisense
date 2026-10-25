@@ -142,7 +142,6 @@ function Board({ board }: { board: BoardWithHub }) {
         meta={boardMeta(board)}
         stats={
           <>
-            <Stat value={board.post_count} label={board.post_count === 1 ? 'post' : 'posts'} />
             <Stat value={compactCount(board.follower_count)} label={board.follower_count === 1 ? 'follower' : 'followers'} />
             {board.status === 'rejected' ? null : <ClaimState board={board} team={Boolean(team.data)} />}
           </>
