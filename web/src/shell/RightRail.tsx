@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router';
-import { hasSupabaseConfig, logoSrc, useBoards, useTrending } from '../api';
+import { compactCount, hasSupabaseConfig, logoSrc, useBoards, useTrending } from '../api';
 import { BoardAvatar, Card, SkeletonBlock } from '../ui';
 import { useClaim } from '../claim/ClaimDialog';
 import { LegalLinks } from './LegalLinks';
@@ -65,8 +65,8 @@ function Trending() {
           <Link to={`/b/${b.slug}`} className="-mx-2 flex items-center gap-3 rounded-sm px-2 py-2 text-base font-medium text-ink no-underline hover:bg-subtle">
             <BoardAvatar name={b.name} color={b.color} logoSrc={logoSrc(b)} size="sm" decorative />
             <span className="min-w-0 flex-1 truncate">{b.name}</span>
-            <span title={`${b.post_count} ${b.post_count === 1 ? 'post' : 'posts'}`} className="font-mono text-xs text-ink-muted tabular-nums">
-              {b.post_count}
+            <span title={`${b.follower_count} ${b.follower_count === 1 ? 'follower' : 'followers'}`} className="font-mono text-xs text-ink-muted tabular-nums">
+              {compactCount(b.follower_count)}
             </span>
           </Link>
         </li>
