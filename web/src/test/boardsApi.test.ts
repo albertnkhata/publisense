@@ -363,7 +363,7 @@ describe('siteLink', () => {
 });
 
 /*
- * 0028: a company that changes its name keeps the names it used, its old address resolves
+ * 0030: a company that changes its name keeps the names it used, its old address resolves
  * to it, and searching an old name finds it.
  */
 describe('company names (0030)', () => {

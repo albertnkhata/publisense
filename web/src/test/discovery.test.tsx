@@ -371,7 +371,7 @@ describe('search', () => {
 
 
 /*
- * 0028: a company that changed its name still owns the address it used to publish under.
+ * 0030: a company that changed its name still owns the address it used to publish under.
  * Following an old link lands on the current one instead of "Hub not found".
  */
 describe('old company addresses', () => {
