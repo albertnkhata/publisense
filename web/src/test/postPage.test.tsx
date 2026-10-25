@@ -212,7 +212,7 @@ describe('author edit and delete', () => {
     fireEvent.change(within(dialog).getByRole('combobox', { name: 'Type' }), { target: { value: 'feature' } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
     await waitFor(() =>
-      expect(api.updatePost).toHaveBeenCalledWith(post.id, { type: 'feature', title: 'New, clearer title', body: 'Body text' }),
+      expect(api.updatePost).toHaveBeenCalledWith(post.id, { type: 'feature', title: 'New, clearer title', body: 'Body text', platform: null }),
     );
     expect((await screen.findByRole('heading', { level: 1 })).textContent).toBe('New, clearer title');
     expect(screen.getByText('Feature request')).toBeTruthy();
@@ -357,5 +357,12 @@ describe('staff and seeded posts (0031)', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: /Delete/ }));
     await waitFor(() => expect(api.deleteSeededPost).toHaveBeenCalledWith(post.id));
     expect(api.deletePost).not.toHaveBeenCalled();
+  });
+});
+
+describe('device on a post (0033)', () => {
+  it('shows the device on the post', async () => {
+    renderPost(makePost({ platform: 'android' }));
+    expect(await screen.findByText('Android')).toBeTruthy();
   });
 });

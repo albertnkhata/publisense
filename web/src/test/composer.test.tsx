@@ -89,13 +89,19 @@ describe('composer', () => {
     chooseType(dialog, 'Feature request');
     fireEvent.change(within(dialog).getByRole('textbox', { name: 'Title' }), { target: { value: 'Branching for preview databases' } });
     fireEvent.change(within(dialog).getByRole('textbox', { name: /Details/ }), { target: { value: 'One per pull request.' } });
+    // Device is optional (0033): choosing it again clears it.
+    const ios = within(dialog).getByRole('button', { name: 'iOS' });
+    fireEvent.click(ios);
+    expect(ios.getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Web' }));
+    expect(ios.getAttribute('aria-pressed')).toBe('false');
     expect(within(dialog).getByText('31/140')).toBeTruthy();
     expect(post.disabled).toBe(false);
 
     fireEvent.click(post);
     await waitFor(() =>
       expect(postsApi.createPost).toHaveBeenCalledWith(
-        { boardId: SUPABASE.id, type: 'feature', title: 'Branching for preview databases', body: 'One per pull request.' },
+        { boardId: SUPABASE.id, type: 'feature', title: 'Branching for preview databases', body: 'One per pull request.', platform: 'web' },
         TEST_VIEWER.id,
       ),
     );

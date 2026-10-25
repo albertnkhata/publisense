@@ -31,12 +31,14 @@ import {
   type Board,
   type Post,
   type PostErrors,
+  type Platform,
   type PostType,
   sourceAuthorFromUrl,
   sourceLabel,
 } from '../api';
 import { cx } from '../lib/cx';
 import { useViewer } from '../lib/viewer';
+import { PlatformField } from '../posts/PlatformField';
 import { VoteButton } from '../posts/VoteButton';
 import { BoardAvatar, Button, Dialog, Field, Icon, Input, Menu, MenuItemRadio, STATUS_META, Textarea, TYPE_META, useToast } from '../ui';
 import { useRequireAuth } from './auth';
@@ -115,6 +117,7 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
 
   const [boardSlug, setBoardSlug] = useState<string | null>(opts.board ?? null);
   const [type, setType] = useState<PostType | null>(null);
+  const [platform, setPlatform] = useState<Platform | null>(null);
   const [title, setTitle] = useState(opts.title ?? '');
   const [body, setBody] = useState('');
   const [errors, setErrors] = useState<PostErrors & { board?: string }>({});
@@ -169,7 +172,8 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
     if (Object.keys(found).length || badSource || !board || !type) return;
     setFailure(null);
     create.mutate(
-      seeding ? { boardId: board.id, type, title, body, sourceUrl, postedOn: postedOn || null, sourceAuthor: sourceAuthor || null } : { boardId: board.id, type, title, body },
+      seeding ? { boardId: board.id, type, title, body, platform, sourceUrl, postedOn: postedOn || null, sourceAuthor: sourceAuthor || null }
+        : { boardId: board.id, type, title, body, platform },
       {
         onSuccess: (post) => {
           onClose();
@@ -335,6 +339,8 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
             requestAnimationFrame(() => titleRef.current?.focus());
           }}
         />
+
+        <PlatformField value={platform} onChange={setPlatform} />
 
         <Field label="Title" error={errors.title} aside={`${title.length}/${TITLE_MAX}`}>
           <Input

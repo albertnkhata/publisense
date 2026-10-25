@@ -13,6 +13,7 @@ import {
   type PostType,
 } from '../api';
 import { useViewer } from '../lib/viewer';
+import { PlatformField } from './PlatformField';
 import { Button, Dialog, Field, Input, Select, Textarea, useToast } from '../ui';
 
 /** A yes/no question before something that cannot be undone. */
@@ -77,13 +78,14 @@ export function EditPostDialog({ post, open, onClose, seeded = false }: { post: 
   const [sourceAuthor, setSourceAuthor] = useState(post.source_author ?? sourceAuthorFromUrl(post.source_url) ?? '');
   const [sourceError, setSourceError] = useState<string | undefined>();
   const today = new Date().toISOString().slice(0, 10);
-  const [draft, setDraft] = useState<PostDraft>({ type: post.type, title: post.title, body: post.body });
+  const [draft, setDraft] = useState<PostDraft>({ type: post.type, title: post.title, body: post.body, platform: post.platform });
   const [errors, setErrors] = useState<PostErrors>({});
   const [failure, setFailure] = useState<string | null>(null);
   const formId = `edit-post-${post.id}`;
 
   const unchanged =
     draft.type === post.type &&
+    (draft.platform ?? null) === post.platform &&
     draft.title.trim() === post.title &&
     draft.body.trim() === post.body &&
     (!seeded ||
@@ -139,6 +141,7 @@ export function EditPostDialog({ post, open, onClose, seeded = false }: { post: 
             <option value="feature">Feature request</option>
           </Select>
         </Field>
+        <PlatformField value={draft.platform ?? null} onChange={(platform) => setDraft((d) => ({ ...d, platform }))} />
         <Field label="Title" error={errors.title} aside={`${draft.title.trim().length}/${TITLE_MAX}`}>
           <Input value={draft.title} maxLength={TITLE_MAX + 20} onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))} />
         </Field>

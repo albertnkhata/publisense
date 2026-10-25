@@ -1,6 +1,6 @@
 import type { MouseEvent, ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { ago, avatarSrc, boardLogoSrc, postKind, sourceCredit, useFollowPost, type Post } from '../api';
+import { ago, avatarSrc, boardLogoSrc, platformLabel, postKind, sourceCredit, useFollowPost, type Post } from '../api';
 import { cx } from '../lib/cx';
 import { sharePost } from '../lib/share';
 import { useViewer } from '../lib/viewer';
@@ -88,6 +88,11 @@ function PostHead({ post, hideBoard }: { post: Post; hideBoard: boolean }) {
   const kind = postKind(post);
   const board = post.board;
   const age = ago(post.created_at);
+  const platform = post.platform ? (
+    <Dot>
+      <span className="text-ink-muted">{platformLabel(post.platform)}</span>
+    </Dot>
+  ) : null;
   const edited = post.edited_at ? <Dot>edited</Dot> : null;
   const boardName = board?.name ?? 'Unknown board';
   const boardLink = board ? (
@@ -119,6 +124,7 @@ function PostHead({ post, hideBoard }: { post: Post; hideBoard: boolean }) {
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-muted">
           <TypePill type={post.type} />
+          {platform}
           {post.source_url ? (
             <Dot>
               <a href={post.source_url} target="_blank" rel="noopener noreferrer" className={cx(linkClass, 'inline-flex items-center gap-1 text-ink-muted hover:text-ink')}>
@@ -168,6 +174,7 @@ function PostHead({ post, hideBoard }: { post: Post; hideBoard: boolean }) {
             </Dot>
           </>
         )}
+        {platform}
       </div>
     </>
   );
