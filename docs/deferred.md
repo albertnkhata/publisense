@@ -91,7 +91,7 @@ other users. Guarded at every current call site.
 
 ### D-003 · Test coverage is narrow — no automatic user-flow test in CI
 
-**Status:** 🟡 ship-with-risk · **Deferred:** 2026-10-20 · **Partly addressed:** #23, #32, #33, #62 and the v2 page suites · **Last corrected:** 2026-10-25
+**Status:** 🟢 mostly addressed (live smoke test nightly since 2026-10-25) · **Deferred:** 2026-10-20 · **Partly addressed:** #23, #32, #33, #62 and the v2 page suites · **Last corrected:** 2026-10-25
 
 **Covered now.**
 
@@ -104,16 +104,17 @@ other users. Guarded at every current call site.
   SQL suites as the real API roles.
 - The client bundle is grepped for `service_role` on every build.
 
-**What is still missing — and got worse at the cutover.** `npm run smoke:live` **was deleted with the v1
-code** at the v2 cutover, and nothing replaced it. It was 14 checks against the live project: signup
-provisions a plain-user profile, a user can post and vote as themselves but not as somebody else, cannot
-double-vote, cannot promote themselves. There is now **no automated check that touches a real database** —
-everything above runs against a throwaway Postgres with an `auth` stub, or against `dist/`.
+**Live smoke test (added 2026-10-25).** `supabase/tests/v2_live_smoke.sql` runs every night at 01:00 UTC
+against production from `.github/workflows/smoke.yml`, and on every PR against the seeded CI database. It
+creates two throwaway users (`.invalid` addresses, so no email is sent) and checks, as the real API roles:
+signup provisions a profile and unsubscribe token and no admin rights; anon can read boards and posts but
+not tokens, notifications, settings or the email log, and cannot post; a user can post and vote as
+themselves but not as someone else, cannot vote twice, cannot set a status or promote themselves, cannot
+edit another profile or reply officially; a reply notifies the post author in-app and runs the email path;
+counters move. Everything is rolled back. The same job checks the live pages, sitemap, 404 and link preview.
 
-**Revisit when:** either the plan allows branch databases, or repo secrets are added so a smoke suite can
-run on a schedule against a non-production project. Until then the honest statement is: every RLS rule that
-matters has been verified against the live project by hand, as the name-history work was on 2026-10-25 by
-querying as the `anon` role, and nothing verifies it automatically.
+**Still missing.** No browser-level test of the real sign-in flow (Google OAuth, magic link) — those
+depend on third-party pages and are checked by hand.
 
 ---
 

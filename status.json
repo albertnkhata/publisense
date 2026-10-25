@@ -236,6 +236,13 @@
         "scripted": true
       },
       {
+        "name": "Live smoke suite (on CI data)",
+        "runs": [
+          "psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_live_smoke.sql"
+        ],
+        "scripted": false
+      },
+      {
         "name": "Report public read-policy count",
         "runs": [],
         "scripted": true
