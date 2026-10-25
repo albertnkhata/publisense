@@ -252,12 +252,13 @@ async function probeSite() {
   return out;
 }
 
-async function countRows(table, key = SUPABASE_ANON) {
+async function countRows(table, key = SUPABASE_ANON, filter = '') {
   if (!SUPABASE_URL || !key) return unknown;
   try {
     // `select=*` because join tables (vote, follow) have composite
     // primary keys and no `id` column to ask for.
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?select=*`, {
+    const query = `select=*${filter ? `&${filter}` : ''}`;
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
       headers: { apikey: key, Authorization: `Bearer ${key}`, Prefer: 'count=exact', Range: '0-0' },
     });
     if (!res.ok) return res.status === 401 || res.status === 403 ? 'restricted' : unknown;
@@ -288,10 +289,20 @@ async function probeData() {
     for (const table of COUNTED_TABLES) trueCounts[table] = await countRows(table, SUPABASE_SERVICE);
   }
 
-  // v2's profile has no email column, so the old seeded-persona-vs-member split
-  // (v1 personas used @publisense.invalid) has no v2 equivalent. Count auth users
-  // instead when the service role is available; without it we say unknown.
-  const out = { counts, trueCounts, fixtures: null };
+  // v1 split fabricated personas from members by their @publisense.invalid emails.
+  // v2's profile has no email column, but the equivalent split still exists: a post
+  // with no author_id was imported from a public source, not written by a member.
+  // Report it so a list of imported posts is never read as traction. Without the
+  // service role the honest answer is unknown, not zero.
+  let fixtures = null;
+  if (SUPABASE_SERVICE) {
+    const posts = await countRows('post', SUPABASE_SERVICE);
+    const imports = await countRows('post', SUPABASE_SERVICE, 'author_id=is.null');
+    if (typeof posts === 'number' && typeof imports === 'number') {
+      fixtures = { posts, imports, fromMembers: posts - imports };
+    }
+  }
+  const out = { counts, trueCounts, fixtures };
   if (SUPABASE_SERVICE) {
     try {
       const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?per_page=200`, {
@@ -522,11 +533,11 @@ function renderLiveBlock(live) {
   }
   if (live.data.fixtures) {
     const f = live.data.fixtures;
-    lines.push(`- profiles: ${f.profiles} total = **${f.fixtureProfiles} seeded personas** + **${f.memberProfiles} accounts**`);
+    lines.push(`- post: **${f.posts}** total = **${f.imports} imported** (no author, sourced elsewhere) + **${f.fromMembers} from members**`);
     lines.push(`- auth users: **${cell(live.data.authUsers)}**`);
-    if (f.memberProfiles > 0) {
+    if (f.imports > 0) {
       lines.push('');
-      lines.push('> ⚠️ Seeded content is a product decision, not a bug — see `D-011`. This line exists so traction is never claimed without the split.');
+      lines.push('> ⚠️ Imported posts are a product decision, not a bug — see `D-011`. This line exists so traction is never claimed without the split.');
     }
   } else if (live.data.authUsers !== undefined) {
     lines.push(`- auth users: **${cell(live.data.authUsers)}**`);

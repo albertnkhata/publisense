@@ -80,31 +80,34 @@ _CI steps read from `.github/workflows/ci.yml`; v2 test counts are under v2 buil
 
 <!-- status:live:start — refreshed by `node scripts/status.mjs --live`; may lag until the next scheduled refresh -->
 
-_probed 2026-10-24T20:38:27Z · anything that could not be read says `unknown` rather than guessing_
+_probed 2026-10-25T10:12:40Z · anything that could not be read says `unknown` rather than guessing_
 
 ### Production
 
-- https://publisense.app → **200** · served entry bundle `/assets/index-DfKyFsVt.js`
+- https://publisense.app → **200** · served entry bundle `/assets/index-CDsPTJkk.js`
 - www → 308 → https://publisense.app/
-- production deployment: `207cbbe` (READY, 2026-10-24T20:34:01.312Z)
+- production deployment commit: unknown _(`VERCEL_TOKEN` not set)_
 
 ### Data
 
-- board **28** · hub **1** · post **0** · reply **0** · vote **0** · follow **1** · profile **3** · status_event **0**
+- board **29** · hub **6** · post **11** · reply **0** · vote **0** · follow **2** · profile **3** · status_event **0**
 - counted with an authenticated probe; as an anonymous visitor these read: follow = restricted
+- post: **11** total = **11 imported** (no author, sourced elsewhere) + **0 from members**
 - auth users: **3**
+
+> ⚠️ Imported posts are a product decision, not a bug — see `D-011`. This line exists so traction is never claimed without the split.
 
 ### Auth surface
 
 - enabled providers: **google, email**
-- email confirmation: **required** (mailer_autoconfirm=false) · SMTP sender: `auth@publisense.app`
+- email confirmation: **required** (mailer_autoconfirm=false) · SMTP sender: `unknown`
 - Google consent screen: "to continue to **Publisense**" · terms ✓ · privacy ✓ · support `albertnkhata.s@gmail.com` · unverified banner: no
 
 ### Work queue
 
-- open issues: none
+- open issues: #113 The ledger's seeded-content warning can never fire · #111 Mark imported posts as samples
 - open PRs: none
-- `npm test` at refresh time: **324 passed** in 26 files
+- `npm test` at refresh time: **368 passed** in 28 files
 
 <!-- status:live:end -->
 
