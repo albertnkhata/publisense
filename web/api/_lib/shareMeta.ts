@@ -1,7 +1,7 @@
 /**
  * Link previews for crawlers (X, WhatsApp, Slack, LinkedIn, search engines).
  * The app is a SPA, so crawlers that don't run JS only ever see index.html.
- * `middleware.ts` (Vercel Routing Middleware) uses these helpers to swap the
+ * `api/share.ts` (crawler-only function) uses these helpers to swap the
  * title, description and canonical URL in that HTML for board, hub and post
  * pages. Pure functions so they are unit tested here; no network in this file.
  */

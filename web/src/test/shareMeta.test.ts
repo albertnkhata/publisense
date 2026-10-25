@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { applyMeta, boardMeta, isCrawler, postMeta, shareTarget } from '../lib/shareMeta';
+import { applyMeta, boardMeta, isCrawler, postMeta, shareTarget } from '../../api/_lib/shareMeta';
 import { slowDown } from '../api/posts';
 
 const html = readFileSync(resolve(__dirname, '../../index.html'), 'utf8');
