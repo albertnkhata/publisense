@@ -39,7 +39,71 @@
       "destination": "/api/share?kind=post&key=:key"
     },
     {
-      "source": "/((?!assets/|api/).*)",
+      "source": "/sitemap.xml",
+      "destination": "/api/sitemap"
+    },
+    {
+      "source": "/explore",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/search",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/notifications",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/settings",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/privacy",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/terms",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/unsubscribe",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/auth/reset",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/b/:board",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/b/:board/manage",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/h/:hub",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/h/:hub/manage",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/post/:id",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/u/:handle",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/admin/:page",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/dev/kit",
       "destination": "/index.html"
     }
   ],
