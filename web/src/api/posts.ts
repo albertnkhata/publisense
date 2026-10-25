@@ -442,6 +442,7 @@ export async function setVote(postId: string, viewerId: string, on: boolean): Pr
   if (on) {
     const { error } = await sb.from('vote').insert({ post_id: postId });
     // Already voted (another tab): the end state is what we wanted.
+    if (error?.code === 'PT429') throw failed(slowDown(error, 'upvotes'));
     if (error && error.code !== '23505') throw failed('We couldn’t save your upvote. Try again.');
   } else {
     const { error } = await sb.from('vote').delete().eq('post_id', postId).eq('user_id', viewerId);
@@ -487,6 +488,7 @@ export async function createReply(postId: string, body: string, parentId: string
     .select(REPLY_SELECT)
     .single();
   if (error || !data) {
+    if (error?.code === 'PT429') throw failed(slowDown(error, 'replies'));
     if (error?.code === '42501') throw failed('You can’t reply on this board.');
     throw failed('We couldn’t post your reply. Try again.');
   }
@@ -750,6 +752,15 @@ const isRlsReadBack = (e: { code?: string; message?: string } | null) =>
  * the whole statement (nothing was written). In that case, and only then, it
  * inserts without RETURNING and reads the newest matching post back.
  */
+/**
+ * The words for a rate-limit refusal (0035: PT429, `hint` short = 10 minutes, day = 24 hours).
+ */
+export function slowDown(error: { hint?: string | null } | null | undefined, what: 'posts' | 'replies' | 'upvotes'): string {
+  return error?.hint === 'day'
+    ? `You’ve hit today’s limit for ${what}. Try again tomorrow.`
+    : `That’s a lot of ${what} in a few minutes. Take a short break and try again.`;
+}
+
 export async function createPost(d: NewPost, viewerId: string | null): Promise<Post> {
   const sb = getSupabase();
   const row = { board_id: d.boardId, type: d.type, title: d.title.trim(), body: d.body.trim(), ...(d.platform ? { platform: d.platform } : {}) };
@@ -774,6 +785,7 @@ export async function createPost(d: NewPost, viewerId: string | null): Promise<P
     }
   }
   if (error || !data) {
+    if (error?.code === 'PT429') throw failed(slowDown(error, 'posts'));
     if (error?.code === '42501') throw failed('You can’t post on this board.');
     if (error?.code === '23514') throw failed('Check the title and details, then try again.');
     throw failed('We couldn’t post this. Try again.');
