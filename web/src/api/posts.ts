@@ -16,7 +16,7 @@ import { getSupabase, publicStorageUrl } from './supabase';
  * source_url is a seeded post.
  */
 
-export type PostType = 'bug' | 'feature';
+export type PostType = 'bug' | 'friction' | 'feature';
 export type PostStatus = 'open' | 'under_review' | 'planned' | 'in_progress' | 'shipped' | 'closed' | 'merged';
 export type FeedScope = 'all' | 'following';
 export type FeedSort = 'top' | 'new';
@@ -197,7 +197,7 @@ export function validatePost(d: PostDraft): PostErrors {
   if (title.length < TITLE_MIN) e.title = `Give it a title of at least ${TITLE_MIN} characters.`;
   else if (title.length > TITLE_MAX) e.title = `Keep the title to ${TITLE_MAX} characters.`;
   if (d.body.length > BODY_MAX) e.body = `Keep the details to ${BODY_MAX.toLocaleString('en')} characters.`;
-  if (d.type !== 'bug' && d.type !== 'feature') e.type = 'Pick a type.';
+  if (d.type !== 'bug' && d.type !== 'friction' && d.type !== 'feature') e.type = 'Pick a type.';
   return e;
 }
 

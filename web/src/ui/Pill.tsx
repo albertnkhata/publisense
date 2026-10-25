@@ -40,10 +40,11 @@ export function StatusPill({ status, detail }: { status: PostStatus; detail?: st
   );
 }
 
-export type PostType = 'bug' | 'feature';
+export type PostType = 'bug' | 'friction' | 'feature';
 
 export const TYPE_META: Record<PostType, { label: string; dot: string }> = {
   bug: { label: 'Bug', dot: 'text-danger' },
+  friction: { label: 'Friction', dot: 'text-brand' },
   feature: { label: 'Feature request', dot: 'text-warning' },
 };
 

@@ -138,6 +138,7 @@ export function EditPostDialog({ post, open, onClose, seeded = false }: { post: 
         <Field label="Type" error={errors.type}>
           <Select value={draft.type} onChange={(e) => setDraft((d) => ({ ...d, type: e.target.value as PostType }))}>
             <option value="bug">Bug</option>
+            <option value="friction">Friction</option>
             <option value="feature">Feature request</option>
           </Select>
         </Field>

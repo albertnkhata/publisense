@@ -57,7 +57,7 @@ function useTabParam<T extends string>(allowed: readonly T[], fallback: T) {
   return { tab, params, set };
 }
 
-const pickType = (v: string | null): TypeFilter => (v === 'bug' || v === 'feature' ? v : 'all');
+const pickType = (v: string | null): TypeFilter => (v === 'bug' || v === 'friction' || v === 'feature' ? v : 'all');
 
 // ------------------------------------------------------------------ gates
 
