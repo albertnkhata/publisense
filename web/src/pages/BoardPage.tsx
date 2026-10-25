@@ -41,7 +41,7 @@ import { BoardAvatar, Button, EmptyState, Icon, IconButton, Menu, MenuItem, Skel
 export type BoardTab = 'feedback' | 'roadmap' | 'changelog';
 
 export const TYPE_CHOICES: Choice<TypeFilter>[] = [
-  { value: 'all', label: 'All types' },
+  { value: 'all', label: 'Feedback', hint: 'All types' },
   { value: 'bug', label: 'Bugs' },
   { value: 'friction', label: 'Friction' },
   { value: 'feature', label: 'Feature requests' },
@@ -213,7 +213,7 @@ function Feedback({
 
   return (
     <>
-      <div className="mb-4 flex flex-wrap items-center gap-1">
+      <div className="mt-2 mb-4 flex flex-wrap items-center gap-1">
         <ChoiceMenu label="Type" value={type} choices={TYPE_CHOICES} onChange={(v) => setParam('type', v, 'all')} set={type !== 'all'} />
         <ChoiceMenu label="Status" value={status} choices={STATUS_CHOICES} onChange={(v) => setParam('status', v, 'all')} set={status !== 'all'} />
         <ChoiceMenu label="Device" value={platform} choices={PLATFORM_CHOICES} onChange={(v) => setParam('device', v, 'all')} set={platform !== 'all'} />

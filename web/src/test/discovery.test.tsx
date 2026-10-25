@@ -101,7 +101,7 @@ describe('board page', () => {
   it('filters by type, then clears', async () => {
     const { router } = renderAt('/b/cursor');
     await screen.findByText('Composer drops edits');
-    fireEvent.click(screen.getByRole('button', { name: 'Type: All types' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Type: Feedback' }));
     fireEvent.click(screen.getByRole('menuitemradio', { name: 'Bugs' }));
     await waitFor(() => expect(postsApi.fetchPostList).toHaveBeenLastCalledWith(expect.objectContaining({ type: 'bug' })));
     expect(router.state.location.search).toBe('?type=bug');
