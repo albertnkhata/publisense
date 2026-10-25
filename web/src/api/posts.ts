@@ -793,6 +793,41 @@ export async function seedPost(d: SeedPost, viewerId: string | null): Promise<Po
   return post;
 }
 
+/**
+ * Staff only (0031 edit_seeded_post): correct a seeded post, including its source
+ * link and original date. Posts with an author are never touched.
+ */
+export async function editSeededPost(id: string, d: SeededDraft, viewerId: string | null): Promise<Post> {
+  const at = d.postedOn ? new Date(`${d.postedOn}T12:00:00Z`) : null;
+  const { data, error } = await getSupabase().rpc('edit_seeded_post', {
+    p_post: id,
+    p_type: d.type,
+    p_title: d.title.trim(),
+    p_body: d.body.trim(),
+    p_source_url: d.sourceUrl.trim(),
+    p_posted_at: at && !Number.isNaN(at.getTime()) ? at.toISOString() : null,
+  });
+  if (error) throw failed('We couldn’t save your changes. Try again.');
+  const res = (data ?? { ok: false }) as { ok: boolean; error?: string };
+  if (!res.ok) throw failed(SEED_ERRORS[res.error ?? ''] ?? 'We couldn’t save your changes. Try again.');
+  const post = await fetchPost(id, viewerId);
+  if (!post) throw failed('Saved, but we couldn’t load it. Refresh to see it.');
+  return post;
+}
+
+export interface SeededDraft extends PostDraft {
+  sourceUrl: string;
+  /** YYYY-MM-DD, or null to keep the date it has. */
+  postedOn?: string | null;
+}
+
+/** Staff only (0031 delete_seeded_post): remove a seeded post. */
+export async function deleteSeededPost(id: string): Promise<void> {
+  const { data, error } = await getSupabase().rpc('delete_seeded_post', { p_post: id });
+  const res = (data ?? { ok: false }) as { ok: boolean };
+  if (error || !res.ok) throw failed('We couldn’t delete this post. Try again.');
+}
+
 // ------------------------------------------------------------------ search
 
 /**

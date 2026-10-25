@@ -12,6 +12,9 @@ import {
   setPostFollow,
   setVote,
   updatePost,
+  editSeededPost,
+  deleteSeededPost,
+  type SeededDraft,
   updateReply,
   type FeedPage,
   type FeedScope,
@@ -189,11 +192,28 @@ export function useUpdatePost() {
   });
 }
 
+/** Staff correcting a seeded post (no author): source link and original date too (0031). */
+export function useEditSeededPost(viewerId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, draft }: { id: string; draft: SeededDraft }) => editSeededPost(id, draft, viewerId),
+    onSuccess: (saved) => {
+      const { type, title, body, source_url, created_at, edited_at } = saved;
+      patchPost(qc, saved.id, (p) => ({ ...p, type, title, body, source_url, created_at, edited_at }));
+      // A new original date can move it in date-sorted lists.
+      void qc.invalidateQueries({ queryKey: ['posts', 'feed'] });
+      void qc.invalidateQueries({ queryKey: ['posts', 'list'] });
+      void qc.invalidateQueries({ queryKey: ['related'] });
+    },
+  });
+}
+
 export function useDeletePost() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => deletePost(id),
-    onSuccess: (_d, id) => {
+    mutationFn: (v: string | { id: string; seeded: true }) => (typeof v === 'string' ? deletePost(v) : deleteSeededPost(v.id)),
+    onSuccess: (_d, v) => {
+      const id = typeof v === 'string' ? v : v.id;
       // Drop it from every feed; the post page shows "not found" if it is still open.
       patchPost(qc, id, () => null);
       qc.setQueriesData<PostCache>({ queryKey: ['posts', 'detail', id] }, () => null);

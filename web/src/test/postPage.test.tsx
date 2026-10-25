@@ -29,8 +29,12 @@ const api = vi.hoisted(() => ({
   deleteReply: vi.fn(),
   updatePost: vi.fn(),
   deletePost: vi.fn(),
+  editSeededPost: vi.fn(),
+  deleteSeededPost: vi.fn(),
 }));
 vi.mock('../api/posts', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/posts')>()), ...api }));
+const modApi = vi.hoisted(() => ({ fetchIsPlatformAdmin: vi.fn(async () => false) }));
+vi.mock('../api/moderation', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/moderation')>()), ...modApi }));
 
 function renderPost(post: Post, { replies = [] as Reply[], events = [] as StatusEvent[], signedIn = true, found = true } = {}) {
   api.fetchPost.mockResolvedValue(found ? post : null);
@@ -288,5 +292,70 @@ describe('post helpers', () => {
     expect(validateReply('   ')).toBeTruthy();
     expect(validateReply('x'.repeat(5001))).toBeTruthy();
     expect(validateReply('ok')).toBeNull();
+  });
+});
+
+describe('staff and seeded posts (0031)', () => {
+  const seeded = () =>
+    makePost({ author: null, author_id: null, source_url: 'https://github.com/acme/notes/issues/7', title: 'Imported title', type: 'bug', created_at: '2025-03-14T12:00:00Z' });
+
+  it('people who aren’t staff can’t edit or delete a seeded post', async () => {
+    modApi.fetchIsPlatformAdmin.mockResolvedValue(false);
+    renderPost(seeded());
+    fireEvent.click(await screen.findByRole('button', { name: 'More options' }));
+    expect(screen.queryByRole('menuitem', { name: 'Edit post' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Delete post' })).toBeNull();
+  });
+
+  it('staff correct a seeded post, including its source link and original date', async () => {
+    modApi.fetchIsPlatformAdmin.mockResolvedValue(true);
+    const post = seeded();
+    renderPost(post);
+    api.editSeededPost.mockImplementation(async (id: string, d: { type: 'bug' | 'feature'; title: string; body: string; sourceUrl: string }) => ({
+      ...post,
+      id,
+      type: d.type,
+      title: d.title.trim(),
+      body: d.body.trim(),
+      source_url: d.sourceUrl,
+      created_at: '2025-03-10T12:00:00Z',
+      edited_at: iso(0),
+    }));
+    fireEvent.click(await screen.findByRole('button', { name: 'More options' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Edit post' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Edit post' });
+    expect((within(dialog).getByLabelText('Source link') as HTMLInputElement).value).toBe('https://github.com/acme/notes/issues/7');
+    expect((within(dialog).getByLabelText('Originally posted') as HTMLInputElement).value).toBe('2025-03-14');
+    fireEvent.change(within(dialog).getByLabelText('Source link'), { target: { value: 'not a link' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(await within(dialog).findByText('Paste the full https link to the original post.')).toBeTruthy();
+    expect(api.editSeededPost).not.toHaveBeenCalled();
+
+    fireEvent.change(within(dialog).getByLabelText('Source link'), { target: { value: 'https://reddit.com/r/acme/comments/1' } });
+    fireEvent.change(within(dialog).getByLabelText('Originally posted'), { target: { value: '2025-03-10' } });
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /Title/ }), { target: { value: 'Fixed imported title' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(api.editSeededPost).toHaveBeenCalledWith(
+        post.id,
+        expect.objectContaining({ title: 'Fixed imported title', sourceUrl: 'https://reddit.com/r/acme/comments/1', postedOn: '2025-03-10' }),
+        TEST_VIEWER.id,
+      ),
+    );
+    expect((await screen.findByRole('heading', { level: 1 })).textContent).toBe('Fixed imported title');
+    expect(api.updatePost).not.toHaveBeenCalled();
+  });
+
+  it('staff delete a seeded post', async () => {
+    modApi.fetchIsPlatformAdmin.mockResolvedValue(true);
+    api.deleteSeededPost.mockResolvedValue(undefined);
+    const post = seeded();
+    renderPost(post);
+    fireEvent.click(await screen.findByRole('button', { name: 'More options' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Delete post' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: /Delete/ }));
+    await waitFor(() => expect(api.deleteSeededPost).toHaveBeenCalledWith(post.id));
+    expect(api.deletePost).not.toHaveBeenCalled();
   });
 });
