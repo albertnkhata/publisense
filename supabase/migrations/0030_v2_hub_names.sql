@@ -277,13 +277,13 @@ begin
     select h.slug from public.hub h
      where (select count(*) from public.hub_name n where n.hub_id = h.id and n.is_current) <> 1) h;
   if bad is not null then
-    raise exception '0028: hubs without exactly one current name: %', bad;
+    raise exception '0030: hubs without exactly one current name: %', bad;
   end if;
   select string_agg(h.slug || ' vs ' || n.name || '/' || n.slug, ', ') into bad
     from public.hub h
     join public.hub_name n on n.hub_id = h.id and n.is_current
    where h.name <> n.name or h.slug <> n.slug;
   if bad is not null then
-    raise exception '0028: hub and its current name disagree: %', bad;
+    raise exception '0030: hub and its current name disagree: %', bad;
   end if;
 end $$;
