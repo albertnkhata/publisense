@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-24T20:38:27Z",
+  "generatedAt": "2026-10-25T10:12:40Z",
   "repo": {
     "openDecisions": [
       {
@@ -247,18 +247,18 @@
     ]
   },
   "live": {
-    "generatedAt": "2026-10-24T20:38:27Z",
+    "generatedAt": "2026-10-25T10:12:40Z",
     "site": {
       "status": 200,
-      "bundle": "/assets/index-DfKyFsVt.js",
+      "bundle": "/assets/index-CDsPTJkk.js",
       "wwwRedirect": "308 → https://publisense.app/",
-      "checkedAt": "2026-10-24T20:38:27Z"
+      "checkedAt": "2026-10-25T10:12:40Z"
     },
     "data": {
       "counts": {
-        "board": 28,
-        "hub": 1,
-        "post": 0,
+        "board": 29,
+        "hub": 6,
+        "post": 11,
         "reply": 0,
         "vote": 0,
         "follow": "restricted",
@@ -266,16 +266,20 @@
         "status_event": 0
       },
       "trueCounts": {
-        "board": 28,
-        "hub": 1,
-        "post": 0,
+        "board": 29,
+        "hub": 6,
+        "post": 11,
         "reply": 0,
         "vote": 0,
-        "follow": 1,
+        "follow": 2,
         "profile": 3,
         "status_event": 0
       },
-      "fixtures": null,
+      "fixtures": {
+        "posts": 11,
+        "imports": 11,
+        "fromMembers": 0
+      },
       "authUsers": 3
     },
     "auth": {
@@ -284,7 +288,7 @@
         "email"
       ],
       "mailerAutoconfirm": false,
-      "smtpSender": "auth@publisense.app",
+      "smtpSender": "unknown",
       "consentScreen": {
         "appName": "Publisense",
         "supportEmail": "albertnkhata.s@gmail.com",
@@ -294,17 +298,22 @@
       }
     },
     "github": {
-      "issues": [],
+      "issues": [
+        {
+          "number": 113,
+          "title": "The ledger's seeded-content warning can never fire"
+        },
+        {
+          "number": 111,
+          "title": "Mark imported posts as samples"
+        }
+      ],
       "prs": []
     },
-    "deployedCommit": {
-      "sha": "207cbbe",
-      "state": "READY",
-      "createdAt": "2026-10-24T20:34:01.312Z"
-    },
+    "deployedCommit": "unknown",
     "unitTests": {
-      "files": 26,
-      "cases": 324
+      "files": 28,
+      "cases": 368
     }
   }
 }
