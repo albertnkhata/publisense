@@ -29,11 +29,12 @@ import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { LoadError, PostList, PostListSkeleton } from '../posts/PostList';
 import { useComposer } from '../shell/composer';
-import { BoardAvatar, Button, EmptyState, Icon, Skeleton, SkeletonBlock, TabPanel, Tabs } from '../ui';
+import { BoardAvatar, Button, EmptyState, Icon, IconButton, Menu, MenuItem, Skeleton, SkeletonBlock } from '../ui';
 
 /**
  * Board page (FOUNDATION §9 `/b/:board`): header, then Feedback (filters by
- * type and status, Top / New), Roadmap and Changelog tabs. The tab and the
+ * type and status, Top / New) with no tab bar; Roadmap and Changelog open from
+ * the ⋯ menu at the top right, each with a way back to feedback. The view and the
  * filters live in the URL (`?tab=roadmap`, `?type=bug&status=planned&sort=new`)
  * so Back and shared links return to the same view.
  */
@@ -118,8 +119,20 @@ function Board({ board }: { board: BoardWithHub }) {
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
-      <div className="mb-4">
+      <div className="mb-4 flex items-center justify-between gap-2">
         <BackLink to="/">Home</BackLink>
+        <Menu label={`More from ${board.name}`} align="end" trigger={(p) => <IconButton {...p} icon="more" label="More" />}>
+          <MenuItem
+            icon="status-planned"
+            description={counts.data ? `${counts.data.roadmap} planned or in progress` : 'What’s planned and in progress'}
+            onSelect={() => setParam('tab', 'roadmap', 'feedback')}
+          >
+            Roadmap
+          </MenuItem>
+          <MenuItem icon="check-circle" description="What’s shipped" onSelect={() => setParam('tab', 'changelog', 'feedback')}>
+            Changelog
+          </MenuItem>
+        </Menu>
       </div>
       <ScopeHeader
         logo={<BoardAvatar name={board.name} color={board.color} logoSrc={logoSrc(board)} size="xl" decorative />}
@@ -155,27 +168,24 @@ function Board({ board }: { board: BoardWithHub }) {
           This product wasn’t approved{board.review_note ? `: ${board.review_note}` : '.'} Only you can see this board.
         </p>
       ) : null}
-      <Tabs
-        idBase="board"
-        label={`${board.name} board`}
-        value={tab}
-        onChange={(v) => setParam('tab', v, 'feedback')}
-        className="mb-4"
-        items={[
-          { value: 'feedback', label: 'Feedback', ...(counts.data ? { count: counts.data.posts } : {}) },
-          { value: 'roadmap', label: 'Roadmap', ...(counts.data ? { count: counts.data.roadmap } : {}) },
-          { value: 'changelog', label: 'Changelog' },
-        ]}
-      />
-      <TabPanel idBase="board" value={tab}>
-        {tab === 'feedback' ? (
-          <Feedback board={board} params={params} setParam={setParam} clear={() => update([['type', 'all', 'all'], ['status', 'all', 'all'], ['device', 'all', 'all']])} />
-        ) : tab === 'roadmap' ? (
-          <RoadmapTab boardIds={ids} />
-        ) : (
-          <ChangelogTab boardIds={ids} />
-        )}
-      </TabPanel>
+      {tab === 'feedback' ? (
+        <Feedback board={board} params={params} setParam={setParam} clear={() => update([['type', 'all', 'all'], ['status', 'all', 'all'], ['device', 'all', 'all']])} />
+      ) : (
+        <div className="flex flex-col">
+          <div className="mb-4 flex items-center justify-between gap-3 border-b border-line pb-3">
+            <h2 className="m-0 text-lg font-semibold text-ink">{tab === 'roadmap' ? 'Roadmap' : 'Changelog'}</h2>
+            <button
+              type="button"
+              onClick={() => setParam('tab', 'feedback', 'feedback')}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink"
+            >
+              <Icon name="arrow-left" size={14} />
+              Back to feedback
+            </button>
+          </div>
+          {tab === 'roadmap' ? <RoadmapTab boardIds={ids} /> : <ChangelogTab boardIds={ids} />}
+        </div>
+      )}
     </section>
   );
 }

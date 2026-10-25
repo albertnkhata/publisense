@@ -87,8 +87,11 @@ describe('board page', () => {
     expect(screen.getByText('92')).toBeTruthy();
     expect(screen.getByText('4.1k')).toBeTruthy();
     expect(await screen.findByText('Composer drops edits')).toBeTruthy();
-    expect(screen.getByRole('tab', { name: /Feedback\s*2/ }).getAttribute('aria-selected')).toBe('true');
-    expect(screen.getByRole('tab', { name: /Roadmap\s*1/ })).toBeTruthy();
+    // No tab bar: Roadmap and Changelog sit in the ⋯ menu.
+    expect(screen.queryByRole('tab', { name: /Feedback/ })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'More' }));
+    expect(await screen.findByRole('menuitem', { name: /Roadmap/ })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: /Changelog/ })).toBeTruthy();
     expect(postsApi.fetchPostList).toHaveBeenCalledWith(expect.objectContaining({ boardIds: [CURSOR.id], type: 'all', status: 'all', sort: 'top' }));
     // No Manage for people outside the team; the claim way in instead.
     expect(screen.queryByRole('link', { name: 'Manage' })).toBeNull();
@@ -135,6 +138,8 @@ describe('board page', () => {
     expect(screen.getByText('Nothing here yet.')).toBeTruthy();
     expect(screen.getByRole('link', { name: /Faster indexing/ }).getAttribute('href')).toMatch(/^\/post\//);
     expect(postsApi.fetchPostList).not.toHaveBeenCalled();
+    expect(screen.getByRole('heading', { level: 2, name: 'Roadmap' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Back to feedback' })).toBeTruthy();
   });
 
   it('shows the changelog, or says nothing shipped yet', async () => {
