@@ -1,16 +1,11 @@
 {
-  "generatedAt": "2026-10-25T10:12:40Z",
+  "generatedAt": "2026-10-25T11:47:10Z",
   "repo": {
     "openDecisions": [
       {
         "id": "D-012",
         "title": "The Google consent screen shows no app logo",
         "revisit": "when a distinctive brand mark exists, or if a sensitive scope forces a review anyway"
-      },
-      {
-        "id": "D-011",
-        "title": "Every post in production is imported from a public source, and nothing says so",
-        "revisit": "before announce, or in any screenshot or demo shown outside the owner's circle"
       },
       {
         "id": "D-007",
@@ -24,6 +19,7 @@
       }
     ],
     "resolved": [
+      "D-011",
       "D-002",
       "D-014",
       "D-013",
@@ -247,12 +243,12 @@
     ]
   },
   "live": {
-    "generatedAt": "2026-10-25T10:12:40Z",
+    "generatedAt": "2026-10-25T11:47:10Z",
     "site": {
       "status": 200,
       "bundle": "/assets/index-CDsPTJkk.js",
       "wwwRedirect": "308 → https://publisense.app/",
-      "checkedAt": "2026-10-25T10:12:40Z"
+      "checkedAt": "2026-10-25T11:47:10Z"
     },
     "data": {
       "counts": {
@@ -299,10 +295,6 @@
     },
     "github": {
       "issues": [
-        {
-          "number": 113,
-          "title": "The ledger's seeded-content warning can never fire"
-        },
         {
           "number": 111,
           "title": "Mark imported posts as samples"

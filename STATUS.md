@@ -34,13 +34,12 @@ _derived from `docs/v2/BUILD.md` checkbox state · one PR per step, see `docs/v2
 _derived from `docs/deferred.md` · the ids link to the entry, which is canonical_
 
 - **D-012** · The Google consent screen shows no app logo — revisit: when a distinctive brand mark exists, or if a sensitive scope forces a review anyway
-- **D-011** · Every post in production is imported from a public source, and nothing says so — revisit: before announce, or in any screenshot or demo shown outside the owner's circle
 - **D-007** · Background rows for other users have no email in the client
 - **D-003** · Test coverage is narrow — no automatic user-flow test in CI
 
-### Resolved (10)
+### Resolved (11)
 
-**D-002** · **D-014** · **D-013** · **D-010** · **D-005** · **D-009** · **D-008** · **D-006** · **D-004** · **D-001**
+**D-011** · **D-002** · **D-014** · **D-013** · **D-010** · **D-005** · **D-009** · **D-008** · **D-006** · **D-004** · **D-001**
 
 ### Roadmap phases (v1, frozen)
 
@@ -80,7 +79,7 @@ _CI steps read from `.github/workflows/ci.yml`; v2 test counts are under v2 buil
 
 <!-- status:live:start — refreshed by `node scripts/status.mjs --live`; may lag until the next scheduled refresh -->
 
-_probed 2026-10-25T10:12:40Z · anything that could not be read says `unknown` rather than guessing_
+_probed 2026-10-25T11:47:10Z · anything that could not be read says `unknown` rather than guessing_
 
 ### Production
 
@@ -95,7 +94,7 @@ _probed 2026-10-25T10:12:40Z · anything that could not be read says `unknown` r
 - post: **11** total = **11 imported** (no author, sourced elsewhere) + **0 from members**
 - auth users: **3**
 
-> ⚠️ Imported posts are a product decision, not a bug — see `D-011`. This line exists so traction is never claimed without the split.
+> ⚠️ Imported posts carry no author — each one links to the source it came from (`D-011`). Printed so traction is never claimed without the split.
 
 ### Auth surface
 
@@ -105,7 +104,7 @@ _probed 2026-10-25T10:12:40Z · anything that could not be read says `unknown` r
 
 ### Work queue
 
-- open issues: #113 The ledger's seeded-content warning can never fire · #111 Mark imported posts as samples
+- open issues: #111 Mark imported posts as samples
 - open PRs: none
 - `npm test` at refresh time: **368 passed** in 28 files
 

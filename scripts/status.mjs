@@ -537,7 +537,7 @@ function renderLiveBlock(live) {
     lines.push(`- auth users: **${cell(live.data.authUsers)}**`);
     if (f.imports > 0) {
       lines.push('');
-      lines.push('> ⚠️ Imported posts are a product decision, not a bug — see `D-011`. This line exists so traction is never claimed without the split.');
+      lines.push('> ⚠️ Imported posts carry no author — each one links to the source it came from (`D-011`). Printed so traction is never claimed without the split.');
     }
   } else if (live.data.authUsers !== undefined) {
     lines.push(`- auth users: **${cell(live.data.authUsers)}**`);
