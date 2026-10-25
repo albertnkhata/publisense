@@ -1,0 +1,75 @@
+# Nightly logical backup of the production database (Supabase free tier has no
+# backups of its own; PITR is off). The repo is PUBLIC, so the dump is
+# encrypted (AES-256, gpg symmetric) before it is stored as an artifact:
+# without BACKUP_PASSPHRASE an artifact is useless to anyone who downloads it.
+#
+# Needs two repository secrets (Settings → Secrets and variables → Actions):
+#   SUPABASE_DB_URL     Session pooler connection string, with the DB password
+#   BACKUP_PASSPHRASE   long random passphrase; keep a copy outside GitHub
+#
+# Restore: see docs/backup.md
+name: Nightly backup
+
+on:
+  schedule:
+    - cron: '30 0 * * *' # 00:30 UTC = 02:30 CAT
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check secrets
+        env:
+          DB: ${{ secrets.SUPABASE_DB_URL }}
+          PASS: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          [ -n "$DB" ] || { echo "::error::SUPABASE_DB_URL secret is not set"; exit 1; }
+          [ -n "$PASS" ] || { echo "::error::BACKUP_PASSPHRASE secret is not set"; exit 1; }
+
+      - name: Install pg_dump 17
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+          /usr/lib/postgresql/17/bin/pg_dump --version
+
+      - name: Dump and encrypt
+        env:
+          DB: ${{ secrets.SUPABASE_DB_URL }}
+          PASS: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          stamp=$(date -u +%Y-%m-%dT%H%MZ)
+          echo "STAMP=$stamp" >> "$GITHUB_ENV"
+          umask 077
+          # App data + auth users + storage metadata, custom format (pg_restore-able).
+          /usr/lib/postgresql/17/bin/pg_dump "$DB" \
+            --format=custom --no-owner --no-privileges \
+            --schema=public --schema=auth --schema=storage --schema=supabase_migrations \
+            --file=db.dump
+          size=$(stat -c %s db.dump)
+          [ "$size" -gt 10000 ] || { echo "::error::dump is suspiciously small ($size bytes)"; exit 1; }
+          /usr/lib/postgresql/17/bin/pg_restore --list db.dump | grep -c "TABLE DATA" | xargs -I{} echo "tables with data: {}"
+          printf '%s' "$PASS" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --symmetric --cipher-algo AES256 --output "publisense-$stamp.dump.gpg" db.dump
+          shred -u db.dump
+          sha256sum "publisense-$stamp.dump.gpg"
+
+      - name: Store (30 days)
+        uses: actions/upload-artifact@v4
+        with:
+          name: publisense-db-${{ env.STAMP }}
+          path: publisense-*.dump.gpg
+          retention-days: 30
+          if-no-files-found: error
