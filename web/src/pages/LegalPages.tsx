@@ -87,14 +87,15 @@ export function PrivacyPage() {
       <Section heading="Who processes it">
         <P>
           <strong className="text-ink">Supabase</strong> hosts sign-in, the database and uploaded photos (EU region, Frankfurt).{' '}
-          <strong className="text-ink">Vercel</strong> serves the website. <strong className="text-ink">Resend</strong> delivers email.{' '}
+          <strong className="text-ink">Vercel</strong> serves the website and counts page views without cookies or personal identifiers.{' '}
+          <strong className="text-ink">Sentry</strong> receives crash reports (the error and the page it happened on, not your name or email) so we can fix bugs. <strong className="text-ink">Resend</strong> delivers email.{' '}
           <strong className="text-ink">Google</strong> is involved only if you choose Google sign-in. Each sees only what it needs to do its job.
         </P>
       </Section>
       <Section heading="Cookies and local storage">
         <P>
-          We use your browser’s local storage, not advertising cookies, to keep you signed in and remember your theme. There are no third-party ad or
-          tracking scripts on this site. Clearing your browser storage signs you out; it does not delete your account.
+          We use your browser’s local storage, not advertising cookies, to keep you signed in and remember your theme. There are no advertising or
+          cross-site tracking scripts on this site. Clearing your browser storage signs you out; it does not delete your account.
         </P>
       </Section>
       <Section heading="Public by design">
