@@ -136,7 +136,7 @@
     ],
     "webTests": {
       "files": 27,
-      "cases": 320
+      "cases": 328
     },
     "gates": [
       {
@@ -224,6 +224,13 @@
         "name": "v2 permission tests",
         "runs": [
           "psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_rls_test.sql"
+        ],
+        "scripted": false
+      },
+      {
+        "name": "v2 company name-history tests",
+        "runs": [
+          "psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_hub_names_test.sql"
         ],
         "scripted": false
       },

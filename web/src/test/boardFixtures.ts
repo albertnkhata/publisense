@@ -48,6 +48,8 @@ export const FIGMA_HUB: Hub = {
   description: 'Figma, FigJam and Figma Slides in one place',
   primary_domain: 'figma.com',
   domains: ['figma.com'],
+  former_names: [],
+  legal_name: null,
   claimed_at: null,
   created_at: iso(24 * 60),
   follower_count: 210,

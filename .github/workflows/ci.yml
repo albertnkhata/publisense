@@ -205,6 +205,13 @@ jobs:
           PGPASSWORD: postgres
         run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_rls_test.sql
 
+      # A company's name history: renames keep the old name, a former slug still resolves,
+      # and no other company can take a slug that once belonged to someone else.
+      - name: v2 company name-history tests
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_hub_names_test.sql
+
       # Local sample content must keep applying (twice, to prove it is idempotent).
       # It is never applied to production.
       - name: v2 dev seed applies

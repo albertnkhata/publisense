@@ -27,7 +27,7 @@ _derived from `docs/v2/BUILD.md` checkbox state · one PR per step, see `docs/v2
 - [x] 8. Moderation and people
 - [x] 9. Cutover
 
-- v2 web tests (`web/src/**/*.test.ts(x)`): **27** files, **320** declared cases
+- v2 web tests (`web/src/**/*.test.ts(x)`): **27** files, **328** declared cases
 
 ### Open decisions and risks
 
@@ -72,6 +72,7 @@ _CI steps read from `.github/workflows/ci.yml`; v2 test counts are under v2 buil
 - CI · Assert RLS is enabled on every public table: inline script
 - CI · Assert no world-open write policy exists: inline script
 - CI · v2 permission tests: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_rls_test.sql`
+- CI · v2 company name-history tests: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_hub_names_test.sql`
 - CI · v2 dev seed applies: inline script
 - CI · Report public read-policy count: inline script
 

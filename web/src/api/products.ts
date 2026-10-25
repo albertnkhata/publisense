@@ -1,6 +1,6 @@
 import { getSupabase } from './supabase';
 import { ApiError, type PersonRef } from './posts';
-import { BOARD_COLUMNS, withDomains, type Board, type BoardCategory, type BoardWithHub, type HubRef, type HubStatus } from './boards';
+import { BOARD_COLUMNS, hubFormerNames, withDomains, type Board, type BoardCategory, type BoardWithHub, type HubName, type HubRef, type HubStatus } from './boards';
 import { parseLink, type LinkKind } from '../lib/link';
 
 /*
@@ -283,6 +283,8 @@ export interface AdminCompany {
   status: HubStatus;
   primary_domain: string | null;
   domains: string[];
+  /** Names this company used before the current one, most recent first (0030). */
+  former_names: string[];
   board_count: number;
 }
 
@@ -290,14 +292,18 @@ export interface AdminCompany {
 export async function fetchCompanies(): Promise<AdminCompany[]> {
   const { data, error } = await getSupabase()
     .from('hub')
-    .select('id, slug, name, status, primary_domain, hub_domain(domain, created_at), board(count)')
+    .select('id, slug, name, status, primary_domain, hub_domain(domain, created_at), hub_name(name, kind, is_current, created_at), board(count)')
     .neq('status', 'rejected')
     .order('name');
   if (error) throw error;
-  type Raw = Omit<AdminCompany, 'domains' | 'board_count'> & { hub_domain?: Array<{ domain: string; created_at?: string }>; board?: Array<{ count: number }> };
+  type Raw = Omit<AdminCompany, 'domains' | 'former_names' | 'board_count'> & {
+    hub_domain?: Array<{ domain: string; created_at?: string }>;
+    hub_name?: HubName[] | null;
+    board?: Array<{ count: number }>;
+  };
   return ((data ?? []) as unknown as Raw[]).map((h) => {
     const { board, ...rest } = h;
-    return { ...withDomains(rest), board_count: board?.[0]?.count ?? 0 };
+    return { ...withDomains(rest), former_names: hubFormerNames(h), board_count: board?.[0]?.count ?? 0 };
   });
 }
 
@@ -308,4 +314,24 @@ export async function addHubDomain(hubId: string, domain: string): Promise<strin
 
 export async function removeHubDomain(hubId: string, domain: string): Promise<void> {
   await rpc('remove_hub_domain', { p_hub: hubId, p_domain: domain });
+}
+
+/**
+ * Rename a company, keeping the name it used before (0030). Leave the slug out and the
+ * database derives one no other company has used; pass it to choose the address, and the
+ * old slug keeps resolving to this company either way. Admin only.
+ */
+export async function renameHub(
+  hubId: string,
+  name: string,
+  slug?: string,
+  source?: string,
+): Promise<{ slug: string; name: string; changed: boolean }> {
+  const res = await rpc<RpcResult & { slug: string; name: string; changed: boolean }>('rename_hub', {
+    p_hub: hubId,
+    p_name: name,
+    p_slug: slug?.trim() || null,
+    p_source: source?.trim() || null,
+  });
+  return { slug: res.slug, name: res.name, changed: res.changed };
 }

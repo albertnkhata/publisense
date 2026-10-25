@@ -29,6 +29,7 @@ const productsApi = vi.hoisted(() => ({
   fetchCompanies: vi.fn(),
   addHubDomain: vi.fn(),
   removeHubDomain: vi.fn(),
+  renameHub: vi.fn(),
 }));
 const boardsApi = vi.hoisted(() => ({
   fetchBoard: vi.fn(),
@@ -729,8 +730,8 @@ describe('admin: companies on new products', () => {
 
   it('the Companies tab lists companies with their domains, and adds or removes one', async () => {
     productsApi.fetchCompanies.mockResolvedValue([
-      { id: ANTHROPIC.id, slug: 'anthropic', name: 'Anthropic', status: 'live', primary_domain: 'claude.ai', domains: ['claude.ai', 'claude.com'], board_count: 5 },
-      { ...PENDING_HUB, board_count: 1 },
+      { id: ANTHROPIC.id, slug: 'anthropic', name: 'Anthropic', status: 'live', primary_domain: 'claude.ai', domains: ['claude.ai', 'claude.com'], former_names: ['Anthropic PBC'], board_count: 5 },
+      { ...PENDING_HUB, former_names: [], board_count: 1 },
     ]);
     productsApi.addHubDomain.mockRejectedValueOnce(new ProductError('domain_taken', 'Another company already owns that domain.'));
     renderApp('/admin/companies');
@@ -738,6 +739,7 @@ describe('admin: companies on new products', () => {
     const [anthropic, acme] = within(list).getAllByRole('listitem').filter((li) => li.parentElement === list);
     expect(within(anthropic!).getByRole('link', { name: 'Anthropic' }).getAttribute('href')).toBe('/h/anthropic');
     expect(within(anthropic!).getByText('5 products')).toBeTruthy();
+    expect(within(anthropic!).getByText('Formerly Anthropic PBC.')).toBeTruthy();
     expect(within(within(anthropic!).getByRole('list', { name: 'Anthropic domains' })).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['claude.ai', 'claude.com']);
     expect(within(acme!).getByText('Waiting for review')).toBeTruthy();
     fireEvent.change(within(anthropic!).getByLabelText('Add a domain to Anthropic'), { target: { value: 'figma.com' } });
@@ -745,6 +747,20 @@ describe('admin: companies on new products', () => {
     expect(await within(anthropic!).findByText('Another company already owns that domain.')).toBeTruthy();
     fireEvent.click(within(anthropic!).getByRole('button', { name: 'Remove claude.com' }));
     await waitFor(() => expect(productsApi.removeHubDomain).toHaveBeenCalledWith(ANTHROPIC.id, 'claude.com'));
+  });
+
+  // 0030: renaming a company keeps the name it used, and the address it had keeps working.
+  it('renames a company from the Companies tab, keeping the old name', async () => {
+    productsApi.fetchCompanies.mockResolvedValue([
+      { id: ANTHROPIC.id, slug: 'anthropic', name: 'Anthropic', status: 'live', primary_domain: 'claude.ai', domains: ['claude.ai'], former_names: [], board_count: 5 },
+    ]);
+    productsApi.renameHub.mockResolvedValue({ slug: 'claude', name: 'Claude', changed: true });
+    renderApp('/admin/companies');
+    const list = await screen.findByRole('list', { name: 'Companies' });
+    fireEvent.click(await within(list).findByRole('button', { name: 'Rename' }));
+    fireEvent.change(within(list).getByLabelText('New name for Anthropic'), { target: { value: 'Claude' } });
+    fireEvent.click(within(list).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(productsApi.renameHub).toHaveBeenCalledWith(ANTHROPIC.id, 'Claude', undefined, undefined));
   });
 });
 

@@ -3,16 +3,21 @@ import {
   compactCount,
   siteLink,
   fetchBoard,
+  fetchHub,
   fetchPostCounts,
+  hubFormerNames,
+  hubLegalName,
   ilikeTerm,
   isSlug,
   matchCatalogue,
   matchesAll,
   rankTrending,
+  resolveHubSlug,
   searchAll,
   setScopeFollow,
   type Board,
   type Hub,
+  type HubName,
 } from '../api/boards';
 import {
   anyWordQuery,
@@ -41,6 +46,8 @@ const db = vi.hoisted(() => ({
   errors: {} as Record<string, { code?: string; message: string } | null>,
   /** Per-table queue of one-off results, used before rows/errors. */
   queue: {} as Record<string, Result[]>,
+  /** Per-function results for rpc(), used before the truthy default. */
+  rpcResults: {} as Record<string, { data: unknown; error: { code?: string; message: string } | null }>,
   count: 0,
 }));
 
@@ -64,7 +71,11 @@ vi.mock('../api/supabase', () => {
   }
   return {
     hasSupabaseConfig: true,
-    getSupabase: () => ({ from: builder, rpc: () => Promise.resolve({ data: true, error: null }) }),
+    getSupabase: () => ({
+      from: builder,
+      rpc: (fn: string, args: unknown) =>
+        Promise.resolve(db.rpcResults[fn] ?? { data: true, error: null, args }),
+    }),
     publicStorageUrl: () => null,
   };
 });
@@ -97,6 +108,7 @@ beforeEach(() => {
   db.rows = {};
   db.errors = {};
   db.queue = {};
+  db.rpcResults = {};
   db.count = 0;
 });
 
@@ -270,7 +282,7 @@ describe('search', () => {
     board({ id: 'l', name: 'Linear', tagline: 'Issue tracking and product planning' }),
   ];
   const hubs: Hub[] = [
-    { id: 'h', slug: 'figma', name: 'Figma', description: 'Figma, FigJam and Figma Slides', primary_domain: 'figma.com', domains: ['figma.com'], claimed_at: null, created_at: '', follower_count: 0, boards: boards.slice(0, 2) },
+    { id: 'h', slug: 'figma', name: 'Figma', description: 'Figma, FigJam and Figma Slides', primary_domain: 'figma.com', domains: ['figma.com'], former_names: [], legal_name: null, claimed_at: null, created_at: '', follower_count: 0, boards: boards.slice(0, 2) },
   ];
 
   it('matches boards and hubs word by word, names first', () => {
@@ -347,5 +359,92 @@ describe('siteLink', () => {
 
   it.each([null, undefined, '', '   ', 'not a site', 'javascript:alert(1)', 'ftp://x.com'])('rejects %s', (site) => {
     expect(siteLink(site)).toBeNull();
+  });
+});
+
+/*
+ * 0030: a company that changes its name keeps the names it used, its old address resolves
+ * to it, and searching an old name finds it.
+ */
+describe('company names (0030)', () => {
+  const SXI = '7a000000-0000-4000-8000-000000000001';
+  const history = (over: HubName[] = []): HubName[] => [
+    ...over,
+    { name: 'SpaceXSI', slug: 'spacexsi', kind: 'trade', is_current: true, created_at: '2026-10-24T10:00:00Z' },
+    { name: 'SpaceXAI', slug: 'spacexai', kind: 'former', is_current: false, created_at: '2026-10-24T09:00:00Z' },
+    { name: 'xAI', slug: 'xai', kind: 'former', is_current: false, created_at: '2026-10-24T08:00:00Z' },
+    { name: 'SpaceXAI LLC', slug: 'spacexai-llc', kind: 'legal', is_current: false, created_at: '2026-10-24T07:00:00Z' },
+  ];
+
+  const hub = (over: Partial<Hub> = {}): Hub => ({
+    id: SXI,
+    slug: 'spacexsi',
+    name: 'SpaceXSI',
+    description: 'SpaceX Super Intelligence',
+    primary_domain: 'x.ai',
+    domains: ['x.ai'],
+    former_names: ['SpaceXAI', 'xAI'],
+    legal_name: 'SpaceXAI LLC',
+    claimed_at: null,
+    created_at: '',
+    follower_count: 0,
+    boards: [],
+    ...over,
+  });
+
+  it('lists former names newest first, without the legal entity or the current name', () => {
+    expect(hubFormerNames({ name: 'SpaceXSI', hub_name: history() })).toEqual(['SpaceXAI', 'xAI']);
+    // Once the company renames, the name it leaves behind joins the list.
+    expect(
+      hubFormerNames({
+        name: 'xAI',
+        hub_name: [
+          { name: 'xAI', slug: 'xai', kind: 'trade', is_current: true, created_at: '2026-10-25T10:00:00Z' },
+          { name: 'SpaceXSI', slug: 'spacexsi', kind: 'former', is_current: false, created_at: '2026-10-24T10:00:00Z' },
+        ],
+      }),
+    ).toEqual(['SpaceXSI']);
+    // The same name used twice is reported once, newest first.
+    expect(
+      hubFormerNames({ name: 'SpaceXSI', hub_name: history([{ name: 'xai', slug: 'xai-2', kind: 'former', is_current: false, created_at: '2026-10-24T11:00:00Z' }]) }),
+    ).toEqual(['xai', 'SpaceXAI']);
+  });
+
+  it('reports the legal entity only when it differs from the name shown', () => {
+    expect(hubLegalName({ name: 'SpaceXSI', hub_name: history() })).toBe('SpaceXAI LLC');
+    expect(hubLegalName({ name: 'Figma', hub_name: [{ name: 'Figma', slug: 'figma', kind: 'legal', is_current: false }] })).toBeNull();
+    expect(hubLegalName({ name: 'Figma' })).toBeNull();
+  });
+
+  it('resolves a former slug to the company that owns it, and nothing for an unused one', async () => {
+    db.rpcResults.resolve_hub_slug = { data: [{ hub_id: SXI, slug: 'xai', name: 'xAI', is_current: false }], error: null };
+    await expect(resolveHubSlug('xai')).resolves.toEqual({ hub_id: SXI, slug: 'xai', name: 'xAI', is_current: false });
+    db.rpcResults.resolve_hub_slug = { data: [], error: null };
+    await expect(resolveHubSlug('nobody-used-this')).resolves.toBeNull();
+  });
+
+  it('loads a hub asked for by a former slug, so the page can send the reader to the current one', async () => {
+    db.rpcResults.resolve_hub_slug = { data: [{ hub_id: SXI, slug: 'xai', name: 'xAI', is_current: false }], error: null };
+    db.rows.hub = [
+      {
+        ...hub(),
+        hub_domain: [{ domain: 'x.ai', created_at: '' }],
+        hub_name: history(),
+        status: 'live',
+        board: [],
+      },
+    ];
+    const found = await fetchHub('xai');
+    expect(found?.slug).toBe('spacexsi');
+    expect(found?.former_names).toEqual(['SpaceXAI', 'xAI']);
+    // Read by the id the resolver returned, not by the slug the reader typed.
+    expect(has(only('hub'), 'eq', 'id', SXI)).toBe(true);
+  });
+
+  it('finds a company by a name it no longer uses, current-name matches first', () => {
+    const hubs = [hub(), hub({ id: 'other', slug: 'xai-tools', name: 'xAI Tools', description: '', former_names: [], legal_name: null })];
+    expect(matchCatalogue('xai', [], hubs).hubs.map((h) => h.slug)).toEqual(['xai-tools', 'spacexsi']);
+    expect(matchCatalogue('spacexai', [], hubs).hubs.map((h) => h.slug)).toEqual(['spacexsi']);
+    expect(matchCatalogue('spacexai llc', [], hubs).hubs.map((h) => h.slug)).toEqual(['spacexsi']);
   });
 });

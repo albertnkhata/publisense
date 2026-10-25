@@ -12,6 +12,7 @@ import {
   useDecideBoard,
   useHubDomain,
   useProductQueue,
+  useRenameHub,
   type AdminCompany,
   type BoardCategory,
   type BoardDecision,
@@ -459,8 +460,85 @@ function CompanyCard({ h }: { h: AdminCompany }) {
         {h.status === 'pending' ? <span className="rounded-pill bg-subtle px-2 text-xs font-medium text-ink-muted">Waiting for review</span> : null}
         <span className="text-sm text-ink-muted">{plural(h.board_count, 'product')}</span>
       </p>
+      {h.former_names.length ? (
+        <p className="mt-0 mb-3 text-sm text-ink-muted">Formerly {h.former_names.join(', ')}.</p>
+      ) : null}
       <DomainEditor hubId={h.id} name={h.name} domains={h.domains} />
+      <RenameEditor h={h} />
     </Card>
+  );
+}
+
+/**
+ * A company that changes its name keeps the old one (0030): the rename records history, and
+ * the address it used to have resolves to it for good. Leaving the slug blank derives one
+ * no other company has used.
+ */
+function RenameEditor({ h }: { h: AdminCompany }) {
+  const rename = useRenameHub();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(h.name);
+  const [slug, setSlug] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    const next = name.trim();
+    if (!next) return;
+    setError(null);
+    rename.mutate(
+      { hubId: h.id, name: next, slug: slug.trim() || undefined },
+      {
+        onSuccess: () => {
+          setOpen(false);
+          setSlug('');
+        },
+        onError: (err) => setError(err instanceof Error ? err.message : 'Something went wrong. Try again.'),
+      },
+    );
+  };
+  if (!open) {
+    return (
+      <div className="mt-3">
+        <Button variant="ghost" size="sm" onClick={() => { setName(h.name); setOpen(true); }}>
+          Rename
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <form className="mt-3 flex flex-col gap-2" onSubmit={submit}>
+      <span className="text-sm font-semibold text-ink">Rename company</span>
+      <Input
+        aria-label={`New name for ${h.name}`}
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        autoComplete="off"
+      />
+      <Input
+        aria-label={`New address for ${h.name} (optional)`}
+        value={slug}
+        placeholder={`${h.slug} — leave blank to derive one`}
+        autoComplete="off"
+        spellCheck={false}
+        onChange={(e) => setSlug(e.target.value)}
+      />
+      <p className="m-0 text-sm text-ink-muted">
+        The name it uses now stays on record, and /h/{h.slug} keeps pointing here.
+      </p>
+      {error ? (
+        <p role="alert" className="m-0 text-sm text-danger">
+          {error}
+        </p>
+      ) : null}
+      <div className="flex gap-2">
+        <Button type="submit" size="sm" loading={rename.isPending} disabled={!name.trim()}>
+          Save
+        </Button>
+        <Button variant="secondary" size="sm" type="button" onClick={() => setOpen(false)}>
+          Cancel
+        </Button>
+      </div>
+    </form>
   );
 }
 

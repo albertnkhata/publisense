@@ -369,3 +369,24 @@ describe('search', () => {
   });
 });
 
+
+/*
+ * 0030: a company that changed its name still owns the address it used to publish under.
+ * Following an old link lands on the current one instead of "Hub not found".
+ */
+describe('old company addresses', () => {
+  it('redirects a former slug to the page that owns it', async () => {
+    const { router } = renderAt('/h/xai');
+    expect(await screen.findByRole('heading', { level: 1, name: /Figma/ })).toBeTruthy();
+    await waitFor(() => expect(router.state.location.pathname).toBe('/h/figma'));
+    // Resolved twice: the old address, then the current one after the redirect.
+    expect(boardsApi.fetchHub.mock.calls.map((c) => c[0])).toEqual(['xai', 'figma']);
+  });
+
+  it('leaves a current slug where it is', async () => {
+    const { router } = renderAt('/h/figma');
+    expect(await screen.findByRole('heading', { level: 1, name: /Figma/ })).toBeTruthy();
+    expect(router.state.location.pathname).toBe('/h/figma');
+    expect(boardsApi.fetchHub).toHaveBeenCalledTimes(1);
+  });
+});
