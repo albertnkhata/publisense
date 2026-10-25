@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /settings
+Disallow: /notifications
+Disallow: /auth/
+Disallow: /unsubscribe
+Disallow: /search
+Disallow: /api/
+Disallow: /dev/
+Disallow: /*/manage
+
+Sitemap: https://publisense.app/sitemap.xml

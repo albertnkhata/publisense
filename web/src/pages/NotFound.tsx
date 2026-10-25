@@ -6,6 +6,8 @@ export function NotFound() {
   usePageTitle('Page not found');
   return (
     <section aria-labelledby="page-title" className="rounded-md border border-line bg-card">
+      {/* React 19 hoists this into <head>: keep missing boards/posts out of search results. */}
+      <meta name="robots" content="noindex" />
       <h1 id="page-title" className="sr-only">
         Page not found
       </h1>
