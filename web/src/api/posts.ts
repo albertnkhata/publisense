@@ -761,7 +761,7 @@ export function isSourceUrl(v: string): boolean {
 
 const SEED_ERRORS: Record<string, string> = {
   not_allowed: 'Only Publisense staff can add posts from a source.',
-  not_found: 'That product isn’t live.',
+  not_found: 'That product isn’t live or waiting for review.',
   invalid_type: 'Choose a type.',
   title_length: 'Titles are 3 to 140 characters.',
   body_length: 'Details are too long.',

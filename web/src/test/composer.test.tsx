@@ -213,6 +213,21 @@ describe('search popover', () => {
       expect(postsApi.createPost).not.toHaveBeenCalled();
     });
 
+    it('offers products still waiting for review when seeding, but not when posting as yourself', async () => {
+      modApi.fetchIsPlatformAdmin.mockResolvedValue(true);
+      boardsApi.fetchBoards.mockResolvedValue([CURSOR, { ...SUPABASE, id: 'b0000000-0000-4000-8000-0000000000c1', slug: 'instacart', name: 'Instacart', tagline: 'Groceries', status: 'pending', created_by: 'someone-else' }]);
+      renderComposer();
+      const dialog = await open();
+      const product = within(dialog).getByRole('combobox', { name: 'Product' });
+      fireEvent.focus(product);
+      fireEvent.change(product, { target: { value: 'insta' } });
+      await waitFor(() => expect(within(dialog).queryByRole('option', { name: /Instacart/ })).toBeNull());
+      fireEvent.click(within(dialog).getByRole('button', { name: 'From a source' }));
+      fireEvent.focus(product);
+      fireEvent.change(product, { target: { value: 'instac' } });
+      expect(await within(dialog).findByRole('option', { name: /Instacart/ })).toBeTruthy();
+    });
+
     it('asks for a full https link before seeding', async () => {
       modApi.fetchIsPlatformAdmin.mockResolvedValue(true);
       renderComposer();

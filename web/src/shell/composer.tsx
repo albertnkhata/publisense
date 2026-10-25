@@ -135,7 +135,7 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
 
   const viewerId = viewer?.id ?? null;
   const postable = useMemo(
-    () => (boards.data ?? []).filter((b) => (seeding ? isLive(b) : isPostable(b, viewerId))),
+    () => (boards.data ?? []).filter((b) => (seeding ? isLive(b) || b.status === 'pending' : isPostable(b, viewerId))),
     [boards.data, viewerId, seeding],
   );
   const board = postable.find((b) => b.slug === boardSlug) ?? null;
