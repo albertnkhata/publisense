@@ -64,55 +64,38 @@ favicon. That improves the product regardless of the consent screen.
 
 ---
 
-### D-011 · Every visible signal and comment in production is seeded fixture content
+### D-011 · Every post in production is imported from a public source, and nothing says so
 
-**Status:** 🟡 accepted for now (owner decision 2026-10-20) · **Raised:** 2026-10-20 · **Last re-verified:** 2026-10-22 · **Revisit:** before announce
+**Status:** 🟡 decided 2026-10-25 — keep the imported posts, label them as samples · **Raised:** 2026-10-20 · **Last re-verified:** 2026-10-25 · **Closes when:** the sample label ships (#111) · **Revisit:** before announce, or in any screenshot or demo shown outside the owner's circle
 
-**Decision:** keep the demo content in place while the product is still being
-polished. Recorded so the risk is deliberate rather than forgotten — it is not a bug
-that got lost, it is a choice that has to be revisited out loud before the app is
-shown to anyone outside.
+**Decision.** Keep the imported posts rather than launch on an empty index, and mark them so nobody
+reads them as this community's own activity. Until that label exists this entry stays **open** — the
+content is correct, and being unlabelled is the whole of what is left.
 
-The live site presents eight posts, nine comments, four votes and seven personas as
-community activity. **All of it is fixture data.** Re-verified against production
-2026-10-22 (`wyjfgrgxmhumyzwcrywj`):
+**What production actually holds**, re-verified 2026-10-25T09:59Z against `wyjfgrgxmhumyzwcrywj`:
 
 ```
-posts.author_id      -> 8/8 authored by fixture personas (usr-maya 2, usr-elena 1,
-                        usr-jonas 1, usr-lucas 1, usr-marcus 1, usr-noah 1,
-                        usr-albert 1)
-comments.author_id   -> 9/9 authored by fixture personas
-post_votes           -> 4/4 cast by fixture personas
-profiles             -> 10 total: 7 fixture personas (@publisense.invalid, `usr-*` ids,
-                        which can never map to an auth user) + 3 owner accounts
-auth.users           -> 3, all owner-controlled (1 hotmail, 2 gmail); 0 community members
+post          -> 11 total · 11/11 carry source_url and source_author · 0/11 have an author_id
+                 (imports, not submissions) · spread over 3 boards
+vote          -> 0
+reply         -> 0
+profile       -> 3, all owner accounts · the seven fixture personas are gone
+membership    -> 0
+post.platform -> 8 unset · 2 ios · 1 desktop
 ```
 
-The personas are named, avatar'd, and attributed to real-looking domains
-(`@systems.dev`, `@anysphere.inc`, …). `usr-albert` even carries `role = 'admin'`,
-so the public `public_profiles` view advertises an admin account no human can sign
-in to.
+**This is not the risk recorded on 2026-10-22.** That audit described eight posts, nine comments and four
+votes written by seven fabricated personas, one of them an admin account no human could sign in to. Those
+rows are gone: the seeded content was replaced with imports from public sources, and every post now
+credits the person who wrote it with an outbound link. The `profile` table has also lost its `email`
+column entirely, which supersedes the `@publisense.invalid` mitigation from migration `0010`.
 
-**Already mitigated (2026-10-20, migration `0010`):** fixture rows no longer hold
-deliverable email addresses — they were moved to `@publisense.invalid`, which also
-removed the signup collision that blocked the owner's own address. Fixtures can no
-longer be mistaken for real accounts at the database level.
+**What keeping them costs, honestly.** Not invented traction — there are no votes, no comments and no
+fictional members to mistake for a community. What is left is framing: eleven imported posts appear on
+the front page with nothing saying they came from somewhere else. Each already carries its source credit,
+so the fix is small — but until #111 ships, a visitor can read the index as activity this site generated.
 
-**What keeping them costs:** a headline like "4,120+ community signals" over eight
-fixture posts reads as traction that does not exist. The product's central claim —
-"see which teams actually listen" — rests on reactions no team ever gave. That is a
-truthfulness exposure, not an engineering one, so it is the owner's call.
-
-**Revisit trigger — any of these ends the deferral:**
-- a public announcement, launch post, or shareable link outside the owner's circle
-- the first time real users are invited
-- a screenshot or demo shown to a third party (investor, partner, customer)
-
-**Then choose, in order of honesty:**
-- **A** — delete fixtures and shipped seed content; launch on a genuinely empty
-  index (requires a decent empty state)
-- **B** — keep them, but label them: a visible "sample data" banner and personas
-  marked as examples rather than members
+**Closing condition:** #111 (the label), verified on `publisense.app` rather than in the repo.
 
 ---
 
@@ -143,33 +126,29 @@ other users. Guarded at every current call site.
 
 ### D-003 · Test coverage is narrow — no automatic user-flow test in CI
 
-**Status:** 🟡 ship-with-risk · **Deferred:** 2026-10-20 · **Partly addressed:** #23, #32, #33, #62 (`npm test` is now 96 cases across 8 files; `smoke:live` still cannot run in CI)
+**Status:** 🟡 ship-with-risk · **Deferred:** 2026-10-20 · **Partly addressed:** #23, #32, #33, #62 and the v2 page suites · **Last corrected:** 2026-10-25
 
 **Covered now.**
 
-- `npm test` — 15 vitest cases over `src/lib/authCapabilities.ts`: a disabled provider
-  is never advertised, a failed settings fetch fails closed to email/password, results
-  are cached, flags are decoded predictably. Runs in CI.
-- `npm run smoke:live` — 14 checks against the live project with a throwaway user:
-  signup provisions a plain-user profile, password sign-in returns a session, a user
-  can post and vote as themselves, cannot post or vote as somebody else (`42501`),
-  cannot double-vote (`23505`), can edit their own profile but cannot promote
-  themselves to admin, and cannot delete another user's post. It records a baseline
-  count for every table it touches and **fails if the counts do not come back**, so a
-  crashed run cannot silently leave residue.
-- CI still proves migrations apply on Postgres 17 with an `auth` stub, the bundle
-  builds, and `service_role` never reaches `dist/assets`.
+- `npm test` — **28 files, 333 declared cases**, run in CI on every PR. The count lives in the
+  repo-derived block of [`STATUS.md`](../STATUS.md), so it cannot rot in this entry. The suites cover
+  page-level behaviour (discovery and search, the admin console, the composer, teams, routing), not only
+  library functions.
+- CI rebuilds a database from scratch out of `schema.sql` plus every migration, then asserts RLS is on for
+  every public table, that no write policy is world-open, and runs the permission and company name-history
+  SQL suites as the real API roles.
+- The client bundle is grepped for `service_role` on every build.
 
-**What is still missing.** The smoke test is manual, because it needs the service role
-key and CI has no secrets — and because it writes to production, it is a canary rather
-than a suite. There is no automated coverage of the comment/repost/follow/notification
-paths, no component tests for the pages, and no test database to run any of it against
-(Supabase branching is not on the current plan).
+**What is still missing — and got worse at the cutover.** `npm run smoke:live` **was deleted with the v1
+code** at the v2 cutover, and nothing replaced it. It was 14 checks against the live project: signup
+provisions a plain-user profile, a user can post and vote as themselves but not as somebody else, cannot
+double-vote, cannot promote themselves. There is now **no automated check that touches a real database** —
+everything above runs against a throwaway Postgres with an `auth` stub, or against `dist/`.
 
-**Revisit when:** either the plan allows branch databases, or repo secrets are added so
-`smoke:live` can run on a schedule against a non-production project. Until then the
-honest statement is: every RLS rule that matters has been verified against production
-by hand and by this script, and nothing verifies it automatically.
+**Revisit when:** either the plan allows branch databases, or repo secrets are added so a smoke suite can
+run on a schedule against a non-production project. Until then the honest statement is: every RLS rule that
+matters has been verified against the live project by hand, as the name-history work was on 2026-10-25 by
+querying as the `anon` role, and nothing verifies it automatically.
 
 ---
 

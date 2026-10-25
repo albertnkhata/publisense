@@ -9,8 +9,8 @@
       },
       {
         "id": "D-011",
-        "title": "Every visible signal and comment in production is seeded fixture content",
-        "revisit": "before announce"
+        "title": "Every post in production is imported from a public source, and nothing says so",
+        "revisit": "before announce, or in any screenshot or demo shown outside the owner's circle"
       },
       {
         "id": "D-007",

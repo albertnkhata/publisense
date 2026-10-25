@@ -34,7 +34,7 @@ _derived from `docs/v2/BUILD.md` checkbox state · one PR per step, see `docs/v2
 _derived from `docs/deferred.md` · the ids link to the entry, which is canonical_
 
 - **D-012** · The Google consent screen shows no app logo — revisit: when a distinctive brand mark exists, or if a sensitive scope forces a review anyway
-- **D-011** · Every visible signal and comment in production is seeded fixture content — revisit: before announce
+- **D-011** · Every post in production is imported from a public source, and nothing says so — revisit: before announce, or in any screenshot or demo shown outside the owner's circle
 - **D-007** · Background rows for other users have no email in the client
 - **D-003** · Test coverage is narrow — no automatic user-flow test in CI
 
