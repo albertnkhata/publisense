@@ -5,7 +5,43 @@
   "outputDirectory": "dist",
   "ignoreCommand": "git diff --quiet HEAD^ HEAD -- .",
   "rewrites": [
-    { "source": "/((?!assets/).*)", "destination": "/index.html" }
+    {
+      "source": "/b/:key",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(bot|crawler|spider|facebookexternalhit|facebot|whatsapp|slack|discord|telegram|linkedin|embedly|pinterest|skype|vkshare|applebot|mastodon|bluesky).*"
+        }
+      ],
+      "destination": "/api/share?kind=board&key=:key"
+    },
+    {
+      "source": "/h/:key",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(bot|crawler|spider|facebookexternalhit|facebot|whatsapp|slack|discord|telegram|linkedin|embedly|pinterest|skype|vkshare|applebot|mastodon|bluesky).*"
+        }
+      ],
+      "destination": "/api/share?kind=hub&key=:key"
+    },
+    {
+      "source": "/post/:key",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(bot|crawler|spider|facebookexternalhit|facebot|whatsapp|slack|discord|telegram|linkedin|embedly|pinterest|skype|vkshare|applebot|mastodon|bluesky).*"
+        }
+      ],
+      "destination": "/api/share?kind=post&key=:key"
+    },
+    {
+      "source": "/((?!assets/|api/).*)",
+      "destination": "/index.html"
+    }
   ],
   "headers": [
     {
@@ -20,9 +56,18 @@
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
       ]
     }
   ]
