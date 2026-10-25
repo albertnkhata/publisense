@@ -32,6 +32,7 @@ import {
   type Post,
   type PostErrors,
   type PostType,
+  sourceAuthorFromUrl,
   sourceLabel,
 } from '../api';
 import { cx } from '../lib/cx';
@@ -124,6 +125,9 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
   const seeding = isAdmin && mode === 'source';
   const [sourceUrl, setSourceUrl] = useState('');
   const [postedOn, setPostedOn] = useState('');
+  // Who first raised it: filled from an X link until staff type their own (0032).
+  const [typedWho, setTypedWho] = useState<string | null>(null);
+  const sourceAuthor = typedWho ?? sourceAuthorFromUrl(sourceUrl) ?? '';
   const [sourceError, setSourceError] = useState<string | undefined>();
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
@@ -165,7 +169,7 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
     if (Object.keys(found).length || badSource || !board || !type) return;
     setFailure(null);
     create.mutate(
-      seeding ? { boardId: board.id, type, title, body, sourceUrl, postedOn: postedOn || null } : { boardId: board.id, type, title, body },
+      seeding ? { boardId: board.id, type, title, body, sourceUrl, postedOn: postedOn || null, sourceAuthor: sourceAuthor || null } : { boardId: board.id, type, title, body },
       {
         onSuccess: (post) => {
           onClose();
@@ -308,6 +312,17 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
               <Input type="date" value={postedOn} max={today} onChange={(e) => setPostedOn(e.target.value)} />
             </Field>
           </div>
+        ) : null}
+        {seeding ? (
+          <Field label="Original poster" optional hint="Credited on the card as “@name on X”, linking to the original.">
+              <Input
+                value={sourceAuthor}
+                placeholder="@handle or u/name"
+                maxLength={80}
+                autoComplete="off"
+                onChange={(e) => setTypedWho(e.target.value)}
+              />
+          </Field>
         ) : null}
 
         <TypeField
