@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { useDeletePost, useFollowPost, useHidePost, useIsBoardTeam, useIsPlatformAdmin, type Post } from '../api';
+import { postKind, useDeletePost, useFollowPost, useHidePost, useIsBoardTeam, useIsPlatformAdmin, type Post } from '../api';
 import { copyText, postUrl } from '../lib/share';
 import { useViewer } from '../lib/viewer';
 import { useRequireAuth } from '../shell/auth';
@@ -34,7 +34,10 @@ export function PostMenu({ post, onDeleted }: { post: Post; onDeleted?: () => vo
   const [error, setError] = useState<string | null>(null);
 
   const isAuthor = Boolean(viewer && post.author_id === viewer.id);
-  const canEdit = isAuthor && post.status !== 'merged';
+  // Staff look after seeded posts (no author, a source link): edit and delete them (0031).
+  const staffSeeded = Boolean(staff.data) && postKind(post) === 'seeded';
+  const canEdit = (isAuthor && post.status !== 'merged') || staffSeeded;
+  const canDelete = isAuthor || staffSeeded;
   const canHide = Boolean(team.data || staff.data);
 
   const toggleHidden = () => {
@@ -62,7 +65,7 @@ export function PostMenu({ post, onDeleted }: { post: Post; onDeleted?: () => vo
 
   const confirmDelete = () => {
     setError(null);
-    del.mutate(post.id, {
+    del.mutate(staffSeeded && !isAuthor ? { id: post.id, seeded: true } : post.id, {
       onSuccess: () => {
         setDeleting(false);
         toast('Post deleted');
@@ -128,7 +131,7 @@ export function PostMenu({ post, onDeleted }: { post: Post; onDeleted?: () => vo
             </MenuItem>
           </>
         ) : null}
-        {isAuthor ? (
+        {canDelete ? (
           <>
             <MenuSeparator />
             {canEdit ? (
@@ -152,7 +155,7 @@ export function PostMenu({ post, onDeleted }: { post: Post; onDeleted?: () => vo
       {statusOpen ? <StatusDialog post={post} open onClose={() => setStatusOpen(false)} /> : null}
       {merging ? <MergeDialog post={post} open onClose={() => setMerging(false)} /> : null}
       {reporting ? <ReportDialog target="post" id={post.id} subject={post.title} open onClose={() => setReporting(false)} /> : null}
-      {editing ? <EditPostDialog post={post} open onClose={() => setEditing(false)} /> : null}
+      {editing ? <EditPostDialog post={post} seeded={staffSeeded} open onClose={() => setEditing(false)} /> : null}
       <ConfirmDialog
         open={deleting}
         title="Delete this post?"
