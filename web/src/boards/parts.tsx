@@ -248,6 +248,9 @@ export function BoardCard({ board, now = new Date() }: { board: Board; now?: Dat
       </div>
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-ink-muted">
         <span>
+          <b className="font-semibold text-ink">{compactCount(board.post_count)}</b> {board.post_count === 1 ? 'post' : 'posts'}
+        </span>
+        <span>
           <b className="font-semibold text-ink">{compactCount(board.follower_count)}</b> {board.follower_count === 1 ? 'follower' : 'followers'}
         </span>
         {board.claimed_at ? (
