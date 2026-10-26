@@ -190,7 +190,14 @@ function ProfileSection({ viewer }: { viewer: Viewer }) {
             />
           </div>
           <Field label="Name" error={errors.name}>
-            <Input autoComplete="name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+            <Input
+              autoComplete="name"
+              value={draft.name}
+              onChange={(e) => {
+                setDraft({ ...draft, name: e.target.value });
+                setErrors(({ name: _stale, ...rest }) => rest);
+              }}
+            />
           </Field>
           <Field label="Handle" hint={`publisense.app/u/${draft.handle || 'your-handle'}`} error={errors.handle}>
             <Input
@@ -198,11 +205,24 @@ function ProfileSection({ viewer }: { viewer: Viewer }) {
               autoCorrect="off"
               spellCheck={false}
               value={draft.handle}
-              onChange={(e) => setDraft({ ...draft, handle: e.target.value.toLowerCase().replace(/^@/, '') })}
+              onChange={(e) => {
+                setDraft({ ...draft, handle: e.target.value.toLowerCase().replace(/^@/, '') });
+                // An error belongs to the value that was submitted; once the person edits
+                // the field it no longer describes what they see, so drop it.
+                setErrors(({ handle: _stale, ...rest }) => rest);
+              }}
             />
           </Field>
           <Field label="Bio" optional aside={`${draft.bio.length}/${BIO_MAX}`} error={errors.bio}>
-            <Textarea rows={3} value={draft.bio} maxLength={BIO_MAX} onChange={(e) => setDraft({ ...draft, bio: e.target.value })} />
+            <Textarea
+              rows={3}
+              value={draft.bio}
+              maxLength={BIO_MAX}
+              onChange={(e) => {
+                setDraft({ ...draft, bio: e.target.value });
+                setErrors(({ bio: _stale, ...rest }) => rest);
+              }}
+            />
           </Field>
           <div className="flex justify-end">
             <Button type="submit" disabled={!dirty} loading={saving}>
