@@ -100,6 +100,18 @@ describe('settings', () => {
     });
   });
 
+  it('drops a handle error as soon as the handle is edited', async () => {
+    renderWith(<SettingsPage />, { viewer: TEST_VIEWER, path: '/settings' });
+    const handle = screen.getByRole('textbox', { name: 'Handle' });
+    fireEvent.change(handle, { target: { value: 'qa-user' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
+    const rule = '3 to 30 characters: lowercase letters, numbers and underscores.';
+    expect(await screen.findByText(rule)).toBeTruthy();
+    fireEvent.change(handle, { target: { value: 'qa_user' } });
+    expect(screen.queryByText(rule)).toBeNull();
+    expect((screen.getByRole('button', { name: 'Save profile' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it('only deletes after the handle is typed', async () => {
     renderWith(<SettingsPage />, { viewer: TEST_VIEWER, path: '/settings' });
     fireEvent.click(screen.getByRole('button', { name: 'Delete account…' }));
