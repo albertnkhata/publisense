@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { Outlet } from 'react-router';
 import { AuthProvider } from './auth';
+import { AuthLinkErrorWatcher } from './AuthLinkErrorWatcher';
 import { RecoveryWatcher } from './RecoveryWatcher';
 import { useTheme } from '../lib/ThemeProvider';
 import { useShortcut } from '../lib/useShortcut';
@@ -27,6 +28,7 @@ export function AppShell() {
     <ComposerProvider>
     <ClaimProvider>
       <RecoveryWatcher />
+      <AuthLinkErrorWatcher />
       <AddProductHost />
       <a
         href="#main"

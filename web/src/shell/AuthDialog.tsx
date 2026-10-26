@@ -20,7 +20,7 @@ import { BrandGlyph, Button, Dialog, Icon, Input, PasswordInput, useToast } from
  *
  * No message here ever reveals whether an email has an account.
  */
-export type AuthMode = 'signin' | 'signup' | 'forgot' | 'sent' | 'confirm';
+export type AuthMode = 'signin' | 'signup' | 'forgot' | 'sent' | 'confirm' | 'expired';
 
 const COPY: Record<AuthMode, { title: string; sub: string; submit: string }> = {
   signin: {
@@ -37,6 +37,12 @@ const COPY: Record<AuthMode, { title: string; sub: string; submit: string }> = {
     title: 'Reset your password',
     sub: 'Enter the email you signed up with and we’ll send you a link to set a new password.',
     submit: 'Send reset link',
+  },
+  // Opened from an expired or already-used email link (#137, AuthLinkErrorWatcher).
+  expired: {
+    title: 'That link has expired',
+    sub: 'Email links work once and expire after an hour. Enter your email and we’ll send you a new one.',
+    submit: 'Send a new link',
   },
   sent: { title: 'Check your email', sub: '', submit: 'Back to sign in' },
   confirm: { title: 'Confirm your email', sub: '', submit: 'Back to sign in' },
@@ -103,7 +109,8 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
 
     setBusy(true);
     try {
-      if (mode === 'forgot') {
+      // A reset link also confirms the address, so it serves both sign-up and reset links.
+      if (mode === 'forgot' || mode === 'expired') {
         const r = await requestPasswordReset(email);
         if (r.error) return fail(r.error);
         setSentTo(email.trim());
@@ -203,7 +210,7 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
               }}
             />
           ) : null}
-          {mode === 'signin' || mode === 'signup' || mode === 'forgot' ? (
+          {mode === 'signin' || mode === 'signup' || mode === 'forgot' || mode === 'expired' ? (
             <Input
               ref={emailRef}
               type="email"
@@ -260,6 +267,8 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
             <SwitchLine text="New to Publisense?" action="Create an account" onClick={() => setMode('signup')} />
           ) : mode === 'sent' ? (
             <SwitchLine text="Didn’t get it?" action="Resend" onClick={resend} />
+          ) : mode === 'expired' ? (
+            <SwitchLine text="Already confirmed your email?" action="Sign in" onClick={() => setMode('signin')} />
           ) : mode === 'confirm' ? null : (
             <SwitchLine text="Remembered it?" action="Back to sign in" onClick={() => setMode('signin')} />
           )}
