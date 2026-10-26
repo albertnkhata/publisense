@@ -85,18 +85,6 @@ export function NavRail() {
             <span className={cx('text-lg font-bold transition-opacity duration-120', collapsed && 'opacity-0')}>Publisense</span>
           </Link>
         )}
-        {!collapsed ? (
-          <button
-            type="button"
-            onClick={toggle}
-            aria-label="Collapse sidebar"
-            aria-expanded={true}
-            title="Collapse sidebar  ["
-            className="absolute top-1/2 right-1 grid size-7 -translate-y-1/2 place-items-center rounded-md border-0 bg-transparent text-ink-muted opacity-0 transition-opacity duration-120 group-hover:opacity-100 hover:bg-subtle hover:text-ink focus-visible:opacity-100"
-          >
-            <Icon name="sidebar" size={17} strokeWidth={1.75} />
-          </button>
-        ) : null}
       </div>
 
       <nav aria-label="Primary" className="mb-4 flex flex-col gap-1">
@@ -104,6 +92,25 @@ export function NavRail() {
         <NavRow to="/explore" icon="explore" label="Explore" collapsed={collapsed} />
         {viewer ? <NavRow to="/notifications" icon="bell" label="Notifications" collapsed={collapsed} count={unread} /> : null}
       </nav>
+
+      {/* Sits beside the logo but comes AFTER the primary links in the DOM, so a keyboard
+          user's first stop in the nav is Home, not a control that only appears on hover
+          (#141). It shows on hover, and whenever it has keyboard focus. */}
+      {!collapsed ? (
+        <div className="absolute top-4 right-4 grid h-8 place-items-center">
+          <button
+            type="button"
+            onClick={toggle}
+            aria-label="Collapse sidebar"
+            aria-expanded={true}
+            aria-keyshortcuts="["
+            title="Collapse sidebar  ["
+            className="grid size-7 place-items-center rounded-md border-0 bg-transparent text-ink-muted opacity-0 transition-opacity duration-120 group-hover:opacity-100 hover:bg-subtle hover:text-ink focus-visible:opacity-100"
+          >
+            <Icon name="sidebar" size={17} strokeWidth={1.75} />
+          </button>
+        </div>
+      ) : null}
 
       {viewer ? (
         <Tooltip content="Post feedback" kbd="C" side="right" disabled={!collapsed}>
