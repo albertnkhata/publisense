@@ -207,6 +207,13 @@ jobs:
           PGPASSWORD: postgres
         run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_rls_test.sql
 
+      # Which SECURITY DEFINER functions anon can execute: anything not on the
+      # allow-list fails (#139). Postgres grants EXECUTE to PUBLIC by default.
+      - name: v2 definer function grants
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_definer_grants_test.sql
+
       # A company's name history: renames keep the old name, a former slug still resolves,
       # and no other company can take a slug that once belonged to someone else.
       - name: v2 company name-history tests
