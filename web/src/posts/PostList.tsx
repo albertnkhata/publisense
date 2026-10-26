@@ -71,11 +71,16 @@ export function PostList({ posts, hasNextPage, isFetchingNextPage, isError, fetc
   );
 }
 
-export function PostListSkeleton({ count = 3 }: { count?: number }) {
+/**
+ * Placeholder cards while a feed loads: one status for the whole list (never
+ * painted, see Skeleton) and decorative cards, so first paint shows only
+ * skeletons and no "Loading" text (#158).
+ */
+export function PostListSkeleton({ count = 3, label = 'Loading posts' }: { count?: number; label?: string }) {
   return (
-    <div className="flex flex-col gap-4" aria-busy="true">
+    <div role="status" aria-label={label} aria-busy="true" className="flex flex-col gap-4">
       {Array.from({ length: count }, (_, i) => (
-        <Skeleton key={i} />
+        <Skeleton key={i} label={null} />
       ))}
     </div>
   );
