@@ -81,15 +81,41 @@ describe('/claim explainer, signed out', () => {
       expect(screen.getByRole('heading', { level: 2, name: h })).toBeTruthy();
     }
     // Both proofs the flow accepts, with the real code length and expiry.
-    expect(screen.getByText(/6-digit code/)).toBeTruthy();
-    expect(screen.getByText(/expires in 10 minutes/)).toBeTruthy();
-    expect(screen.getByText(/TXT record/)).toBeTruthy();
+    expect(screen.getAllByText(/6-digit code/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/expires in 10 minutes/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/TXT record/).length).toBeGreaterThan(0);
     expect(screen.getByText('Reply officially')).toBeTruthy();
     expect(screen.getByText('Set statuses')).toBeTruthy();
     expect(screen.getByText('Bring your teammates')).toBeTruthy();
     expect(screen.getByText('The board stays public')).toBeTruthy();
     // Nothing on the page asks for an account just to read it.
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('shows all steps up front and lets readers expand details without signup', () => {
+    renderAt('/claim');
+    for (const title of ['Create an account or sign in', 'Prove your product’s domain', 'Manage the board as the team']) {
+      expect(screen.getByRole('heading', { level: 3, name: title })).toBeTruthy();
+    }
+    const summary = screen.getByText('More about step 2');
+    const details = summary.closest('details')!;
+    expect(details.open).toBe(false);
+    fireEvent.click(summary);
+    expect(details.open).toBe(true);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    const full = screen.getByText('Full details: eligibility, permissions and ownership').closest('details')!;
+    expect(full.open).toBe(false);
+    fireEvent.click(within(full).getByText('Full details: eligibility, permissions and ownership'));
+    expect(full.open).toBe(true);
+    expect(screen.getByRole('heading', { name: CLAIM_COPY.takenTitle })).toBeTruthy();
+  });
+
+  it('keeps hub context and opens signup without changing the route', async () => {
+    const { router } = renderAt('/claim?hub=figma');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Claim Figma' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Start claiming Figma' }));
+    expect(await screen.findByRole('dialog', { name: 'Create your account' })).toBeTruthy();
+    expect(router.state.location.search).toBe('?hub=figma');
   });
 
   it('sets the tab title, description, share tags and canonical URL, and puts them back', () => {
@@ -132,14 +158,17 @@ describe('/claim explainer, signed out', () => {
 describe('/claim explainer, signed in', () => {
   it('starts the claim for the named board instead of sign-up', async () => {
     renderAt('/claim?board=cursor', true);
-    expect((await screen.findAllByRole('button', { name: 'Claim Cursor' })).length).toBe(2);
+    expect((await screen.findAllByRole('button', { name: 'Claim Cursor' })).length).toBe(1);
     expect(screen.queryByRole('button', { name: CLAIM_COPY.signUp })).toBeNull();
     expect(screen.getByText(CLAIM_COPY.ctaSignedIn)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Claim Cursor' }));
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() => expect(dialog.textContent).toContain('cursor.com'));
   });
 
   it('without a product, offers the product picker', () => {
     renderAt('/claim', true);
-    expect(screen.getAllByRole('button', { name: CLAIM_COPY.claim }).length).toBe(2);
+    expect(screen.getAllByRole('button', { name: CLAIM_COPY.claim }).length).toBe(1);
   });
 });
 
@@ -150,7 +179,7 @@ describe('entry points', () => {
     expect(link.getAttribute('href')).toBe('/claim?board=cursor');
     fireEvent.click(link);
     expect(router.state.location.pathname).toBe('/claim');
-    expect(await screen.findByRole('heading', { level: 1, name: CLAIM_COPY.title })).toBeTruthy();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Claim Cursor' })).toBeTruthy();
     expect(screen.queryByRole('dialog', { name: 'Create your account' })).toBeNull();
   });
 
