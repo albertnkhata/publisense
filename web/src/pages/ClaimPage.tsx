@@ -33,8 +33,8 @@ export const CLAIM_COPY = {
   pageTitle: 'How claiming works',
   metaDescription:
     'Work on a product with a Publisense board? Verify your company’s domain to claim it, then reply officially, set statuses and run its roadmap with your team.',
-  title: 'How claiming works',
-  lead: 'Every product on Publisense has a public board where people post bugs and feature requests. If you work on the product, you can claim its board: prove you work there, and your team can answer officially.',
+  title: 'Claim your board',
+  lead: 'Reply officially, update statuses and show people what happens next. Prove control of your product’s domain to get started.',
   signupReason: 'claim your product’s board',
 
   whoTitle: 'Who can claim',
@@ -49,7 +49,7 @@ export const CLAIM_COPY = {
     { title: 'Open your product’s board', text: 'Find it in search or Explore, and start a claim from the board’s header.' },
     {
       title: 'Prove the domain',
-      text: 'With your work email: enter your address on the product’s domain and type the 6-digit code we send. The code expires in 10 minutes. No company email? Add a TXT record we give you to the domain’s DNS instead, then check. DNS changes can take a few minutes to show up, and you can come back to check later.',
+      text: 'With your work email: enter your address on the product’s domain and type the 6-digit code we send. The code expires in 10 minutes. No company email? Add a TXT record we give you to the domain’s DNS instead, then check. Email delivery and DNS changes can take time. You can come back to check DNS later.',
     },
     {
       title: 'The board is yours',
@@ -97,9 +97,9 @@ export const CLAIM_COPY = {
   ],
 
   ctaTitle: 'Ready to claim your board?',
-  ctaSignedOut: 'Claiming needs a Publisense account. It takes a few seconds, and you can verify right after.',
-  ctaSignedIn: 'Pick your product and verify your domain. It takes a couple of minutes.',
-  signUp: 'Create an account to claim',
+  ctaSignedOut: 'Create an account or sign in, then verify your domain. Nothing is claimed until you complete verification.',
+  ctaSignedIn: 'Choose your product and verify its domain. Email delivery and DNS changes can take time.',
+  signUp: 'Start claiming a board',
   signIn: 'I have an account',
   claim: 'Claim a board',
 };
@@ -108,17 +108,23 @@ export function ClaimPage() {
   usePageTitle(CLAIM_COPY.pageTitle);
   usePageMeta({ title: CLAIM_COPY.pageTitle, description: CLAIM_COPY.metaDescription, path: CLAIM_PATH });
   const c = CLAIM_COPY;
+  const target = useTarget();
   return (
     <article aria-labelledby="page-title" className="flex flex-col gap-5">
       <header>
         <h1 id="page-title" className="mt-0 mb-2 text-2xl font-bold text-ink">
-          {c.title}
+          {target ? (target.claimed ? `Join ${target.name}’s team` : `Claim ${target.name}`) : c.title}
         </h1>
         <p className="m-0 text-base text-ink-secondary">{c.lead}</p>
       </header>
       <ClaimTarget />
-      <ClaimCta compact />
-
+      <ClaimOverview />
+      <ClaimCta />
+      <details className="rounded-md border border-line bg-card p-4">
+        <summary className="cursor-pointer rounded-sm text-base font-semibold text-ink focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-2">
+          Full details: eligibility, permissions and ownership
+        </summary>
+        <div className="mt-4 flex flex-col gap-4">
       <Section heading={c.whoTitle}>
         <ul className="m-0 flex list-disc flex-col gap-2 pl-5 text-base text-ink-secondary">
           {c.who.map((t) => (
@@ -161,8 +167,36 @@ export function ClaimPage() {
         </div>
       </Section>
 
-      <ClaimCta />
+        </div>
+      </details>
     </article>
+  );
+}
+
+/** All steps are visible; disclosure is optional, never a Next-button gate. */
+function ClaimOverview() {
+  const steps = [
+    { title: 'Create an account or sign in', text: 'An account connects you to your team.', detail: 'You can read this guide without an account. Start claiming when you are ready; already have an account? Use the sign-in button below.' },
+    { title: 'Prove your product’s domain', text: 'Use a work email or add a DNS TXT record.', detail: CLAIM_COPY.steps[1]!.text },
+    { title: 'Manage the board as the team', text: 'Reply officially and keep people updated.', detail: 'After verification and claiming, answer with a Team badge, set statuses and manage the roadmap. The board stays public. If it is already claimed, you can request to join instead.' },
+  ];
+  return (
+    <section aria-labelledby="claim-overview-title">
+      <h2 id="claim-overview-title" className="mt-0 mb-3 text-md font-semibold text-ink">How it works</h2>
+      <ol className="m-0 grid list-none grid-cols-3 gap-3 p-0 max-md:grid-cols-1">
+        {steps.map((step, i) => (
+          <li key={step.title} className="min-w-0 rounded-md border border-line bg-card p-4">
+            <span aria-hidden="true" className="mb-3 grid size-6 place-items-center rounded-pill bg-brand-soft font-mono text-sm font-semibold text-brand">{i + 1}</span>
+            <h3 className="mt-0 mb-1 text-base font-semibold text-ink">{step.title}</h3>
+            <p className="mt-0 mb-3 text-sm text-ink-secondary">{step.text}</p>
+            <details>
+              <summary className="cursor-pointer rounded-sm text-sm font-semibold text-brand focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-2">More about step {i + 1}</summary>
+              <p className="mt-2 mb-0 text-sm text-ink-secondary">{step.detail}</p>
+            </details>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
@@ -250,14 +284,15 @@ export function ClaimCta({ compact = false }: { compact?: boolean }) {
   const { openClaim } = useClaim();
   const t = useTarget();
   const c = CLAIM_COPY;
-  const label = viewer ? (t && !t.claimed ? `Claim ${t.name}` : c.claim) : c.signUp;
+  const unavailable = Boolean(t && !t.claimed && !t.domain);
+  const label = t?.claimed ? `Join or report ${t.name}` : t ? `${viewer ? 'Claim' : 'Start claiming'} ${t.name}` : viewer ? c.claim : c.signUp;
   const start = () => {
     if (!viewer) return openAuth('signup', c.signupReason);
     openClaim(t ? (t.kind === 'board' ? { board: t.slug } : { hub: t.slug }) : undefined);
   };
   const buttons = (
     <div className="flex flex-wrap items-center gap-2">
-      <Button size={compact ? 'sm' : 'md'} onClick={start}>
+      <Button size={compact ? 'sm' : 'md'} onClick={start} disabled={unavailable}>
         {label}
       </Button>
       {viewer ? null : (
