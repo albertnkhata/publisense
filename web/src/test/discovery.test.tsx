@@ -302,6 +302,58 @@ describe('hub page', () => {
   });
 });
 
+// Board and hub headers hide a zero follower count, as the cards do (#156),
+// and show it with the right plural from 1 up. Nothing else on the line moves.
+describe('header follower count', () => {
+  const header = async (name: RegExp | string) =>
+    (await screen.findByRole('heading', { level: 1, name })).closest('header') as HTMLElement;
+
+  it('board header: no "0 followers", and no stray stat left behind', async () => {
+    boardsApi.fetchBoard.mockResolvedValue({ ...CURSOR, follower_count: 0 });
+    renderAt('/b/cursor');
+    const h = await header('Cursor');
+    expect(h.textContent).not.toMatch(/follower/);
+    expect(within(h).getByRole('button', { name: 'Work at Cursor?' })).toBeTruthy();
+  });
+
+  it('board header: "1 follower" singular, then "N followers"', async () => {
+    boardsApi.fetchBoard.mockResolvedValue({ ...CURSOR, follower_count: 1 });
+    const first = renderAt('/b/cursor');
+    expect((await header('Cursor')).textContent).toMatch(/(?<!\d)1 follower(?!s)/);
+    first.unmount();
+    boardsApi.fetchBoard.mockResolvedValue({ ...CURSOR, follower_count: 2 });
+    renderAt('/b/cursor');
+    expect((await header('Cursor')).textContent).toMatch(/(?<!\d)2 followers/);
+  });
+
+  it('board header: following a zero board shows "1 follower" at once', async () => {
+    boardsApi.fetchBoard.mockResolvedValue({ ...CURSOR, follower_count: 0 });
+    renderAt('/b/cursor', true);
+    const h = await header('Cursor');
+    expect(h.textContent).not.toMatch(/follower/);
+    fireEvent.click(within(h).getByRole('button', { name: 'Follow Cursor' }));
+    await waitFor(() => expect(h.textContent).toMatch(/(?<!\d)1 follower(?!s)/));
+  });
+
+  it('hub header: boards stay, followers hidden at zero', async () => {
+    boardsApi.fetchHub.mockResolvedValue({ ...FIGMA_HUB, follower_count: 0 });
+    renderAt('/h/figma');
+    const h = await header(/Figma/);
+    expect(h.textContent).toMatch(/(?<!\d)2 boards/);
+    expect(h.textContent).not.toMatch(/follower/);
+  });
+
+  it('hub header: "1 follower" singular, "210 followers" plural', async () => {
+    boardsApi.fetchHub.mockResolvedValue({ ...FIGMA_HUB, follower_count: 1 });
+    const first = renderAt('/h/figma');
+    expect((await header(/Figma/)).textContent).toMatch(/(?<!\d)1 follower(?!s)/);
+    first.unmount();
+    boardsApi.fetchHub.mockResolvedValue(FIGMA_HUB);
+    renderAt('/h/figma');
+    expect((await header(/Figma/)).textContent).toMatch(/(?<!\d)210 followers/);
+  });
+});
+
 describe('explore', () => {
   it('shows trending, hubs and every product', async () => {
     boardsApi.fetchTrending.mockResolvedValue([{ ...SUPABASE, recent: 3 }]);

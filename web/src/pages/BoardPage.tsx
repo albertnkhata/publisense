@@ -1,7 +1,6 @@
 import { useMemo, type ReactNode } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import {
-  compactCount,
   dedupePosts,
   logoSrc,
   useBoard,
@@ -22,7 +21,7 @@ import {
 } from '../api';
 import { BackLink, ChoiceMenu, FollowScopeButton, type Choice } from '../boards/parts';
 import { Changelog, Roadmap } from '../boards/Roadmap';
-import { metaLink, ScopeHeader, Stat } from '../boards/ScopeHeader';
+import { FollowerStat, metaLink, ScopeHeader } from '../boards/ScopeHeader';
 import { useClaim } from '../claim/ClaimDialog';
 import { cx } from '../lib/cx';
 import { usePageTitle } from '../lib/usePageTitle';
@@ -142,7 +141,7 @@ function Board({ board }: { board: BoardWithHub }) {
         meta={boardMeta(board)}
         stats={
           <>
-            <Stat value={compactCount(board.follower_count)} label={board.follower_count === 1 ? 'follower' : 'followers'} />
+            <FollowerStat count={board.follower_count} />
             {board.status === 'rejected' ? null : <ClaimState board={board} team={Boolean(team.data)} />}
           </>
         }

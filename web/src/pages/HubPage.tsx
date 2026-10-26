@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
 import {
-  compactCount,
   covered,
   dedupePosts,
   logoSrc,
@@ -17,7 +16,7 @@ import {
   type Hub,
 } from '../api';
 import { BoardRow, ChoiceMenu, FollowScopeButton, RowItem, RowList } from '../boards/parts';
-import { ScopeHeader, Stat } from '../boards/ScopeHeader';
+import { FollowerStat, ScopeHeader, Stat } from '../boards/ScopeHeader';
 import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { LoadError, PostList, PostListSkeleton } from '../posts/PostList';
@@ -102,7 +101,7 @@ function HubView({ hub }: { hub: Hub }) {
           <>
             <HubAvatar name={`${hub.name} boards`} size="xs" boards={hub.boards.map((b) => ({ name: b.name, color: b.color, logoSrc: logoSrc(b) }))} max={6} />
             <Stat value={hub.boards.length} label={hub.boards.length === 1 ? 'board' : 'boards'} />
-            <Stat value={compactCount(hub.follower_count)} label={hub.follower_count === 1 ? 'follower' : 'followers'} />
+            <FollowerStat count={hub.follower_count} />
           </>
         }
         actions={

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { compactCount } from '../api/boards';
 
 /**
  * BoardHeader / HubHeader layout (FOUNDATION §5): logo, name, description,
@@ -54,4 +55,15 @@ export function Stat({ value, label }: { value: ReactNode; label: string }) {
       <b className="font-semibold text-ink">{value}</b> {label}
     </span>
   );
+}
+
+/**
+ * Follower count on a board or hub header. Hidden while it is zero, as on the
+ * board and hub cards (#156), so a new scope does not lead with "0 followers";
+ * from 1 up it reads "1 follower" / "N followers". The stats line is a gapped
+ * flex row with no separators, so leaving it out leaves nothing dangling.
+ */
+export function FollowerStat({ count }: { count: number }) {
+  if (!(count > 0)) return null;
+  return <Stat value={compactCount(count)} label={count === 1 ? 'follower' : 'followers'} />;
 }
