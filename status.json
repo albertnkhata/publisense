@@ -1,5 +1,5 @@
 {
-  "generatedAt": null,
+  "generatedAt": "2026-10-25T11:47:10Z",
   "repo": {
     "openDecisions": [
       {
@@ -131,8 +131,8 @@
       }
     ],
     "webTests": {
-      "files": 33,
-      "cases": 361
+      "files": 34,
+      "cases": 362
     },
     "gates": [
       {
@@ -270,5 +270,70 @@
       }
     ]
   },
-  "live": null
+  "live": {
+    "generatedAt": "2026-10-25T11:47:10Z",
+    "site": {
+      "status": 200,
+      "bundle": "/assets/index-CDsPTJkk.js",
+      "wwwRedirect": "308 → https://publisense.app/",
+      "checkedAt": "2026-10-25T11:47:10Z"
+    },
+    "data": {
+      "counts": {
+        "board": 29,
+        "hub": 6,
+        "post": 11,
+        "reply": 0,
+        "vote": 0,
+        "follow": "restricted",
+        "profile": 3,
+        "status_event": 0
+      },
+      "trueCounts": {
+        "board": 29,
+        "hub": 6,
+        "post": 11,
+        "reply": 0,
+        "vote": 0,
+        "follow": 2,
+        "profile": 3,
+        "status_event": 0
+      },
+      "fixtures": {
+        "posts": 11,
+        "imports": 11,
+        "fromMembers": 0
+      },
+      "authUsers": 3
+    },
+    "auth": {
+      "providers": [
+        "google",
+        "email"
+      ],
+      "mailerAutoconfirm": false,
+      "smtpSender": "unknown",
+      "consentScreen": {
+        "appName": "Publisense",
+        "supportEmail": "albertnkhata.s@gmail.com",
+        "termsLinked": true,
+        "privacyLinked": true,
+        "unverifiedBanner": false
+      }
+    },
+    "github": {
+      "issues": [
+        {
+          "number": 111,
+          "title": "Mark imported posts as samples"
+        }
+      ],
+      "prs": []
+    },
+    "deployedCommit": "unknown",
+    "unitTests": {
+      "files": 28,
+      "cases": 368
+    }
+  }
 }
