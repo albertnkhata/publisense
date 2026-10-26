@@ -2,8 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes } from 'react-router';
 import type { FeedPage, Post } from '../api/posts';
+import { ClaimProvider } from '../claim/ClaimDialog';
 import { HomePage, PITCH } from '../pages/HomePage';
 import { ComposerProvider } from '../shell/composer';
+import { CURSOR } from './boardFixtures';
 import { renderWith, TEST_VIEWER } from './renderApp';
 import { BOARD, makePost, SUPA } from './postFixtures';
 
@@ -13,17 +15,24 @@ const api = vi.hoisted(() => ({
   setVote: vi.fn(),
   setPostFollow: vi.fn(),
 }));
+const boardsApi = vi.hoisted(() => ({
+  fetchBoards: vi.fn(),
+  fetchHubs: vi.fn(),
+}));
 vi.mock('../api/posts', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/posts')>()), ...api }));
+vi.mock('../api/boards', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/boards')>()), ...boardsApi }));
 
 const page = (items: Post[], next: number | null = null): FeedPage => ({ items, next });
 
 function renderHome(opts: { signedIn?: boolean; path?: string } = {}) {
   return renderWith(
     <ComposerProvider>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/post/:id" element={<h1>Post page</h1>} />
-      </Routes>
+      <ClaimProvider>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/post/:id" element={<h1>Post page</h1>} />
+        </Routes>
+      </ClaimProvider>
     </ComposerProvider>,
     { viewer: opts.signedIn ? TEST_VIEWER : null, path: opts.path ?? '/' },
   );
@@ -43,6 +52,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   api.setVote.mockResolvedValue(undefined);
   api.setPostFollow.mockResolvedValue(undefined);
+  boardsApi.fetchBoards.mockResolvedValue([CURSOR]);
+  boardsApi.fetchHubs.mockResolvedValue([]);
 });
 
 describe('home feed', () => {
@@ -183,12 +194,17 @@ describe('signed-out pitch', () => {
     expect(within(dialog).queryByText(/to claim your product’s board/)).toBeNull();
   });
 
-  it('Claim your board opens sign-up with the reason', async () => {
+  it('Claim your board opens the claim dialog before sign-up', async () => {
     api.fetchFeed.mockResolvedValue(page([makePost()]));
     renderHome();
     fireEvent.click(await screen.findByRole('button', { name: PITCH.claim }));
-    const dialog = await screen.findByRole('dialog', { name: 'Create your account' });
-    expect(within(dialog).getByText('Create an account to claim your product’s board. It takes a few seconds.')).toBeTruthy();
+    const picker = await screen.findByRole('dialog', { name: 'Claim a board' });
+    fireEvent.click(await within(picker).findByRole('button', { name: /Cursor/ }));
+    const intro = await screen.findByRole('dialog', { name: 'Claim Cursor' });
+    expect(within(intro).getByText('Set statuses, pin official replies and run the roadmap')).toBeTruthy();
+    fireEvent.click(within(intro).getByRole('button', { name: 'Create an account to claim' }));
+    const auth = await screen.findByRole('dialog', { name: 'Create your account' });
+    expect(within(auth).getByText('Create an account to claim your product’s board. It takes a few seconds.')).toBeTruthy();
   });
 });
 

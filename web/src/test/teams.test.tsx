@@ -129,6 +129,35 @@ beforeEach(() => {
 });
 
 describe('claim a board', () => {
+  it('explains claiming and verification in-place before asking a signed-out visitor to sign up (#157)', async () => {
+    renderAt('/b/cursor', false);
+    fireEvent.click(await screen.findByRole('button', { name: 'Work at Cursor?' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Claim Cursor' });
+    expect(within(dialog).getByText('A verified badge on the board and on your team’s replies')).toBeTruthy();
+    expect(within(dialog).getByText('Set statuses, pin official replies and run the roadmap')).toBeTruthy();
+    expect(within(dialog).getByText(/Verify with a 6-digit code sent to your/)).toBeTruthy();
+    expect(within(dialog).getByText('@cursor.com')).toBeTruthy();
+    expect(within(dialog).queryByLabelText('Your work email')).toBeNull();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Create an account to claim' }));
+    const auth = await screen.findByRole('dialog', { name: 'Create your account' });
+    expect(within(auth).getByText('Create an account to claim your product’s board. It takes a few seconds.')).toBeTruthy();
+  });
+
+  it('lets a signed-out visitor on a claimed board see both options before signing in (#157)', async () => {
+    boardsApi.fetchBoard.mockResolvedValue(CLAIMED);
+    boardsApi.fetchBoards.mockResolvedValue([CLAIMED, FIGJAM, FIGMA]);
+    renderAt('/b/cursor', false);
+    fireEvent.click(await screen.findByRole('button', { name: 'Work here?' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Cursor is already claimed' });
+    expect(within(dialog).getByRole('button', { name: /Request to join the team/ })).toBeTruthy();
+    expect(within(dialog).getByRole('button', { name: /Report the wrong owner/ })).toBeTruthy();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: /Request to join the team/ }));
+    const auth = await screen.findByRole('dialog', { name: 'Sign in to Publisense' });
+    expect(within(auth).getByText('Sign in to claim your product’s board. It takes a few seconds.')).toBeTruthy();
+  });
+
   it('verifies a work email with a code, then claims the board', async () => {
     renderAt('/b/cursor');
     fireEvent.click(await screen.findByRole('button', { name: 'Work at Cursor?' }));

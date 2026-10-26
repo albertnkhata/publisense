@@ -31,15 +31,19 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { copyText } from '../lib/share';
 import { useViewer } from '../lib/viewer';
-import { useRequireAuth } from '../shell/auth';
+import { useAuthDialog } from '../shell/auth';
 import { BoardAvatar, Button, Dialog, Field, HubAvatar, Icon, Input, Textarea, useToast } from '../ui';
+
+const CLAIM_AUTH_REASON = 'claim your product’s board';
 
 /**
  * ClaimFlow (FOUNDATION §5, §7 Claim): unclaimed → verifying (work-email code or
  * DNS TXT) → claimed, then "Claim all of {hub}?" when the hub's domain is proved,
  * then add teammates. On a board that is already claimed: "Request to join the
  * team" or "Report the wrong owner", both proved by the same work-email code.
- * Wording and steps follow the mockup's claim modal.
+ * Signed-out visitors can open the dialog to pick a product, read what claiming
+ * unlocks and how verification works, then create an account or sign in without
+ * losing their place. Wording and steps follow the mockup's claim modal.
  */
 export interface ClaimOptions {
   /** Board slug. Omit to start with the product picker. */
@@ -57,16 +61,11 @@ interface ClaimCtx {
 const ClaimContext = createContext<ClaimCtx | null>(null);
 
 export function ClaimProvider({ children }: { children: ReactNode }) {
-  const requireAuth = useRequireAuth();
   const [state, setState] = useState<{ open: boolean; opts: ClaimOptions; key: number }>({ open: false, opts: {}, key: 0 });
-  const openClaim = useCallback(
-    (opts?: ClaimOptions) => {
-      if (!requireAuth('claim a board')) return;
-      const clean: ClaimOptions = opts && typeof opts === 'object' && !('nativeEvent' in opts) ? { board: opts.board, hub: opts.hub, dns: opts.dns } : {};
-      setState((s) => ({ open: true, opts: clean, key: s.key + 1 }));
-    },
-    [requireAuth],
-  );
+  const openClaim = useCallback((opts?: ClaimOptions) => {
+    const clean: ClaimOptions = opts && typeof opts === 'object' && !('nativeEvent' in opts) ? { board: opts.board, hub: opts.hub, dns: opts.dns } : {};
+    setState((s) => ({ open: true, opts: clean, key: s.key + 1 }));
+  }, []);
   const close = useCallback(() => setState((s) => ({ ...s, open: false })), []);
   const value = useMemo(() => ({ openClaim }), [openClaim]);
   return (
@@ -116,6 +115,7 @@ const provedHubDomain = (h: Hub, verified: string[] | undefined) => h.domains.fi
 
 function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => void }) {
   const { viewer } = useViewer();
+  const { authOpen, openAuth } = useAuthDialog();
   const viewerId = viewer?.id ?? null;
   const boards = useBoards();
   const hubs = useHubs();
@@ -145,6 +145,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
   const [invite, setInvite] = useState('');
   const [inviteError, setInviteError] = useState<string | null>(null);
   const initialised = useRef(false);
+  const pendingStep = useRef<Step | null>(null);
 
   /** Where a target starts: taken, DNS pending, or the intro. */
   const enter = useCallback(
@@ -154,16 +155,16 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
       setPurpose('claim');
       const taken = t.scope === 'hub' ? Boolean(t.hub?.claimed_at) : t.board ? isClaimed(t.board, hubs.data) : false;
       if (taken) setStep('taken');
-      else if (wantDns || (t.domain && pendingDns.data?.includes(t.domain))) {
+      else if (viewerId && (wantDns || (t.domain && pendingDns.data?.includes(t.domain)))) {
         setStep('dns');
         if (t.domain) void startDnsCheck(t.domain).then(setToken, (e: unknown) => setError(e instanceof Error ? e.message : 'Something went wrong.'));
       } else setStep('intro');
     },
-    [hubs.data, pendingDns.data],
+    [hubs.data, pendingDns.data, viewerId],
   );
 
   useEffect(() => {
-    if (initialised.current || !boards.data || !hubs.data || pendingDns.isPending) return;
+    if (initialised.current || !boards.data || !hubs.data || (viewerId && pendingDns.isPending)) return;
     initialised.current = true;
     if (opts.hub) {
       const h = hubs.data.find((x) => x.slug === opts.hub);
@@ -174,7 +175,15 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
       if (b) return enter(boardTarget(b, hubs.data), opts.dns);
     }
     setStep('pick');
-  }, [boards.data, hubs.data, pendingDns.isPending, opts, enter]);
+  }, [boards.data, hubs.data, viewerId, pendingDns.isPending, opts, enter, verified.data]);
+
+  // Resume a taken-board action ("Request to join" / "Report the wrong owner") once the visitor signs in.
+  useEffect(() => {
+    if (viewer && pendingStep.current) {
+      setStep(pendingStep.current);
+      pendingStep.current = null;
+    }
+  }, [viewer]);
 
   const domain = target?.domain ?? '';
   const isVerified = covered(verified.data, target?.domain ?? null);
@@ -307,6 +316,16 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
     if (target) void navigate(target.scope === 'hub' ? `/h/${target.slug}` : `/b/${target.slug}`);
   };
 
+  const chooseTakenStep = (next: 'join' | 'dispute') => {
+    setError(null);
+    if (!viewer) {
+      pendingStep.current = next;
+      openAuth('signin', CLAIM_AUTH_REASON);
+      return;
+    }
+    setStep(next);
+  };
+
   // ---------------------------------------------------------------- views
 
   const head = target ? <TargetHead target={target} /> : null;
@@ -398,6 +417,11 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
         </ul>
         {!target.domain ? (
           <p className="m-0 text-sm text-ink-muted">This board has no website to verify yet.</p>
+        ) : !viewer ? (
+          <p className="m-0 text-sm text-ink-secondary">
+            Verify with a 6-digit code sent to your <b className="font-semibold text-ink">@{target.domain}</b> work email, or by adding a DNS TXT record to{' '}
+            <b className="font-semibold text-ink">{target.domain}</b>.
+          </p>
         ) : isVerified ? (
           <p className="m-0 flex items-center gap-2 text-sm text-ink-secondary">
             <span className="text-success">
@@ -432,7 +456,12 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
         ) : null}
       </form>
     );
-    footer = target.domain ? (
+    footer = !target.domain ? null : !viewer ? (
+      <Actions>
+        <Button onClick={() => openAuth('signup', CLAIM_AUTH_REASON)}>Create an account to claim</Button>
+        <Alt onClick={() => openAuth('signin', CLAIM_AUTH_REASON)}>I have an account</Alt>
+      </Actions>
+    ) : (
       <Actions>
         <Button type="submit" form="claim-form" loading={busy}>
           {isVerified ? (target.scope === 'hub' ? `Claim the ${target.name} hub` : `Claim ${target.name}`) : 'Send code'}
@@ -441,7 +470,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
           <Alt onClick={() => void toDns()}>No company email? Verify with a DNS record</Alt>
         ) : null}
       </Actions>
-    ) : null;
+    );
   } else if (target && step === 'code') {
     body = (
       <form id="claim-form" onSubmit={submit(() => void verify())}>
@@ -610,22 +639,10 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
           A verified team manages this {target.scope}. If you work at {target.name}, ask them to add you. If you think the wrong people have it, tell us.
         </p>
         <div className="flex flex-col gap-2">
-          <Choice
-            title="Request to join the team"
-            onClick={() => {
-              setError(null);
-              setStep('join');
-            }}
-          >
+          <Choice title="Request to join the team" onClick={() => chooseTakenStep('join')}>
             We’ll check your @{domain} email, then ask the {target.scope === 'hub' ? 'hub' : 'board'}’s admins to approve you.
           </Choice>
-          <Choice
-            title="Report the wrong owner"
-            onClick={() => {
-              setError(null);
-              setStep('dispute');
-            }}
-          >
+          <Choice title="Report the wrong owner" onClick={() => chooseTakenStep('dispute')}>
             Verify {domain} yourself and our team reviews it. The {target.scope} stays as is until then.
           </Choice>
         </div>
@@ -708,7 +725,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
   }
 
   return (
-    <Dialog open onClose={onClose} title={title} footer={footer}>
+    <Dialog open={!authOpen} onClose={onClose} title={title} footer={footer}>
       {body}
     </Dialog>
   );

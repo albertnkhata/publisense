@@ -7,6 +7,7 @@ import { AuthDialog, type AuthMode } from './AuthDialog';
  * and every gated action later through `useRequireAuth()`.
  */
 interface AuthCtx {
+  authOpen: boolean;
   openAuth: (mode?: AuthMode, reason?: string) => void;
   closeAuth: () => void;
 }
@@ -23,7 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ open: true, mode, reason, key: s.key + 1 }));
   }, []);
   const closeAuth = useCallback(() => setState((s) => ({ ...s, open: false })), []);
-  const value = useMemo(() => ({ openAuth, closeAuth }), [openAuth, closeAuth]);
+  const value = useMemo(() => ({ authOpen: state.open, openAuth, closeAuth }), [state.open, openAuth, closeAuth]);
   return (
     <AuthContext.Provider value={value}>
       {children}
