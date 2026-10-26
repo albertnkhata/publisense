@@ -28,6 +28,7 @@ import {
 } from '../api';
 import { cx } from '../lib/cx';
 import { useViewer } from '../lib/viewer';
+import { ConfirmDialog } from '../posts/dialogs';
 import { MergeDialog } from '../posts/MergeDialog';
 import { LoadError } from '../posts/PostList';
 import { statusToast, TEAM_STATUSES } from '../posts/StatusDialog';
@@ -244,10 +245,23 @@ function MemberRow({ member, myRole }: { member: Member; myRole: Role | null }) 
       { scope: member.scope, id: member.scope_id, userId: member.user_id, role },
       { onSuccess: () => toast('Role updated'), onError: (e) => toast(e instanceof Error ? e.message : 'We couldn’t change the role.') },
     );
+  // One mis-click used to drop a teammate instantly (#142): ask first.
+  const [confirming, setConfirming] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+  const askRemove = () => {
+    setRemoveError(null);
+    setConfirming(true);
+  };
   const onRemove = () =>
     remove.mutate(
       { scope: member.scope, id: member.scope_id, userId: member.user_id },
-      { onSuccess: () => toast(`Removed ${name}`), onError: (e) => toast(e instanceof Error ? e.message : 'We couldn’t remove them.') },
+      {
+        onSuccess: () => {
+          setConfirming(false);
+          toast(`Removed ${name}`);
+        },
+        onError: (e) => setRemoveError(e instanceof Error ? e.message : 'We couldn’t remove them.'),
+      },
     );
 
   return (
@@ -271,7 +285,18 @@ function MemberRow({ member, myRole }: { member: Member; myRole: Role | null }) 
               ))}
             </Select>
           </span>
-          <IconButton icon="close" label={`Remove ${name}`} size="sm" onClick={onRemove} disabled={remove.isPending} />
+          <IconButton icon="close" label={`Remove ${name}`} size="sm" onClick={askRemove} disabled={remove.isPending} />
+          <ConfirmDialog
+            open={confirming}
+            title={`Remove ${name} from the team?`}
+            confirmLabel="Remove"
+            busy={remove.isPending}
+            error={removeError}
+            onConfirm={onRemove}
+            onClose={() => setConfirming(false)}
+          >
+            {`${name} loses team access straight away. You can add them back later.`}
+          </ConfirmDialog>
         </>
       ) : (
         <span className="rounded-pill bg-subtle px-2 text-xs font-medium text-ink-secondary">{ROLE_LABEL[member.role]}</span>
