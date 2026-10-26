@@ -217,7 +217,8 @@ function PostFooter({ post, page }: { post: Post; page: boolean }) {
       <VoteButton post={post} />
       <Link to={page ? '#replies' : `/post/${post.id}#replies`} className={actClass} aria-label={replies} title="Replies">
         <Icon name="reply" size={16} strokeWidth={1.8} />
-        <span className="tabular-nums">{post.reply_count}</span>
+        {/* No "0" at zero (#156): the action reads "Reply" until there are replies. */}
+        {post.reply_count > 0 ? <span className="tabular-nums">{post.reply_count}</span> : <span className="max-sm:hidden">Reply</span>}
       </Link>
       <button
         type="button"
