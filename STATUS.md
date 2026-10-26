@@ -83,17 +83,17 @@ _CI steps read from `.github/workflows/ci.yml`; v2 test counts are under v2 buil
 
 <!-- status:live:start — refreshed by `node scripts/status.mjs --live`; may lag until the next scheduled refresh -->
 
-_probed 2026-10-25T11:47:10Z · anything that could not be read says `unknown` rather than guessing_
+_probed 2026-10-26T06:01:05Z · anything that could not be read says `unknown` rather than guessing_
 
 ### Production
 
-- https://publisense.app → **200** · served entry bundle `/assets/index-CDsPTJkk.js`
+- https://publisense.app → **200** · served entry bundle `/assets/index-XgZvbE8E.js`
 - www → 308 → https://publisense.app/
-- production deployment commit: unknown _(`VERCEL_TOKEN` not set)_
+- production deployment: `3e1f314` (READY, 2026-10-26T05:35:26.206Z)
 
 ### Data
 
-- board **29** · hub **6** · post **11** · reply **0** · vote **0** · follow **2** · profile **3** · status_event **0**
+- board **30** · hub **6** · post **11** · reply **0** · vote **0** · follow **3** · profile **3** · status_event **0**
 - counted with an authenticated probe; as an anonymous visitor these read: follow = restricted
 - post: **11** total = **11 imported** (no author, sourced elsewhere) + **0 from members**
 - auth users: **3**
@@ -103,14 +103,13 @@ _probed 2026-10-25T11:47:10Z · anything that could not be read says `unknown` r
 ### Auth surface
 
 - enabled providers: **google, email**
-- email confirmation: **required** (mailer_autoconfirm=false) · SMTP sender: `unknown`
+- email confirmation: **required** (mailer_autoconfirm=false) · SMTP sender: `auth@publisense.app`
 - Google consent screen: "to continue to **Publisense**" · terms ✓ · privacy ✓ · support `albertnkhata.s@gmail.com` · unverified banner: no
 
 ### Work queue
 
-- open issues: #111 Mark imported posts as samples
+- open issues: #160 Make the feedback-to-response loop visible, and prove it end-to-end on one board · #157 Explain how board claiming works before the sign-up wall
 - open PRs: none
-- `npm test` at refresh time: **368 passed** in 28 files
 
 <!-- status:live:end -->
 
