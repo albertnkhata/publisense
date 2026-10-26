@@ -334,8 +334,10 @@ describe('helpers', () => {
   it('ranks trending by posts this week, then size', () => {
     const list = [board({ id: 'a', name: 'A', post_count: 50 }), board({ id: 'b', name: 'B', post_count: 1 }), board({ id: 'c', name: 'C', post_count: 9 })];
     const ranked = rankTrending(list, [{ board_id: 'b' }, { board_id: 'b' }, { board_id: 'c' }], 3);
-    expect(ranked.map((b) => b.id)).toEqual(['b', 'c', 'a']);
+    // 'a' has no posts this week, so it is not trending however big it is (#156).
+    expect(ranked.map((b) => b.id)).toEqual(['b', 'c']);
     expect(ranked[0]?.recent).toBe(2);
+    expect(rankTrending(list, [], 3)).toEqual([]);
   });
 
   it('prints follower counts compactly', () => {

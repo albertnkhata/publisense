@@ -12,7 +12,8 @@ import { Icon, ScrollRow, SkeletonBlock } from '../ui';
  * Explore (FOUNDATION §9 `/explore`): find products and follow their boards.
  * With no query or category: Trending this week, Hubs, Most wanted, Fresh bugs,
  * New on Publisense and All products (sections with nothing to show are left
- * out). Typing or picking a category filters boards and hubs instead. Both live
+ * out; Trending needs a board with new posts this week, and Most wanted reads
+ * "Latest requests" until something has an upvote, #156). Typing or picking a category filters boards and hubs instead. Both live
  * in the URL (`?q=`, `?cat=`).
  */
 type Cat = 'all' | BoardCategory;
@@ -145,6 +146,10 @@ function Discover({ boards, hubs }: { boards: Board[]; hubs: Hub[] }) {
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
     .slice(0, 4);
   const all = [...boards].sort((a, b) => a.name.localeCompare(b.name));
+  // Requests rank by upvotes, then newest. With no upvotes yet that is just
+  // newest, so the label says so (#156).
+  const anyVotes = mostWanted.some((p) => p.vote_count > 0);
+  const wantedTitle = anyVotes ? 'Most wanted' : 'Latest requests';
 
   return (
     <>
@@ -171,8 +176,8 @@ function Discover({ boards, hubs }: { boards: Board[]; hubs: Hub[] }) {
         </Section>
       ) : null}
       {mostWanted.length ? (
-        <Section id="ex-wanted" title="Most wanted" note="Top requests across all boards">
-          <RowList label="Most wanted">
+        <Section id="ex-wanted" title={wantedTitle} note={anyVotes ? 'Top requests across all boards' : 'Newest across all boards'}>
+          <RowList label={wantedTitle}>
             {mostWanted.map((p) => (
               <RowItem key={p.id}>
                 <PostRow post={p} />
@@ -182,7 +187,7 @@ function Discover({ boards, hubs }: { boards: Board[]; hubs: Hub[] }) {
         </Section>
       ) : null}
       {freshBugs.length ? (
-        <Section id="ex-bugs" title="Fresh bugs" note="Newly reported problems people are upvoting">
+        <Section id="ex-bugs" title="Fresh bugs" note={freshBugs.some((p) => p.vote_count > 0) ? 'Newly reported problems people are upvoting' : 'Newly reported problems'}>
           <RowList label="Fresh bugs">
             {freshBugs.map((p) => (
               <RowItem key={p.id}>

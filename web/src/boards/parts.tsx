@@ -143,7 +143,9 @@ export function ChoiceMenu<T extends string>({
 // ------------------------------------------------------------------ rows and cards
 
 /** The upvote count box used in roadmap items and compact rows (not a button). */
+/** Upvotes on a compact row. Left out at zero (#156): an empty counter is not the row's lead. */
 export function VoteCount({ count }: { count: number }) {
+  if (count <= 0) return null;
   return (
     <span
       aria-label={`${count} ${count === 1 ? 'upvote' : 'upvotes'}`}
@@ -180,8 +182,7 @@ export function BoardRow({ board, extra }: { board: Board; extra?: ReactNode }) 
         <span className="flex min-w-0 flex-col">
           <span className="truncate text-base font-semibold">{board.name}</span>
           <span className="truncate text-sm text-ink-muted">
-            {board.tagline ? `${board.tagline} · ` : ''}
-            {plural(board.follower_count, 'follower')}
+            {[board.tagline, board.follower_count > 0 ? plural(board.follower_count, 'follower') : ''].filter(Boolean).join(' · ')}
           </span>
         </span>
       </Link>
@@ -204,7 +205,8 @@ export function HubRow({ hub }: { hub: Hub }) {
       <span className="flex min-w-0 flex-col">
         <span className="truncate text-base font-semibold">{hub.name} hub</span>
         <span className="truncate text-sm text-ink-muted">
-          {hub.boards.map((b) => b.name).join(', ')} · {compactCount(hub.follower_count)} followers
+          {hub.boards.map((b) => b.name).join(', ')}
+          {hub.follower_count > 0 ? ` · ${compactCount(hub.follower_count)} ${hub.follower_count === 1 ? 'follower' : 'followers'}` : ''}
         </span>
       </span>
     </Link>
@@ -228,9 +230,21 @@ export function PostRow({ post }: { post: PostSummary }) {
   );
 }
 
-/** Explore's board card: tile, name, tagline, Follow, and stats. */
+/**
+ * Explore's board card: tile, name, tagline, Follow, and stats. Post and
+ * follower counts show only above zero (#156); a board with neither shows when
+ * it was added instead, so the card never leads with "0 posts · 0 followers".
+ */
 export function BoardCard({ board, now = new Date() }: { board: Board; now?: Date }) {
   const addedDays = Math.floor((now.getTime() - new Date(board.created_at).getTime()) / 86400_000);
+  const quiet = board.post_count <= 0 && board.follower_count <= 0;
+  const age = shortAge(board.created_at, now);
+  const added =
+    addedDays >= 0 && addedDays <= 7
+      ? `Added ${addedDays === 0 ? 'today' : `${addedDays}d ago`}`
+      : quiet
+        ? `Added ${/^\d+w$/.test(age) ? `${age} ago` : age}`
+        : null;
   return (
     <article className="relative flex min-w-0 flex-col gap-3 rounded-md border border-line bg-card p-4 transition-colors duration-120 hover:border-line-strong">
       <div className="flex min-w-0 items-center gap-3">
@@ -247,12 +261,16 @@ export function BoardCard({ board, now = new Date() }: { board: Board; now?: Dat
         <FollowScopeButton target="board" id={board.id} name={board.name} size="sm" className="relative z-1" />
       </div>
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-ink-muted">
-        <span>
-          <b className="font-semibold text-ink">{compactCount(board.post_count)}</b> {board.post_count === 1 ? 'post' : 'posts'}
-        </span>
-        <span>
-          <b className="font-semibold text-ink">{compactCount(board.follower_count)}</b> {board.follower_count === 1 ? 'follower' : 'followers'}
-        </span>
+        {board.post_count > 0 ? (
+          <span>
+            <b className="font-semibold text-ink">{compactCount(board.post_count)}</b> {board.post_count === 1 ? 'post' : 'posts'}
+          </span>
+        ) : null}
+        {board.follower_count > 0 ? (
+          <span>
+            <b className="font-semibold text-ink">{compactCount(board.follower_count)}</b> {board.follower_count === 1 ? 'follower' : 'followers'}
+          </span>
+        ) : null}
         {board.claimed_at ? (
           <span className="inline-flex items-center gap-1">
             <span className="text-success">
@@ -261,7 +279,7 @@ export function BoardCard({ board, now = new Date() }: { board: Board; now?: Dat
             Verified team
           </span>
         ) : null}
-        {addedDays >= 0 && addedDays <= 7 ? <span>Added {addedDays === 0 ? 'today' : `${addedDays}d ago`}</span> : null}
+        {added ? <span>{added}</span> : null}
       </div>
     </article>
   );

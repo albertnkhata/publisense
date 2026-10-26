@@ -322,12 +322,18 @@ export async function fetchTrending(boards: Board[], limit = 4, now: Date = new 
   return rankTrending(boards, (data ?? []) as Array<{ board_id: string }>, limit);
 }
 
+/**
+ * Boards ranked by new posts in the last 7 days. Only boards with at least one
+ * new post count as trending (#156): a quiet week yields an empty list rather
+ * than zero-count boards under a "Trending" label.
+ */
 export function rankTrending(boards: Board[], recentPosts: Array<{ board_id: string }>, limit: number): Array<Board & { recent: number }> {
   const recent = new Map<string, number>();
   for (const p of recentPosts) recent.set(p.board_id, (recent.get(p.board_id) ?? 0) + 1);
   return boards
     .filter(isLive)
     .map((b) => ({ ...b, recent: recent.get(b.id) ?? 0 }))
+    .filter((b) => b.recent > 0)
     .sort((a, b) => b.recent - a.recent || b.post_count - a.post_count || b.follower_count - a.follower_count || a.name.localeCompare(b.name))
     .slice(0, limit);
 }

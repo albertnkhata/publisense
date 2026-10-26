@@ -57,7 +57,8 @@ export function VoteButton({ post, size = 'md' }: { post: Post; size?: 'sm' | 'm
       )}
     >
       <Icon name="arrow-up" size={size === 'sm' ? 14 : 16} strokeWidth={1.8} />
-      <span className="font-mono tabular-nums">{post.vote_count}</span>
+      {/* No "0" at zero (#156): an unvoted post shows the action, not an empty counter. */}
+      {post.vote_count > 0 ? <span className="font-mono tabular-nums">{post.vote_count}</span> : size === 'md' ? <span>Upvote</span> : null}
     </button>
   );
 }
