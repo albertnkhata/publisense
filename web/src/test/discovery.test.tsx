@@ -80,6 +80,11 @@ beforeEach(() => {
 });
 
 describe('board page', () => {
+  it('sets the tab title to the board name (#159)', async () => {
+    renderAt('/b/cursor');
+    await waitFor(() => expect(document.title).toBe(`${CURSOR.name} · Publisense`));
+  });
+
   it('shows the header, tab counts and the board’s feed', async () => {
     renderAt('/b/cursor');
     expect(await screen.findByRole('heading', { level: 1, name: 'Cursor' })).toBeTruthy();
@@ -251,6 +256,11 @@ describe('board header meta line', () => {
 });
 
 describe('hub page', () => {
+  it('sets the tab title to the hub name (#159)', async () => {
+    renderAt('/h/figma');
+    await waitFor(() => expect(document.title).toBe(`${FIGMA_HUB.name} hub · Publisense`));
+  });
+
   it('shows the hub, its posts from every board, without closed ones', async () => {
     renderAt('/h/figma');
     expect(await screen.findByRole('heading', { level: 1, name: /Figma/ })).toBeTruthy();
