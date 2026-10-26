@@ -371,6 +371,39 @@ describe('team management', () => {
     expect(await screen.findByText('Role updated')).toBeTruthy();
   });
 
+  it('asks before removing a teammate, and Cancel keeps them (#142)', async () => {
+    boardsApi.fetchBoard.mockResolvedValue(CLAIMED);
+    teamsApi.fetchScopeRole.mockResolvedValue('owner');
+    teamsApi.fetchTeam.mockResolvedValue(team());
+    teamsApi.removeMember.mockResolvedValue(undefined);
+    renderAt('/b/cursor/manage?tab=team');
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove J Mwamba' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Remove J Mwamba from the team?' });
+    expect(within(dialog).getByText(/loses team access straight away/)).toBeTruthy();
+    expect(teamsApi.removeMember).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(teamsApi.removeMember).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove J Mwamba' }));
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Remove' }));
+    await waitFor(() => expect(teamsApi.removeMember).toHaveBeenCalledWith('board', CURSOR.id, OTHER.id));
+    expect(await screen.findByText('Removed J Mwamba')).toBeTruthy();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('keeps the confirm open with the reason when removing fails', async () => {
+    boardsApi.fetchBoard.mockResolvedValue(CLAIMED);
+    teamsApi.fetchScopeRole.mockResolvedValue('owner');
+    teamsApi.fetchTeam.mockResolvedValue(team());
+    teamsApi.removeMember.mockRejectedValueOnce(new TeamError('last_owner', 'Add another owner first. A claimed board always keeps an owner.'));
+    renderAt('/b/cursor/manage?tab=team');
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove J Mwamba' }));
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Remove' }));
+    const dialog = await screen.findByRole('dialog');
+    expect((await within(dialog).findByRole('alert')).textContent).toBe('Add another owner first. A claimed board always keeps an owner.');
+  });
+
   it('shows the last-owner refusal from the server', async () => {
     teamsApi.fetchScopeRole.mockResolvedValue('owner');
     teamsApi.fetchTeam.mockResolvedValue([member({ user_id: ME.id, role: 'owner', profile: ME }), member({ role: 'owner' })]);
