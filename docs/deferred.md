@@ -104,7 +104,7 @@ other users. Guarded at every current call site.
   SQL suites as the real API roles.
 - The client bundle is grepped for `service_role` on every build.
 
-**Live smoke test (added 2026-10-25).** `supabase/tests/v2_live_smoke.sql` runs every night at 01:00 UTC
+**Live smoke test (added 2026-10-25).** `supabase/tests/v2_live_smoke.sql` runs every night at 01:07 UTC
 against production from `.github/workflows/smoke.yml`, and on every PR against the seeded CI database. It
 creates two throwaway users (`.invalid` addresses, so no email is sent) and checks, as the real API roles:
 signup provisions a profile and unsubscribe token and no admin rights; anon can read boards and posts but

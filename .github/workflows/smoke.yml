@@ -10,8 +10,9 @@
 name: Live smoke test
 
 on:
+  # Off-peak minute on purpose; see the note in backup.yml (#146).
   schedule:
-    - cron: '0 1 * * *' # 01:00 UTC = 03:00 CAT, after the 00:30 backup
+    - cron: '7 1 * * *' # 01:07 UTC = 03:07 CAT, after the 00:23 backup
   workflow_dispatch:
 
 permissions:

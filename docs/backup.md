@@ -1,6 +1,6 @@
 # Database backups
 
-`.github/workflows/backup.yml` dumps production every night at 02:30 CAT (00:30 UTC)
+`.github/workflows/backup.yml` dumps production every night at 02:23 CAT (00:23 UTC; off-peak minute, see #146)
 and keeps 30 days of encrypted copies as Actions artifacts named `publisense-db-<UTC stamp>`.
 Run it by hand from **Actions → Nightly backup → Run workflow**.
 
