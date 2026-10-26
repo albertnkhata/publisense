@@ -144,6 +144,15 @@ select public.v2_email_flush_held();
 select pg_temp.expect('guard: emails held for over 24 hours expire instead of going out late',
   exists (select 1 from public.email_log where status = 'expired') and not exists (select 1 from public.email_log where status = 'held'));
 
+-- ------------------------------------------------------------ RFC 8058 headers (#138, 0039)
+
+select pg_temp.expect('headers: every email carries List-Unsubscribe-Post: List-Unsubscribe=One-Click',
+  (select bool_and(body -> 'headers' ->> 'List-Unsubscribe-Post' = 'List-Unsubscribe=One-Click') from net.sent));
+select pg_temp.expect('headers: List-Unsubscribe points at the one-click POST endpoint with the token',
+  (select bool_and(body -> 'headers' ->> 'List-Unsubscribe' ~ '^<https://publisense\.app/api/unsubscribe\?token=[0-9a-f-]{36}>$') from net.sent));
+select pg_temp.expect('headers: the visible body link still goes to the /unsubscribe page',
+  (select bool_and(body ->> 'text' like '%https://publisense.app/unsubscribe?token=%') from net.sent));
+
 select pg_temp.expect('privilege: the flush is not callable by the API roles',
   not has_function_privilege('anon', 'public.v2_email_flush_held()', 'execute')
   and not has_function_privilege('authenticated', 'public.v2_email_flush_held()', 'execute'));
