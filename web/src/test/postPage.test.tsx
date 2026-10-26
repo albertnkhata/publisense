@@ -57,6 +57,11 @@ beforeEach(() => {
 });
 
 describe('post page', () => {
+  it('sets the tab title to the post title (#159)', async () => {
+    renderPost(makePost({ title: 'Ghost preview in split windows' }));
+    await waitFor(() => expect(document.title).toBe('Ghost preview in split windows · Publisense'));
+  });
+
   it('shows the post, its status timeline, pinned official reply and threads', async () => {
     const post = makePost({ title: 'Ghost preview in split windows', status: 'planned', reply_count: 3, body: 'Line one\nLine two' });
     const official = makeReply(post, { is_official: true, body: 'On the roadmap for next cycle.', created_at: iso(1) });
