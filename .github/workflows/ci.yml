@@ -231,6 +231,14 @@ jobs:
           PGPASSWORD: postgres
         run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_live_smoke.sql
 
+      # Notification emails inside the 15-minute window are held and the latest one
+      # is sent when it closes (#145). Stubs pg_net and Vault inside a rolled-back
+      # transaction, so it needs the seeded CI database and never runs elsewhere.
+      - name: v2 email batching tests
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_email_batching_test.sql
+
       - name: Report public read-policy count
         env:
           PGPASSWORD: postgres
