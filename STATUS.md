@@ -76,40 +76,36 @@ _CI steps read from `.github/workflows/ci.yml`; v2 test counts are under v2 buil
 - CI · v2 dev seed applies: inline script
 - CI · Live smoke suite (on CI data): `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_live_smoke.sql`
 - CI · v2 email batching tests: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_email_batching_test.sql`
+- CI · v2 vote privacy tests: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_vote_privacy_test.sql`
 - CI · Report public read-policy count: inline script
 
 <!-- status:repo-derived:end -->
 
 <!-- status:live:start — refreshed by `node scripts/status.mjs --live`; may lag until the next scheduled refresh -->
 
-_probed 2026-10-25T11:47:10Z · anything that could not be read says `unknown` rather than guessing_
+_probed never — run `node scripts/status.mjs --live` · anything that could not be read says `unknown` rather than guessing_
 
 ### Production
 
-- https://publisense.app → **200** · served entry bundle `/assets/index-CDsPTJkk.js`
-- www → 308 → https://publisense.app/
+- https://publisense.app → **unknown** · served entry bundle `unknown`
+- www → unknown
 - production deployment commit: unknown _(`VERCEL_TOKEN` not set)_
 
 ### Data
 
-- board **29** · hub **6** · post **11** · reply **0** · vote **0** · follow **2** · profile **3** · status_event **0**
-- counted with an authenticated probe; as an anonymous visitor these read: follow = restricted
-- post: **11** total = **11 imported** (no author, sourced elsewhere) + **0 from members**
-- auth users: **3**
-
-> ⚠️ Imported posts carry no author — each one links to the source it came from (`D-011`). Printed so traction is never claimed without the split.
+- table counts: unknown
+- counted as an anonymous visitor only — tables behind RLS read `hidden by RLS`, never 0
+- auth users: unknown _(`SUPABASE_SERVICE_ROLE` not set)_
 
 ### Auth surface
 
-- enabled providers: **google, email**
-- email confirmation: **required** (mailer_autoconfirm=false) · SMTP sender: `unknown`
-- Google consent screen: "to continue to **Publisense**" · terms ✓ · privacy ✓ · support `albertnkhata.s@gmail.com` · unverified banner: no
+- enabled providers: unknown
+- email confirmation: unknown · SMTP sender: `unknown`
+- Google consent screen: unknown
 
 ### Work queue
 
-- open issues: #111 Mark imported posts as samples
-- open PRs: none
-- `npm test` at refresh time: **368 passed** in 28 files
+- open issues/PRs: unknown _(`gh` unavailable or unauthenticated)_
 
 <!-- status:live:end -->
 
