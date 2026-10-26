@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import pitchGradient from '../assets/pitch-gradient.webp';
-import { Link, useSearchParams } from 'react-router';
+import { useSearchParams } from 'react-router';
 import { dedupePosts, useFeed, type FeedScope, type FeedSort } from '../api';
-import { CLAIM_PATH } from '../lib/claimLink';
+import { ClaimIntroLink } from '../claim/ClaimIntroLink';
 import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { LoadError, PostList, PostListSkeleton } from '../posts/PostList';
@@ -75,8 +75,9 @@ export const PITCH = {
 /**
  * Signed-out pitch above the composer, after Substack's signed-out home: the
  * visitor lands in the real feed with one card saying what this is. Not
- * dismissible; signed-in viewers never see it. The secondary action goes to
- * /claim, which explains claiming before asking for an account (#157).
+ * dismissible; signed-in viewers never see it. The secondary action opens the
+ * claim intro modal, which explains claiming before asking for an account and
+ * links on to /claim (#157).
  *
  * The card sits on a decorative gradient image under a dark scrim and uses the
  * theme-independent on-image tokens, so it reads the same (light text on a
@@ -106,12 +107,11 @@ function HomePitch() {
           <Button size="sm" onClick={() => openAuth('signup')}>
             {PITCH.join}
           </Button>
-          <Link
-            to={CLAIM_PATH}
+          <ClaimIntroLink
             className="inline-flex h-7 no-underline items-center justify-center rounded-md border border-on-image-line bg-on-image/10 px-3 text-sm font-semibold whitespace-nowrap text-on-image backdrop-blur-md transition-colors duration-120 ease-out select-none hover:bg-on-image/20"
           >
             {PITCH.claim}
-          </Link>
+          </ClaimIntroLink>
         </div>
       </div>
     </Card>

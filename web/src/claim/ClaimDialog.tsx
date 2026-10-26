@@ -33,6 +33,7 @@ import { copyText } from '../lib/share';
 import { useViewer } from '../lib/viewer';
 import { useRequireAuth } from '../shell/auth';
 import { BoardAvatar, Button, Dialog, Field, HubAvatar, Icon, Input, Textarea, useToast } from '../ui';
+import { useClaimIntroHost, type ClaimIntroTarget } from './ClaimIntro';
 
 /**
  * ClaimFlow (FOUNDATION §5, §7 Claim): unclaimed → verifying (work-email code or
@@ -52,6 +53,8 @@ export interface ClaimOptions {
 
 interface ClaimCtx {
   openClaim: (opts?: ClaimOptions) => void;
+  /** The short "how claiming works" modal signed-out entry points open (#157). */
+  openClaimIntro: (target?: ClaimIntroTarget) => void;
 }
 
 const ClaimContext = createContext<ClaimCtx | null>(null);
@@ -68,11 +71,13 @@ export function ClaimProvider({ children }: { children: ReactNode }) {
     [requireAuth],
   );
   const close = useCallback(() => setState((s) => ({ ...s, open: false })), []);
-  const value = useMemo(() => ({ openClaim }), [openClaim]);
+  const { openIntro, host: introHost } = useClaimIntroHost();
+  const value = useMemo(() => ({ openClaim, openClaimIntro: openIntro }), [openClaim, openIntro]);
   return (
     <ClaimContext.Provider value={value}>
       {children}
       {state.open ? <ClaimDialog key={state.key} opts={state.opts} onClose={close} /> : null}
+      {introHost}
     </ClaimContext.Provider>
   );
 }

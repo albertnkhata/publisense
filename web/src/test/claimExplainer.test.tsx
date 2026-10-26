@@ -7,6 +7,7 @@ import { lookup } from '../../api/share';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { ClaimProvider } from '../claim/ClaimDialog';
+import { CLAIM_INTRO } from '../claim/ClaimIntro';
 import { claimHref } from '../lib/claimLink';
 import { BoardPage } from '../pages/BoardPage';
 import { CLAIM_COPY, ClaimPage } from '../pages/ClaimPage';
@@ -19,8 +20,9 @@ import { renderWith, TEST_VIEWER } from './renderApp';
 
 /*
  * #157: a signed-out visitor can learn how claiming works before signing up.
- * The /claim explainer, its entry points (board and hub headers, the right
- * rail, the footer) and its share tags.
+ * The /claim explainer, the claim intro modal its signed-out entry points open
+ * (home pitch, board and hub headers, the right rail, the footer), and its
+ * share tags.
  */
 
 const boardsApi = vi.hoisted(() => ({
@@ -143,15 +145,96 @@ describe('/claim explainer, signed in', () => {
   });
 });
 
+const introDialog = () => screen.findByRole('dialog', { name: CLAIM_INTRO.title });
+
 describe('entry points', () => {
-  it('board header, signed out: "Is this your product? Claim it" opens the explainer for that board', async () => {
+  it('board header, signed out: opens the claim intro modal for that board instead of navigating', async () => {
     const { router } = renderAt('/b/cursor');
     const link = await screen.findByRole('link', { name: 'Is this your product? Claim it' });
+    // A real link to the full explainer underneath (new tab, no JS), announced as opening a dialog.
     expect(link.getAttribute('href')).toBe('/claim?board=cursor');
+    expect(link.getAttribute('aria-haspopup')).toBe('dialog');
     fireEvent.click(link);
-    expect(router.state.location.pathname).toBe('/claim');
-    expect(await screen.findByRole('heading', { level: 1, name: CLAIM_COPY.title })).toBeTruthy();
+    const dialog = await introDialog();
+    expect(router.state.location.pathname).toBe('/b/cursor');
+    expect((await within(dialog).findByTestId('claim-intro-note')).textContent).toBe('To claim Cursor, you’ll prove you can use the cursor.com domain.');
+    expect(within(dialog).getByText(/6-digit code/)).toBeTruthy();
+    expect(within(dialog).getByText(/TXT record/)).toBeTruthy();
+    expect(within(dialog).getByText(/Verified team badge/)).toBeTruthy();
+    expect(within(dialog).getByRole('button', { name: CLAIM_INTRO.signUp })).toBeTruthy();
+    expect(within(dialog).getByRole('button', { name: CLAIM_INTRO.signIn })).toBeTruthy();
+    expect(within(dialog).getByRole('link', { name: CLAIM_INTRO.learnMore }).getAttribute('href')).toBe('/claim?board=cursor');
     expect(screen.queryByRole('dialog', { name: 'Create your account' })).toBeNull();
+  });
+
+  it('"Learn more" goes to the full /claim page for that board and closes the modal', async () => {
+    const { router } = renderAt('/b/cursor');
+    fireEvent.click(await screen.findByRole('link', { name: 'Is this your product? Claim it' }));
+    fireEvent.click(within(await introDialog()).getByRole('link', { name: CLAIM_INTRO.learnMore }));
+    expect(router.state.location.pathname).toBe('/claim');
+    expect(router.state.location.search).toBe('?board=cursor');
+    expect(await screen.findByRole('heading', { level: 1, name: CLAIM_COPY.title })).toBeTruthy();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('Escape closes the modal and puts focus back on the entry point', async () => {
+    renderAt('/b/cursor');
+    const link = await screen.findByRole('link', { name: 'Is this your product? Claim it' });
+    link.focus();
+    fireEvent.click(link);
+    const dialog = await introDialog();
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(document.activeElement).toBe(link);
+  });
+
+  it('"Create an account to claim" swaps the modal for sign-up with the claim subtitle; focus returns to the entry point after', async () => {
+    renderAt('/b/cursor');
+    const link = await screen.findByRole('link', { name: 'Is this your product? Claim it' });
+    link.focus();
+    fireEvent.click(link);
+    fireEvent.click(within(await introDialog()).getByRole('button', { name: CLAIM_INTRO.signUp }));
+    const auth = await screen.findByRole('dialog', { name: 'Create your account' });
+    expect(within(auth).getByText('Create an account to claim your product’s board. It takes a few seconds.')).toBeTruthy();
+    expect(screen.queryByRole('dialog', { name: CLAIM_INTRO.title })).toBeNull();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(document.activeElement).toBe(link);
+  });
+
+  it('"I have an account" opens sign-in with the same reason', async () => {
+    renderAt('/b/cursor');
+    fireEvent.click(await screen.findByRole('link', { name: 'Is this your product? Claim it' }));
+    fireEvent.click(within(await introDialog()).getByRole('button', { name: CLAIM_INTRO.signIn }));
+    const auth = await screen.findByRole('dialog');
+    expect(auth.getAttribute('aria-labelledby')).toBeTruthy();
+    expect(within(auth).getByText(/claim your product’s board/)).toBeTruthy();
+    expect(screen.queryByRole('dialog', { name: CLAIM_INTRO.title })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: 'Create your account' })).toBeNull();
+  });
+
+  it('a modified click (new tab) is left to the browser: no modal', async () => {
+    renderAt('/b/cursor');
+    fireEvent.click(await screen.findByRole('link', { name: 'Is this your product? Claim it' }), { ctrlKey: true });
+    expect(screen.queryByRole('dialog', { name: CLAIM_INTRO.title })).toBeNull();
+  });
+
+  it('the modal says when the board is already claimed', async () => {
+    boardsApi.fetchBoards.mockResolvedValue([{ ...CURSOR, claimed_at: 'Thu 2026-10-01 2:00 AM CAT (UTC+02:00)' }]);
+    renderAt('/b/cursor');
+    fireEvent.click(await screen.findByRole('link', { name: 'Is this your product? Claim it' }));
+    const note = await within(await introDialog()).findByTestId('claim-intro-note');
+    expect(note.textContent).toMatch(/^Cursor is already claimed by a verified team\. With an account you can ask to join it, or report it/);
+  });
+
+  it('the modal says when the board has no website to verify', async () => {
+    boardsApi.fetchBoard.mockResolvedValue({ ...CURSOR, site: null });
+    boardsApi.fetchBoards.mockResolvedValue([{ ...CURSOR, site: null }]);
+    renderAt('/b/cursor');
+    fireEvent.click(await screen.findByRole('link', { name: 'Is this your product? Claim it' }));
+    const note = await within(await introDialog()).findByTestId('claim-intro-note');
+    expect(note.textContent).toBe('Cursor has no website to verify yet, so it can’t be claimed for now.');
   });
 
   it('board header, signed in: still starts the claim directly', async () => {
@@ -160,15 +243,26 @@ describe('entry points', () => {
     expect(screen.queryByRole('link', { name: 'Is this your product? Claim it' })).toBeNull();
   });
 
-  it('hub header, signed out: links to the explainer for that hub', async () => {
-    renderAt('/h/figma');
+  it('hub header, signed out: opens the modal for that hub', async () => {
+    const { router } = renderAt('/h/figma');
     const link = await screen.findByRole('link', { name: 'Is this your company? Claim it' });
     expect(link.getAttribute('href')).toBe('/claim?hub=figma');
+    fireEvent.click(link);
+    const dialog = await introDialog();
+    expect(router.state.location.pathname).toBe('/h/figma');
+    expect((await within(dialog).findByTestId('claim-intro-note')).textContent).toBe('To claim Figma, you’ll prove you can use the figma.com domain.');
+    expect(within(dialog).getByRole('link', { name: CLAIM_INTRO.learnMore }).getAttribute('href')).toBe('/claim?hub=figma');
   });
 
-  it('right rail, signed out: "Claim its board" is a link to the explainer', async () => {
-    renderAt('/rail');
-    expect((await screen.findByRole('link', { name: 'Claim its board' })).getAttribute('href')).toBe('/claim');
+  it('right rail, signed out: "Claim its board" opens the modal (no product off a board page)', async () => {
+    const { router } = renderAt('/rail');
+    const link = await screen.findByRole('link', { name: 'Claim its board' });
+    expect(link.getAttribute('href')).toBe('/claim');
+    fireEvent.click(link);
+    const dialog = await introDialog();
+    expect(router.state.location.pathname).toBe('/rail');
+    expect(within(dialog).queryByTestId('claim-intro-note')).toBeNull();
+    expect(within(dialog).getByRole('link', { name: CLAIM_INTRO.learnMore }).getAttribute('href')).toBe('/claim');
   });
 
   it('right rail, signed in: "Claim its board" still opens the flow', async () => {
@@ -176,9 +270,20 @@ describe('entry points', () => {
     expect(await screen.findByRole('button', { name: 'Claim its board' })).toBeTruthy();
   });
 
-  it('footer links to the explainer', () => {
-    renderAt('/footer');
-    expect(screen.getByRole('link', { name: 'Claim your board' }).getAttribute('href')).toBe('/claim');
+  it('footer, signed out: "Claim your board" opens the modal', async () => {
+    const { router } = renderAt('/footer');
+    const link = screen.getByRole('link', { name: 'Claim your board' });
+    expect(link.getAttribute('href')).toBe('/claim');
+    fireEvent.click(link);
+    expect(await introDialog()).toBeTruthy();
+    expect(router.state.location.pathname).toBe('/footer');
+  });
+
+  it('footer, signed in: still a plain link to the explainer', () => {
+    renderAt('/footer', true);
+    const link = screen.getByRole('link', { name: 'Claim your board' });
+    expect(link.getAttribute('href')).toBe('/claim');
+    expect(link.getAttribute('aria-haspopup')).toBeNull();
   });
 
   it('claimHref builds the links', () => {
@@ -193,6 +298,26 @@ describe('claim explainer copy', () => {
 
   it('promises nothing the product does not do: no pricing, plans or integrations', () => {
     expect(all).not.toMatch(/\b(free|price|pricing|paid|plan|plans|trial|subscription|integration|slack|api|analytics)\b/i);
+    expect(JSON.stringify(CLAIM_INTRO)).not.toMatch(/\b(free|price|pricing|paid|plan|plans|trial|subscription|integration|slack|api|analytics)\b/i);
+  });
+
+  it('the modal only shortens what the /claim page says', () => {
+    const intro = CLAIM_INTRO.lines.map((l) => `${l.lead} ${l.text}`).join(' ');
+    // Each fact in the modal, and where the full page states it.
+    for (const fact of ['6-digit code', 'TXT record', 'gmail.com', 'domain of the product’s website']) {
+      expect(intro).toContain(fact);
+      expect(all).toContain(fact);
+    }
+    expect(intro).toContain('Verified team');
+    expect(all).toContain('Verified team');
+    expect(all).toContain('pinned to the top');
+    expect(all).toContain('roadmap');
+    expect(all).toContain('changelog');
+    expect(all).toContain('an address on your domain');
+    expect(intro).toContain('an address on your domain');
+    expect(CLAIM_INTRO.signUp).toBe(CLAIM_COPY.signUp);
+    expect(CLAIM_INTRO.signIn).toBe(CLAIM_COPY.signIn);
+    expect(CLAIM_INTRO.lines.length).toBeLessThanOrEqual(4);
   });
 
   it('crawlers get the same title and description as the page', () => {

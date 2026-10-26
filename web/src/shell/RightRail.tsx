@@ -2,7 +2,7 @@ import { Link, useLocation } from 'react-router';
 import { compactCount, hasSupabaseConfig, isLive, logoSrc, shortAge, useBoards, useTrending, type Board } from '../api';
 import { BoardAvatar, Card, SkeletonBlock } from '../ui';
 import { useClaim } from '../claim/ClaimDialog';
-import { claimHref } from '../lib/claimLink';
+import { ClaimIntroLink } from '../claim/ClaimIntroLink';
 import { cx } from '../lib/cx';
 import { useViewer } from '../lib/viewer';
 import { LegalLinks } from './LegalLinks';
@@ -47,10 +47,10 @@ function ClaimLine() {
           Claim its board
         </button>
       ) : (
-        // Signed out: explain claiming first, no sign-up wall (#157).
-        <Link to={claimHref(here && !here.claimed_at ? { board: here.slug } : undefined)} className={claimLineClass}>
+        // Signed out: the claim intro modal first, no sign-up wall (#157).
+        <ClaimIntroLink target={here && !here.claimed_at ? { board: here.slug } : undefined} className={claimLineClass}>
           Claim its board
-        </Link>
+        </ClaimIntroLink>
       )}
     </p>
   );

@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes } from 'react-router';
 import type { FeedPage, Post } from '../api/posts';
+import { ClaimProvider } from '../claim/ClaimDialog';
+import { CLAIM_INTRO } from '../claim/ClaimIntro';
 import { HomePage, PITCH } from '../pages/HomePage';
 import { ComposerProvider } from '../shell/composer';
 import { renderWith, TEST_VIEWER } from './renderApp';
@@ -20,10 +22,12 @@ const page = (items: Post[], next: number | null = null): FeedPage => ({ items, 
 function renderHome(opts: { signedIn?: boolean; path?: string } = {}) {
   return renderWith(
     <ComposerProvider>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/post/:id" element={<h1>Post page</h1>} />
-      </Routes>
+      <ClaimProvider>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/post/:id" element={<h1>Post page</h1>} />
+        </Routes>
+      </ClaimProvider>
     </ComposerProvider>,
     { viewer: opts.signedIn ? TEST_VIEWER : null, path: opts.path ?? '/' },
   );
@@ -184,13 +188,17 @@ describe('signed-out pitch', () => {
     expect(within(dialog).queryByText(/to claim your product’s board/)).toBeNull();
   });
 
-  it('Claim your board goes to the claim explainer, no sign-up wall (#157)', async () => {
+  it('Claim your board opens the claim intro modal, no sign-up wall (#157)', async () => {
     api.fetchFeed.mockResolvedValue(page([makePost()]));
     const { router } = renderHome();
     const link = await screen.findByRole('link', { name: PITCH.claim });
+    // Still a real link to the full explainer (new tab, no JS), but a click opens the modal.
     expect(link.getAttribute('href')).toBe('/claim');
+    expect(link.getAttribute('aria-haspopup')).toBe('dialog');
     fireEvent.click(link);
-    expect(router.state.location.pathname).toBe('/claim');
+    expect(router.state.location.pathname).toBe('/');
+    const dialog = await screen.findByRole('dialog', { name: CLAIM_INTRO.title });
+    expect(within(dialog).getByRole('link', { name: CLAIM_INTRO.learnMore }).getAttribute('href')).toBe('/claim');
     expect(screen.queryByRole('dialog', { name: 'Create your account' })).toBeNull();
   });
 });

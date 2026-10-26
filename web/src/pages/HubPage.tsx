@@ -17,7 +17,6 @@ import {
 } from '../api';
 import { BoardRow, ChoiceMenu, FollowScopeButton, RowItem, RowList } from '../boards/parts';
 import { FollowerStat, ScopeHeader, Stat } from '../boards/ScopeHeader';
-import { claimHref } from '../lib/claimLink';
 import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { LoadError, PostList, PostListSkeleton } from '../posts/PostList';
@@ -215,8 +214,8 @@ function HubVoice({ hub, manages }: { hub: Hub; manages: boolean }) {
       {viewerId ? (
         <ClaimLink onClick={() => openClaim(onDomain ? { board: onDomain.slug } : { hub: hub.slug })}>Work at {hub.name}?</ClaimLink>
       ) : (
-        // Signed out: explain claiming first, no sign-up wall (#157).
-        <ClaimExplainerLink to={claimHref({ hub: hub.slug })}>{HUB_CLAIM_CTA}</ClaimExplainerLink>
+        // Signed out: the claim intro modal first, no sign-up wall (#157).
+        <ClaimExplainerLink target={{ hub: hub.slug }}>{HUB_CLAIM_CTA}</ClaimExplainerLink>
       )}
     </>
   );

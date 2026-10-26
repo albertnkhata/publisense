@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { isSlug, siteDomain, useBoards, useHubs } from '../api';
 import { useClaim } from '../claim/ClaimDialog';
+import { CLAIM_ACTIONS, useClaimTarget } from '../claim/claimTarget';
 import { CLAIM_PATH } from '../lib/claimLink';
 import { usePageMeta } from '../lib/usePageMeta';
 import { usePageTitle } from '../lib/usePageTitle';
@@ -20,7 +20,11 @@ import { Button, Card, Icon, type IconName } from '../ui';
  *
  * Signed out, the call to action opens sign-up (claiming needs an account).
  * Signed in, it opens the claim flow itself. ?board=<slug> or ?hub=<slug>
- * (from a board's "Is this your product? Claim it") names the product.
+ * (the claim intro modal's "Learn more") names the product.
+ *
+ * Signed-out entry points open the short claim intro modal first
+ * (src/claim/ClaimIntro.tsx); this page is its "Learn more" and stays public,
+ * crawlable and in the sitemap.
  */
 
 interface Item {
@@ -35,7 +39,7 @@ export const CLAIM_COPY = {
     'Work on a product with a Publisense board? Verify your company’s domain to claim it, then reply officially, set statuses and run its roadmap with your team.',
   title: 'How claiming works',
   lead: 'Every product on Publisense has a public board where people post bugs and feature requests. If you work on the product, you can claim its board: prove you work there, and your team can answer officially.',
-  signupReason: 'claim your product’s board',
+  signupReason: CLAIM_ACTIONS.signupReason,
 
   whoTitle: 'Who can claim',
   who: [
@@ -99,8 +103,8 @@ export const CLAIM_COPY = {
   ctaTitle: 'Ready to claim your board?',
   ctaSignedOut: 'Claiming needs a Publisense account. It takes a few seconds, and you can verify right after.',
   ctaSignedIn: 'Pick your product and verify your domain. It takes a couple of minutes.',
-  signUp: 'Create an account to claim',
-  signIn: 'I have an account',
+  signUp: CLAIM_ACTIONS.signUp,
+  signIn: CLAIM_ACTIONS.signIn,
   claim: 'Claim a board',
 };
 
@@ -197,24 +201,9 @@ function Items({ items }: { items: Item[] }) {
 }
 
 /** The product named by ?board= or ?hub=, when it loads. */
-function useTarget(): { kind: 'board' | 'hub'; slug: string; name: string; domain: string | null; claimed: boolean } | null {
+function useTarget() {
   const [params] = useSearchParams();
-  const board = params.get('board');
-  const hub = params.get('hub');
-  const boards = useBoards();
-  const hubs = useHubs();
-  if (isSlug(board)) {
-    const b = boards.data?.find((x) => x.slug === board);
-    if (!b) return null;
-    const h = b.hub_id ? hubs.data?.find((x) => x.id === b.hub_id) : undefined;
-    return { kind: 'board', slug: b.slug, name: b.name, domain: siteDomain(b.site), claimed: Boolean(b.claimed_at || h?.claimed_at) };
-  }
-  if (isSlug(hub)) {
-    const h = hubs.data?.find((x) => x.slug === hub);
-    if (!h) return null;
-    return { kind: 'hub', slug: h.slug, name: h.name, domain: h.primary_domain, claimed: Boolean(h.claimed_at) };
-  }
-  return null;
+  return useClaimTarget({ board: params.get('board'), hub: params.get('hub') });
 }
 
 function ClaimTarget() {
