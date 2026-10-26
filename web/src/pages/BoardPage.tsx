@@ -23,6 +23,7 @@ import { BackLink, ChoiceMenu, FollowScopeButton, type Choice } from '../boards/
 import { Changelog, Roadmap } from '../boards/Roadmap';
 import { FollowerStat, metaLink, ScopeHeader } from '../boards/ScopeHeader';
 import { useClaim } from '../claim/ClaimDialog';
+import { claimHref } from '../lib/claimLink';
 import { cx } from '../lib/cx';
 import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
@@ -348,7 +349,21 @@ function ClaimState({ board, team }: { board: BoardWithHub; team: boolean }) {
       </ClaimLink>
     );
   }
+  // Signed out: explain claiming first, no sign-up wall (#157).
+  if (!viewerId) return <ClaimExplainerLink to={claimHref({ board: board.slug })}>{CLAIM_CTA}</ClaimExplainerLink>;
   return <ClaimLink onClick={() => openClaim({ board: board.slug })}>Work at {board.name}?</ClaimLink>;
+}
+
+/** The board header's claim line for signed-out visitors (#157). */
+export const CLAIM_CTA = 'Is this your product? Claim it';
+
+/** ClaimLink's look, as a link to the /claim explainer. */
+export function ClaimExplainerLink({ to, children }: { to: string; children: ReactNode }) {
+  return (
+    <Link to={to} className="text-sm text-ink-secondary underline decoration-line-strong underline-offset-3 hover:text-ink hover:decoration-current">
+      {children}
+    </Link>
+  );
 }
 
 export function ClaimLink({ children, onClick, pending }: { children: ReactNode; onClick: () => void; pending?: boolean }) {

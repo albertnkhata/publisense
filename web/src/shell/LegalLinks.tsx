@@ -1,9 +1,13 @@
 import { Link } from 'react-router';
+import { CLAIM_PATH } from '../lib/claimLink';
 
 export function LegalLinks() {
   return (
     <footer aria-label="Legal" className="px-2">
       <nav className="flex flex-wrap gap-x-3 gap-y-1">
+        <Link to={CLAIM_PATH} className="text-xs text-ink-muted no-underline hover:text-ink">
+          Claim your board
+        </Link>
         <Link to="/terms" className="text-xs text-ink-muted no-underline hover:text-ink">
           Terms
         </Link>

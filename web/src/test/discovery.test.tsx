@@ -98,9 +98,10 @@ describe('board page', () => {
     expect(await screen.findByRole('menuitem', { name: /Roadmap/ })).toBeTruthy();
     expect(screen.getByRole('menuitem', { name: /Changelog/ })).toBeTruthy();
     expect(postsApi.fetchPostList).toHaveBeenCalledWith(expect.objectContaining({ boardIds: [CURSOR.id], type: 'all', status: 'all', sort: 'top' }));
-    // No Manage for people outside the team; the claim way in instead.
+    // No Manage for people outside the team; the claim way in instead. Signed
+    // out it explains claiming before any sign-up (#157).
     expect(screen.queryByRole('link', { name: 'Manage' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Work at Cursor?' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Is this your product? Claim it' }).getAttribute('href')).toBe('/claim?board=cursor');
   });
 
   it('filters by type, then clears', async () => {
@@ -313,7 +314,7 @@ describe('header follower count', () => {
     renderAt('/b/cursor');
     const h = await header('Cursor');
     expect(h.textContent).not.toMatch(/follower/);
-    expect(within(h).getByRole('button', { name: 'Work at Cursor?' })).toBeTruthy();
+    expect(within(h).getByRole('link', { name: 'Is this your product? Claim it' })).toBeTruthy();
   });
 
   it('board header: "1 follower" singular, then "N followers"', async () => {

@@ -1,10 +1,10 @@
 /**
  * Link previews for crawlers (X, WhatsApp, Slack, LinkedIn, search engines).
- * vercel.json routes ONLY crawler user agents on /b/:slug, /h/:slug and
- * /post/:id here; people never hit this function, so a failure here can't
+ * vercel.json routes ONLY crawler user agents on /b/:slug, /h/:slug,
+ * /post/:id and /claim here; people never hit this function, so a failure here can't
  * break the app. Any error still answers with the plain index.html.
  */
-import { applyMeta, boardMeta, hubMeta, postMeta, SITE, type ShareMeta } from './_lib/shareMeta.js';
+import { applyMeta, boardMeta, claimMeta, hubMeta, postMeta, SITE, type ShareMeta } from './_lib/shareMeta.js';
 
 interface Req { query: Record<string, string | string[] | undefined>; headers: Record<string, string | string[] | undefined> }
 interface Res { status(code: number): Res; setHeader(k: string, v: string): void; send(body: string): void }
@@ -15,6 +15,8 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) 
 export type Lookup = ShareMeta | 'missing' | null;
 
 export async function lookup(kind: string, key: string): Promise<Lookup> {
+  // Static pages with their own preview: no database needed.
+  if (kind === 'claim') return claimMeta();
   const base = (process.env.VITE_SUPABASE_URL ?? '').trim().replace(/\/$/, '');
   const anon = (process.env.VITE_SUPABASE_ANON_KEY ?? '').trim();
   if (!base || !anon) return null;

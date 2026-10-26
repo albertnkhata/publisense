@@ -10,7 +10,7 @@ export interface SitemapEntry {
 }
 
 /** Public pages that always exist. Private ones (settings, admin, manage) never go here. */
-export const STATIC_PATHS = ['/', '/explore', '/privacy', '/terms'];
+export const STATIC_PATHS = ['/', '/explore', '/claim', '/privacy', '/terms'];
 
 const xmlEscape = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');

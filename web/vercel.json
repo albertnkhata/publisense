@@ -40,6 +40,17 @@
       "destination": "/api/share?kind=post&key=:key"
     },
     {
+      "source": "/claim",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(bot|crawler|spider|facebookexternalhit|facebot|whatsapp|slack|discord|telegram|linkedin|embedly|pinterest|skype|vkshare|applebot|mastodon|bluesky).*"
+        }
+      ],
+      "destination": "/api/share?kind=claim&key=claim"
+    },
+    {
       "source": "/sitemap.xml",
       "destination": "/api/sitemap"
     },
@@ -65,6 +76,10 @@
     },
     {
       "source": "/terms",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/claim",
       "destination": "/index.html"
     },
     {

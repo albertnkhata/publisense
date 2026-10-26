@@ -58,6 +58,16 @@ export function postMeta(p: { id: string; title: string; body?: string | null; b
   };
 }
 
+/** /claim, the public "How claiming works" page (#157). Static: no lookup. Matches CLAIM_COPY in src/pages/ClaimPage.tsx. */
+export function claimMeta(): ShareMeta {
+  return {
+    title: 'How claiming works · Publisense',
+    description:
+      'Work on a product with a Publisense board? Verify your company’s domain to claim it, then reply officially, set statuses and run its roadmap with your team.',
+    path: '/claim',
+  };
+}
+
 export function clip(s: string, max = 200): string {
   const t = s.replace(/\s+/g, ' ').trim();
   return t.length <= max ? t : `${t.slice(0, max - 1).trimEnd()}…`;

@@ -17,13 +17,14 @@ import {
 } from '../api';
 import { BoardRow, ChoiceMenu, FollowScopeButton, RowItem, RowList } from '../boards/parts';
 import { FollowerStat, ScopeHeader, Stat } from '../boards/ScopeHeader';
+import { claimHref } from '../lib/claimLink';
 import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { LoadError, PostList, PostListSkeleton } from '../posts/PostList';
 import { useComposer } from '../shell/composer';
 import { BoardAvatar, Button, EmptyState, HubAvatar, Icon, TabPanel, Tabs, useToast } from '../ui';
 import { useClaim } from '../claim/ClaimDialog';
-import { actionLink, ClaimLink, HeaderSkeleton, RoadmapTab, ScopeNotFound, SORT_CHOICES } from './BoardPage';
+import { actionLink, ClaimExplainerLink, ClaimLink, HeaderSkeleton, RoadmapTab, ScopeNotFound, SORT_CHOICES } from './BoardPage';
 
 /**
  * Hub page (FOUNDATION §9 `/h/:hub`): a public group of boards. Feedback from
@@ -159,6 +160,9 @@ function HubView({ hub }: { hub: Hub }) {
   );
 }
 
+/** The hub header's claim line for signed-out visitors (#157). */
+export const HUB_CLAIM_CTA = 'Is this your company? Claim it';
+
 /** Mockup .hub-voice: who runs the hub, and the way in for people who work there. */
 function HubVoice({ hub, manages }: { hub: Hub; manages: boolean }) {
   const { viewer } = useViewer();
@@ -208,7 +212,12 @@ function HubVoice({ hub, manages }: { hub: Hub; manages: boolean }) {
   return (
     <>
       <span>No team has claimed this hub yet. Anyone can follow and post here.</span>
-      <ClaimLink onClick={() => openClaim(onDomain ? { board: onDomain.slug } : { hub: hub.slug })}>Work at {hub.name}?</ClaimLink>
+      {viewerId ? (
+        <ClaimLink onClick={() => openClaim(onDomain ? { board: onDomain.slug } : { hub: hub.slug })}>Work at {hub.name}?</ClaimLink>
+      ) : (
+        // Signed out: explain claiming first, no sign-up wall (#157).
+        <ClaimExplainerLink to={claimHref({ hub: hub.slug })}>{HUB_CLAIM_CTA}</ClaimExplainerLink>
+      )}
     </>
   );
 }

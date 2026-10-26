@@ -29,5 +29,8 @@ export { AdminCompaniesPage } from './AdminPages';
 // Step 4: account screens.
 export { SettingsPage } from './SettingsPage';
 export { PrivacyPage, TermsPage } from './LegalPages';
+
+// How claiming works, public (#157).
+export { ClaimPage } from './ClaimPage';
 export { AuthResetPage } from './AuthResetPage';
 export { UnsubscribePage } from './UnsubscribePage';

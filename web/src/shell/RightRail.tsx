@@ -2,6 +2,9 @@ import { Link, useLocation } from 'react-router';
 import { compactCount, hasSupabaseConfig, isLive, logoSrc, shortAge, useBoards, useTrending, type Board } from '../api';
 import { BoardAvatar, Card, SkeletonBlock } from '../ui';
 import { useClaim } from '../claim/ClaimDialog';
+import { claimHref } from '../lib/claimLink';
+import { cx } from '../lib/cx';
+import { useViewer } from '../lib/viewer';
 import { LegalLinks } from './LegalLinks';
 import { SearchWell } from './SearchWell';
 
@@ -22,9 +25,12 @@ export function RightRail() {
   );
 }
 
+const claimLineClass = 'font-semibold text-ink-secondary underline decoration-line-strong underline-offset-3 hover:text-brand hover:decoration-current';
+
 /** Mockup .claim-line: opens the claim flow on the board being viewed, else the product picker. */
 function ClaimLine() {
   const { openClaim } = useClaim();
+  const { viewer } = useViewer();
   const location = useLocation();
   const boards = useBoards();
   const slug = /^\/b\/([a-z0-9-]+)\/?$/.exec(location.pathname)?.[1];
@@ -32,13 +38,20 @@ function ClaimLine() {
   return (
     <p className="m-0 px-2 text-sm text-ink-muted">
       Maintain a product?{' '}
-      <button
-        type="button"
-        onClick={() => openClaim(here && !here.claimed_at ? { board: here.slug } : undefined)}
-        className="border-0 bg-transparent p-0 font-semibold text-ink-secondary underline decoration-line-strong underline-offset-3 hover:text-brand hover:decoration-current"
-      >
-        Claim its board
-      </button>
+      {viewer ? (
+        <button
+          type="button"
+          onClick={() => openClaim(here && !here.claimed_at ? { board: here.slug } : undefined)}
+          className={cx('border-0 bg-transparent p-0', claimLineClass)}
+        >
+          Claim its board
+        </button>
+      ) : (
+        // Signed out: explain claiming first, no sign-up wall (#157).
+        <Link to={claimHref(here && !here.claimed_at ? { board: here.slug } : undefined)} className={claimLineClass}>
+          Claim its board
+        </Link>
+      )}
     </p>
   );
 }

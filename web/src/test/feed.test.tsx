@@ -162,8 +162,9 @@ describe('signed-out pitch', () => {
     // Very top of Home: before the composer bar.
     const composer = screen.getByRole('button', { name: /What’s slowing you down/ });
     expect(pitch.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    // Not dismissible.
-    expect(within(pitch).getAllByRole('button')).toHaveLength(2);
+    // Not dismissible: one button (join) and one link (the claim explainer).
+    expect(within(pitch).getAllByRole('button')).toHaveLength(1);
+    expect(within(pitch).getAllByRole('link')).toHaveLength(1);
   });
 
   it('is never shown to a signed-in viewer', async () => {
@@ -172,7 +173,7 @@ describe('signed-out pitch', () => {
     await screen.findByRole('tab', { name: 'All' });
     expect(screen.queryByRole('region', { name: PITCH.title })).toBeNull();
     expect(screen.queryByRole('button', { name: PITCH.join })).toBeNull();
-    expect(screen.queryByRole('button', { name: PITCH.claim })).toBeNull();
+    expect(screen.queryByRole('link', { name: PITCH.claim })).toBeNull();
   });
 
   it('Join Publisense opens sign-up', async () => {
@@ -183,12 +184,14 @@ describe('signed-out pitch', () => {
     expect(within(dialog).queryByText(/to claim your product’s board/)).toBeNull();
   });
 
-  it('Claim your board opens sign-up with the reason', async () => {
+  it('Claim your board goes to the claim explainer, no sign-up wall (#157)', async () => {
     api.fetchFeed.mockResolvedValue(page([makePost()]));
-    renderHome();
-    fireEvent.click(await screen.findByRole('button', { name: PITCH.claim }));
-    const dialog = await screen.findByRole('dialog', { name: 'Create your account' });
-    expect(within(dialog).getByText('Create an account to claim your product’s board. It takes a few seconds.')).toBeTruthy();
+    const { router } = renderHome();
+    const link = await screen.findByRole('link', { name: PITCH.claim });
+    expect(link.getAttribute('href')).toBe('/claim');
+    fireEvent.click(link);
+    expect(router.state.location.pathname).toBe('/claim');
+    expect(screen.queryByRole('dialog', { name: 'Create your account' })).toBeNull();
   });
 });
 
