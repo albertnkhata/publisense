@@ -11,8 +11,13 @@
 name: Nightly backup
 
 on:
+  # Scheduled runs are best-effort on GitHub: runs queued at the top or half of
+  # the hour (the busiest slots) are often delayed for hours or dropped, and on
+  # 2026-10-26 neither nightly schedule fired at all (#146). An off-peak minute
+  # makes a drop much less likely, and editing the cron line re-registers the
+  # schedule. Keep the minute away from :00/:15/:30/:45.
   schedule:
-    - cron: '30 0 * * *' # 00:30 UTC = 02:30 CAT
+    - cron: '23 0 * * *' # 00:23 UTC = 02:23 CAT
   workflow_dispatch:
 
 permissions:
