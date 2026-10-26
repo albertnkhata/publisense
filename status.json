@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-25T11:47:10Z",
+  "generatedAt": "2026-10-26T06:01:05Z",
   "repo": {
     "openDecisions": [
       {
@@ -271,12 +271,12 @@
     ]
   },
   "live": {
-    "generatedAt": "2026-10-25T11:47:10Z",
+    "generatedAt": "2026-10-26T06:01:05Z",
     "site": {
       "status": 200,
-      "bundle": "/assets/index-CDsPTJkk.js",
+      "bundle": "/assets/index-XgZvbE8E.js",
       "wwwRedirect": "308 → https://publisense.app/",
-      "checkedAt": "2026-10-25T11:47:10Z"
+      "checkedAt": "2026-10-26T06:01:05Z"
     },
     "data": {
       "counts": {
@@ -290,12 +290,12 @@
         "status_event": 0
       },
       "trueCounts": {
-        "board": 29,
+        "board": 30,
         "hub": 6,
         "post": 11,
         "reply": 0,
         "vote": 0,
-        "follow": 2,
+        "follow": 3,
         "profile": 3,
         "status_event": 0
       },
@@ -312,7 +312,7 @@
         "email"
       ],
       "mailerAutoconfirm": false,
-      "smtpSender": "unknown",
+      "smtpSender": "auth@publisense.app",
       "consentScreen": {
         "appName": "Publisense",
         "supportEmail": "albertnkhata.s@gmail.com",
@@ -324,16 +324,21 @@
     "github": {
       "issues": [
         {
-          "number": 111,
-          "title": "Mark imported posts as samples"
+          "number": 160,
+          "title": "Make the feedback-to-response loop visible, and prove it end-to-end on one board"
+        },
+        {
+          "number": 157,
+          "title": "Explain how board claiming works before the sign-up wall"
         }
       ],
       "prs": []
     },
-    "deployedCommit": "unknown",
-    "unitTests": {
-      "files": 28,
-      "cases": 368
-    }
+    "deployedCommit": {
+      "sha": "3e1f314",
+      "state": "READY",
+      "createdAt": "2026-10-26T05:35:26.206Z"
+    },
+    "unitTests": "unknown"
   }
 }
