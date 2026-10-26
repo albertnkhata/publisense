@@ -11,7 +11,10 @@ interface Res { status(code: number): Res; setHeader(k: string, v: string): void
 
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? '';
 
-async function lookup(kind: string, key: string): Promise<ShareMeta | null> {
+/** What a lookup found: the page's meta, a definite "no such page", or null when we couldn't tell. */
+export type Lookup = ShareMeta | 'missing' | null;
+
+export async function lookup(kind: string, key: string): Promise<Lookup> {
   const base = (process.env.VITE_SUPABASE_URL ?? '').trim().replace(/\/$/, '');
   const anon = (process.env.VITE_SUPABASE_ANON_KEY ?? '').trim();
   if (!base || !anon) return null;
@@ -24,12 +27,15 @@ async function lookup(kind: string, key: string): Promise<ShareMeta | null> {
         : kind === 'post' && /^[0-9a-f-]{36}$/i.test(key)
           ? `post?select=id,title,body,board(name)&id=eq.${k}&hidden_at=is.null&limit=1`
           : null;
-  if (!q) return null;
+  // A key that can't name a board, hub or post is a definite miss.
+  if (!q) return 'missing';
   const r = await fetch(`${base}/rest/v1/${q}`, { headers: { apikey: anon, authorization: `Bearer ${anon}` }, signal: AbortSignal.timeout(2000) });
   if (!r.ok) return null;
   const rows = (await r.json()) as Array<Record<string, unknown>>;
   const row = rows[0];
-  if (!row) return null;
+  // The query ran and the public can't see such a row: unknown, pending, rejected,
+  // hidden or deleted. Crawlers get a real 404 so these aren't indexed as soft 404s.
+  if (!row) return 'missing';
   if (kind === 'board') return boardMeta(row as { slug: string; name: string; tagline: string | null });
   if (kind === 'hub') return hubMeta(row as { slug: string; name: string; description: string | null });
   return postMeta(row as { id: string; title: string; body: string | null; board: { name: string } | null });
@@ -39,11 +45,13 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   const host = one(req.headers['x-forwarded-host']) || one(req.headers.host);
   const origin = host ? `https://${host}` : SITE;
   let html = '';
+  let missing = false;
   try {
     const page = await fetch(`${origin}/index.html`, { signal: AbortSignal.timeout(2000) });
     html = await page.text();
     const meta = await lookup(one(req.query.kind), one(req.query.key));
-    if (meta) html = applyMeta(html, meta);
+    if (meta === 'missing') missing = true;
+    else if (meta) html = applyMeta(html, meta);
   } catch {
     // fall through with whatever we have
   }
@@ -53,7 +61,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     res.send('');
     return;
   }
-  res.status(200);
+  res.status(missing ? 404 : 200);
   res.setHeader('content-type', 'text/html; charset=utf-8');
   res.setHeader('cache-control', 'public, max-age=0, s-maxage=600');
   res.send(html);
