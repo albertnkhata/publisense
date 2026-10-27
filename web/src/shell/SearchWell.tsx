@@ -43,12 +43,31 @@ function isEditable(el: EventTarget | null): boolean {
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
 }
 
-const modalControllers = new Set<(open: boolean | ((prev: boolean) => boolean)) => void>();
+interface ModalController {
+  isOpen: () => boolean;
+  setOpen: (open: boolean) => void;
+}
+
+const modalControllers = new Map<symbol, ModalController>();
 
 /** Programmatically open the search modal from anywhere in the shell (e.g. mobile TopBar icon). */
 export function openSearchModal(): void {
+  for (const c of modalControllers.values()) {
+    if (c.isOpen()) return;
+  }
   const first = modalControllers.values().next().value;
-  if (first) first(true);
+  if (first) first.setOpen(true);
+}
+
+function toggleSearchModal(): void {
+  for (const c of modalControllers.values()) {
+    if (c.isOpen()) {
+      c.setOpen(false);
+      return;
+    }
+  }
+  const first = modalControllers.values().next().value;
+  if (first) first.setOpen(true);
 }
 
 export const SearchWell = forwardRef<HTMLInputElement, { className?: string; onSubmitted?: () => void }>(function SearchWell(
@@ -64,42 +83,51 @@ export const SearchWell = forwardRef<HTMLInputElement, { className?: string; onS
   const [theme, setTheme] = useState<string | undefined>(undefined);
   const listId = useId();
   const titleId = useId();
+  const instanceId = useRef(Symbol('SearchWell')).current;
+  const openRef = useRef(open);
+  openRef.current = open;
   const triggerRef = useRef<HTMLFormElement>(null);
   const modalPanelRef = useRef<HTMLDivElement>(null);
   const modalInputRef = useRef<HTMLInputElement>(null);
   const returnToRef = useRef<HTMLElement | null>(null);
 
-  // Register with the singleton controller set so Cmd/Ctrl+K or `/` only opens one modal.
-  useEffect(() => {
-    const controller = (next: boolean | ((prev: boolean) => boolean)) => {
-      setOpen((prev) => (typeof next === 'function' ? next(prev) : next));
-    };
-    modalControllers.add(controller);
-    return () => {
-      modalControllers.delete(controller);
-    };
-  }, []);
+  const openExclusive = () => {
+    for (const [id, c] of modalControllers.entries()) {
+      if (id !== instanceId && c.isOpen()) c.setOpen(false);
+    }
+    setOpen(true);
+  };
 
+  // Register with the singleton controller map so Cmd/Ctrl+K or `/` only opens one modal
+  // even when both TopBar and RightRail mount a SearchWell in AppShell.
   useEffect(() => {
+    const id = instanceId;
+    modalControllers.set(id, {
+      isOpen: () => openRef.current,
+      setOpen: (next) => setOpen(next),
+    });
+
     const onWindowKeyDown = (e: KeyboardEvent | globalThis.KeyboardEvent) => {
-      const first = modalControllers.values().next().value;
-      if (!first) return;
+      if (modalControllers.keys().next().value !== id) return;
       const isModK = (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'k';
       if (isModK) {
         e.preventDefault();
-        first((prev) => !prev);
+        toggleSearchModal();
         return;
       }
       if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey && !isEditable(e.target)) {
         const el = e.target instanceof Element ? e.target : document.activeElement;
         if (el?.closest('[role="dialog"], [role="alertdialog"], [role="menu"]')) return;
         e.preventDefault();
-        first(true);
+        openSearchModal();
       }
     };
     window.addEventListener('keydown', onWindowKeyDown);
-    return () => window.removeEventListener('keydown', onWindowKeyDown);
-  }, []);
+    return () => {
+      window.removeEventListener('keydown', onWindowKeyDown);
+      modalControllers.delete(id);
+    };
+  }, [instanceId]);
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -175,7 +203,7 @@ export const SearchWell = forwardRef<HTMLInputElement, { className?: string; onS
     <>
       <form ref={triggerRef} role="search" onSubmit={submit} className={cx('relative w-full', className)}>
         <label
-          onClick={() => setOpen(true)}
+          onClick={() => openExclusive()}
           className="flex h-8 cursor-pointer items-center gap-3 rounded-md border border-line bg-card px-3 text-ink-muted transition-colors duration-120 hover:border-line-strong focus-within:border-line-strong"
         >
           <Icon name="search" size={15} />
@@ -190,9 +218,9 @@ export const SearchWell = forwardRef<HTMLInputElement, { className?: string; onS
             onChange={(e) => {
               setQ(e.target.value);
               setActive(-1);
-              setOpen(true);
+              openExclusive();
             }}
-            onFocus={() => setOpen(true)}
+            onFocus={() => openExclusive()}
             onKeyDown={onKeyDown}
             placeholder="Search products, posts, hubs"
             aria-label={open ? 'Search trigger' : 'Search products, posts and hubs'}
@@ -452,9 +480,11 @@ function SearchModalBody({
             <>
               <HubAvatar name={`${h.name} hub`} size="xs" boards={h.boards.map((b) => ({ name: b.name, color: b.color, logoSrc: logoSrc(b) }))} />
               <Text title={`${h.name} hub`} sub={h.boards.map((b) => b.name).join(', ')} />
-              <span className="shrink-0 font-mono text-xs text-ink-muted tabular-nums">
-                {h.boards.length} {h.boards.length === 1 ? 'product' : 'products'}
-              </span>
+              {h.boards.length > 0 ? (
+                <span className="shrink-0 font-mono text-xs text-ink-muted tabular-nums">
+                  {h.boards.length} {h.boards.length === 1 ? 'product' : 'products'}
+                </span>
+              ) : null}
             </>
           ),
         });
