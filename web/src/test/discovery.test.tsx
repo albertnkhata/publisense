@@ -472,14 +472,14 @@ describe('search modal', () => {
     expect(await within(modal).findByRole('option', { name: /Figma variables export/ })).toBeTruthy();
     expect(within(modal).getByRole('option', { name: /Figma hub/ })).toBeTruthy();
 
-    // Filter to Posts only
+    // Filter to Feedback & bugs only
     const toolbar = within(modal).getByRole('toolbar', { name: 'Filter search results' });
-    fireEvent.click(within(toolbar).getByRole('button', { name: /Posts/ }));
+    fireEvent.click(within(toolbar).getByRole('button', { name: /Feedback & bugs/ }));
     expect(within(modal).queryByRole('option', { name: /Figma hub/ })).toBeNull();
     expect(within(modal).getByRole('option', { name: /Figma variables export/ })).toBeTruthy();
 
-    // Switch back to Products and pick the first item with ArrowDown + Enter
-    fireEvent.click(within(toolbar).getByRole('button', { name: /Products/ }));
+    // Switch back to Product boards and pick the first item with ArrowDown + Enter
+    fireEvent.click(within(toolbar).getByRole('button', { name: /Product boards/ }));
     fireEvent.keyDown(input, { key: 'ArrowDown' });
     fireEvent.submit(input.closest('form')!);
     await waitFor(() => expect(router.state.location.pathname).toBe('/b/figma'));

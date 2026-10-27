@@ -3,39 +3,56 @@ import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router';
 import {
   avatarSrc,
+  CATEGORIES,
   clearRecentSearches,
+  compactCount,
   isLive,
   logoSrc,
   readRecentSearches,
   rememberSearch,
   SEARCH_MIN,
+  shortAge,
   useBoards,
+  useFollowedScopes,
   usePeopleSearch,
   useSearch,
+  useTrending,
+  useWanted,
+  type Board,
+  type BoardCategory,
 } from '../api';
 import { cx } from '../lib/cx';
 import { trapTab } from '../lib/focus';
 import { useViewer } from '../lib/viewer';
 import { useAddProduct } from '../products/AddProductDialog';
 import { BoardAvatar, HubAvatar, Icon, IconButton, StatusPill, TYPE_META, UserAvatar } from '../ui';
+import { useComposer } from './composer';
 
 /**
  * Search trigger and command-palette modal (FOUNDATION §5):
  * Clicking the search bar in the right rail or top bar, or pressing Cmd/Ctrl+K
- * (or `/` outside inputs), opens the Search Modal. Shows recent searches and
- * popular products when empty, then live grouped results (products, hubs,
- * posts, people) with scope filter pills as you type. Arrow keys move through
- * options, Enter opens the highlighted item or full results at /search?q=…,
- * Escape closes the modal.
+ * (or `/` outside inputs), opens the Search Modal.
+ *
+ * When empty, acts as a rich discovery palette: Recent searches, Browse by
+ * category chips, a 2-column grid of Trending / Followed / Most followed
+ * product boards, Most wanted requests across boards, and quick actions.
+ * When typing, shows scope filter pills and grouped results for Product boards,
+ * Company hubs, Feedback & bugs, and People.
  */
 interface PopItem {
   key: string;
   go: () => void;
   render: (active: boolean) => ReactNode;
   group?: string;
+  groupNote?: string;
+  layout?: 'pill' | 'card' | 'row' | 'callout';
 }
 
-type SearchScope = 'all' | 'products' | 'posts' | 'hubs' | 'people';
+type SearchScope = 'all' | 'boards' | 'posts' | 'hubs' | 'people';
+
+const CATEGORY_LABEL = new Map<BoardCategory, string>(
+  CATEGORIES.filter((c): c is { value: BoardCategory; label: string } => c.value !== 'all').map((c) => [c.value, c.label]),
+);
 
 function isEditable(el: EventTarget | null): boolean {
   if (!(el instanceof HTMLElement)) return false;
@@ -241,7 +258,7 @@ export const SearchWell = forwardRef<HTMLInputElement, { className?: string; onS
         ? createPortal(
             <div
               data-theme={theme}
-              className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-10 pb-4 max-sm:items-end max-sm:p-0"
+              className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-9 pb-4 max-sm:items-end max-sm:p-0"
             >
               <div
                 aria-hidden="true"
@@ -261,7 +278,7 @@ export const SearchWell = forwardRef<HTMLInputElement, { className?: string; onS
                 </h2>
                 <div aria-hidden="true" className="mx-auto mt-2 hidden h-1 w-8 rounded-pill bg-line-strong max-sm:block" />
                 <form role="search" onSubmit={submit} className="flex items-center gap-3 border-b border-line px-4 py-3">
-                  <span className="grid size-6 shrink-0 place-items-center text-ink-muted">
+                  <span className="grid size-6 shrink-0 place-items-center text-brand">
                     <Icon name="search" size={18} />
                   </span>
                   <input
@@ -278,7 +295,7 @@ export const SearchWell = forwardRef<HTMLInputElement, { className?: string; onS
                       setActive(-1);
                     }}
                     onKeyDown={onKeyDown}
-                    placeholder="Search products, posts, hubs, people…"
+                    placeholder="Search boards, feature requests, bugs, hubs, people…"
                     aria-label="Search products, posts and hubs"
                     autoComplete="off"
                     className="w-full min-w-0 appearance-none border-0 bg-transparent text-md text-ink outline-none placeholder:text-ink-muted focus-visible:outline-none"
@@ -325,25 +342,6 @@ export const SearchWell = forwardRef<HTMLInputElement, { className?: string; onS
                     finish();
                   }}
                 />
-
-                <footer className="flex items-center justify-between gap-4 border-t border-line bg-subtle px-4 py-2 text-xs text-ink-muted max-sm:hidden">
-                  <div className="flex items-center gap-3">
-                    <span className="inline-flex items-center gap-1">
-                      <kbd className="rounded-sm border border-line bg-card px-1 font-mono text-xs text-ink-secondary">↑</kbd>
-                      <kbd className="rounded-sm border border-line bg-card px-1 font-mono text-xs text-ink-secondary">↓</kbd>
-                      <span>Navigate</span>
-                    </span>
-                    <span className="inline-flex items-center gap-1">
-                      <kbd className="rounded-sm border border-line bg-card px-1 font-mono text-xs text-ink-secondary">↵</kbd>
-                      <span>Open</span>
-                    </span>
-                    <span className="inline-flex items-center gap-1">
-                      <kbd className="rounded-sm border border-line bg-card px-1 font-mono text-xs text-ink-secondary">esc</kbd>
-                      <span>Close</span>
-                    </span>
-                  </div>
-                  <span className="font-mono text-xs text-ink-muted">⌘K</span>
-                </footer>
               </div>
             </div>,
             document.body,
@@ -378,6 +376,7 @@ function SearchModalBody({
   const term = q.trim();
   const [debounced, setDebounced] = useState(term);
   const [scope, setScope] = useState<SearchScope>('all');
+  const [catFilter, setCatFilter] = useState<'all' | BoardCategory>('all');
   const [recent, setRecent] = useState<string[]>(() => readRecentSearches());
 
   useEffect(() => {
@@ -390,14 +389,52 @@ function SearchModalBody({
   }, [term]);
 
   const boardsQuery = useBoards();
+  const live = (boardsQuery.data ?? []).filter(isLive);
+  const trendingQuery = useTrending(live, 4);
+  const wantedQuery = useWanted(!term);
+  const followedScopes = useFollowedScopes(viewer?.id ?? null);
   const search = useSearch(debounced, viewer?.id ?? null, { postLimit: 6 });
   const peopleQuery = usePeopleSearch(debounced);
   const addProduct = useAddProduct();
+  const composer = useComposer();
 
-  const popularBoards = (boardsQuery.data ?? [])
-    .filter(isLive)
-    .sort((a, b) => b.follower_count - a.follower_count || b.post_count - a.post_count || a.name.localeCompare(b.name))
-    .slice(0, 4);
+  // Categories that actually have live boards
+  const usedCats = new Set(live.map((b) => b.category).filter((c): c is BoardCategory => Boolean(c)));
+  const categoryChips = CATEGORIES.filter((c) => c.value === 'all' || usedCats.has(c.value)).slice(0, 8);
+
+  // Determine which boards to highlight in the zero-query state, with an explicit reason
+  const byFollowers = live
+    .slice()
+    .sort((a, b) => b.follower_count - a.follower_count || b.post_count - a.post_count || a.name.localeCompare(b.name));
+  const trendingList = trendingQuery.data ?? [];
+  const followedList = live.filter((b) => followedScopes.data?.has(`board:${b.id}`));
+
+  let featuredBoards: Array<Board & { recent?: number }>;
+  let featuredGroupTitle: string;
+  let featuredGroupNote: string;
+
+  if (catFilter !== 'all') {
+    const label = CATEGORY_LABEL.get(catFilter) ?? 'Category';
+    featuredBoards = byFollowers.filter((b) => b.category === catFilter).slice(0, 4);
+    featuredGroupTitle = `${label} boards`;
+    featuredGroupNote = `${featuredBoards.length} ${featuredBoards.length === 1 ? 'board' : 'boards'}`;
+  } else if (trendingList.length > 0) {
+    const seen = new Set(trendingList.map((b) => b.id));
+    featuredBoards = [...trendingList, ...byFollowers.filter((b) => !seen.has(b.id))].slice(0, 4);
+    featuredGroupTitle = 'Trending boards this week';
+    featuredGroupNote = 'Most new posts in the last 7 days';
+  } else if (followedList.length > 0) {
+    featuredBoards = followedList.slice(0, 4);
+    featuredGroupTitle = 'Boards you follow';
+    featuredGroupNote = 'Jump to a product you follow';
+  } else {
+    featuredBoards = byFollowers.slice(0, 4);
+    featuredGroupTitle = 'Most followed boards';
+    featuredGroupNote = 'Active product boards on Publisense';
+  }
+
+  const wantedPosts = (wantedQuery.data ?? []).slice(0, 3);
+  const wantedHasVotes = wantedPosts.some((p) => p.vote_count > 0);
 
   const items: PopItem[] = [];
   const hasQuery = term.length >= SEARCH_MIN;
@@ -411,60 +448,88 @@ function SearchModalBody({
     for (const r of recent.slice(0, 5)) {
       items.push({
         key: `recent-${r}`,
-        group: 'Recent',
+        group: 'Recent searches',
+        layout: 'pill',
         go: () => goSearch(r),
         render: () => (
           <>
-            <IconCell>
-              <Icon name="status-review" size={15} />
-            </IconCell>
-            <span className="min-w-0 flex-1 truncate font-semibold text-ink">{r}</span>
-            <span className="text-ink-muted">
-              <Icon name="arrow-up-right" size={14} />
-            </span>
+            <Icon name="status-review" size={13} />
+            <span className="truncate font-medium text-ink">{r}</span>
           </>
         ),
       });
     }
-    for (const b of popularBoards) {
+    for (const b of featuredBoards) {
       items.push({
-        key: `popular-${b.id}`,
-        group: 'Products',
+        key: `featured-${b.id}`,
+        group: featuredGroupTitle,
+        groupNote: featuredGroupNote,
+        layout: 'card',
         go: () => go(`/b/${b.slug}`),
+        render: () => <BoardSpotlightCard board={b} />,
+      });
+    }
+    for (const p of wantedPosts) {
+      items.push({
+        key: `wanted-${p.id}`,
+        group: wantedHasVotes ? 'Most wanted across boards' : 'Latest feedback & bugs',
+        groupNote: wantedHasVotes ? 'Top upvoted requests' : 'Newest across boards',
+        layout: 'row',
+        go: () => go(`/post/${p.id}`),
         render: () => (
           <>
-            <BoardAvatar name={b.name} color={b.color} logoSrc={logoSrc(b)} size="md" decorative />
-            <Text title={b.name} sub={b.tagline} />
-            {b.post_count > 0 ? (
-              <span className="shrink-0 font-mono text-xs text-ink-muted tabular-nums">
-                {b.post_count} {b.post_count === 1 ? 'post' : 'posts'}
-              </span>
-            ) : null}
+            <BoardAvatar name={p.board?.name ?? '?'} color={p.board?.color} logoSrc={logoSrc(p.board)} size="sm" decorative />
+            <Text
+              title={p.title}
+              sub={[p.board?.name ?? 'Unknown board', TYPE_META[p.type].label, shortAge(p.created_at)].filter(Boolean).join(' · ')}
+            />
+            {p.status !== 'open' ? <StatusPill status={p.status} /> : null}
+            <VoteBadge count={p.vote_count} />
           </>
         ),
       });
     }
   } else if (hasQuery && search.data && debounced === term) {
-    const showBoards = scope === 'all' || scope === 'products';
+    const showBoards = scope === 'all' || scope === 'boards';
     const showHubs = scope === 'all' || scope === 'hubs';
     const showPosts = scope === 'all' || scope === 'posts';
     const showPeople = scope === 'all' || scope === 'people';
 
     if (showBoards) {
-      for (const b of boards.slice(0, scope === 'products' ? 8 : 4)) {
+      for (const b of boards.slice(0, scope === 'boards' ? 8 : 4)) {
         items.push({
           key: `b-${b.id}`,
-          group: 'Products',
+          group: 'Product boards',
+          groupNote: `${boards.length} ${boards.length === 1 ? 'match' : 'matches'}`,
+          layout: 'row',
           go: () => go(`/b/${b.slug}`, term),
           render: () => (
             <>
               <BoardAvatar name={b.name} color={b.color} logoSrc={logoSrc(b)} size="md" decorative />
-              <Text title={b.name} sub={b.tagline} />
-              {b.post_count > 0 ? (
-                <span className="shrink-0 font-mono text-xs text-ink-muted tabular-nums">
-                  {b.post_count} {b.post_count === 1 ? 'post' : 'posts'}
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="flex items-center gap-1">
+                  <span className="truncate font-semibold text-ink">{b.name}</span>
+                  {b.claimed_at ? (
+                    <span className="inline-flex shrink-0 items-center text-success" title="Verified team">
+                      <Icon name="check" size={12} strokeWidth={2.5} />
+                    </span>
+                  ) : null}
+                  {b.category && CATEGORY_LABEL.has(b.category) ? (
+                    <span className="shrink-0 rounded-sm border border-line bg-subtle px-2 text-xs text-ink-muted">
+                      {CATEGORY_LABEL.get(b.category)}
+                    </span>
+                  ) : null}
                 </span>
-              ) : null}
+                <span className="truncate text-xs text-ink-muted">{b.tagline}</span>
+              </span>
+              <span className="flex shrink-0 items-center gap-2 font-mono text-xs text-ink-muted tabular-nums">
+                {b.follower_count > 0 ? <span>{compactCount(b.follower_count)} followers</span> : null}
+                {b.post_count > 0 ? (
+                  <span>
+                    {compactCount(b.post_count)} {b.post_count === 1 ? 'post' : 'posts'}
+                  </span>
+                ) : null}
+              </span>
             </>
           ),
         });
@@ -474,15 +539,23 @@ function SearchModalBody({
       for (const h of hubs.slice(0, scope === 'hubs' ? 6 : 2)) {
         items.push({
           key: `h-${h.id}`,
-          group: 'Hubs',
+          group: 'Company hubs',
+          groupNote: 'Product families',
+          layout: 'row',
           go: () => go(`/h/${h.slug}`, term),
           render: () => (
             <>
-              <HubAvatar name={`${h.name} hub`} size="xs" boards={h.boards.map((b) => ({ name: b.name, color: b.color, logoSrc: logoSrc(b) }))} />
-              <Text title={`${h.name} hub`} sub={h.boards.map((b) => b.name).join(', ')} />
               {h.boards.length > 0 ? (
-                <span className="shrink-0 font-mono text-xs text-ink-muted tabular-nums">
-                  {h.boards.length} {h.boards.length === 1 ? 'product' : 'products'}
+                <HubAvatar name={`${h.name} hub`} size="xs" boards={h.boards.map((b) => ({ name: b.name, color: b.color, logoSrc: logoSrc(b) }))} />
+              ) : (
+                <IconCell>
+                  <Icon name="hub" size={15} />
+                </IconCell>
+              )}
+              <Text title={`${h.name} hub`} sub={h.boards.map((b) => b.name).join(', ') || h.description} />
+              {h.boards.length > 0 ? (
+                <span className="shrink-0 rounded-pill border border-line bg-subtle px-2 py-1 font-mono text-xs text-ink-secondary tabular-nums">
+                  {h.boards.length} {h.boards.length === 1 ? 'board' : 'boards'}
                 </span>
               ) : null}
             </>
@@ -494,13 +567,19 @@ function SearchModalBody({
       for (const p of posts.slice(0, scope === 'posts' ? 8 : 4)) {
         items.push({
           key: `p-${p.id}`,
-          group: 'Posts',
+          group: 'Feedback & bugs',
+          groupNote: 'Most upvoted first',
+          layout: 'row',
           go: () => go(`/post/${p.id}`, term),
           render: () => (
             <>
               <BoardAvatar name={p.board?.name ?? '?'} color={p.board?.color} logoSrc={logoSrc(p.board)} size="md" decorative />
-              <Text title={p.title} sub={`${p.board?.name ?? ''} · ${TYPE_META[p.type].label} · ${p.vote_count} upvotes`} />
+              <Text
+                title={p.title}
+                sub={[p.board?.name ?? '', TYPE_META[p.type].label, shortAge(p.created_at), `${p.vote_count} upvotes`].filter(Boolean).join(' · ')}
+              />
               {p.status !== 'open' ? <StatusPill status={p.status} /> : null}
+              <VoteBadge count={p.vote_count} />
             </>
           ),
         });
@@ -511,6 +590,8 @@ function SearchModalBody({
         items.push({
           key: `u-${person.id}`,
           group: 'People',
+          groupNote: 'Community profiles',
+          layout: 'row',
           go: () => go(`/u/${person.handle}`, term),
           render: () => (
             <>
@@ -524,17 +605,24 @@ function SearchModalBody({
     if (addProduct && boards.length === 0 && hubs.length === 0) {
       items.push({
         key: 'add',
+        layout: 'callout',
         go: () => {
           addProduct.openAddProduct({ prefill: term });
           close();
         },
         render: () => (
           <>
-            <IconCell>
-              <Icon name="plus" size={15} />
-            </IconCell>
-            <span className="truncate text-ink-secondary">
-              Can’t find it? <b className="font-semibold text-brand">Add it</b>
+            <span className="grid size-8 shrink-0 place-items-center rounded-md bg-brand-soft text-brand">
+              <Icon name="plus" size={16} />
+            </span>
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate font-semibold text-ink">
+                Can’t find it? <b className="font-semibold text-brand">Add it</b>
+              </span>
+              <span className="truncate text-xs text-ink-muted">Add “{term}” to Publisense and post the first feedback on its board</span>
+            </span>
+            <span className="shrink-0 rounded-sm border border-brand bg-brand-soft px-2 py-1 text-xs font-semibold text-brand">
+              Add product →
             </span>
           </>
         ),
@@ -542,6 +630,7 @@ function SearchModalBody({
     }
     items.push({
       key: 'all',
+      layout: 'row',
       go: () => goSearch(term),
       render: () => (
         <>
@@ -551,7 +640,8 @@ function SearchModalBody({
           <span className="min-w-0 flex-1 truncate font-semibold text-ink">
             {items.length ? 'See all results for' : 'Search for'} “{term}”
           </span>
-          <span className="text-ink-muted">
+          <span className="inline-flex items-center gap-1 text-xs text-ink-muted">
+            <span>Full search</span>
             <Icon name="arrow-up-right" size={14} />
           </span>
         </>
@@ -567,13 +657,34 @@ function SearchModalBody({
 
   const scopes: Array<{ id: SearchScope; label: string; count?: number }> = [
     { id: 'all', label: 'All' },
-    { id: 'products', label: 'Products', count: boards.length },
-    { id: 'posts', label: 'Posts', count: posts.length },
-    { id: 'hubs', label: 'Hubs', count: hubs.length },
+    { id: 'boards', label: 'Product boards', count: boards.length },
+    { id: 'posts', label: 'Feedback & bugs', count: posts.length },
+    { id: 'hubs', label: 'Company hubs', count: hubs.length },
     { id: 'people', label: 'People', count: people.length },
   ];
 
-  let lastGroup: string | undefined;
+  // Group consecutive items by their `group` name so we can render pills in a flex-wrap row
+  // and board spotlight cards in a 2-column grid while keeping flat index numbers for ARIA options.
+  const sections: Array<{
+    group?: string;
+    groupNote?: string;
+    layout: PopItem['layout'];
+    entries: Array<{ item: PopItem; index: number }>;
+  }> = [];
+
+  items.forEach((item, index) => {
+    const prev = sections[sections.length - 1];
+    if (prev && prev.group === item.group && prev.layout === item.layout && item.group !== undefined) {
+      prev.entries.push({ item, index });
+    } else {
+      sections.push({
+        group: item.group,
+        groupNote: item.groupNote,
+        layout: item.layout,
+        entries: [{ item, index }],
+      });
+    }
+  });
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -610,6 +721,37 @@ function SearchModalBody({
             );
           })}
         </div>
+      ) : categoryChips.length > 1 ? (
+        <div
+          role="toolbar"
+          aria-label="Browse by category"
+          className="flex items-center gap-1 overflow-x-auto border-b border-line bg-subtle px-4 py-2"
+        >
+          <span className="mr-1 shrink-0 text-xs font-semibold text-ink-muted">Category:</span>
+          {categoryChips.map((c) => {
+            const selected = catFilter === c.value;
+            return (
+              <button
+                key={c.value}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => {
+                  setCatFilter(c.value);
+                  setActive(-1);
+                  focusInput();
+                }}
+                className={cx(
+                  'inline-flex shrink-0 cursor-pointer items-center rounded-pill border px-3 py-1 text-xs font-medium transition-colors duration-120',
+                  selected
+                    ? 'border-brand bg-brand-soft font-semibold text-brand'
+                    : 'border-line bg-card text-ink-secondary hover:border-line-strong hover:text-ink',
+                )}
+              >
+                {c.label}
+              </button>
+            );
+          })}
+        </div>
       ) : null}
 
       <div
@@ -617,22 +759,20 @@ function SearchModalBody({
         role="listbox"
         aria-label="Search suggestions"
         onMouseDown={(e) => e.preventDefault()}
-        className="flex-1 overflow-y-auto px-2 py-2"
+        className="flex-1 overflow-y-auto px-3 py-3"
       >
         {term.length > 0 && term.length < SEARCH_MIN ? (
-          <p className="m-0 px-4 py-6 text-center text-sm text-ink-muted">Keep typing to search products, posts, hubs and people.</p>
+          <p className="m-0 px-4 py-6 text-center text-sm text-ink-muted">Keep typing to search boards, feedback, hubs and people.</p>
         ) : items.length === 0 && !hasQuery ? (
           <p className="m-0 px-4 py-6 text-center text-sm text-ink-muted">Type a product, feature request, bug or @handle to search.</p>
         ) : (
-          items.map((item, i) => {
-            const heading = item.group && item.group !== lastGroup ? item.group : null;
-            lastGroup = item.group ?? lastGroup;
-            return (
-              <div key={item.key}>
-                {heading ? (
-                  <div className="flex items-center justify-between px-3 pt-2 pb-1">
-                    <span className="text-xs font-semibold text-ink-muted uppercase">{heading}</span>
-                    {heading === 'Recent' ? (
+          <div className="flex flex-col gap-3">
+            {sections.map((section, sIdx) => (
+              <div key={`${section.group ?? 'ungrouped'}-${sIdx}`}>
+                {section.group ? (
+                  <div className="mb-2 flex items-baseline justify-between gap-2 px-1">
+                    <span className="text-xs font-semibold text-ink-muted uppercase">{section.group}</span>
+                    {section.group === 'Recent searches' ? (
                       <button
                         type="button"
                         onClick={() => {
@@ -644,28 +784,191 @@ function SearchModalBody({
                       >
                         Clear
                       </button>
+                    ) : section.groupNote ? (
+                      <span className="text-xs text-ink-muted">{section.groupNote}</span>
                     ) : null}
                   </div>
                 ) : null}
-                {(item.key === 'all' || item.key === 'add') && i > 0 && items[i - 1]?.key !== 'add' ? (
-                  <div className="my-1 border-t border-line" />
-                ) : null}
-                <div
-                  id={`${listId}-${i}`}
-                  role="option"
-                  aria-selected={i === active}
-                  onClick={item.go}
-                  onMouseEnter={() => setActive(i)}
-                  className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors duration-120 aria-selected:bg-subtle"
-                >
-                  {item.render(i === active)}
-                </div>
+
+                {section.layout === 'pill' ? (
+                  <div className="flex flex-wrap gap-2 px-1">
+                    {section.entries.map(({ item, index }) => (
+                      <div
+                        key={item.key}
+                        id={`${listId}-${index}`}
+                        role="option"
+                        aria-selected={index === active}
+                        onClick={item.go}
+                        onMouseEnter={() => setActive(index)}
+                        className="inline-flex cursor-pointer items-center gap-1 rounded-pill border border-line bg-subtle px-3 py-1 text-xs text-ink-secondary transition-colors duration-120 hover:border-line-strong hover:text-ink aria-selected:border-brand aria-selected:bg-brand-soft aria-selected:text-brand"
+                      >
+                        {item.render(index === active)}
+                      </div>
+                    ))}
+                  </div>
+                ) : section.layout === 'card' ? (
+                  <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1">
+                    {section.entries.map(({ item, index }) => (
+                      <div
+                        key={item.key}
+                        id={`${listId}-${index}`}
+                        role="option"
+                        aria-selected={index === active}
+                        onClick={item.go}
+                        onMouseEnter={() => setActive(index)}
+                        className="flex cursor-pointer flex-col gap-2 rounded-md border border-line bg-subtle p-3 transition-colors duration-120 hover:border-line-strong aria-selected:border-brand aria-selected:bg-brand-soft"
+                      >
+                        {item.render(index === active)}
+                      </div>
+                    ))}
+                  </div>
+                ) : section.layout === 'callout' ? (
+                  <div className="flex flex-col gap-1">
+                    {section.entries.map(({ item, index }) => (
+                      <div
+                        key={item.key}
+                        id={`${listId}-${index}`}
+                        role="option"
+                        aria-selected={index === active}
+                        onClick={item.go}
+                        onMouseEnter={() => setActive(index)}
+                        className="flex cursor-pointer items-center gap-3 rounded-md border border-dashed border-line-strong bg-subtle px-3 py-3 text-sm transition-colors duration-120 hover:border-brand aria-selected:border-brand aria-selected:bg-brand-soft"
+                      >
+                        {item.render(index === active)}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col">
+                    {section.entries.map(({ item, index }) => (
+                      <div key={item.key}>
+                        {item.key === 'all' && index > 0 ? <div className="my-1 border-t border-line" /> : null}
+                        <div
+                          id={`${listId}-${index}`}
+                          role="option"
+                          aria-selected={index === active}
+                          onClick={item.go}
+                          onMouseEnter={() => setActive(index)}
+                          className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors duration-120 aria-selected:bg-subtle"
+                        >
+                          {item.render(index === active)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            );
-          })
+            ))}
+          </div>
         )}
       </div>
+
+      <footer className="flex items-center justify-between gap-2 border-t border-line bg-subtle px-3 py-2 text-xs text-ink-muted">
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => {
+              close();
+              composer.openComposer();
+            }}
+            className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-sm border border-line bg-card px-2 py-1 text-xs font-semibold whitespace-nowrap text-ink-secondary transition-colors duration-120 hover:border-line-strong hover:text-ink"
+          >
+            <Icon name="plus" size={12} />
+            <span>Post feedback</span>
+          </button>
+          {addProduct ? (
+            <button
+              type="button"
+              onClick={() => {
+                addProduct.openAddProduct({ prefill: term || undefined });
+                close();
+              }}
+              className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-sm border border-line bg-card px-2 py-1 text-xs font-semibold whitespace-nowrap text-ink-secondary transition-colors duration-120 hover:border-line-strong hover:text-ink"
+            >
+              <Icon name="globe" size={12} />
+              <span>Add a product</span>
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => go('/explore')}
+            className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-sm border border-line bg-card px-2 py-1 text-xs font-semibold whitespace-nowrap text-ink-secondary transition-colors duration-120 hover:border-line-strong hover:text-ink"
+          >
+            <Icon name="explore" size={12} />
+            <span>Explore boards</span>
+          </button>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2 whitespace-nowrap max-sm:hidden">
+          <span className="inline-flex items-center gap-1">
+            <kbd className="rounded-sm border border-line bg-card px-1 font-mono text-xs text-ink-secondary">↑</kbd>
+            <kbd className="rounded-sm border border-line bg-card px-1 font-mono text-xs text-ink-secondary">↓</kbd>
+            <span>Navigate</span>
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <kbd className="rounded-sm border border-line bg-card px-1 font-mono text-xs text-ink-secondary">↵</kbd>
+            <span>Open</span>
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <kbd className="rounded-sm border border-line bg-card px-1 font-mono text-xs text-ink-secondary">esc</kbd>
+            <span>Close</span>
+          </span>
+        </div>
+      </footer>
     </div>
+  );
+}
+
+function BoardSpotlightCard({ board }: { board: Board & { recent?: number } }) {
+  const catLabel = board.category ? CATEGORY_LABEL.get(board.category) : undefined;
+  return (
+    <>
+      <div className="flex min-w-0 items-center gap-3">
+        <BoardAvatar name={board.name} color={board.color} logoSrc={logoSrc(board)} size="md" decorative />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex items-center gap-1">
+            <span className="truncate text-sm font-semibold text-ink">{board.name}</span>
+            {board.claimed_at ? (
+              <span className="inline-flex shrink-0 items-center text-success" title="Verified team">
+                <Icon name="check" size={12} strokeWidth={2.5} />
+              </span>
+            ) : null}
+          </div>
+          <span className="truncate text-xs text-ink-muted">{board.tagline}</span>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-2 text-xs text-ink-muted">
+        <div className="flex items-center gap-2">
+          {board.follower_count > 0 ? (
+            <span>
+              <b className="font-semibold text-ink">{compactCount(board.follower_count)}</b>{' '}
+              {board.follower_count === 1 ? 'follower' : 'followers'}
+            </span>
+          ) : null}
+          {board.post_count > 0 ? (
+            <span>
+              <b className="font-semibold text-ink">{compactCount(board.post_count)}</b>{' '}
+              {board.post_count === 1 ? 'post' : 'posts'}
+            </span>
+          ) : null}
+        </div>
+        {typeof board.recent === 'number' && board.recent > 0 ? (
+          <span className="font-mono text-xs font-semibold text-brand">+{board.recent} this week</span>
+        ) : catLabel ? (
+          <span className="rounded-sm bg-card px-2 text-xs text-ink-secondary">{catLabel}</span>
+        ) : null}
+      </div>
+    </>
+  );
+}
+
+function VoteBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-line bg-subtle px-2 py-1 font-mono text-xs font-semibold text-ink-secondary tabular-nums">
+      <Icon name="arrow-up" size={11} />
+      <span>{count}</span>
+    </span>
   );
 }
 
