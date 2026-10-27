@@ -46,7 +46,7 @@ const CLAIM_AUTH_REASON = 'claim your product’s board';
  * losing their place. Wording and steps follow the mockup's claim modal.
  */
 export interface ClaimOptions {
-  /** Board slug. Omit to start with the product picker. */
+  /** Board slug. Omit to start with the general claim explanation. */
   board?: string;
   /** Hub slug, for "Work here?" on a claimed hub. */
   hub?: string;
@@ -62,11 +62,17 @@ const ClaimContext = createContext<ClaimCtx | null>(null);
 
 export function ClaimProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<{ open: boolean; opts: ClaimOptions; key: number }>({ open: false, opts: {}, key: 0 });
+  const opener = useRef<HTMLElement | null>(null);
   const openClaim = useCallback((opts?: ClaimOptions) => {
+    opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const clean: ClaimOptions = opts && typeof opts === 'object' && !('nativeEvent' in opts) ? { board: opts.board, hub: opts.hub, dns: opts.dns } : {};
     setState((s) => ({ open: true, opts: clean, key: s.key + 1 }));
   }, []);
-  const close = useCallback(() => setState((s) => ({ ...s, open: false })), []);
+  const close = useCallback(() => {
+    setState((s) => ({ ...s, open: false }));
+    // Auth temporarily unmounts the panel; retain the original trigger across it.
+    queueMicrotask(() => { if (opener.current?.isConnected) opener.current.focus(); });
+  }, []);
   const value = useMemo(() => ({ openClaim }), [openClaim]);
   return (
     <ClaimContext.Provider value={value}>
@@ -84,7 +90,7 @@ export function useClaim(): ClaimCtx {
 
 // ------------------------------------------------------------------ the dialog
 
-type Step = 'pick' | 'intro' | 'code' | 'dns' | 'hub' | 'done' | 'taken' | 'join' | 'dispute' | 'sent';
+type Step = 'welcome' | 'pick' | 'intro' | 'code' | 'dns' | 'hub' | 'done' | 'taken' | 'join' | 'dispute' | 'sent';
 type Purpose = 'claim' | 'join' | 'dispute';
 
 /** What is being claimed, joined or disputed. */
@@ -131,7 +137,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
   const addMember = useAddMember();
 
   const [target, setTarget] = useState<Target | null>(null);
-  const [step, setStep] = useState<Step>(opts.board || opts.hub ? 'intro' : 'pick');
+  const [step, setStep] = useState<Step>(opts.board || opts.hub ? 'intro' : 'welcome');
   const [purpose, setPurpose] = useState<Purpose>('claim');
   const [query, setQuery] = useState('');
   const [email, setEmail] = useState('');
@@ -146,6 +152,21 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
   const [inviteError, setInviteError] = useState<string | null>(null);
   const initialised = useRef(false);
   const pendingStep = useRef<Step | null>(null);
+  const stepHeading = useRef<HTMLElement>(null);
+  const genericEntry = !opts.board && !opts.hub;
+
+  // Announce each explanation/selection screen without moving focus behind auth.
+  useEffect(() => {
+    if (!authOpen && ['welcome', 'pick', 'intro', 'taken'].includes(step)) stepHeading.current?.focus();
+  }, [step, authOpen]);
+
+  const changeBoard = () => {
+    setTarget(null);
+    setEmail('');
+    setCode('');
+    setError(null);
+    setStep('pick');
+  };
 
   /** Where a target starts: taken, DNS pending, or the intro. */
   const enter = useCallback(
@@ -174,7 +195,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
       const b = boards.data.find((x) => x.slug === opts.board);
       if (b) return enter(boardTarget(b, hubs.data), opts.dns);
     }
-    setStep('pick');
+    if (opts.board || opts.hub) setStep('pick');
   }, [boards.data, hubs.data, viewerId, pendingDns.isPending, opts, enter, verified.data]);
 
   // Resume a taken-board action ("Request to join" / "Report the wrong owner") once the visitor signs in.
@@ -330,7 +351,8 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
 
   const head = target ? <TargetHead target={target} /> : null;
   const title = (() => {
-    if (!target) return 'Claim a board';
+    if (step === 'pick') return 'Choose your board';
+    if (!target) return 'Claim your board';
     switch (step) {
       case 'taken':
         return `${target.name} is already claimed`;
@@ -358,14 +380,40 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
     fn();
   };
 
-  if (!boards.data || !hubs.data || (step !== 'pick' && !target)) {
+  if (step === 'welcome') {
+    body = (
+      <>
+        <p ref={(el) => { stepHeading.current = el; }} tabIndex={-1} className="mt-0 mb-4 text-md font-semibold text-ink outline-none">
+          Turn community feedback into a conversation with your team.
+        </p>
+        <ul className="m-0 mb-4 flex list-none flex-col gap-2 p-0 text-base text-ink">
+          <Perk>Reply as the verified team behind your product</Perk>
+          <Perk>Set statuses, pin official replies and run the roadmap</Perk>
+        </ul>
+        <div className="rounded-md border border-line bg-subtle px-3 py-3">
+          <h3 className="mt-0 mb-2 text-base font-semibold">How it works</h3>
+          <ol className="m-0 flex list-decimal flex-col gap-2 pl-4 text-sm text-ink-secondary">
+            <li>Choose your product’s board.</li>
+            <li>Create an account or sign in.</li>
+            <li>Verify your product’s domain with a work-email code or a DNS TXT record.</li>
+          </ol>
+        </div>
+        <p className="mb-0 mt-3 text-sm text-ink-muted">Already claimed? You can request to join the team or report the wrong owner.</p>
+      </>
+    );
+    footer = <Button onClick={() => setStep('pick')} block>Choose a board</Button>;
+  } else if (boards.isError || hubs.isError) {
+    body = <p role="alert" className="m-0 text-sm text-danger">We couldn’t load the boards. Try again.</p>;
+    footer = <Button onClick={() => { void boards.refetch(); void hubs.refetch(); }}>Try again</Button>;
+  } else if (!boards.data || !hubs.data || (step !== 'pick' && !target)) {
     body = <p className="m-0 py-6 text-center text-sm text-ink-muted">Loading…</p>;
   } else if (step === 'pick') {
     const q = query.trim().toLowerCase();
     const list = boards.data.filter((b) => isPostable(b, viewerId) && (!q || b.name.toLowerCase().includes(q)));
     body = (
       <>
-        <Input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Enter product name" aria-label="Product" autoComplete="off" autoFocus />
+        <p ref={(el) => { stepHeading.current = el; }} tabIndex={-1} className="mt-0 mb-3 text-sm text-ink-secondary outline-none">Find your product to see its verification options. Choosing a board does not claim it.</p>
+        <Input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Enter product name" aria-label="Product" autoComplete="off" />
         <ul className="m-0 mt-3 flex list-none flex-col p-0" aria-label="Products">
           {list.map((b) => {
             const taken = isClaimed(b, hubs.data);
@@ -400,14 +448,15 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
         </ul>
       </>
     );
+    footer = <Button variant="secondary" onClick={() => { setTarget(null); setStep('welcome'); }}>Back to overview</Button>;
   } else if (target && step === 'intro') {
     const siblings = target.hub ? target.hub.boards.filter((b) => b.id !== target.id && !b.claimed_at && siteDomain(b.site) === target.domain) : [];
     const offersHub = target.scope === 'board' && target.hub && !target.hub.claimed_at && onHubDomain(target.hub, target.domain);
     body = (
-      <form id="claim-form" onSubmit={submit(() => (isVerified ? void run(() => finish(target, 'claim')) : void sendCode('claim')))}>
+      <form ref={(el) => { stepHeading.current = el; }} tabIndex={-1} className="outline-none" id="claim-form" onSubmit={submit(() => (isVerified ? void run(() => finish(target, 'claim')) : void sendCode('claim')))}>
         {head}
         <ul className="m-0 mb-4 flex list-none flex-col gap-2 p-0 text-base text-ink">
-          <Perk>A verified badge on the board and on your team’s replies</Perk>
+          <Perk>Get a verified badge on your board and your team's replies.</Perk>
           <Perk>Set statuses, pin official replies and run the roadmap</Perk>
           {offersHub && target.hub ? (
             <Perk>
@@ -471,6 +520,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
         ) : null}
       </Actions>
     );
+    if (genericEntry) footer = <><Button variant="secondary" onClick={changeBoard}>Back</Button>{footer}</>;
   } else if (target && step === 'code') {
     body = (
       <form id="claim-form" onSubmit={submit(() => void verify())}>
