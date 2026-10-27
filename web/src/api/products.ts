@@ -94,6 +94,7 @@ const MESSAGES: Record<string, string> = {
   not_found: 'We couldn’t find that product.',
   decided: 'Someone already reviewed this one.',
   reason_length: 'Keep the reason under 500 characters.',
+  reason_required: 'Add a reason. It’s shown to the person who added it.',
   company_length: `Keep the company name to ${COMPANY_NAME_MAX} characters.`,
   company_not_found: 'That company isn’t on Publisense any more. Pick another or leave it empty.',
   invalid_company: 'Pick a company or leave it empty.',
@@ -224,25 +225,44 @@ export async function storeBoardLogo(boardId: string): Promise<string | null> {
 
 // ------------------------------------------------------------------ admin queue
 
+/** A decision on a product someone added (0046): approved or rejected, by whom, when, and why. */
+export interface ProductDecision {
+  decision: 'approved' | 'rejected';
+  /** The reason (required on a rejection) or the optional note on an approval. */
+  note: string | null;
+  decided_at: string;
+  decider: PersonRef | null;
+}
+
 export interface QueuedBoard extends BoardWithHub {
   review_note: string | null;
   reviewed_at: string | null;
   creator: PersonRef | null;
+  /** Latest decision, on the Decided tab. RLS: staff and the board's submitter only. */
+  decision?: ProductDecision | null;
 }
 
 const QUEUE_SELECT =
   `${BOARD_COLUMNS}, review_note, reviewed_at, hub:hub!hub_id(id, slug, name, status, primary_domain, hub_domain(domain, created_at)), ` +
   'creator:profile!board_created_by_fkey(id, handle, name, avatar_path)';
+const DECIDED_SELECT =
+  `${QUEUE_SELECT}, decisions:board_decision(decision, note, decided_at, decider:profile!board_decision_decided_by_fkey(id, handle, name, avatar_path))`;
 
-type RawQueued = QueuedBoard & { hub: (HubRef & { hub_domain?: Array<{ domain: string; created_at?: string }> }) | null };
+type RawQueued = QueuedBoard & {
+  hub: (HubRef & { hub_domain?: Array<{ domain: string; created_at?: string }> }) | null;
+  decisions?: ProductDecision[] | null;
+};
 
 /** Pending boards oldest first, or the latest decisions. RLS: platform admins see every pending board. */
 export async function fetchProductQueue(status: 'pending' | 'decided'): Promise<QueuedBoard[]> {
-  let q = getSupabase().from('board').select(QUEUE_SELECT);
+  let q = getSupabase().from('board').select(status === 'pending' ? QUEUE_SELECT : DECIDED_SELECT);
   q = status === 'pending' ? q.eq('status', 'pending').order('created_at') : q.not('reviewed_at', 'is', null).order('reviewed_at', { ascending: false }).limit(50);
   const { data, error } = await q;
   if (error) throw error;
-  return ((data ?? []) as unknown as RawQueued[]).map((b) => ({ ...b, hub: b.hub ? withDomains(b.hub) : null }));
+  return ((data ?? []) as unknown as RawQueued[]).map(({ decisions, ...b }) => {
+    const latest = [...(decisions ?? [])].sort((x, y) => y.decided_at.localeCompare(x.decided_at))[0] ?? null;
+    return { ...b, hub: b.hub ? withDomains(b.hub) : null, ...(status === 'decided' ? { decision: latest } : {}) };
+  });
 }
 
 export interface BoardDecision {
@@ -251,6 +271,7 @@ export interface BoardDecision {
   name?: string;
   tagline?: string;
   category?: BoardCategory;
+  /** Required to reject (0046); an optional note to the submitter on approval. */
   reason?: string;
   /**
    * The company on approval (0026). Absent: keep the board's current one (its pending
@@ -267,7 +288,7 @@ export async function decideBoard(d: BoardDecision): Promise<void> {
     p_name: d.approve ? (d.name ?? null) : null,
     p_tagline: d.approve ? (d.tagline ?? null) : null,
     p_category: d.approve ? (d.category ?? null) : null,
-    p_reason: d.approve ? null : d.reason?.trim() || null,
+    p_reason: d.reason?.trim() || null,
     ...(d.approve && d.hub
       ? { p_hub_mode: d.hub.mode, p_hub_id: d.hub.mode === 'set' ? (d.hub.id ?? null) : null, p_hub_name: d.hub.name?.trim() || null }
       : {}),

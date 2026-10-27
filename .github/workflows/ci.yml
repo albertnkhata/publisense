@@ -260,6 +260,15 @@ jobs:
           PGPASSWORD: postgres
         run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_feedback_loop_test.sql
 
+      # Product decisions (0046): a reason on every rejection, an optional note on approval,
+      # the decision record readable by its submitter and staff only, and the submitter's
+      # email through the existing pipeline. Stubs pg_net and Vault in a rolled-back
+      # transaction; needs the CI database.
+      - name: v2 product decision tests
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_product_decision_test.sql
+
       - name: Report public read-policy count
         env:
           PGPASSWORD: postgres

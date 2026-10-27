@@ -228,7 +228,7 @@ function ProductCard({ b }: { b: QueuedBoard }) {
           <span>No company</span>
         )}
       </p>
-      {!pending && b.review_note ? <p className="mt-3 mb-0 rounded-md bg-subtle px-3 py-2 text-sm text-ink">{b.review_note}</p> : null}
+      {!pending ? <DecisionLine b={b} /> : null}
       {pending ? (
         <div className="mt-3 flex flex-wrap gap-2">
           <Button size="sm" onClick={() => setDeciding('approve')}>
@@ -245,6 +245,43 @@ function ProductCard({ b }: { b: QueuedBoard }) {
   );
 }
 
+/**
+ * Decided tab (0046): the decision, who made it and when, and the reason (rejections)
+ * or note (approvals). Older decisions without a record fall back to the board's own
+ * review fields.
+ */
+function DecisionLine({ b }: { b: QueuedBoard }) {
+  const d = b.decision;
+  const approved = (d?.decision ?? (b.status === 'live' ? 'approved' : 'rejected')) === 'approved';
+  const at = d?.decided_at ?? b.reviewed_at;
+  const note = d ? d.note : approved ? null : b.review_note;
+  return (
+    <div className="mt-3 flex flex-col gap-2" data-decision>
+      <p className="m-0 text-sm text-ink-muted">
+        <span className="font-semibold text-ink-secondary">{approved ? 'Approved' : 'Rejected'}</span>
+        {d?.decider ? (
+          <>
+            {' '}
+            by <Person p={d.decider} />
+          </>
+        ) : null}
+        {at ? (
+          <>
+            {' '}
+            · <time dateTime={at}>{formatDate(at, new Date(), true)}</time>
+          </>
+        ) : null}
+      </p>
+      {note ? (
+        <p className="m-0 rounded-md bg-subtle px-3 py-2 text-sm text-ink">
+          <span className="font-semibold">{approved ? 'Note: ' : 'Reason: '}</span>
+          {note}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function ApproveDialog({ b, onClose }: { b: QueuedBoard; onClose: () => void }) {
   const { toast } = useToast();
   const decide = useDecideBoard();
@@ -257,6 +294,7 @@ function ApproveDialog({ b, onClose }: { b: QueuedBoard; onClose: () => void }) 
   );
   const [companyText, setCompanyText] = useState('');
   const [companyName, setCompanyName] = useState(original?.name ?? '');
+  const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const formId = `approve-${b.id}`;
   const keepsNew = Boolean(original && original.status === 'pending' && company?.kind === 'hub' && company.id === original.id);
@@ -281,7 +319,7 @@ function ApproveDialog({ b, onClose }: { b: QueuedBoard; onClose: () => void }) 
     if (hub === 'unpicked') return setError('Pick a company from the list, or clear the field.');
     setError(null);
     decide.mutate(
-      { id: b.id, approve: true, name: name.trim(), tagline: tagline.trim(), category, ...(hub ? { hub } : {}) },
+      { id: b.id, approve: true, name: name.trim(), tagline: tagline.trim(), category, ...(hub ? { hub } : {}), ...(note.trim() ? { reason: note.trim() } : {}) },
       {
         onSuccess: () => {
           toast(`${name.trim()} approved`);
@@ -346,6 +384,9 @@ function ApproveDialog({ b, onClose }: { b: QueuedBoard; onClose: () => void }) 
               </option>
             ))}
           </Select>
+        </Field>
+        <Field label="Note to the person who added it" optional hint="Sent with the approval, in the app and by email.">
+          <Textarea rows={2} value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
         </Field>
         {error ? (
           <p role="alert" className="m-0 text-sm text-danger">
@@ -555,8 +596,15 @@ function RejectDialog({ b, onClose }: { b: QueuedBoard; onClose: () => void }) {
   const decide = useDecideBoard();
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [missing, setMissing] = useState(false);
+  const reasonRef = useRef<HTMLTextAreaElement>(null);
   const run = () => {
     setError(null);
+    if (!reason.trim()) {
+      setMissing(true);
+      reasonRef.current?.focus();
+      return;
+    }
     decide.mutate(
       { id: b.id, approve: false, reason },
       {
@@ -574,7 +622,7 @@ function RejectDialog({ b, onClose }: { b: QueuedBoard; onClose: () => void }) {
       open
       onClose={onClose}
       title={`Reject ${b.name}?`}
-      description={`It stays hidden, and so do its posts. ${who} is told, with your reason if you give one.`}
+      description={`It stays hidden, and so do its posts. ${who} is told why, in the app and by email.`}
       dismissable={!decide.isPending}
       footer={
         <>
@@ -587,8 +635,18 @@ function RejectDialog({ b, onClose }: { b: QueuedBoard; onClose: () => void }) {
         </>
       }
     >
-      <Field label="Reason" optional hint="Shown to the person who added it." aside={`${reason.length}/500`}>
-        <Textarea rows={3} value={reason} maxLength={500} onChange={(e) => setReason(e.target.value)} placeholder="Already on Publisense as …, or not a product people can give feedback on" />
+      <Field label="Reason" hint="Shown to the person who added it." error={missing ? 'Add a reason. It’s shown to the person who added it.' : null}>
+        <Textarea
+          ref={reasonRef}
+          rows={3}
+          value={reason}
+          maxLength={500}
+          onChange={(e) => {
+            setReason(e.target.value);
+            if (e.target.value.trim()) setMissing(false);
+          }}
+          placeholder="Already on Publisense as …, or not a product people can give feedback on"
+        />
       </Field>
       {error ? (
         <p role="alert" className="mt-3 mb-0 text-sm text-danger">

@@ -1200,7 +1200,7 @@ insert into s26 values ('d2', public.decide_board((select (v ->> 'id')::uuid fro
 select pg_temp.expect('companies: moving a board to an existing company retires the pending one it leaves',
   (select v ->> 'hub' from s26 where k = 'd2') = 'ivy-labs-inc'
   and (select status = 'rejected' from public.hub where id = (select (v #>> '{}')::uuid from s26 where k = 'jackhub')));
-insert into s26 values ('d3', public.decide_board((select (v ->> 'id')::uuid from s26 where k = 'stack'), false));
+insert into s26 values ('d3', public.decide_board((select (v ->> 'id')::uuid from s26 where k = 'stack'), false, null, null, null, 'Not a product people give feedback on'));
 select pg_temp.expect('companies: rejecting the only board of a pending company rejects the company too',
   (select (v ->> 'ok')::boolean from s26 where k = 'd3')
   and (select status = 'rejected' from public.hub where slug = 'lena-letters-ltd'));
