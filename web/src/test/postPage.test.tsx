@@ -38,7 +38,7 @@ vi.mock('../api/moderation', async (importOriginal) => ({ ...(await importOrigin
 const boardsApi = vi.hoisted(() => ({ fetchIsBoardTeam: vi.fn(async () => false) }));
 vi.mock('../api/boards', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/boards')>()), ...boardsApi }));
 
-function renderPost(post: Post, { replies = [] as Reply[], events = [] as StatusEvent[], signedIn = true, found = true } = {}) {
+function renderPost(post: Post, { replies = [] as Reply[], events = [] as StatusEvent[], signedIn = true, found = true, at = '' } = {}) {
   api.fetchPost.mockResolvedValue(found ? post : null);
   api.fetchReplies.mockResolvedValue(replies);
   api.fetchStatusEvents.mockResolvedValue(events);
@@ -47,7 +47,7 @@ function renderPost(post: Post, { replies = [] as Reply[], events = [] as Status
       <Route path="/" element={<h1>Home page</h1>} />
       <Route path="/post/:id" element={<PostPage />} />
     </Routes>,
-    { viewer: signedIn ? TEST_VIEWER : null, path: `/post/${post.id}` },
+    { viewer: signedIn ? TEST_VIEWER : null, path: `/post/${post.id}${at}` },
   );
 }
 
@@ -249,6 +249,26 @@ describe('replies', () => {
     fireEvent.focus(await screen.findByRole('textbox', { name: 'Add a reply' }));
     await screen.findByRole('button', { name: 'Reply' });
     expect(screen.queryByRole('combobox', { name: 'Reply as' })).toBeNull();
+  });
+
+  it('a #reply-<id> link scrolls to that reply and highlights it, opening a deep branch first', async () => {
+    const post = makePost({ reply_count: 6 });
+    const id = (n: number) => `00000000-0000-4000-8000-00000000000${n}`;
+    const r0 = makeReply(post, { id: id(0), body: 'Level zero', created_at: iso(10) });
+    const r1 = makeReply(post, { id: id(1), parent_id: id(0), body: 'Level one', created_at: iso(9) });
+    const r2 = makeReply(post, { id: id(2), parent_id: id(1), body: 'Level two', created_at: iso(8) });
+    const r3 = makeReply(post, { id: id(3), parent_id: id(2), body: 'Level three', created_at: iso(7) });
+    const r4 = makeReply(post, { id: id(4), parent_id: id(3), body: 'Level four', created_at: iso(6) });
+    const r5 = makeReply(post, { id: id(5), parent_id: id(4), body: 'Level five', created_at: iso(5) });
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    renderPost(post, { replies: [r0, r1, r2, r3, r4, r5], at: `#reply-${id(5)}` });
+    // Level five is deeper than the page indents, so its branch opens on its own.
+    const target = (await screen.findByText('Level five')).closest('article')!;
+    expect(screen.getByRole('link', { name: /All replies/ })).toBeTruthy();
+    await waitFor(() => expect(target.getAttribute('aria-current')).toBe('true'));
+    expect(target.id).toBe(`reply-${id(5)}`);
+    expect(scroll).toHaveBeenCalled();
   });
 
   it('replying to a reply doesn’t prefill an @mention (the thread shows who it answers)', async () => {
