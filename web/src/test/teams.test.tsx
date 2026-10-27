@@ -3,7 +3,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes } from 'react-router';
 import type { FeedPage, Post } from '../api/posts';
 import type { Member } from '../api/teams';
-import { ClaimProvider } from '../claim/ClaimDialog';
+import { ClaimProvider, useClaim } from '../claim/ClaimDialog';
 import { BoardManagePage, HubManagePage } from '../manage/ManagePage';
 import { BoardPage } from '../pages/BoardPage';
 import { HubPage } from '../pages/HubPage';
@@ -128,12 +128,72 @@ beforeEach(() => {
   teamsApi.addMember.mockResolvedValue({ handle: 'hank' });
 });
 
+function GenericClaimButton() {
+  const { openClaim } = useClaim();
+  return <button onClick={() => openClaim()}>Claim your board</button>;
+}
+
+function renderGeneric() {
+  return renderWith(<ClaimProvider><GenericClaimButton /></ClaimProvider>);
+}
+
+describe('generic claim overview', () => {
+  it('explains before search, supports Back and preserves the query', async () => {
+    renderGeneric();
+    fireEvent.click(screen.getByRole('button', { name: 'Claim your board' }));
+    const overview = await screen.findByRole('dialog', { name: 'Claim your board' });
+    expect(within(overview).getByText('How it works')).toBeTruthy();
+    expect(within(overview).queryByRole('searchbox')).toBeNull();
+    fireEvent.click(within(overview).getByRole('button', { name: 'Choose a board' }));
+    const picker = await screen.findByRole('dialog', { name: 'Choose your board' });
+    fireEvent.change(within(picker).getByRole('searchbox'), { target: { value: 'Cursor' } });
+    fireEvent.click(within(picker).getByRole('button', { name: 'Back to overview' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Choose a board' }));
+    expect((screen.getByRole('searchbox') as HTMLInputElement).value).toBe('Cursor');
+    fireEvent.click(await screen.findByRole('button', { name: /Cursor/ }));
+    const intro = await screen.findByRole('dialog', { name: 'Claim Cursor' });
+    expect(within(intro).queryByText('Your selected board')).toBeNull();
+    expect(within(intro).queryByRole('button', { name: 'Choose a different board' })).toBeNull();
+    fireEvent.click(within(intro).getByRole('button', { name: 'Back' }));
+    expect(await screen.findByRole('dialog', { name: 'Choose your board' })).toBeTruthy();
+    expect(teamsApi.startEmailCode).not.toHaveBeenCalled();
+    expect(teamsApi.claimBoard).not.toHaveBeenCalled();
+  });
+
+  it('resumes the same board after cancelling signup, then restores opener on close', async () => {
+    renderGeneric();
+    const opener = screen.getByRole('button', { name: 'Claim your board' });
+    opener.focus();
+    fireEvent.click(opener);
+    fireEvent.click(await screen.findByRole('button', { name: 'Choose a board' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Cursor/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create an account to claim' }));
+    expect(await screen.findByRole('dialog', { name: 'Create your account' })).toBeTruthy();
+    expect(screen.queryByRole('dialog', { name: 'Claim Cursor' })).toBeNull();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(await screen.findByRole('dialog', { name: 'Claim Cursor' })).toBeTruthy();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(opener));
+  });
+
+  it('opens the overview even if the board list fails and offers a retry in selection', async () => {
+    boardsApi.fetchBoards.mockRejectedValue(new Error('Offline'));
+    renderGeneric();
+    fireEvent.click(screen.getByRole('button', { name: 'Claim your board' }));
+    expect(await screen.findByText('How it works')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Choose a board' }));
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+  });
+});
+
 describe('claim a board', () => {
   it('explains claiming and verification in-place before asking a signed-out visitor to sign up (#157)', async () => {
     renderAt('/b/cursor', false);
     fireEvent.click(await screen.findByRole('button', { name: 'Work at Cursor?' }));
     const dialog = await screen.findByRole('dialog', { name: 'Claim Cursor' });
-    expect(within(dialog).getByText('A verified badge on the board and on your team’s replies')).toBeTruthy();
+    expect(within(dialog).getByText("Get a verified badge on your board and your team's replies.")).toBeTruthy();
     expect(within(dialog).getByText('Set statuses, pin official replies and run the roadmap')).toBeTruthy();
     expect(within(dialog).getByText(/Verify with a 6-digit code sent to your/)).toBeTruthy();
     expect(within(dialog).getByText('@cursor.com')).toBeTruthy();
