@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import {
+  APPROVE_ROLES,
   avatarSrc,
   dedupePosts,
   plural,
@@ -8,6 +9,7 @@ import {
   shortAge,
   sortMembers,
   useAddMember,
+  useApproveJoin,
   useBlocked,
   useDecideJoin,
   useJoinRequests,
@@ -18,7 +20,9 @@ import {
   useSetMemberRole,
   useSetPostStatus,
   useTeam,
+  type ApproveRole,
   type Board,
+  type JoinRequest,
   type Member,
   type Post,
   type PostStatus,
@@ -352,57 +356,93 @@ export function AddTeammate({ scope, scopeId, domain }: { scope: Scope; scopeId:
   );
 }
 
-/** Pending "Work here?" requests with Approve / Deny. */
+/** Pending "Work here?" requests with a role, Approve and Deny (#188). */
 export function JoinRequests({ scopes, names }: { scopes: Array<{ scope: Scope; id: string }>; names?: Record<string, string> }) {
-  const { toast } = useToast();
   const requests = useJoinRequests(scopes);
-  const decide = useDecideJoin();
   const list = requests.data ?? [];
   if (list.length === 0) return null;
   return (
     <Section title="Join requests" note="People who confirmed a work email on your domain and asked to join. Requests expire after 14 days.">
       <ul className="m-0 flex list-none flex-col p-0" aria-label="Join requests">
-        {list.map((r) => {
-          const name = r.profile?.name || r.profile?.handle || 'Someone';
-          return (
-            <li key={r.id} className="flex items-center gap-3 border-t border-line py-3 first:border-t-0 max-sm:flex-wrap">
-              <UserAvatar src={avatarSrc(r.profile)} size="md" />
-              <span className="flex min-w-0 flex-1 flex-col">
-                <b className="truncate text-base font-semibold text-ink">{name}</b>
-                <span className="truncate text-sm text-ink-muted">
-                  {r.work_email} · verified{names?.[r.scope_id] ? ` · ${names[r.scope_id]}` : ''} · {shortAge(r.created_at)}
-                </span>
-              </span>
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={decide.isPending}
-                onClick={() =>
-                  decide.mutate(
-                    { id: r.id, approve: false },
-                    { onSuccess: () => toast(`Declined ${name}`), onError: (e) => toast(e instanceof Error ? e.message : 'Something went wrong.') },
-                  )
-                }
-              >
-                Deny
-              </Button>
-              <Button
-                size="sm"
-                disabled={decide.isPending}
-                onClick={() =>
-                  decide.mutate(
-                    { id: r.id, approve: true },
-                    { onSuccess: () => toast(`${name} joined the team`), onError: (e) => toast(e instanceof Error ? e.message : 'Something went wrong.') },
-                  )
-                }
-              >
-                Approve
-              </Button>
-            </li>
-          );
-        })}
+        {list.map((r) => (
+          <JoinRequestRow key={r.id} request={r} scopeName={names?.[r.scope_id]} />
+        ))}
       </ul>
     </Section>
+  );
+}
+
+function JoinRequestRow({ request: r, scopeName }: { request: JoinRequest; scopeName?: string }) {
+  const { toast } = useToast();
+  const decide = useDecideJoin();
+  const approve = useApproveJoin();
+  const [role, setRole] = useState<ApproveRole>('member');
+  const busy = decide.isPending || approve.isPending;
+  const p = r.profile;
+  const name = p?.name || p?.handle || 'Someone';
+  const onApprove = () =>
+    approve.mutate(
+      { request: r, role },
+      {
+        onSuccess: ({ roleSet }) =>
+          toast(
+            !roleSet
+              ? `${name} joined as Member, but we couldn’t make them ${ROLE_LABEL[role]}. Change it in Members.`
+              : role === 'member'
+                ? `${name} joined the team`
+                : `${name} joined the team as ${ROLE_LABEL[role]}`,
+          ),
+        onError: (e) => toast(e instanceof Error ? e.message : 'Something went wrong.'),
+      },
+    );
+  return (
+    <li className="flex items-center gap-3 border-t border-line py-3 first:border-t-0 max-sm:flex-wrap">
+      {p ? (
+        <Link to={`/u/${p.handle}`} tabIndex={-1} aria-hidden="true">
+          <UserAvatar src={avatarSrc(p)} size="md" />
+        </Link>
+      ) : (
+        <UserAvatar src={avatarSrc(p)} size="md" />
+      )}
+      <span className="flex min-w-0 flex-1 flex-col">
+        {p ? (
+          <Link to={`/u/${p.handle}`} className="truncate text-base font-semibold text-ink no-underline hover:underline">
+            {name}
+          </Link>
+        ) : (
+          <b className="truncate text-base font-semibold text-ink">{name}</b>
+        )}
+        <span className="truncate text-sm text-ink-muted">
+          {p ? `@${p.handle} · ` : ''}
+          {r.work_email} · verified{scopeName ? ` · ${scopeName}` : ''} · {shortAge(r.created_at)}
+        </span>
+      </span>
+      <span className="w-select shrink-0">
+        <Select value={role} onChange={(e) => setRole(e.target.value as ApproveRole)} disabled={busy} aria-label={`Role for ${name}`}>
+          {APPROVE_ROLES.map((x) => (
+            <option key={x} value={x}>
+              {ROLE_LABEL[x]}
+            </option>
+          ))}
+        </Select>
+      </span>
+      <Button
+        size="sm"
+        variant="secondary"
+        disabled={busy}
+        onClick={() =>
+          decide.mutate(
+            { id: r.id, approve: false },
+            { onSuccess: () => toast(`Declined ${name}`), onError: (e) => toast(e instanceof Error ? e.message : 'Something went wrong.') },
+          )
+        }
+      >
+        Deny
+      </Button>
+      <Button size="sm" disabled={busy} onClick={onApprove}>
+        Approve
+      </Button>
+    </li>
   );
 }
 
