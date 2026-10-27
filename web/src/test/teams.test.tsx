@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes } from 'react-router';
 import type { FeedPage, Post } from '../api/posts';
 import type { Member } from '../api/teams';
@@ -133,8 +133,8 @@ function GenericClaimButton() {
   return <button onClick={() => openClaim()}>Claim your board</button>;
 }
 
-function renderGeneric() {
-  return renderWith(<ClaimProvider><GenericClaimButton /></ClaimProvider>);
+function renderGeneric(signedIn = true) {
+  return renderWith(<ClaimProvider><GenericClaimButton /></ClaimProvider>, { viewer: signedIn ? TEST_VIEWER : null });
 }
 
 describe('generic claim overview', () => {
@@ -144,11 +144,11 @@ describe('generic claim overview', () => {
     const overview = await screen.findByRole('dialog', { name: 'Claim your board' });
     expect(within(overview).getByText('How it works')).toBeTruthy();
     expect(within(overview).queryByRole('searchbox')).toBeNull();
-    fireEvent.click(within(overview).getByRole('button', { name: 'Choose a board' }));
+    fireEvent.click(within(overview).getByRole('button', { name: 'Get started' }));
     const picker = await screen.findByRole('dialog', { name: 'Choose your board' });
     fireEvent.change(within(picker).getByRole('searchbox'), { target: { value: 'Cursor' } });
     fireEvent.click(within(picker).getByRole('button', { name: 'Back to overview' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Choose a board' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Get started' }));
     expect((screen.getByRole('searchbox') as HTMLInputElement).value).toBe('Cursor');
     fireEvent.click(await screen.findByRole('button', { name: /Cursor/ }));
     const intro = await screen.findByRole('dialog', { name: 'Claim Cursor' });
@@ -160,21 +160,43 @@ describe('generic claim overview', () => {
     expect(teamsApi.claimBoard).not.toHaveBeenCalled();
   });
 
-  it('resumes the same board after cancelling signup, then restores opener on close', async () => {
-    renderGeneric();
+  it('signed out, Get started on the overview goes to sign-up for claiming, with no second explanation', async () => {
+    renderGeneric(false);
     const opener = screen.getByRole('button', { name: 'Claim your board' });
     opener.focus();
     fireEvent.click(opener);
-    fireEvent.click(await screen.findByRole('button', { name: 'Choose a board' }));
-    fireEvent.click(await screen.findByRole('button', { name: /Cursor/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Create an account to claim' }));
-    expect(await screen.findByRole('dialog', { name: 'Create your account' })).toBeTruthy();
-    expect(screen.queryByRole('dialog', { name: 'Claim Cursor' })).toBeNull();
+    const overview = await screen.findByRole('dialog', { name: 'Claim your board' });
+    expect(within(overview).queryByText('Choose your product’s board.')).toBeNull();
+    fireEvent.click(within(overview).getByRole('button', { name: 'Get started' }));
+    const auth = await screen.findByRole('dialog', { name: 'Create your account' });
+    expect(within(auth).getByText('Create an account to claim your product’s board. It takes a few seconds.')).toBeTruthy();
+    expect(screen.queryByRole('dialog', { name: 'Claim your board' })).toBeNull();
     fireEvent.keyDown(document, { key: 'Escape' });
-    expect(await screen.findByRole('dialog', { name: 'Claim Cursor' })).toBeTruthy();
+    expect(await screen.findByRole('dialog', { name: 'Claim your board' })).toBeTruthy();
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByRole('dialog')).toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(opener));
+  });
+
+  it('remembers where a signed-out visitor was heading and resumes at product search after they return signed in', async () => {
+    localStorage.clear();
+    renderGeneric(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Claim your board' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Get started' }));
+    await screen.findByRole('dialog', { name: 'Create your account' });
+    expect(JSON.parse(localStorage.getItem('publisense:claim-intent') ?? '{}').at).toBeTypeOf('number');
+    cleanup();
+    renderGeneric(true);
+    const picker = await screen.findByRole('dialog', { name: 'Choose your board' });
+    expect(await within(picker).findByRole('searchbox')).toBeTruthy();
+    expect(localStorage.getItem('publisense:claim-intent')).toBeNull();
+  });
+
+  it('ignores an expired remembered claim', async () => {
+    localStorage.setItem('publisense:claim-intent', JSON.stringify({ at: Date.now() - 2 * 60 * 60 * 1000 }));
+    renderGeneric(true);
+    await waitFor(() => expect(localStorage.getItem('publisense:claim-intent')).toBeNull());
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('opens the overview even if the board list fails and offers a retry in selection', async () => {
@@ -182,7 +204,7 @@ describe('generic claim overview', () => {
     renderGeneric();
     fireEvent.click(screen.getByRole('button', { name: 'Claim your board' }));
     expect(await screen.findByText('How it works')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Choose a board' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Get started' }));
     expect(await screen.findByRole('alert')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
   });
@@ -199,7 +221,7 @@ describe('claim a board', () => {
     expect(within(dialog).getByText('@cursor.com')).toBeTruthy();
     expect(within(dialog).queryByLabelText('Your work email')).toBeNull();
 
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Create an account to claim' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Get started' }));
     const auth = await screen.findByRole('dialog', { name: 'Create your account' });
     expect(within(auth).getByText('Create an account to claim your product’s board. It takes a few seconds.')).toBeTruthy();
   });
