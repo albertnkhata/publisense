@@ -38,11 +38,14 @@ export interface BoardRef {
   status?: 'pending' | 'live' | 'rejected';
 }
 
+/**
+ * The latest official reply, quoted on cards. It speaks as the board, so it
+ * carries no author: the teammate behind it is never fetched or shown here.
+ */
 export interface OfficialReply {
   id: string;
   body: string;
   created_at: string;
-  author: PersonRef | null;
 }
 
 export interface Post {
@@ -277,7 +280,7 @@ async function decorate(rows: PostRow[], viewerId: string | null): Promise<Post[
       : Promise.resolve({ data: [], error: null }),
     sb
       .from('reply')
-      .select(`id, post_id, body, created_at, author:profile!author_id(${PERSON})`)
+      .select('id, post_id, body, created_at')
       .eq('is_official', true)
       .is('hidden_at', null)
       .in('post_id', ids)
@@ -290,7 +293,7 @@ async function decorate(rows: PostRow[], viewerId: string | null): Promise<Post[
   const followed = new Set(((follows.data ?? []) as Array<{ target_id: string }>).map((f) => f.target_id));
   const official = new Map<string, OfficialReply>();
   for (const r of (officials.data ?? []) as unknown as Array<OfficialReply & { post_id: string }>) {
-    if (!official.has(r.post_id)) official.set(r.post_id, { id: r.id, body: r.body, created_at: r.created_at, author: r.author });
+    if (!official.has(r.post_id)) official.set(r.post_id, { id: r.id, body: r.body, created_at: r.created_at });
   }
   return rows.map((r) => ({ ...r, voted: voted.has(r.id), following: followed.has(r.id), official: official.get(r.id) ?? null }));
 }
@@ -431,8 +434,15 @@ export async function fetchReplies(postId: string): Promise<Reply[]> {
     .eq('post_id', postId)
     .order('created_at', { ascending: true });
   if (error) throw error;
-  return (data ?? []) as unknown as Reply[];
+  return ((data ?? []) as unknown as Reply[]).map(publicReply);
 }
+
+/**
+ * An official reply speaks as the board, so the app drops the teammate's
+ * profile from it (author_id stays, for "is this mine" checks). Nothing in the
+ * UI can then render a personal handle on official content.
+ */
+export const publicReply = (r: Reply): Reply => (r.is_official ? { ...r, author: null } : r);
 
 export interface ReplyThread {
   reply: Reply;
@@ -533,7 +543,7 @@ export async function createReply(postId: string, body: string, parentId: string
     if (error?.code === '42501') throw failed('You can’t reply on this board.');
     throw failed('We couldn’t post your reply. Try again.');
   }
-  return data as unknown as Reply;
+  return publicReply(data as unknown as Reply);
 }
 
 export async function updateReply(id: string, body: string): Promise<Pick<Reply, 'id' | 'body' | 'edited_at'>> {

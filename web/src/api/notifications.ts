@@ -126,6 +126,11 @@ export interface AppNotification {
   } | null;
   /** The reply's text, for reply and mention notifications. */
   quote: string | null;
+  /**
+   * The reply it points at is an official (team) reply: show the board and its
+   * Team badge, never the teammate who wrote it (#160 follow-up).
+   */
+  official?: boolean;
   /** Board or hub named by a claim, join or product notification. */
   scope: { name: string; slug: string; color: string | null } | null;
 }
@@ -137,7 +142,7 @@ const NOTIF_SELECT =
   'actor:profile!actor(id, handle, name, avatar_path), ' +
   'post:post!post_id(id, title, author_id, board:board!board_id(id, slug, name, color, logo_path))';
 
-type NotifRow = Omit<AppNotification, 'quote' | 'scope'>;
+type NotifRow = Omit<AppNotification, 'quote' | 'scope' | 'official'>;
 
 /** The viewer's newest notifications (RLS: only their own), with what each points at. */
 export async function fetchNotifications(limit = NOTIFICATION_PAGE): Promise<AppNotification[]> {
@@ -149,16 +154,23 @@ export async function fetchNotifications(limit = NOTIFICATION_PAGE): Promise<App
   const boardIds = rows.filter((r) => r.target_type === 'board').map((r) => r.target_id);
   const hubIds = rows.filter((r) => r.target_type === 'hub').map((r) => r.target_id);
   const [replies, boards, hubs] = await Promise.all([
-    replyIds.length ? sb.from('reply').select('id, body').in('id', replyIds) : Promise.resolve({ data: [], error: null }),
+    replyIds.length ? sb.from('reply').select('id, body, is_official').in('id', replyIds) : Promise.resolve({ data: [], error: null }),
     boardIds.length ? sb.from('board').select('id, slug, name, color').in('id', boardIds) : Promise.resolve({ data: [], error: null }),
     hubIds.length ? sb.from('hub').select('id, slug, name').in('id', hubIds) : Promise.resolve({ data: [], error: null }),
   ]);
   // Extras are best effort: a deleted reply or board just loses its quote or name.
-  const quotes = new Map(((replies.data ?? []) as Array<{ id: string; body: string }>).map((r) => [r.id, r.body]));
+  const replyRows = (replies.data ?? []) as Array<{ id: string; body: string; is_official?: boolean }>;
+  const quotes = new Map(replyRows.map((r) => [r.id, r.body]));
+  const officials = new Set(replyRows.filter((r) => r.is_official).map((r) => r.id));
   const scopes = new Map<string, { name: string; slug: string; color: string | null }>();
   for (const b of (boards.data ?? []) as Array<{ id: string; slug: string; name: string; color: string }>) scopes.set(b.id, { name: b.name, slug: b.slug, color: b.color });
   for (const h of (hubs.data ?? []) as Array<{ id: string; slug: string; name: string }>) scopes.set(h.id, { name: h.name, slug: h.slug, color: null });
-  return rows.map((r) => ({ ...r, quote: quotes.get(r.target_id) ?? null, scope: scopes.get(r.target_id) ?? null }));
+  return rows.map((r) => ({
+    ...r,
+    quote: quotes.get(r.target_id) ?? null,
+    scope: scopes.get(r.target_id) ?? null,
+    official: r.target_type === 'reply' && officials.has(r.target_id),
+  }));
 }
 
 export async function fetchUnreadCount(): Promise<number> {

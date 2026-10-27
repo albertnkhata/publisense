@@ -18,6 +18,7 @@ import { LoadError, PostListSkeleton } from '../posts/PostList';
 import { useAuthDialog } from '../shell/auth';
 import { BoardAvatar, Button, EmptyState, Icon, TabPanel, Tabs, UserAvatar, STATUS_META, useToast, type IconName, type PostStatus } from '../ui';
 import { FollowPersonButton } from './UserPage';
+import { TeamByline } from '../posts/TeamByline';
 
 /**
  * Notifications (FOUNDATION §9 `/notifications`, mockup #notifications): All,
@@ -50,11 +51,16 @@ interface Described {
 const B = ({ children }: { children: ReactNode }) => <b className="font-semibold text-ink">{children}</b>;
 
 export function describeNotification(n: AppNotification, viewerId: string | null): Described {
-  const who = n.actor ? `@${n.actor.handle}` : 'Someone';
   const title = n.post?.title ?? 'a post';
   const postHref = n.post_id ? `/post/${n.post_id}` : '/';
   const board = n.post?.board ?? null;
   const boardAv = board ? { name: board.name, color: board.color, logo: logoSrc(board) } : null;
+  // The team speaks as the board everywhere (#160 follow-up): board name + Team
+  // badge, board logo as the avatar, never the teammate's personal handle.
+  const team = <TeamByline name={board?.name ?? 'Board'} className="inline-flex items-center gap-1 align-middle" />;
+  const asTeam = Boolean(n.official) && board !== null;
+  const who = asTeam ? team : <B>{n.actor ? `@${n.actor.handle}` : 'Someone'}</B>;
+  const teamAv = asTeam ? { boardAvatar: boardAv } : {};
   const d = n.data as Record<string, string | number | undefined>;
   switch (n.kind) {
     case 'reply':
@@ -62,27 +68,29 @@ export function describeNotification(n: AppNotification, viewerId: string | null
         text:
           n.post?.author_id === viewerId ? (
             <>
-              <B>{who}</B> replied to your post <B>{title}</B>
+              {who} replied to your post <B>{title}</B>
             </>
           ) : (
             <>
-              <B>{who}</B> replied to you on <B>{title}</B>
+              {who} replied to you on <B>{title}</B>
             </>
           ),
         href: `${postHref}#replies`,
         badge: 'reply',
         quote: n.quote,
+        ...teamAv,
       };
     case 'mention':
       return {
         text: (
           <>
-            <B>{who}</B> mentioned you in a reply on <B>{title}</B>
+            {who} mentioned you in a reply on <B>{title}</B>
           </>
         ),
         href: `${postHref}#replies`,
         badge: 'reply',
         quote: n.quote,
+        ...teamAv,
       };
     case 'upvote_milestone':
       return {
@@ -115,8 +123,7 @@ export function describeNotification(n: AppNotification, viewerId: string | null
         return {
           text: (
             <>
-              <B>{title}</B>, a post you follow, is marked <B>Shipped</B>
-              {board ? <> by the {board.name} team</> : null}
+              {team} marked <B>{title}</B> as <B>Shipped</B>
             </>
           ),
           href: postHref,
@@ -130,11 +137,11 @@ export function describeNotification(n: AppNotification, viewerId: string | null
         text:
           to === 'open' || !label ? (
             <>
-              The <B>{board?.name ?? 'board'}</B> team cleared the status on <B>{title}</B>
+              {team} cleared the status on <B>{title}</B>
             </>
           ) : (
             <>
-              The <B>{board?.name ?? 'board'}</B> team marked <B>{title}</B> as <B>{label}</B>
+              {team} marked <B>{title}</B> as <B>{label}</B>
             </>
           ),
         href: postHref,
@@ -152,12 +159,13 @@ export function describeNotification(n: AppNotification, viewerId: string | null
         ),
         href: postHref,
         badge: 'reply',
+        ...teamAv,
       };
     case 'follow':
       return {
         text: (
           <>
-            <B>{who}</B> started following you
+            {who} started following you
           </>
         ),
         href: n.actor ? `/u/${n.actor.handle}` : '/',
@@ -219,7 +227,7 @@ export function describeNotification(n: AppNotification, viewerId: string | null
         return {
           text: (
             <>
-              <B>{who}</B> asked to join the <B>{name}</B> team
+              {who} asked to join the <B>{name}</B> team
             </>
           ),
           href: n.scope ? `${home}/manage?tab=team` : '/',
@@ -230,7 +238,7 @@ export function describeNotification(n: AppNotification, viewerId: string | null
         return {
           text: (
             <>
-              <B>{who}</B> added you to the <B>{name}</B> team
+              {who} added you to the <B>{name}</B> team
             </>
           ),
           href: home,
