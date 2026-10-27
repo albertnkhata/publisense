@@ -152,21 +152,24 @@ describe('composer', () => {
   });
 });
 
-describe('search popover', () => {
-  it('shows quick results and goes to the full results', async () => {
+describe('search modal without the composer', () => {
+  // SearchWell is rendered here with no ComposerProvider: search must not depend on the composer.
+  it('renders, shows quick results and opens the highlighted one', async () => {
     boardsApi.searchAll.mockResolvedValue({ boards: [FIGMA], hubs: [FIGMA_HUB], posts: [makePost({ title: 'Figma variables export' })] });
     const { router } = renderWith(
       <Routes>
         <Route path="*" element={<SearchWell />} />
       </Routes>,
     );
-    const input = screen.getByRole('combobox', { name: 'Search products, posts and hubs' });
-    fireEvent.focus(input);
+    fireEvent.click(screen.getByRole('button', { name: 'Search products, posts, hubs' }));
+    const modal = await screen.findByRole('dialog', { name: 'Search' });
+    const input = within(modal).getByRole('combobox', { name: 'Search products, posts and hubs' });
     fireEvent.change(input, { target: { value: 'fig' } });
-    const list = await screen.findByRole('listbox', { name: 'Search suggestions' });
+    const list = within(modal).getByRole('listbox', { name: 'Search suggestions' });
     expect(await within(list).findByText('Figma variables export')).toBeTruthy();
     expect(within(list).getByText('Figma hub')).toBeTruthy();
     expect(within(list).getByText('See all results for “fig”')).toBeTruthy();
+    expect(within(modal).queryByRole('button', { name: 'Post feedback' })).toBeNull();
     fireEvent.keyDown(input, { key: 'ArrowDown' });
     expect(within(list).getAllByRole('option')[0]?.getAttribute('aria-selected')).toBe('true');
     fireEvent.submit(input.closest('form')!);
@@ -180,13 +183,17 @@ describe('search popover', () => {
         <Route path="*" element={<SearchWell />} />
       </Routes>,
     );
-    const input = screen.getByRole('combobox', { name: 'Search products, posts and hubs' });
+    fireEvent.click(screen.getByRole('button', { name: 'Search products, posts, hubs' }));
+    const modal = await screen.findByRole('dialog', { name: 'Search' });
+    const input = within(modal).getByRole('combobox', { name: 'Search products, posts and hubs' });
     fireEvent.change(input, { target: { value: 'dark mode' } });
     fireEvent.submit(input.closest('form')!);
     expect(router.state.location.pathname).toBe('/search');
     expect(router.state.location.search).toBe('?q=dark%20mode');
   });
+});
 
+describe('composer', () => {
   describe('from a source (staff)', () => {
     it('is not offered to people who aren’t staff', async () => {
       renderComposer();

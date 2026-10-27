@@ -440,31 +440,76 @@ describe('search', () => {
 });
 
 describe('search modal', () => {
-  it('opens on Ctrl+K, shows recent searches and popular products, and closes on Escape', async () => {
+  const trigger = () => screen.getByRole('button', { name: 'Search products, posts, hubs' });
+
+  it('opens on Ctrl+K with boards to browse, no recent searches, hints or counters, and closes on Escape', async () => {
     rememberSearch('dark mode');
     renderAt('/well');
     expect(screen.queryByRole('dialog', { name: 'Search' })).toBeNull();
+    // The shortcut works but isn’t advertised on screen.
+    expect(trigger().textContent).not.toMatch(/⌘|Ctrl/);
 
     fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
     const modal = await screen.findByRole('dialog', { name: 'Search' });
-    expect(within(modal).getByRole('option', { name: /dark mode/ })).toBeTruthy();
     expect(await within(modal).findByRole('option', { name: /Cursor/ })).toBeTruthy();
-
-    fireEvent.click(within(modal).getByRole('button', { name: 'Clear' }));
     expect(within(modal).queryByRole('option', { name: /dark mode/ })).toBeNull();
+    expect(within(modal).queryByText(/Navigate/)).toBeNull();
+    expect(within(modal).queryByText(/^\+\d+ this week$/)).toBeNull();
+    expect(within(modal).queryByRole('button', { name: 'Clear' })).toBeNull();
 
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByRole('dialog', { name: 'Search' })).toBeNull();
   });
 
-  it('filters live results by scope pills and navigates via keyboard', async () => {
+  it('returns focus to the trigger on Escape and on Close, without reopening', async () => {
+    renderAt('/well');
+    const button = trigger();
+    button.focus();
+    fireEvent.click(button);
+    let modal = await screen.findByRole('dialog', { name: 'Search' });
+    expect(document.activeElement).toBe(within(modal).getByRole('combobox', { name: /Search products/ }));
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Search' })).toBeNull();
+    expect(document.activeElement).toBe(button);
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+
+    fireEvent.click(button);
+    modal = await screen.findByRole('dialog', { name: 'Search' });
+    // The close button’s accessible name is its visible label.
+    const close = within(modal).getByRole('button', { name: 'Close' });
+    expect(close.textContent).toBe('Close');
+    fireEvent.click(close);
+    expect(screen.queryByRole('dialog', { name: 'Search' })).toBeNull();
+    expect(document.activeElement).toBe(button);
+  });
+
+  it('keeps the listbox to options and labelled groups', async () => {
+    boardsApi.searchAll.mockResolvedValue({ boards: [FIGMA, FIGJAM], hubs: [FIGMA_HUB], posts: [makePost({ title: 'Figma variables export' })] });
+    renderAt('/well');
+    fireEvent.click(trigger());
+    const modal = await screen.findByRole('dialog', { name: 'Search' });
+    fireEvent.change(within(modal).getByRole('combobox', { name: /Search products/ }), { target: { value: 'fig' } });
+    const list = within(modal).getByRole('listbox', { name: 'Search suggestions' });
+    expect(await within(list).findByRole('option', { name: /Figma variables export/ })).toBeTruthy();
+    expect(within(list).queryAllByRole('button')).toHaveLength(0);
+    expect(within(list).getByRole('group', { name: 'Product boards' })).toBeTruthy();
+    expect(within(list).getByRole('group', { name: 'Feedback & bugs' })).toBeTruthy();
+    expect(within(within(list).getByRole('group', { name: 'Company hubs' })).getByRole('option', { name: /Figma hub/ })).toBeTruthy();
+    // Scope filters carry no counts.
+    const filters = within(modal).getByRole('group', { name: 'Filter search results' });
+    expect(within(filters).getAllByRole('button').map((b) => b.textContent)).toEqual(['All', 'Product boards', 'Feedback & bugs', 'Company hubs', 'People']);
+  });
+
+  it('filters live results by scope and navigates with the keyboard', async () => {
     boardsApi.searchAll.mockResolvedValue({
       boards: [FIGMA, FIGJAM],
       hubs: [FIGMA_HUB],
       posts: [makePost({ title: 'Figma variables export', status: 'planned' })],
     });
     const { router } = renderAt('/well');
-    fireEvent.focus(screen.getByRole('combobox', { name: /Search products/ }));
+    fireEvent.click(trigger());
     const modal = await screen.findByRole('dialog', { name: 'Search' });
     const input = within(modal).getByRole('combobox', { name: /Search products/ });
 
@@ -473,14 +518,22 @@ describe('search modal', () => {
     expect(within(modal).getByRole('option', { name: /Figma hub/ })).toBeTruthy();
 
     // Filter to Feedback & bugs only
-    const toolbar = within(modal).getByRole('toolbar', { name: 'Filter search results' });
-    fireEvent.click(within(toolbar).getByRole('button', { name: /Feedback & bugs/ }));
+    const filters = within(modal).getByRole('group', { name: 'Filter search results' });
+    fireEvent.click(within(filters).getByRole('button', { name: 'Feedback & bugs' }));
     expect(within(modal).queryByRole('option', { name: /Figma hub/ })).toBeNull();
     expect(within(modal).getByRole('option', { name: /Figma variables export/ })).toBeTruthy();
 
-    // Switch back to Product boards and pick the first item with ArrowDown + Enter
-    fireEvent.click(within(toolbar).getByRole('button', { name: /Product boards/ }));
+    // Back to Product boards: ArrowDown highlights the first option (aria-activedescendant follows),
+    // ArrowUp wraps to the last, ArrowDown wraps back to the first, Enter opens it.
+    fireEvent.click(within(filters).getByRole('button', { name: 'Product boards' }));
+    const options = within(modal).getAllByRole('option');
     fireEvent.keyDown(input, { key: 'ArrowDown' });
+    expect(input.getAttribute('aria-activedescendant')).toBe(options[0]!.id);
+    expect(options[0]!.getAttribute('aria-selected')).toBe('true');
+    fireEvent.keyDown(input, { key: 'ArrowUp' });
+    expect(input.getAttribute('aria-activedescendant')).toBe(options[options.length - 1]!.id);
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    expect(input.getAttribute('aria-activedescendant')).toBe(options[0]!.id);
     fireEvent.submit(input.closest('form')!);
     await waitFor(() => expect(router.state.location.pathname).toBe('/b/figma'));
     expect(screen.queryByRole('dialog', { name: 'Search' })).toBeNull();

@@ -1,14 +1,12 @@
-import { forwardRef, useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router';
 import {
   avatarSrc,
   CATEGORIES,
-  clearRecentSearches,
   compactCount,
   isLive,
   logoSrc,
-  readRecentSearches,
   rememberSearch,
   SEARCH_MIN,
   shortAge,
@@ -26,18 +24,24 @@ import { trapTab } from '../lib/focus';
 import { useViewer } from '../lib/viewer';
 import { useAddProduct } from '../products/AddProductDialog';
 import { BoardAvatar, HubAvatar, Icon, IconButton, StatusPill, TYPE_META, UserAvatar } from '../ui';
-import { useComposer } from './composer';
 
 /**
- * Search trigger and command-palette modal (FOUNDATION §5):
- * Clicking the search bar in the right rail or top bar, or pressing Cmd/Ctrl+K
- * (or `/` outside inputs), opens the Search Modal.
+ * Search trigger and command-palette modal (FOUNDATION §5).
  *
- * When empty, acts as a rich discovery palette: Recent searches, Browse by
- * category chips, a 2-column grid of Trending / Followed / Most followed
- * product boards, Most wanted requests across boards, and quick actions.
- * When typing, shows scope filter pills and grouped results for Product boards,
- * Company hubs, Feedback & bugs, and People.
+ * The trigger in the right rail and the top bar is a button styled as the
+ * search field; clicking it, pressing Cmd/Ctrl+K, or `/` outside inputs opens
+ * the Search Modal. The shortcut works but is not advertised on screen (the
+ * light redesign keeps hints and counters out of the UI).
+ *
+ * Empty, the modal is a light discovery palette: category chips, a few product
+ * boards (trending, followed or most followed) and the most wanted requests.
+ * Typing shows scope filters and grouped results for product boards, company
+ * hubs, feedback & bugs and people, then “See all results”.
+ *
+ * Accessibility: the modal input is a combobox owning a listbox that holds only
+ * options and labelled groups. Closing the modal returns focus to whatever
+ * opened it (or this trigger). The search has no dependency on the composer, so
+ * it renders anywhere the router and query client are mounted.
  */
 interface PopItem {
   key: string;
@@ -54,26 +58,50 @@ const CATEGORY_LABEL = new Map<BoardCategory, string>(
   CATEGORIES.filter((c): c is { value: BoardCategory; label: string } => c.value !== 'all').map((c) => [c.value, c.label]),
 );
 
+const TRIGGER_LABEL = 'Search products, posts, hubs';
+
 function isEditable(el: EventTarget | null): boolean {
   if (!(el instanceof HTMLElement)) return false;
   const tag = el.tagName;
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
 }
 
+/** Apple platforms use ⌘, everything else Ctrl. Only feeds aria-keyshortcuts (nothing is shown). */
+function isApplePlatform(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
+  const platform = nav.userAgentData?.platform ?? nav.platform ?? '';
+  return /mac|iphone|ipad|ipod/i.test(platform);
+}
+
+/** A rendered (laid-out) element; hidden triggers (display:none at this breakpoint) can’t take focus. */
+function isRendered(el: HTMLElement | null): boolean {
+  if (!el) return false;
+  // jsdom has no layout: treat everything as rendered there.
+  if (typeof el.getClientRects !== 'function' || navigator.userAgent.includes('jsdom')) return true;
+  return el.getClientRects().length > 0;
+}
+
 interface ModalController {
   isOpen: () => boolean;
   setOpen: (open: boolean) => void;
+  isVisible: () => boolean;
 }
 
 const modalControllers = new Map<symbol, ModalController>();
+
+/** The trigger to open: the first one actually on screen, else the first mounted. */
+function pickController(): ModalController | undefined {
+  const all = [...modalControllers.values()];
+  return all.find((c) => c.isVisible()) ?? all[0];
+}
 
 /** Programmatically open the search modal from anywhere in the shell (e.g. mobile TopBar icon). */
 export function openSearchModal(): void {
   for (const c of modalControllers.values()) {
     if (c.isOpen()) return;
   }
-  const first = modalControllers.values().next().value;
-  if (first) first.setOpen(true);
+  pickController()?.setOpen(true);
 }
 
 function toggleSearchModal(): void {
@@ -83,30 +111,28 @@ function toggleSearchModal(): void {
       return;
     }
   }
-  const first = modalControllers.values().next().value;
-  if (first) first.setOpen(true);
+  pickController()?.setOpen(true);
 }
 
-export const SearchWell = forwardRef<HTMLInputElement, { className?: string; onSubmitted?: () => void }>(function SearchWell(
-  { className, onSubmitted },
-  ref,
-) {
+export function SearchWell({ className, onSubmitted }: { className?: string; onSubmitted?: () => void }) {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [q, setQ] = useState(params.get('q') ?? '');
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
-  const [items, setItems] = useState<PopItem[]>([]);
+  const [itemCount, setItemCount] = useState(0);
+  const itemsRef = useRef<PopItem[]>([]);
   const [theme, setTheme] = useState<string | undefined>(undefined);
   const listId = useId();
   const titleId = useId();
   const instanceId = useRef(Symbol('SearchWell')).current;
   const openRef = useRef(open);
   openRef.current = open;
-  const triggerRef = useRef<HTMLFormElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const modalPanelRef = useRef<HTMLDivElement>(null);
   const modalInputRef = useRef<HTMLInputElement>(null);
   const returnToRef = useRef<HTMLElement | null>(null);
+  const [shortcut] = useState(() => (isApplePlatform() ? 'Meta+K' : 'Control+K'));
 
   const openExclusive = () => {
     for (const [id, c] of modalControllers.entries()) {
@@ -122,9 +148,10 @@ export const SearchWell = forwardRef<HTMLInputElement, { className?: string; onS
     modalControllers.set(id, {
       isOpen: () => openRef.current,
       setOpen: (next) => setOpen(next),
+      isVisible: () => isRendered(triggerRef.current),
     });
 
-    const onWindowKeyDown = (e: KeyboardEvent | globalThis.KeyboardEvent) => {
+    const onWindowKeyDown = (e: globalThis.KeyboardEvent) => {
       if (modalControllers.keys().next().value !== id) return;
       const isModK = (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'k';
       if (isModK) {
@@ -146,9 +173,11 @@ export const SearchWell = forwardRef<HTMLInputElement, { className?: string; onS
     };
   }, [instanceId]);
 
+  // Remember the opener (trigger, mobile icon, or whatever had focus for Cmd/Ctrl+K)
+  // and inherit its theme scope, since the portal leaves the subtree.
   useLayoutEffect(() => {
     if (!open) return;
-    const activeEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const activeEl = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
     returnToRef.current = activeEl;
     const source = activeEl ?? triggerRef.current;
     const scoped = source?.closest('[data-theme]');
@@ -178,6 +207,11 @@ export const SearchWell = forwardRef<HTMLInputElement, { className?: string; onS
     return () => {
       document.removeEventListener('keydown', onDocKeyDown, true);
       document.body.style.overflow = overflow;
+      // Return focus to the opener. The trigger is a button, so focusing it doesn’t reopen the modal.
+      const back = returnToRef.current;
+      const target = back && document.contains(back) && isRendered(back) ? back : triggerRef.current;
+      returnToRef.current = null;
+      if (target && document.contains(target)) target.focus();
     };
   }, [open]);
 
@@ -196,16 +230,17 @@ export const SearchWell = forwardRef<HTMLInputElement, { className?: string; onS
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    const item = open && active >= 0 ? items[active] : undefined;
+    const item = open && active >= 0 ? itemsRef.current[active] : undefined;
     if (item) item.go();
     else goSearch(q);
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && open && items.length) {
+    const count = itemsRef.current.length;
+    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && open && count) {
       e.preventDefault();
       const d = e.key === 'ArrowDown' ? 1 : -1;
-      setActive((i) => (i < 0 ? (d > 0 ? 0 : items.length - 1) : (i + d + items.length) % items.length));
+      setActive((i) => (i < 0 ? (d > 0 ? 0 : count - 1) : (i + d + count) % count));
     } else if (e.key === 'Escape' && open) {
       e.preventDefault();
       e.stopPropagation();
@@ -214,45 +249,35 @@ export const SearchWell = forwardRef<HTMLInputElement, { className?: string; onS
     }
   };
 
-  const activeDescendant = open && active >= 0 && items[active] ? `${listId}-${active}` : undefined;
+  // Typing a character on the focused trigger opens the modal with that character.
+  const onTriggerKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key.length === 1 && e.key !== ' ' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      setQ(e.key);
+      setActive(-1);
+      openExclusive();
+    }
+  };
+
+  const activeDescendant = open && active >= 0 && active < itemCount ? `${listId}-${active}` : undefined;
 
   return (
     <>
-      <form ref={triggerRef} role="search" onSubmit={submit} className={cx('relative w-full', className)}>
-        <label
+      <div className={cx('relative w-full', className)}>
+        <button
+          ref={triggerRef}
+          type="button"
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-keyshortcuts={shortcut}
           onClick={() => openExclusive()}
-          className="flex h-8 cursor-pointer items-center gap-3 rounded-md border border-line bg-card px-3 text-ink-muted transition-colors duration-120 hover:border-line-strong focus-within:border-line-strong"
+          onKeyDown={onTriggerKeyDown}
+          className="flex h-8 w-full cursor-pointer items-center gap-3 rounded-md border border-line bg-card px-3 text-left text-base text-ink-muted transition-colors duration-120 hover:border-line-strong focus-visible:border-line-strong max-md:text-md"
         >
           <Icon name="search" size={15} />
-          <input
-            ref={ref}
-            type="search"
-            role={open ? undefined : 'combobox'}
-            aria-expanded={open ? undefined : false}
-            aria-controls={open ? undefined : listId}
-            aria-autocomplete={open ? undefined : 'list'}
-            value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
-              setActive(-1);
-              openExclusive();
-            }}
-            onFocus={() => openExclusive()}
-            onKeyDown={onKeyDown}
-            placeholder="Search products, posts, hubs"
-            aria-label={open ? 'Search trigger' : 'Search products, posts and hubs'}
-            aria-keyshortcuts="Control+K Meta+K"
-            autoComplete="off"
-            className="w-full min-w-0 cursor-pointer appearance-none border-0 bg-transparent text-base text-ink outline-none placeholder:text-ink-muted focus-visible:outline-none max-md:text-md"
-          />
-          <kbd
-            aria-hidden="true"
-            className="pointer-events-none shrink-0 rounded-sm border border-line bg-subtle px-1 font-mono text-xs text-ink-muted max-sm:hidden"
-          >
-            ⌘K
-          </kbd>
-        </label>
-      </form>
+          <span className="min-w-0 flex-1 truncate">{TRIGGER_LABEL}</span>
+        </button>
+      </div>
 
       {open
         ? createPortal(
@@ -260,11 +285,7 @@ export const SearchWell = forwardRef<HTMLInputElement, { className?: string; onS
               data-theme={theme}
               className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-9 pb-4 max-sm:items-end max-sm:p-0"
             >
-              <div
-                aria-hidden="true"
-                className="absolute inset-0 animate-fade-in bg-overlay"
-                onClick={() => finish()}
-              />
+              <div aria-hidden="true" className="absolute inset-0 animate-fade-in bg-overlay" onClick={() => finish()} />
               <div
                 ref={modalPanelRef}
                 role="dialog"
@@ -285,7 +306,7 @@ export const SearchWell = forwardRef<HTMLInputElement, { className?: string; onS
                     ref={modalInputRef}
                     type="search"
                     role="combobox"
-                    aria-expanded={items.length > 0}
+                    aria-expanded={itemCount > 0}
                     aria-controls={listId}
                     aria-autocomplete="list"
                     aria-activedescendant={activeDescendant}
@@ -315,11 +336,10 @@ export const SearchWell = forwardRef<HTMLInputElement, { className?: string; onS
                   <button
                     type="button"
                     onClick={() => finish()}
-                    aria-label="Close search"
                     data-dialog-close="true"
-                    className="shrink-0 cursor-pointer rounded-sm border border-line bg-subtle px-2 py-1 font-mono text-xs font-medium text-ink-secondary transition-colors duration-120 hover:border-line-strong hover:text-ink"
+                    className="shrink-0 cursor-pointer rounded-sm border-0 bg-transparent px-1 text-sm font-medium text-ink-secondary transition-colors duration-120 hover:text-ink"
                   >
-                    Esc
+                    Close
                   </button>
                 </form>
 
@@ -328,7 +348,8 @@ export const SearchWell = forwardRef<HTMLInputElement, { className?: string; onS
                   listId={listId}
                   active={active}
                   setActive={setActive}
-                  onItems={setItems}
+                  itemsRef={itemsRef}
+                  onCount={setItemCount}
                   focusInput={() => modalInputRef.current?.focus()}
                   goSearch={goSearch}
                   go={(to, term) => {
@@ -349,14 +370,15 @@ export const SearchWell = forwardRef<HTMLInputElement, { className?: string; onS
         : null}
     </>
   );
-});
+}
 
 function SearchModalBody({
   q,
   listId,
   active,
   setActive,
-  onItems,
+  itemsRef,
+  onCount,
   focusInput,
   goSearch,
   go,
@@ -367,7 +389,8 @@ function SearchModalBody({
   listId: string;
   active: number;
   setActive: (i: number) => void;
-  onItems: (items: PopItem[]) => void;
+  itemsRef: { current: PopItem[] };
+  onCount: (n: number) => void;
   focusInput: () => void;
   goSearch: (q: string) => void;
   go: (to: string, term?: string) => void;
@@ -377,7 +400,6 @@ function SearchModalBody({
   const [debounced, setDebounced] = useState(term);
   const [scope, setScope] = useState<SearchScope>('all');
   const [catFilter, setCatFilter] = useState<'all' | BoardCategory>('all');
-  const [recent, setRecent] = useState<string[]>(() => readRecentSearches());
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(term), 150);
@@ -396,28 +418,27 @@ function SearchModalBody({
   const search = useSearch(debounced, viewer?.id ?? null, { postLimit: 6 });
   const peopleQuery = usePeopleSearch(debounced);
   const addProduct = useAddProduct();
-  const composer = useComposer();
 
   // Categories that actually have live boards
   const usedCats = new Set(live.map((b) => b.category).filter((c): c is BoardCategory => Boolean(c)));
   const categoryChips = CATEGORIES.filter((c) => c.value === 'all' || usedCats.has(c.value)).slice(0, 8);
 
-  // Determine which boards to highlight in the zero-query state, with an explicit reason
+  // Boards to highlight in the zero-query state, with an explicit reason
   const byFollowers = live
     .slice()
     .sort((a, b) => b.follower_count - a.follower_count || b.post_count - a.post_count || a.name.localeCompare(b.name));
   const trendingList = trendingQuery.data ?? [];
   const followedList = live.filter((b) => followedScopes.data?.has(`board:${b.id}`));
 
-  let featuredBoards: Array<Board & { recent?: number }>;
+  let featuredBoards: Board[];
   let featuredGroupTitle: string;
-  let featuredGroupNote: string;
+  let featuredGroupNote: string | undefined;
 
   if (catFilter !== 'all') {
     const label = CATEGORY_LABEL.get(catFilter) ?? 'Category';
     featuredBoards = byFollowers.filter((b) => b.category === catFilter).slice(0, 4);
     featuredGroupTitle = `${label} boards`;
-    featuredGroupNote = `${featuredBoards.length} ${featuredBoards.length === 1 ? 'board' : 'boards'}`;
+    featuredGroupNote = undefined;
   } else if (trendingList.length > 0) {
     const seen = new Set(trendingList.map((b) => b.id));
     featuredBoards = [...trendingList, ...byFollowers.filter((b) => !seen.has(b.id))].slice(0, 4);
@@ -445,20 +466,7 @@ function SearchModalBody({
   const people = peopleQuery.data && debounced === term ? peopleQuery.data : [];
 
   if (!term) {
-    for (const r of recent.slice(0, 5)) {
-      items.push({
-        key: `recent-${r}`,
-        group: 'Recent searches',
-        layout: 'pill',
-        go: () => goSearch(r),
-        render: () => (
-          <>
-            <Icon name="status-review" size={13} />
-            <span className="truncate font-medium text-ink">{r}</span>
-          </>
-        ),
-      });
-    }
+    // Recent searches are parked until the broad layout is finished, so the empty state starts with boards.
     for (const b of featuredBoards) {
       items.push({
         key: `featured-${b.id}`,
@@ -500,7 +508,6 @@ function SearchModalBody({
         items.push({
           key: `b-${b.id}`,
           group: 'Product boards',
-          groupNote: `${boards.length} ${boards.length === 1 ? 'match' : 'matches'}`,
           layout: 'row',
           go: () => go(`/b/${b.slug}`, term),
           render: () => (
@@ -522,14 +529,20 @@ function SearchModalBody({
                 </span>
                 <span className="truncate text-xs text-ink-muted">{b.tagline}</span>
               </span>
-              <span className="flex shrink-0 items-center gap-2 font-mono text-xs text-ink-muted tabular-nums">
-                {b.follower_count > 0 ? <span>{compactCount(b.follower_count)} followers</span> : null}
-                {b.post_count > 0 ? (
-                  <span>
-                    {compactCount(b.post_count)} {b.post_count === 1 ? 'post' : 'posts'}
-                  </span>
-                ) : null}
-              </span>
+              {b.follower_count > 0 || b.post_count > 0 ? (
+                <span className="flex shrink-0 items-center gap-2 font-mono text-xs text-ink-muted tabular-nums max-sm:hidden">
+                  {b.follower_count > 0 ? (
+                    <span>
+                      {compactCount(b.follower_count)} {b.follower_count === 1 ? 'follower' : 'followers'}
+                    </span>
+                  ) : null}
+                  {b.post_count > 0 ? (
+                    <span>
+                      {compactCount(b.post_count)} {b.post_count === 1 ? 'post' : 'posts'}
+                    </span>
+                  ) : null}
+                </span>
+              ) : null}
             </>
           ),
         });
@@ -553,11 +566,6 @@ function SearchModalBody({
                 </IconCell>
               )}
               <Text title={`${h.name} hub`} sub={h.boards.map((b) => b.name).join(', ') || h.description} />
-              {h.boards.length > 0 ? (
-                <span className="shrink-0 rounded-pill border border-line bg-subtle px-2 py-1 font-mono text-xs text-ink-secondary tabular-nums">
-                  {h.boards.length} {h.boards.length === 1 ? 'board' : 'boards'}
-                </span>
-              ) : null}
             </>
           ),
         });
@@ -574,10 +582,7 @@ function SearchModalBody({
           render: () => (
             <>
               <BoardAvatar name={p.board?.name ?? '?'} color={p.board?.color} logoSrc={logoSrc(p.board)} size="md" decorative />
-              <Text
-                title={p.title}
-                sub={[p.board?.name ?? '', TYPE_META[p.type].label, shortAge(p.created_at), `${p.vote_count} upvotes`].filter(Boolean).join(' · ')}
-              />
+              <Text title={p.title} sub={[p.board?.name ?? '', TYPE_META[p.type].label, shortAge(p.created_at)].filter(Boolean).join(' · ')} />
               {p.status !== 'open' ? <StatusPill status={p.status} /> : null}
               <VoteBadge count={p.vote_count} />
             </>
@@ -640,7 +645,7 @@ function SearchModalBody({
           <span className="min-w-0 flex-1 truncate font-semibold text-ink">
             {items.length ? 'See all results for' : 'Search for'} “{term}”
           </span>
-          <span className="inline-flex items-center gap-1 text-xs text-ink-muted">
+          <span className="inline-flex shrink-0 items-center gap-1 text-xs text-ink-muted">
             <span>Full search</span>
             <Icon name="arrow-up-right" size={14} />
           </span>
@@ -649,22 +654,26 @@ function SearchModalBody({
     });
   }
 
+  // The list is rebuilt each render; keep the parent’s copy current every render so the
+  // closures it calls on Enter never go stale, and publish the count when it changes.
+  useLayoutEffect(() => {
+    itemsRef.current = items;
+  });
   const keys = items.map((i) => i.key).join('|');
   useEffect(() => {
-    // The list is rebuilt each render; publish it when its contents change.
-    onItems(items);
+    onCount(items.length);
   }, [keys]);
 
-  const scopes: Array<{ id: SearchScope; label: string; count?: number }> = [
+  const scopes: Array<{ id: SearchScope; label: string }> = [
     { id: 'all', label: 'All' },
-    { id: 'boards', label: 'Product boards', count: boards.length },
-    { id: 'posts', label: 'Feedback & bugs', count: posts.length },
-    { id: 'hubs', label: 'Company hubs', count: hubs.length },
-    { id: 'people', label: 'People', count: people.length },
+    { id: 'boards', label: 'Product boards' },
+    { id: 'posts', label: 'Feedback & bugs' },
+    { id: 'hubs', label: 'Company hubs' },
+    { id: 'people', label: 'People' },
   ];
 
-  // Group consecutive items by their `group` name so we can render pills in a flex-wrap row
-  // and board spotlight cards in a 2-column grid while keeping flat index numbers for ARIA options.
+  // Group consecutive items by their `group` name so pills wrap, board spotlight cards sit
+  // in a 2-column grid, and option ids keep flat indexes for aria-activedescendant.
   const sections: Array<{
     group?: string;
     groupNote?: string;
@@ -677,23 +686,84 @@ function SearchModalBody({
     if (prev && prev.group === item.group && prev.layout === item.layout && item.group !== undefined) {
       prev.entries.push({ item, index });
     } else {
-      sections.push({
-        group: item.group,
-        groupNote: item.groupNote,
-        layout: item.layout,
-        entries: [{ item, index }],
-      });
+      sections.push({ group: item.group, groupNote: item.groupNote, layout: item.layout, entries: [{ item, index }] });
     }
   });
+
+  const option = (item: PopItem, index: number, className: string) => (
+    <div
+      key={item.key}
+      id={`${listId}-${index}`}
+      role="option"
+      aria-selected={index === active}
+      onClick={item.go}
+      onMouseEnter={() => setActive(index)}
+      className={className}
+    >
+      {item.render(index === active)}
+    </div>
+  );
+
+  const renderEntries = (section: (typeof sections)[number]) => {
+    if (section.layout === 'pill') {
+      return (
+        <div role="presentation" className="flex flex-wrap gap-2 px-1">
+          {section.entries.map(({ item, index }) =>
+            option(
+              item,
+              index,
+              'inline-flex cursor-pointer items-center gap-1 rounded-pill border border-line bg-subtle px-3 py-1 text-xs text-ink-secondary transition-colors duration-120 hover:border-line-strong hover:text-ink aria-selected:border-brand aria-selected:bg-brand-soft aria-selected:text-brand',
+            ),
+          )}
+        </div>
+      );
+    }
+    if (section.layout === 'card') {
+      return (
+        <div role="presentation" className="grid grid-cols-2 gap-2 max-sm:grid-cols-1">
+          {section.entries.map(({ item, index }) =>
+            option(
+              item,
+              index,
+              'flex cursor-pointer flex-col gap-2 rounded-md border border-line bg-subtle p-3 transition-colors duration-120 hover:border-line-strong aria-selected:border-brand aria-selected:bg-brand-soft',
+            ),
+          )}
+        </div>
+      );
+    }
+    if (section.layout === 'callout') {
+      return (
+        <div role="presentation" className="flex flex-col gap-1">
+          {section.entries.map(({ item, index }) =>
+            option(
+              item,
+              index,
+              'flex cursor-pointer items-center gap-3 rounded-md border border-dashed border-line-strong bg-subtle px-3 py-3 text-sm transition-colors duration-120 hover:border-brand aria-selected:border-brand aria-selected:bg-brand-soft',
+            ),
+          )}
+        </div>
+      );
+    }
+    return (
+      <div role="presentation" className="flex flex-col">
+        {section.entries.map(({ item, index }) =>
+          option(
+            item,
+            index,
+            cx(
+              'flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors duration-120 aria-selected:bg-subtle',
+              item.key === 'all' && index > 0 && 'mt-1 border-t border-line',
+            ),
+          ),
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       {hasQuery ? (
-        <div
-          role="toolbar"
-          aria-label="Filter search results"
-          className="flex items-center gap-1 overflow-x-auto border-b border-line bg-subtle px-4 py-2 scrollbar-none"
-        >
+        <div role="group" aria-label="Filter search results" className="flex flex-wrap items-center gap-1 border-b border-line bg-subtle px-4 py-2">
           {scopes.map((s) => {
             const selected = scope === s.id;
             return (
@@ -707,27 +777,19 @@ function SearchModalBody({
                   focusInput();
                 }}
                 className={cx(
-                  'inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-pill border px-3 py-1 text-xs font-semibold transition-colors duration-120',
+                  'inline-flex shrink-0 cursor-pointer items-center rounded-pill border px-3 py-1 text-xs font-semibold transition-colors duration-120',
                   selected
                     ? 'border-brand bg-brand-soft text-brand'
                     : 'border-line bg-card text-ink-secondary hover:border-line-strong hover:text-ink',
                 )}
               >
-                <span>{s.label}</span>
-                {typeof s.count === 'number' && s.count > 0 ? (
-                  <span className="font-mono text-xs tabular-nums">{s.count}</span>
-                ) : null}
+                {s.label}
               </button>
             );
           })}
         </div>
-      ) : categoryChips.length > 1 ? (
-        <div
-          role="toolbar"
-          aria-label="Browse by category"
-          className="flex items-center gap-1 overflow-x-auto border-b border-line bg-subtle px-4 py-2 scrollbar-none"
-        >
-          <span className="mr-1 shrink-0 text-xs font-semibold text-ink-muted">Category:</span>
+      ) : !term && categoryChips.length > 1 ? (
+        <div role="group" aria-label="Browse by category" className="flex flex-wrap items-center gap-1 border-b border-line bg-subtle px-4 py-2">
           {categoryChips.map((c) => {
             const selected = catFilter === c.value;
             return (
@@ -754,172 +816,47 @@ function SearchModalBody({
         </div>
       ) : null}
 
+      {term.length > 0 && term.length < SEARCH_MIN ? (
+        <p className="m-0 px-4 py-6 text-center text-sm text-ink-muted">Keep typing to search boards, feedback, hubs and people.</p>
+      ) : items.length === 0 && !hasQuery ? (
+        <p className="m-0 px-4 py-6 text-center text-sm text-ink-muted">Type a product, feature request, bug or @handle to search.</p>
+      ) : null}
+
       <div
         id={listId}
         role="listbox"
         aria-label="Search suggestions"
         onMouseDown={(e) => e.preventDefault()}
-        className="flex-1 overflow-y-auto px-3 py-3 scrollbar-none"
+        className={cx('flex flex-1 flex-col gap-3 overflow-y-auto px-3 py-3', items.length === 0 && 'hidden')}
       >
-        {term.length > 0 && term.length < SEARCH_MIN ? (
-          <p className="m-0 px-4 py-6 text-center text-sm text-ink-muted">Keep typing to search boards, feedback, hubs and people.</p>
-        ) : items.length === 0 && !hasQuery ? (
-          <p className="m-0 px-4 py-6 text-center text-sm text-ink-muted">Type a product, feature request, bug or @handle to search.</p>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {sections.map((section, sIdx) => (
-              <div key={`${section.group ?? 'ungrouped'}-${sIdx}`}>
-                {section.group ? (
-                  <div className="mb-2 flex items-baseline justify-between gap-2 px-1">
-                    <span className="text-xs font-semibold text-ink-muted uppercase">{section.group}</span>
-                    {section.group === 'Recent searches' ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          clearRecentSearches();
-                          setRecent([]);
-                          focusInput();
-                        }}
-                        className="cursor-pointer border-0 bg-transparent p-0 text-xs font-medium text-ink-muted transition-colors duration-120 hover:text-ink"
-                      >
-                        Clear
-                      </button>
-                    ) : section.groupNote ? (
-                      <span className="text-xs text-ink-muted">{section.groupNote}</span>
-                    ) : null}
-                  </div>
+        {sections.map((section, sIdx) => {
+          const headingId = `${listId}-g${sIdx}`;
+          return section.group ? (
+            <div key={`${section.group}-${sIdx}`} role="group" aria-labelledby={headingId}>
+              <div role="presentation" className="mb-2 flex items-baseline justify-between gap-2 px-1">
+                <span id={headingId} className="text-xs font-semibold text-ink-muted uppercase">
+                  {section.group}
+                </span>
+                {section.groupNote ? (
+                  <span aria-hidden="true" className="text-xs text-ink-muted">
+                    {section.groupNote}
+                  </span>
                 ) : null}
-
-                {section.layout === 'pill' ? (
-                  <div className="flex flex-wrap gap-2 px-1">
-                    {section.entries.map(({ item, index }) => (
-                      <div
-                        key={item.key}
-                        id={`${listId}-${index}`}
-                        role="option"
-                        aria-selected={index === active}
-                        onClick={item.go}
-                        onMouseEnter={() => setActive(index)}
-                        className="inline-flex cursor-pointer items-center gap-1 rounded-pill border border-line bg-subtle px-3 py-1 text-xs text-ink-secondary transition-colors duration-120 hover:border-line-strong hover:text-ink aria-selected:border-brand aria-selected:bg-brand-soft aria-selected:text-brand"
-                      >
-                        {item.render(index === active)}
-                      </div>
-                    ))}
-                  </div>
-                ) : section.layout === 'card' ? (
-                  <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1">
-                    {section.entries.map(({ item, index }) => (
-                      <div
-                        key={item.key}
-                        id={`${listId}-${index}`}
-                        role="option"
-                        aria-selected={index === active}
-                        onClick={item.go}
-                        onMouseEnter={() => setActive(index)}
-                        className="flex cursor-pointer flex-col gap-2 rounded-md border border-line bg-subtle p-3 transition-colors duration-120 hover:border-line-strong aria-selected:border-brand aria-selected:bg-brand-soft"
-                      >
-                        {item.render(index === active)}
-                      </div>
-                    ))}
-                  </div>
-                ) : section.layout === 'callout' ? (
-                  <div className="flex flex-col gap-1">
-                    {section.entries.map(({ item, index }) => (
-                      <div
-                        key={item.key}
-                        id={`${listId}-${index}`}
-                        role="option"
-                        aria-selected={index === active}
-                        onClick={item.go}
-                        onMouseEnter={() => setActive(index)}
-                        className="flex cursor-pointer items-center gap-3 rounded-md border border-dashed border-line-strong bg-subtle px-3 py-3 text-sm transition-colors duration-120 hover:border-brand aria-selected:border-brand aria-selected:bg-brand-soft"
-                      >
-                        {item.render(index === active)}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-col">
-                    {section.entries.map(({ item, index }) => (
-                      <div key={item.key}>
-                        {item.key === 'all' && index > 0 ? <div className="my-1 border-t border-line" /> : null}
-                        <div
-                          id={`${listId}-${index}`}
-                          role="option"
-                          aria-selected={index === active}
-                          onClick={item.go}
-                          onMouseEnter={() => setActive(index)}
-                          className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors duration-120 aria-selected:bg-subtle"
-                        >
-                          {item.render(index === active)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
-            ))}
-          </div>
-        )}
+              {renderEntries(section)}
+            </div>
+          ) : (
+            <div key={`ungrouped-${sIdx}`} role="presentation">
+              {renderEntries(section)}
+            </div>
+          );
+        })}
       </div>
-
-      <footer className="flex items-center justify-between gap-2 border-t border-line bg-subtle px-3 py-2 text-xs text-ink-muted">
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => {
-              close();
-              composer.openComposer();
-            }}
-            className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-sm border border-line bg-card px-2 py-1 text-xs font-semibold whitespace-nowrap text-ink-secondary transition-colors duration-120 hover:border-line-strong hover:text-ink"
-          >
-            <Icon name="plus" size={12} />
-            <span>Post feedback</span>
-          </button>
-          {addProduct ? (
-            <button
-              type="button"
-              onClick={() => {
-                addProduct.openAddProduct({ prefill: term || undefined });
-                close();
-              }}
-              className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-sm border border-line bg-card px-2 py-1 text-xs font-semibold whitespace-nowrap text-ink-secondary transition-colors duration-120 hover:border-line-strong hover:text-ink"
-            >
-              <Icon name="globe" size={12} />
-              <span>Add a product</span>
-            </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => go('/explore')}
-            className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-sm border border-line bg-card px-2 py-1 text-xs font-semibold whitespace-nowrap text-ink-secondary transition-colors duration-120 hover:border-line-strong hover:text-ink"
-          >
-            <Icon name="explore" size={12} />
-            <span>Explore boards</span>
-          </button>
-        </div>
-
-        <div className="flex shrink-0 items-center gap-2 whitespace-nowrap max-sm:hidden">
-          <span className="inline-flex items-center gap-1">
-            <kbd className="rounded-sm border border-line bg-card px-1 font-mono text-xs text-ink-secondary">↑</kbd>
-            <kbd className="rounded-sm border border-line bg-card px-1 font-mono text-xs text-ink-secondary">↓</kbd>
-            <span>Navigate</span>
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <kbd className="rounded-sm border border-line bg-card px-1 font-mono text-xs text-ink-secondary">↵</kbd>
-            <span>Open</span>
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <kbd className="rounded-sm border border-line bg-card px-1 font-mono text-xs text-ink-secondary">esc</kbd>
-            <span>Close</span>
-          </span>
-        </div>
-      </footer>
     </div>
   );
 }
 
-function BoardSpotlightCard({ board }: { board: Board & { recent?: number } }) {
+function BoardSpotlightCard({ board }: { board: Board }) {
   const catLabel = board.category ? CATEGORY_LABEL.get(board.category) : undefined;
   return (
     <>
@@ -937,27 +874,24 @@ function BoardSpotlightCard({ board }: { board: Board & { recent?: number } }) {
           <span className="truncate text-xs text-ink-muted">{board.tagline}</span>
         </div>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-2 text-xs text-ink-muted">
-        <div className="flex items-center gap-2">
-          {board.follower_count > 0 ? (
-            <span>
-              <b className="font-semibold text-ink">{compactCount(board.follower_count)}</b>{' '}
-              {board.follower_count === 1 ? 'follower' : 'followers'}
-            </span>
-          ) : null}
-          {board.post_count > 0 ? (
-            <span>
-              <b className="font-semibold text-ink">{compactCount(board.post_count)}</b>{' '}
-              {board.post_count === 1 ? 'post' : 'posts'}
-            </span>
-          ) : null}
+      {board.follower_count > 0 || board.post_count > 0 || catLabel ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-2 text-xs text-ink-muted">
+          <div className="flex items-center gap-2">
+            {board.follower_count > 0 ? (
+              <span>
+                <b className="font-semibold text-ink">{compactCount(board.follower_count)}</b>{' '}
+                {board.follower_count === 1 ? 'follower' : 'followers'}
+              </span>
+            ) : null}
+            {board.post_count > 0 ? (
+              <span>
+                <b className="font-semibold text-ink">{compactCount(board.post_count)}</b> {board.post_count === 1 ? 'post' : 'posts'}
+              </span>
+            ) : null}
+          </div>
+          {catLabel ? <span className="rounded-sm bg-card px-2 text-xs text-ink-secondary">{catLabel}</span> : null}
         </div>
-        {typeof board.recent === 'number' && board.recent > 0 ? (
-          <span className="font-mono text-xs font-semibold text-brand">+{board.recent} this week</span>
-        ) : catLabel ? (
-          <span className="rounded-sm bg-card px-2 text-xs text-ink-secondary">{catLabel}</span>
-        ) : null}
-      </div>
+      ) : null}
     </>
   );
 }
@@ -968,6 +902,7 @@ function VoteBadge({ count }: { count: number }) {
     <span className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-line bg-subtle px-2 py-1 font-mono text-xs font-semibold text-ink-secondary tabular-nums">
       <Icon name="arrow-up" size={11} />
       <span>{count}</span>
+      <span className="sr-only">{count === 1 ? 'upvote' : 'upvotes'}</span>
     </span>
   );
 }

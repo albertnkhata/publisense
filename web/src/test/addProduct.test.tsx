@@ -385,8 +385,8 @@ describe('entry points', () => {
   it('search with no product results offers “Can’t find it? Add it”, prefilled', async () => {
     boardsApi.searchAll.mockResolvedValue({ boards: [], hubs: [], posts: [] });
     renderApp('/well');
-    const input = screen.getByRole('combobox', { name: /Search products/ });
-    fireEvent.focus(input);
+    fireEvent.click(screen.getByRole('button', { name: 'Search products, posts, hubs' }));
+    const input = within(await screen.findByRole('dialog', { name: 'Search' })).getByRole('combobox', { name: /Search products/ });
     fireEvent.change(input, { target: { value: 'Acme Notes' } });
     fireEvent.click(await screen.findByRole('option', { name: /Can’t find it\? Add it/ }));
     const dialog = await screen.findByRole('dialog', { name: 'Add a product' });
@@ -396,8 +396,8 @@ describe('entry points', () => {
   it('replaces a name carried over from search with the site’s own once a link is in', async () => {
     boardsApi.searchAll.mockResolvedValue({ boards: [], hubs: [], posts: [] });
     renderApp('/well');
-    const input = screen.getByRole('combobox', { name: /Search products/ });
-    fireEvent.focus(input);
+    fireEvent.click(screen.getByRole('button', { name: 'Search products, posts, hubs' }));
+    const input = within(await screen.findByRole('dialog', { name: 'Search' })).getByRole('combobox', { name: /Search products/ });
     fireEvent.change(input, { target: { value: 'acme' } });
     fireEvent.click(await screen.findByRole('option', { name: /Can’t find it\? Add it/ }));
     const dialog = await screen.findByRole('dialog', { name: 'Add a product' });
