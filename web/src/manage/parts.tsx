@@ -416,6 +416,11 @@ function JoinRequestRow({ request: r, scopeName }: { request: JoinRequest; scope
           {p ? `@${p.handle} · ` : ''}
           {r.work_email} · verified{scopeName ? ` · ${scopeName}` : ''} · {shortAge(r.created_at)}
         </span>
+        {r.message ? (
+          <span data-join-message className="mt-1 border-0 border-l-2 border-solid border-line pl-3 text-sm whitespace-pre-line wrap-break-word text-ink">
+            {r.message}
+          </span>
+        ) : null}
       </span>
       <span className="w-select shrink-0">
         <Select value={role} onChange={(e) => setRole(e.target.value as ApproveRole)} disabled={busy} aria-label={`Role for ${name}`}>

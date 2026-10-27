@@ -6,6 +6,7 @@ import {
   DNS_NOT_FOUND,
   isPostable,
   logoSrc,
+  JOIN_MESSAGE_MAX,
   REASON_MAX,
   REASON_MIN,
   onHubDomain,
@@ -194,6 +195,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [reason, setReason] = useState('');
+  const [joinMessage, setJoinMessage] = useState('');
   const [token, setToken] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -295,7 +297,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
       return;
     }
     if (why === 'join') {
-      await requestJoin.mutateAsync({ scope: joinScope(t), id: joinScopeId(t), email, domain: t.domain });
+      await requestJoin.mutateAsync({ scope: joinScope(t), id: joinScopeId(t), email, domain: t.domain, message: joinMessage });
     } else {
       await openDispute.mutateAsync({ scope: t.scope, id: t.id, reason, email, domain: t.domain });
     }
@@ -810,6 +812,17 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
             autoFocus={why === 'join'}
           />
         </Field>
+        {why === 'join' ? (
+          <Field label="Message" optional className="mt-3" aside={`${joinMessage.length}/${JOIN_MESSAGE_MAX}`} hint="Who you are and why you’d like to join. Only the team’s admins see it.">
+            <Textarea
+              rows={2}
+              maxLength={JOIN_MESSAGE_MAX}
+              value={joinMessage}
+              onChange={(e) => setJoinMessage(e.target.value)}
+              placeholder="For example: I run support and want to answer bug reports."
+            />
+          </Field>
+        ) : null}
       </form>
     );
     footer = (

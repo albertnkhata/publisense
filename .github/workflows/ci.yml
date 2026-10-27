@@ -269,6 +269,13 @@ jobs:
           PGPASSWORD: postgres
         run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_product_decision_test.sql
 
+      # Join request messages (0049, #189): length, trimming, who reads them, the
+      # notification payload, and that the old three-argument call still works.
+      - name: v2 join message tests
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_join_message_test.sql
+
       # Visibility helpers (0047, #179): no public helper takes a caller-chosen uid, so
       # neither a signed-out visitor nor another member can ask "can user X see Y?";
       # the creator, team and blocked users get the same answers about themselves, and

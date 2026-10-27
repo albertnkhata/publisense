@@ -86,6 +86,17 @@ describe('RPCs', () => {
     await expect(requestJoin('board', 'b1', 'x@other.org', 'cursor.com')).rejects.toThrow('Use an @cursor.com address.');
   });
 
+  it('sends a join message only when there is one, trimmed (#189)', async () => {
+    sb.answers.push(ok({ id: 'r1' }), ok({ id: 'r2' }), refused('message_length'));
+    await requestJoin('board', 'b1', 'Lee@Cursor.com', 'cursor.com', '   ');
+    await requestJoin('board', 'b1', 'lee@cursor.com', 'cursor.com', '  I run support.  ');
+    expect(sb.calls).toEqual([
+      ['request_join', { p_scope: 'board', p_scope_id: 'b1', p_work_email: 'lee@cursor.com' }],
+      ['request_join', { p_scope: 'board', p_scope_id: 'b1', p_work_email: 'lee@cursor.com', p_message: 'I run support.' }],
+    ]);
+    await expect(requestJoin('board', 'b1', 'lee@cursor.com', 'cursor.com', 'x'.repeat(300))).rejects.toThrow('Keep the message to 280 characters.');
+  });
+
   it('a network error never leaks details', async () => {
     sb.answers.push({ data: null, error: { message: 'JWT expired', code: 'PGRST301' } });
     await expect(startEmailCode('a@cursor.com', 'cursor.com')).rejects.toThrow('Something went wrong. Try again.');

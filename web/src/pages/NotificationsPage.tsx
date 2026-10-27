@@ -232,6 +232,7 @@ export function describeNotification(n: AppNotification, viewerId: string | null
           ),
           href: n.scope ? `${home}/manage?tab=team` : '/',
           badge: 'team',
+          quote: typeof d.message === 'string' && d.message ? d.message : null,
         };
       }
       if (status === 'added') {

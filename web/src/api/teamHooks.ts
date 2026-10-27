@@ -104,7 +104,7 @@ export function useClaimHub() {
 export function useRequestJoin() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { scope: Scope; id: string; email: string; domain: string | null }) => requestJoin(v.scope, v.id, v.email, v.domain),
+    mutationFn: (v: { scope: Scope; id: string; email: string; domain: string | null; message?: string }) => requestJoin(v.scope, v.id, v.email, v.domain, v.message),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['own-requests'] }),
   });
 }
