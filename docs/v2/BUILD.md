@@ -13,3 +13,4 @@ One PR per step; see [FOUNDATION.md](./FOUNDATION.md) section 11.
 - [x] 9. Cutover: smoke tests, pg_dump, drop v1, deploy (done 2026-10-24: domains moved to v2, v1 tables dropped, v1 code removed)
 
 Step 9 runbook and what was actually done: [CUTOVER.md](./CUTOVER.md) (applied 2026-10-24).
+Post-cutover plan for the `/admin` command centre and first-party analytics: [COMMAND_CENTRE.md](./COMMAND_CENTRE.md).

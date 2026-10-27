@@ -180,3 +180,4 @@ What is left before an **announce** is no longer engineering:
 - **AI Signal Clustering & Deduplication**: Group related friction reports into thematic clusters on `/p/:slug` using embeddings.
 - **Embeddable "Public Sense" Badge**: 1-script high-craft widget (`[▲ 92 Signals on Publisense]`) for product documentation and SaaS footers.
 - **Linear / GitHub / Slack Sync (Pro Tier)**: 1-click issue export with bidirectional status synchronization when tickets are completed.
+- **Admin Command Centre & First-Party Analytics** ([docs/v2/COMMAND_CENTRE.md](../v2/COMMAND_CENTRE.md)): Staff-only /admin operational dashboard combining relational feedback-loop metrics (D-011 honest split) with cookieless first-party traffic, search demand, and builder claiming funnels.
