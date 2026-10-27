@@ -36,6 +36,7 @@ import { ReportDialog } from '../posts/ReportDialog';
 import { useRequireAuth } from '../shell/auth';
 import { BoardAvatar, Button, EmptyState, HubAvatar, Icon, IconButton, Menu, MenuItem, MenuLabel, MenuSeparator, Skeleton, TabPanel, Tabs, UserAvatar, useToast } from '../ui';
 import { actionLink } from './BoardPage';
+import { useSetUrlParams } from '../lib/useUrlParam';
 
 /**
  * A person's page (FOUNDATION §9 `/u/:handle`, mockup #user/<handle>): who they
@@ -84,16 +85,12 @@ function Profile({ person }: { person: PublicProfile }) {
   const stats = usePersonStats(person.id);
   const replies = useUserReplies(person.id);
   const upvoted = useUpvotedPosts(viewer?.id ?? null, self);
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
+  const setUrl = useSetUrlParams();
   const allowed: UserTab[] = self ? ['posts', 'replies', 'upvoted'] : ['posts', 'replies'];
   const raw = params.get('tab') as UserTab | null;
   const tab: UserTab = raw && allowed.includes(raw) ? raw : 'posts';
-  const setTab = (t: UserTab) => {
-    const next = new URLSearchParams(params);
-    if (t === 'posts') next.delete('tab');
-    else next.set('tab', t);
-    setParams(next, { replace: true });
-  };
+  const setTab = (t: UserTab) => setUrl([['tab', t, 'posts']]);
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">

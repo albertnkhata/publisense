@@ -609,7 +609,7 @@ describe('admin: new products', () => {
     const list = await screen.findByRole('list', { name: 'Products waiting for review' });
     expect(within(list).getByText('Acme Notes')).toBeTruthy();
     expect(within(list).getByRole('link', { name: '@jmwamba' })).toBeTruthy();
-    fireEvent.click(within(list).getByRole('button', { name: 'Approve…' }));
+    fireEvent.click(within(list).getByRole('button', { name: 'Review and approve' }));
     const dialog = await screen.findByRole('dialog', { name: 'Approve Acme Notes?' });
     fireEvent.change(within(dialog).getByLabelText(/^Name/), { target: { value: 'Acme Notes HQ' } });
     fireEvent.change(within(dialog).getByLabelText('Category'), { target: { value: 'code' } });
@@ -617,16 +617,32 @@ describe('admin: new products', () => {
     await waitFor(() =>
       expect(productsApi.decideBoard).toHaveBeenCalledWith({ id: ACME_ID, approve: true, name: 'Acme Notes HQ', tagline: 'Notes for small teams', category: 'code' }),
     );
+    expect(await screen.findByText('Acme Notes HQ approved')).toBeTruthy();
+  });
+
+  it('an empty queue has a headline and one sentence', async () => {
+    productsApi.fetchProductQueue.mockResolvedValue([]);
+    renderApp('/admin/products');
+    expect(await screen.findByText('No products waiting')).toBeTruthy();
+    expect(screen.getByText('Products people add wait here for review before they go public.')).toBeTruthy();
+  });
+
+  it('companies: an empty list has a headline and one sentence', async () => {
+    productsApi.fetchCompanies.mockResolvedValue([]);
+    renderApp('/admin/companies');
+    expect(await screen.findByText('No companies yet')).toBeTruthy();
+    expect(screen.getByText('Companies show here when someone adds a product with one, or when you approve one with a product.')).toBeTruthy();
   });
 
   it('rejects with an optional reason', async () => {
     productsApi.fetchProductQueue.mockResolvedValue([QUEUED]);
     renderApp('/admin/products');
-    fireEvent.click(await screen.findByRole('button', { name: 'Reject…' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Reject' }));
     const dialog = await screen.findByRole('dialog', { name: 'Reject Acme Notes?' });
     fireEvent.change(within(dialog).getByLabelText(/^Reason/), { target: { value: 'Not a product' } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Reject' }));
     await waitFor(() => expect(productsApi.decideBoard).toHaveBeenCalledWith({ id: ACME_ID, approve: false, reason: 'Not a product' }));
+    expect(await screen.findByText('Acme Notes rejected')).toBeTruthy();
   });
 
   it('is a plain not-found page for everyone else', async () => {
@@ -654,7 +670,7 @@ describe('admin: companies on new products', () => {
   it('approves a new company with the product, renamed, and edits its domains', async () => {
     productsApi.fetchProductQueue.mockResolvedValue([{ ...QUEUED, hub: PENDING_HUB }]);
     renderApp('/admin/products');
-    fireEvent.click(await screen.findByRole('button', { name: 'Approve…' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Review and approve' }));
     const dialog = await screen.findByRole('dialog', { name: 'Approve Acme Notes?' });
     expect(within(dialog).getByText('New company. Approving the product approves it too.')).toBeTruthy();
     fireEvent.change(within(dialog).getByLabelText(/^Company name/), { target: { value: 'Acme Labs Inc' } });
@@ -681,7 +697,7 @@ describe('admin: companies on new products', () => {
   it('moves the product to an existing company instead', async () => {
     productsApi.fetchProductQueue.mockResolvedValue([{ ...QUEUED, hub: PENDING_HUB }]);
     renderApp('/admin/products');
-    fireEvent.click(await screen.findByRole('button', { name: 'Approve…' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Review and approve' }));
     const dialog = await screen.findByRole('dialog', { name: 'Approve Acme Notes?' });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Change company (Acme Labs)' }));
     const input = within(dialog).getByRole('combobox', { name: /Company/ });
@@ -698,7 +714,7 @@ describe('admin: companies on new products', () => {
   it('can drop the company', async () => {
     productsApi.fetchProductQueue.mockResolvedValue([{ ...QUEUED, hub: PENDING_HUB }]);
     renderApp('/admin/products');
-    fireEvent.click(await screen.findByRole('button', { name: 'Approve…' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Review and approve' }));
     const dialog = await screen.findByRole('dialog', { name: 'Approve Acme Notes?' });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Remove Acme Labs' }));
     fireEvent.click(within(dialog).getByRole('button', { name: 'Approve' }));
@@ -708,7 +724,7 @@ describe('admin: companies on new products', () => {
   it('keeps an unchanged live company without sending a company change', async () => {
     productsApi.fetchProductQueue.mockResolvedValue([{ ...QUEUED, hub: { ...ANTHROPIC, status: 'live' as const, domains: ['claude.ai', 'claude.com'] } }]);
     renderApp('/admin/products');
-    fireEvent.click(await screen.findByRole('button', { name: 'Approve…' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Review and approve' }));
     const dialog = await screen.findByRole('dialog', { name: 'Approve Acme Notes?' });
     expect(within(within(dialog).getByRole('group', { name: /Company/ })).getByText('Anthropic')).toBeTruthy();
     expect(within(dialog).queryByLabelText(/^Company name/)).toBeNull(); // live companies are renamed from their own settings
@@ -720,7 +736,7 @@ describe('admin: companies on new products', () => {
   it('asks for a pick when a name is typed but not chosen', async () => {
     productsApi.fetchProductQueue.mockResolvedValue([{ ...QUEUED, hub: null }]);
     renderApp('/admin/products');
-    fireEvent.click(await screen.findByRole('button', { name: 'Approve…' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Review and approve' }));
     const dialog = await screen.findByRole('dialog', { name: 'Approve Acme Notes?' });
     fireEvent.change(within(dialog).getByRole('combobox', { name: /Company/ }), { target: { value: 'Nobody' } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Approve' }));

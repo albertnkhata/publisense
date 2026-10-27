@@ -10,6 +10,7 @@ import { LoadError, PostListSkeleton } from '../posts/PostList';
 import { useComposer } from '../shell/composer';
 import { AddProductLink } from '../products/AddProductDialog';
 import { Button, Icon, IconButton, TabPanel, Tabs, UserAvatar } from '../ui';
+import { useSetUrlParams } from '../lib/useUrlParam';
 
 /**
  * Search (FOUNDATION §9 `/search?q=`): boards ("Products"), hubs and posts.
@@ -22,6 +23,7 @@ type SearchTab = 'top' | 'posts' | 'products';
 
 export function SearchPage() {
   const [params, setParams] = useSearchParams();
+  const setUrl = useSetUrlParams();
   const urlQ = params.get('q') ?? '';
   const tabParam = params.get('tab');
   const tab: SearchTab = tabParam === 'posts' || tabParam === 'products' ? tabParam : 'top';
@@ -66,12 +68,7 @@ export function SearchPage() {
     inputRef.current?.blur();
   };
 
-  const setTab = (v: SearchTab) => {
-    const next = new URLSearchParams(params);
-    if (v === 'top') next.delete('tab');
-    else next.set('tab', v);
-    setParams(next, { replace: true });
-  };
+  const setTab = (v: SearchTab) => setUrl([['tab', v, 'top']]);
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes } from 'react-router';
 import { rememberSearch } from '../api/boards';
 import type { FeedPage, Post } from '../api/posts';
@@ -376,11 +376,50 @@ describe('explore', () => {
     fireEvent.change(input, { target: { value: 'fig' } });
     expect(await screen.findByRole('heading', { name: 'Results' })).toBeTruthy();
     expect(screen.getByText('2 products')).toBeTruthy();
-    expect(router.state.location.search).toBe('?q=fig');
+    await waitFor(() => expect(router.state.location.search).toBe('?q=fig'));
     fireEvent.change(input, { target: { value: '' } });
     fireEvent.click(screen.getByRole('button', { name: 'Dev platforms' }));
     expect(await screen.findByText('1 product')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Dev platforms' }).getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('keeps every character when typing fast, then puts the query in the URL once', async () => {
+    const { router } = renderAt('/explore?cat=prod');
+    const input = (await screen.findByRole('searchbox', { name: 'Search products' })) as HTMLInputElement;
+    const before = router.state.historyAction;
+    let typed = '';
+    for (const ch of 'figjam') {
+      typed += ch;
+      fireEvent.change(input, { target: { value: typed } });
+      expect(input.value).toBe(typed); // no keystroke reverted by a URL update
+    }
+    await waitFor(() => expect(router.state.location.search).toBe('?cat=prod&q=figjam'));
+    expect(input.value).toBe('figjam');
+    expect(before).toBe('POP');
+    expect(router.state.historyAction).toBe('REPLACE');
+  });
+
+  it('follows the URL when it changes from outside (Back, links)', async () => {
+    const { router } = renderAt('/explore?q=fig');
+    const input = (await screen.findByRole('searchbox', { name: 'Search products' })) as HTMLInputElement;
+    expect(input.value).toBe('fig');
+    await act(async () => {
+      await router.navigate('/explore?q=cur');
+    });
+    expect(input.value).toBe('cur');
+    await act(async () => {
+      await router.navigate(-1);
+    });
+    await waitFor(() => expect(input.value).toBe('fig'));
+  });
+
+  it('a category click while typing keeps both', async () => {
+    const { router } = renderAt('/explore');
+    const input = (await screen.findByRole('searchbox', { name: 'Search products' })) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'sup' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Dev platforms' }));
+    await waitFor(() => expect(router.state.location.search).toBe('?cat=dev&q=sup'));
+    expect(input.value).toBe('sup');
   });
 
   it('shows only category chips that have products, plus the one in the URL', async () => {

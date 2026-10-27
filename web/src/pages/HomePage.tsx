@@ -9,6 +9,7 @@ import { LoadError, PostList, PostListSkeleton } from '../posts/PostList';
 import { useAuthDialog, useRequireAuth } from '../shell/auth';
 import { useComposer } from '../shell/composer';
 import { Button, Card, EmptyState, Icon, Menu, MenuItemRadio, MenuLabel, Tabs, UserAvatar } from '../ui';
+import { useSetUrlParams } from '../lib/useUrlParam';
 
 /**
  * Home feed (FOUNDATION §11 step 5). Scope (All / Following, signed in only) and
@@ -23,16 +24,12 @@ export const SORTS: Array<{ value: FeedSort; label: string; hint: string }> = [
 export function HomePage() {
   usePageTitle(null);
   const { viewer } = useViewer();
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
+  const setUrl = useSetUrlParams();
   const sort: FeedSort = params.get('sort') === 'new' ? 'new' : 'top';
   const scope: FeedScope = viewer && params.get('scope') === 'following' ? 'following' : 'all';
 
-  const set = (key: 'sort' | 'scope', value: string, fallback: string) => {
-    const next = new URLSearchParams(params);
-    if (value === fallback) next.delete(key);
-    else next.set(key, value);
-    setParams(next, { replace: true });
-  };
+  const set = (key: 'sort' | 'scope', value: string, fallback: string) => setUrl([[key, value, fallback]]);
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col gap-4">

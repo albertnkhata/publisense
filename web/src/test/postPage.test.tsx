@@ -14,7 +14,7 @@ import {
 } from '../api/posts';
 import { PostPage } from '../pages/PostPage';
 import { renderWith, TEST_VIEWER } from './renderApp';
-import { iso, makePost, makeReply, ME, OTHER } from './postFixtures';
+import { BOARD, iso, makePost, makeReply, ME, OTHER } from './postFixtures';
 
 const api = vi.hoisted(() => ({
   fetchPost: vi.fn(),
@@ -57,6 +57,23 @@ beforeEach(() => {
 });
 
 describe('post page', () => {
+  it('shows Pending review on a post whose board waits for review, worded for its author', async () => {
+    renderPost(makePost({ title: 'Sync loses edits', author_id: TEST_VIEWER.id, author: ME, board: { ...BOARD, name: 'Muse', status: 'pending' } }));
+    const note = (await screen.findByText('Pending review.')).closest('[role="status"]');
+    expect(note?.textContent).toBe('Pending review. Muse is waiting for review. Until it’s approved, only you can see it and what you post on it.');
+  });
+
+  it('words the pending notice for staff reading someone else’s post', async () => {
+    renderPost(makePost({ title: 'Sync loses edits', board: { ...BOARD, name: 'Muse', status: 'pending' } }));
+    expect((await screen.findByText('Pending review.')).closest('[role="status"]')?.textContent).toMatch(/only the person who added it and the Publisense team can see it\.$/);
+  });
+
+  it('shows no pending notice once the board is approved', async () => {
+    renderPost(makePost({ title: 'Sync loses edits', board: { ...BOARD, status: 'live' } }));
+    expect(await screen.findByText('Sync loses edits')).toBeTruthy();
+    expect(screen.queryByText(/Pending review/)).toBeNull();
+  });
+
   it('sets the tab title to the post title (#159)', async () => {
     renderPost(makePost({ title: 'Ghost preview in split windows' }));
     await waitFor(() => expect(document.title).toBe('Ghost preview in split windows · Publisense'));

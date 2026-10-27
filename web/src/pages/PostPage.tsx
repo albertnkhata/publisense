@@ -50,11 +50,13 @@ export function PostPage() {
 
 function PostBody({ post }: { post: Post }) {
   const navigate = useNavigate();
+  const { viewer } = useViewer();
   const showTimeline = post.status !== 'open';
   const events = useStatusEvents(post.id, showTimeline);
   return (
     <>
       {post.status === 'merged' && post.merged_into ? <MergedNotice post={post} targetId={post.merged_into} events={events.data} /> : null}
+      {post.board?.status === 'pending' ? <PendingBoardNotice post={post} own={Boolean(viewer && viewer.id === post.author_id)} /> : null}
       {post.hidden_at ? (
         <p className="m-0 flex items-center gap-2 rounded-md border border-line bg-subtle px-4 py-3 text-sm text-ink-secondary">
           <Icon name="eye-off" size={16} />
@@ -66,6 +68,25 @@ function PostBody({ post }: { post: Post }) {
       <ReplySection post={post} />
       <Related post={post} />
     </>
+  );
+}
+
+/**
+ * The post's board is still waiting for review (0024): only its submitter and
+ * Publisense staff can read the board and its posts. Same wording as the composer.
+ */
+function PendingBoardNotice({ post, own }: { post: Post; own: boolean }) {
+  const name = post.board?.name ?? 'This product';
+  return (
+    <div role="status" className="flex items-start gap-2 rounded-md border border-line bg-subtle px-4 py-3 text-sm text-ink-secondary">
+      <Icon name="status-review" size={16} className="shrink-0" />
+      <p className="m-0">
+        <span className="font-semibold text-ink">Pending review.</span>{' '}
+        {own
+          ? `${name} is waiting for review. Until it’s approved, only you can see it and what you post on it.`
+          : `${name} is waiting for review. Until it’s approved, only the person who added it and the Publisense team can see it.`}
+      </p>
+    </div>
   );
 }
 

@@ -29,6 +29,7 @@ import { useViewer } from '../lib/viewer';
 import { LoadError, PostList, PostListSkeleton } from '../posts/PostList';
 import { useComposer } from '../shell/composer';
 import { BoardAvatar, Button, EmptyState, Icon, IconButton, Menu, MenuItem, Skeleton, SkeletonBlock } from '../ui';
+import { useSetUrlParams } from '../lib/useUrlParam';
 
 /**
  * Board page (FOUNDATION §9 `/b/:board`): header, then Feedback (filters by
@@ -98,7 +99,8 @@ export function BoardPage() {
 function Board({ board }: { board: BoardWithHub }) {
   const { viewer } = useViewer();
   const { openComposer } = useComposer();
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
+  const setUrl = useSetUrlParams();
   const tabParam = params.get('tab');
   const tab: BoardTab = tabParam === 'roadmap' || tabParam === 'changelog' ? tabParam : 'feedback';
   const ids = useMemo(() => [board.id], [board.id]);
@@ -106,14 +108,8 @@ function Board({ board }: { board: BoardWithHub }) {
   const team = useIsBoardTeam(board.id, viewer?.id ?? null);
 
   /** Set URL params; a value equal to its default is removed. Tab changes add a history entry. */
-  const update = (changes: Array<[key: string, value: string, fallback: string]>) => {
-    const next = new URLSearchParams(params);
-    for (const [key, value, fallback] of changes) {
-      if (value === fallback) next.delete(key);
-      else next.set(key, value);
-    }
-    setParams(next, { replace: !changes.some(([k]) => k === 'tab') });
-  };
+  const update = (changes: Array<[key: string, value: string, fallback: string]>) =>
+    setUrl(changes, { replace: !changes.some(([k]) => k === 'tab') });
   const setParam = (key: string, value: string, fallback: string) => update([[key, value, fallback]]);
 
   return (

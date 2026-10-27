@@ -34,6 +34,8 @@ export interface BoardRef {
   name: string;
   color: string;
   logo_path: string | null;
+  /** 'pending' while the board waits for review; readers then are its creator and staff. */
+  status?: 'pending' | 'live' | 'rejected';
 }
 
 export interface OfficialReply {
@@ -81,7 +83,7 @@ export interface FeedPage {
 export const FEED_PAGE_SIZE = 20;
 
 const PERSON = 'id, handle, name, avatar_path';
-const BOARD = 'id, slug, name, color, logo_path';
+const BOARD = 'id, slug, name, color, logo_path, status';
 export const POST_SELECT =
   'id, board_id, author_id, source_url, source_author, platform, type, status, title, body, merged_into, hidden_at, edited_at, created_at, vote_count, reply_count, ' +
   `author:profile!author_id(${PERSON}), board:board!board_id(${BOARD})`;

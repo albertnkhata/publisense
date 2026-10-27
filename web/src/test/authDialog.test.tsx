@@ -8,6 +8,7 @@ const api = vi.hoisted(() => ({
   signInWithPassword: vi.fn(),
   signUp: vi.fn(),
   requestPasswordReset: vi.fn(),
+  resendSignupConfirmation: vi.fn(),
   signInWithGoogle: vi.fn(),
   fetchAuthCapabilities: vi.fn(),
 }));
@@ -19,6 +20,7 @@ vi.mock('../api/auth', async (importOriginal) => {
     signInWithPassword: api.signInWithPassword,
     signUp: api.signUp,
     requestPasswordReset: api.requestPasswordReset,
+    resendSignupConfirmation: api.resendSignupConfirmation,
     signInWithGoogle: api.signInWithGoogle,
     useAuthCapabilities: () => api.fetchAuthCapabilities(),
   };
@@ -135,6 +137,68 @@ describe('AuthDialog: sign up', () => {
     submit('Create account');
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(await screen.findByText('Account created')).toBeTruthy();
+  });
+});
+
+describe('AuthDialog: confirm your email', () => {
+  async function signUpNia() {
+    api.signUp.mockResolvedValue({ error: null, needsConfirmation: true });
+    open('signup');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), { target: { value: 'Nia' } });
+    fireEvent.change(email(), { target: { value: 'new@b.co' } });
+    fireEvent.change(password(), { target: { value: 'Long-enough-1' } });
+    await act(async () => submit('Create account'));
+    expect(screen.getByRole('dialog', { name: 'Confirm your email' })).toBeTruthy();
+  }
+
+  it('offers Resend email a minute after sending, then waits another minute', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: false, toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    try {
+      api.resendSignupConfirmation.mockResolvedValue({ error: null });
+      await signUpNia();
+      expect(screen.getByText('Didn’t get it? You can resend it in a minute.')).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Resend email' })).toBeNull();
+      await act(async () => {
+        vi.advanceTimersByTime(60_000);
+      });
+      await act(async () => submit('Resend email'));
+      expect(api.resendSignupConfirmation).toHaveBeenCalledWith('new@b.co');
+      expect(screen.getByText('Confirmation email sent')).toBeTruthy();
+      expect(screen.getByText(/Sent again\. Check your spam folder too\. You can resend in a minute\./)).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Resend email' })).toBeNull();
+      await act(async () => {
+        vi.advanceTimersByTime(60_000);
+      });
+      expect(screen.getByRole('button', { name: 'Resend email' })).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('shows friendly copy when the resend is throttled', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: false, toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    try {
+      api.resendSignupConfirmation.mockResolvedValue({ error: 'We just sent one. Wait a minute, then try again.' });
+      await signUpNia();
+      await act(async () => {
+        vi.advanceTimersByTime(60_000);
+      });
+      await act(async () => submit('Resend email'));
+      expect(alert()).toBe('We just sent one. Wait a minute, then try again.');
+      expect(screen.queryByRole('button', { name: 'Resend email' })).toBeNull(); // a fresh minute
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('goes back to sign-up with the email kept and editable', async () => {
+    await signUpNia();
+    submit('Use a different email');
+    expect(screen.getByRole('dialog', { name: 'Create your account' })).toBeTruthy();
+    expect((email() as HTMLInputElement).value).toBe('new@b.co');
+    expect((screen.getByRole('textbox', { name: 'Name' }) as HTMLInputElement).value).toBe('Nia');
+    fireEvent.change(email(), { target: { value: 'nia@b.co' } });
+    expect((email() as HTMLInputElement).value).toBe('nia@b.co');
   });
 });
 
