@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { deletePost, fetchFeed, fetchPost, setVote, FEED_PAGE_SIZE } from '../api/posts';
+import { deletePost, fetchFeed, fetchPost, setVote, updatePost, FEED_PAGE_SIZE } from '../api/posts';
 
 /*
  * The api layer against a recording stand-in for the Supabase query builder:
@@ -10,7 +10,7 @@ type Call = [string, ...unknown[]];
 const db = vi.hoisted(() => ({
   calls: {} as Record<string, Call[][]>,
   rows: {} as Record<string, unknown[]>,
-  errors: {} as Record<string, { code?: string; message: string } | null>,
+  errors: {} as Record<string, { code?: string; message: string; hint?: string } | null>,
 }));
 
 vi.mock('../api/supabase', () => {
@@ -111,6 +111,14 @@ describe('fetchPost and writes', () => {
   it('only sends post_id when voting (user_id comes from the session)', async () => {
     await setVote('p1', 'me', true);
     expect(has(only('vote'), 'insert', { post_id: 'p1' })).toBe(true);
+  });
+
+  it('explains an edit the database refuses after the window or once shipped/closed (0045)', async () => {
+    const draft = { type: 'bug' as const, title: 'A title', body: '' };
+    db.errors.post = { code: '42501', message: 'x', hint: 'edit_window_closed' };
+    await expect(updatePost('p1', draft)).rejects.toThrow('Posts can be edited for 1 hour after posting.');
+    db.errors.post = { code: '42501', message: 'x', hint: 'edit_locked_status' };
+    await expect(updatePost('p1', draft)).rejects.toThrow('This post can’t be edited any more: the team has shipped or closed it.');
   });
 
   it('reports a delete that RLS filtered out (zero rows) as a failure', async () => {

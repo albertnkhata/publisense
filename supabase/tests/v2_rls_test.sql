@@ -708,8 +708,11 @@ select pg_temp.expect('step 8: ... gina and bob follow the target, and the merge
      and user_id in ('00000000-0000-4000-8000-000000000071', '00000000-0000-4000-8000-00000000000b')) = 2
   and (select cardinality(moved_voters) = 1 and cardinality(moved_followers) = 2 from public.merge_record, s8 where source_post_id = s8.src));
 select pg_temp.as_user(null);
-select pg_temp.expect('step 8: the merged-away post is gone for the public',
-  not exists (select 1 from public.post, s8 where post.id = s8.src));
+-- 0043: the merged post's permalink stays readable (it shows "Merged into …"); lists
+-- leave it out by filtering status <> 'merged' themselves.
+select pg_temp.expect('step 8: the merged-away post stays readable by the public and points at the target (0043)',
+  exists (select 1 from public.post, s8 where post.id = s8.src and status = 'merged' and merged_into = s8.dst)
+  and exists (select 1 from public.status_event, s8 where post_id = s8.src and "to" = 'merged'));
 select pg_temp.as_user('00000000-0000-4000-8000-00000000000b');
 select pg_temp.expect('step 8: the duplicate''s voters are told where it went',
   exists (select 1 from public.notification, s8 where kind = 'status_change' and target_id = s8.src

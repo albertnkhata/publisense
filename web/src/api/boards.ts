@@ -317,6 +317,8 @@ export async function fetchTrending(boards: Board[], limit = 4, now: Date = new 
     .select('board_id')
     .gte('created_at', since)
     .is('hidden_at', null)
+    // Merged posts are readable at their permalink (0043) but never count as activity.
+    .neq('status', 'merged')
     .limit(500);
   if (error) throw error;
   return rankTrending(boards, (data ?? []) as Array<{ board_id: string }>, limit);

@@ -1,14 +1,15 @@
 import { useState, type KeyboardEvent } from 'react';
-import { REPLY_MAX, useCreateReply, useSetPostStatus, type Post, type PostStatus } from '../api';
+import { STATUS_NOTE_MAX, useSetPostStatus, type Post, type PostStatus } from '../api';
 import { cx } from '../lib/cx';
-import { useViewer } from '../lib/viewer';
 import { Button, Dialog, Field, Icon, STATUS_META, Textarea, useToast } from '../ui';
 
 /**
- * "Update status" for the board's team (mockup us-modal): pick a status, add an
- * optional official reply that is pinned to the top of the replies with the team
- * badge. set_post_status writes the status_event and notifies everyone who follows
- * the post (voters follow automatically), so there is no "don't notify" switch.
+ * "Update status" for the board's team (mockup us-modal): pick a status and add an
+ * optional note. One call to set_post_status (0044) records the change and the note
+ * together on the post's status timeline and sends followers ONE notification that
+ * carries the note (voters follow automatically), so there is no "don't notify"
+ * switch. The note is not a reply: a pinned team reply is written in the reply box
+ * on the post ("Reply as {board} team"), deliberately separate from this dialog.
  */
 export const TEAM_STATUSES: PostStatus[] = ['open', 'under_review', 'planned', 'in_progress', 'shipped', 'closed'];
 
@@ -22,7 +23,7 @@ export const STATUS_HINT: Record<PostStatus, string> = {
   merged: 'Merged into another post',
 };
 
-/** The mockup's example official replies, shown as placeholders. */
+/** Example notes per status, shown as placeholders. */
 const EXAMPLE: Partial<Record<PostStatus, string>> = {
   under_review: 'We’re looking into this and will update the post when we know more.',
   planned: 'This is on the roadmap. We’ll post here when work starts.',
@@ -36,24 +37,23 @@ export function statusToast(to: PostStatus): string {
 }
 
 export function StatusDialog({ post, open, onClose }: { post: Post; open: boolean; onClose: () => void }) {
-  const { viewer } = useViewer();
   const { toast } = useToast();
   const setStatus = useSetPostStatus();
-  const reply = useCreateReply(post, viewer?.id ?? null);
   const [sel, setSel] = useState<PostStatus>(post.status === 'merged' ? 'open' : post.status);
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const busy = setStatus.isPending || reply.isPending;
+  const busy = setStatus.isPending;
   const changed = sel !== post.status;
-  const canSave = changed || Boolean(note.trim());
+  // A note belongs to a status change; a message on its own is a team reply on the post.
+  const canSave = changed;
+  const team = post.board ? `${post.board.name} team` : 'the team';
 
   const save = async () => {
     if (!canSave || busy) return;
     setError(null);
     try {
-      if (changed) await setStatus.mutateAsync({ postId: post.id, to: sel });
-      if (note.trim()) await reply.mutateAsync({ body: note, parentId: null, official: true });
-      toast(changed ? statusToast(sel) : 'Official reply posted');
+      await setStatus.mutateAsync({ postId: post.id, to: sel, ...(note.trim() ? { note } : {}) });
+      toast(statusToast(sel));
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'We couldn’t update the status. Try again.');
@@ -112,18 +112,27 @@ export function StatusDialog({ post, open, onClose }: { post: Post; open: boolea
           );
         })}
       </div>
-      <Field label="Official reply" optional hint="Pinned to the top of the replies with your team badge." error={error}>
+      <Field
+        label="Note (shown on the timeline)"
+        optional
+        hint={
+          !changed && note.trim()
+            ? 'Pick a new status to save a note with it.'
+            : `Saved with this change on the post’s status timeline. For a pinned team reply, reply on the post as ${team}.`
+        }
+        error={error}
+      >
         <Textarea
           rows={3}
-          maxLength={REPLY_MAX}
+          maxLength={STATUS_NOTE_MAX}
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder={EXAMPLE[sel] ? `e.g. ${EXAMPLE[sel]}` : 'Tell people what this means for them'}
+          placeholder={EXAMPLE[sel] ? `e.g. ${EXAMPLE[sel]}` : 'What this change means for people following it'}
         />
       </Field>
       <p className="mt-3 mb-0 flex items-center gap-2 text-sm text-ink-muted">
         <Icon name="bell" size={14} />
-        Followers and upvoters are notified of the change.
+        Followers and upvoters get one notification with the new status and your note.
       </p>
     </Dialog>
   );

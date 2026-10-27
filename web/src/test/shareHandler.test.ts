@@ -45,6 +45,21 @@ describe('share handler status', () => {
     expect((await call('post', '00000000-0000-0000-0000-000000000000')).status).toBe(404);
   });
 
+  it('answers 200 for a merged post (readable since 0043) with the target as canonical', async () => {
+    mockFetch([{ id: '00000000-0000-4000-8000-000000000001', title: 'Composer drops edits', body: '', status: 'merged', merged_into: '00000000-0000-4000-8000-000000000002', board: { name: 'Cursor' }, merged: { id: '00000000-0000-4000-8000-000000000002', title: 'Caret lost' } }]);
+    const r = await call('post', '00000000-0000-4000-8000-000000000001');
+    expect(r.status).toBe(200);
+    expect(r.body).toContain('Composer drops edits');
+  });
+
+  it('asks for the merge target with the post, and never for hidden posts', async () => {
+    mockFetch([]);
+    await call('post', '00000000-0000-4000-8000-000000000001');
+    const url = String(vi.mocked(fetch).mock.calls.find(([u]) => String(u).includes('/rest/v1/post'))?.[0]);
+    expect(url).toContain('merged:merged_into(id,title)');
+    expect(url).toContain('hidden_at=is.null');
+  });
+
   it('answers 404 for a key that cannot name anything', async () => {
     mockFetch([]);
     expect((await call('post', 'not-a-uuid')).status).toBe(404);

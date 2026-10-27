@@ -27,12 +27,13 @@ _derived from `docs/v2/BUILD.md` checkbox state · one PR per step, see `docs/v2
 - [x] 8. Moderation and people
 - [x] 9. Cutover
 
-- v2 web tests (`web/src/**/*.test.ts(x)`): **37** files, **386** declared cases
+- v2 web tests (`web/src/**/*.test.ts(x)`): **38** files, **409** declared cases
 
 ### Open decisions and risks
 
 _derived from `docs/deferred.md` · the ids link to the entry, which is canonical_
 
+- **D-015** · Replies have no edit window
 - **D-012** · The Google consent screen shows no app logo — revisit: when a distinctive brand mark exists, or if a sensitive scope forces a review anyway
 - **D-007** · Background rows for other users have no email in the client
 - **D-003** · Test coverage is narrow — no automatic user-flow test in CI
@@ -77,6 +78,7 @@ _CI steps read from `.github/workflows/ci.yml`; v2 test counts are under v2 buil
 - CI · Live smoke suite (on CI data): `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_live_smoke.sql`
 - CI · v2 email batching tests: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_email_batching_test.sql`
 - CI · v2 vote privacy tests: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_vote_privacy_test.sql`
+- CI · v2 feedback loop tests: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_feedback_loop_test.sql`
 - CI · Report public read-policy count: inline script
 
 <!-- status:repo-derived:end -->

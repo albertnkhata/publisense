@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes } from 'react-router';
 import type { FeedPage, Post } from '../api/posts';
 import type { Member } from '../api/teams';
-import { ClaimProvider } from '../claim/ClaimDialog';
+import { ClaimProvider, useClaim } from '../claim/ClaimDialog';
 import { BoardManagePage, HubManagePage } from '../manage/ManagePage';
 import { BoardPage } from '../pages/BoardPage';
 import { HubPage } from '../pages/HubPage';
@@ -128,7 +128,118 @@ beforeEach(() => {
   teamsApi.addMember.mockResolvedValue({ handle: 'hank' });
 });
 
+function GenericClaimButton() {
+  const { openClaim } = useClaim();
+  return <button onClick={() => openClaim()}>Claim your board</button>;
+}
+
+function renderGeneric(signedIn = true) {
+  return renderWith(<ClaimProvider><GenericClaimButton /></ClaimProvider>, { viewer: signedIn ? TEST_VIEWER : null });
+}
+
+describe('generic claim overview', () => {
+  it('explains before search, supports Back and preserves the query', async () => {
+    renderGeneric();
+    fireEvent.click(screen.getByRole('button', { name: 'Claim your board' }));
+    const overview = await screen.findByRole('dialog', { name: 'Claim your board' });
+    expect(within(overview).getByText('How it works')).toBeTruthy();
+    expect(within(overview).queryByRole('searchbox')).toBeNull();
+    fireEvent.click(within(overview).getByRole('button', { name: 'Get started' }));
+    const picker = await screen.findByRole('dialog', { name: 'Choose your board' });
+    fireEvent.change(within(picker).getByRole('searchbox'), { target: { value: 'Cursor' } });
+    fireEvent.click(within(picker).getByRole('button', { name: 'Back to overview' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Get started' }));
+    expect((screen.getByRole('searchbox') as HTMLInputElement).value).toBe('Cursor');
+    fireEvent.click(await screen.findByRole('button', { name: /Cursor/ }));
+    const intro = await screen.findByRole('dialog', { name: 'Claim Cursor' });
+    expect(within(intro).queryByText('Your selected board')).toBeNull();
+    expect(within(intro).queryByRole('button', { name: 'Choose a different board' })).toBeNull();
+    fireEvent.click(within(intro).getByRole('button', { name: 'Back' }));
+    expect(await screen.findByRole('dialog', { name: 'Choose your board' })).toBeTruthy();
+    expect(teamsApi.startEmailCode).not.toHaveBeenCalled();
+    expect(teamsApi.claimBoard).not.toHaveBeenCalled();
+  });
+
+  it('signed out, Get started on the overview goes to sign-up for claiming, with no second explanation', async () => {
+    renderGeneric(false);
+    const opener = screen.getByRole('button', { name: 'Claim your board' });
+    opener.focus();
+    fireEvent.click(opener);
+    const overview = await screen.findByRole('dialog', { name: 'Claim your board' });
+    expect(within(overview).queryByText('Choose your product’s board.')).toBeNull();
+    fireEvent.click(within(overview).getByRole('button', { name: 'Get started' }));
+    const auth = await screen.findByRole('dialog', { name: 'Create your account' });
+    expect(within(auth).getByText('Create an account to claim your product’s board. It takes a few seconds.')).toBeTruthy();
+    expect(screen.queryByRole('dialog', { name: 'Claim your board' })).toBeNull();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(await screen.findByRole('dialog', { name: 'Claim your board' })).toBeTruthy();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(opener));
+  });
+
+  it('remembers where a signed-out visitor was heading and resumes at product search after they return signed in', async () => {
+    localStorage.clear();
+    renderGeneric(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Claim your board' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Get started' }));
+    await screen.findByRole('dialog', { name: 'Create your account' });
+    expect(JSON.parse(localStorage.getItem('publisense:claim-intent') ?? '{}').at).toBeTypeOf('number');
+    cleanup();
+    renderGeneric(true);
+    const picker = await screen.findByRole('dialog', { name: 'Choose your board' });
+    expect(await within(picker).findByRole('searchbox')).toBeTruthy();
+    expect(localStorage.getItem('publisense:claim-intent')).toBeNull();
+  });
+
+  it('ignores an expired remembered claim', async () => {
+    localStorage.setItem('publisense:claim-intent', JSON.stringify({ at: Date.now() - 2 * 60 * 60 * 1000 }));
+    renderGeneric(true);
+    await waitFor(() => expect(localStorage.getItem('publisense:claim-intent')).toBeNull());
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('opens the overview even if the board list fails and offers a retry in selection', async () => {
+    boardsApi.fetchBoards.mockRejectedValue(new Error('Offline'));
+    renderGeneric();
+    fireEvent.click(screen.getByRole('button', { name: 'Claim your board' }));
+    expect(await screen.findByText('How it works')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Get started' }));
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+  });
+});
+
 describe('claim a board', () => {
+  it('explains claiming and verification in-place before asking a signed-out visitor to sign up (#157)', async () => {
+    renderAt('/b/cursor', false);
+    fireEvent.click(await screen.findByRole('button', { name: 'Work at Cursor?' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Claim Cursor' });
+    expect(within(dialog).getByText('Get a verified badge on your board and your team’s replies')).toBeTruthy();
+    expect(within(dialog).getByText('Set statuses, pin official replies and run the roadmap')).toBeTruthy();
+    expect(within(dialog).getByText(/Verify with a 6-digit code sent to your/)).toBeTruthy();
+    expect(within(dialog).getByText('@cursor.com')).toBeTruthy();
+    expect(within(dialog).queryByLabelText('Your work email')).toBeNull();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Get started' }));
+    const auth = await screen.findByRole('dialog', { name: 'Create your account' });
+    expect(within(auth).getByText('Create an account to claim your product’s board. It takes a few seconds.')).toBeTruthy();
+  });
+
+  it('lets a signed-out visitor on a claimed board see both options before signing in (#157)', async () => {
+    boardsApi.fetchBoard.mockResolvedValue(CLAIMED);
+    boardsApi.fetchBoards.mockResolvedValue([CLAIMED, FIGJAM, FIGMA]);
+    renderAt('/b/cursor', false);
+    fireEvent.click(await screen.findByRole('button', { name: 'Work here?' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Cursor is already claimed' });
+    expect(within(dialog).getByRole('button', { name: /Request to join the team/ })).toBeTruthy();
+    expect(within(dialog).getByRole('button', { name: /Report the wrong owner/ })).toBeTruthy();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: /Request to join the team/ }));
+    const auth = await screen.findByRole('dialog', { name: 'Sign in to Publisense' });
+    expect(within(auth).getByText('Sign in to claim your product’s board. It takes a few seconds.')).toBeTruthy();
+  });
+
   it('verifies a work email with a code, then claims the board', async () => {
     renderAt('/b/cursor');
     fireEvent.click(await screen.findByRole('button', { name: 'Work at Cursor?' }));
@@ -323,21 +434,35 @@ describe('Manage inbox', () => {
 });
 
 describe('status updates and official replies', () => {
-  it('sets the status and posts the note as an official reply', async () => {
+  it('sets the status with the note in ONE call; the note goes on the timeline, not into a reply (0044)', async () => {
     const post = makePost({ title: 'Settings sync between machines' });
-    postsApi.createReply.mockResolvedValue({
-      id: 'c1', post_id: post.id, parent_id: null, author_id: ME.id, body: 'Live now.', is_official: true, hidden_at: null, edited_at: null, created_at: new Date().toISOString(), author: ME,
-    });
     const onClose = vi.fn();
     renderWith(<StatusDialog post={post} open onClose={onClose} />, { viewer: TEST_VIEWER });
     const save = screen.getByRole('button', { name: 'Update status' });
     expect((save as HTMLButtonElement).disabled).toBe(true);
+    const note = screen.getByLabelText(/Note \(shown on the timeline\)/);
+    expect(screen.getByText(/Saved with this change on the post’s status timeline\. For a pinned team reply, reply on the post as Cursor team\./)).toBeTruthy();
+    // A note on its own is not a status change: Save stays off and says why.
+    fireEvent.change(note, { target: { value: 'Live now.' } });
+    expect((save as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText('Pick a new status to save a note with it.')).toBeTruthy();
     fireEvent.click(screen.getByRole('radio', { name: /Shipped/ }));
-    fireEvent.change(screen.getByLabelText(/Official reply/), { target: { value: 'Live now.' } });
+    expect(screen.getByText('Followers and upvoters get one notification with the new status and your note.')).toBeTruthy();
     fireEvent.click(save);
-    await waitFor(() => expect(teamsApi.setPostStatus).toHaveBeenCalledWith(post.id, 'shipped'));
-    await waitFor(() => expect(postsApi.createReply).toHaveBeenCalledWith(post.id, 'Live now.', null, true));
+    await waitFor(() => expect(teamsApi.setPostStatus).toHaveBeenCalledWith(post.id, 'shipped', 'Live now.'));
+    expect(teamsApi.setPostStatus).toHaveBeenCalledTimes(1);
+    expect(postsApi.createReply).not.toHaveBeenCalled();
     await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(await screen.findByText('Marked Shipped · followers notified')).toBeTruthy();
+  });
+
+  it('a status change without a note sends no note', async () => {
+    const post = makePost({ status: 'planned' });
+    renderWith(<StatusDialog post={post} open onClose={vi.fn()} />, { viewer: TEST_VIEWER });
+    fireEvent.click(screen.getByRole('radio', { name: /In progress/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Update status' }));
+    await waitFor(() => expect(teamsApi.setPostStatus).toHaveBeenCalledWith(post.id, 'in_progress'));
+    expect(postsApi.createReply).not.toHaveBeenCalled();
   });
 
   it('offers "Reply as {board} team" to team members', async () => {
