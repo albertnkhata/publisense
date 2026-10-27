@@ -202,6 +202,9 @@ export function editLockReason(p: Pick<Post, 'status' | 'created_at'>, now: Date
 
 export const TITLE_MIN = 3;
 export const TITLE_MAX = 140;
+/** Shown live as soon as a title runs over (#171): the text is kept, never cut. */
+export const TITLE_TOO_LONG = `Titles can be up to ${TITLE_MAX} characters.`;
+export const TITLE_TOO_SHORT = `Give it a title of at least ${TITLE_MIN} characters.`;
 export const BODY_MAX = 10_000;
 export const REPLY_MAX = 5_000;
 /** status_event.note (0016). */
@@ -229,8 +232,8 @@ export type PostErrors = Partial<Record<keyof PostDraft, string>>;
 export function validatePost(d: PostDraft): PostErrors {
   const e: PostErrors = {};
   const title = d.title.trim();
-  if (title.length < TITLE_MIN) e.title = `Give it a title of at least ${TITLE_MIN} characters.`;
-  else if (title.length > TITLE_MAX) e.title = `Keep the title to ${TITLE_MAX} characters.`;
+  if (title.length < TITLE_MIN) e.title = TITLE_TOO_SHORT;
+  else if (title.length > TITLE_MAX) e.title = TITLE_TOO_LONG;
   if (d.body.length > BODY_MAX) e.body = `Keep the details to ${BODY_MAX.toLocaleString('en')} characters.`;
   if (d.type !== 'bug' && d.type !== 'friction' && d.type !== 'feature') e.type = 'Pick a type.';
   return e;

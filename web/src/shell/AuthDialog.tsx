@@ -50,9 +50,15 @@ const COPY: Record<AuthMode, { title: string; sub: string; submit: string }> = {
   confirm: { title: 'Confirm your email', sub: '', submit: 'Back to sign in' },
 };
 
+/**
+ * Why the dialog closed: `done` after signing in, creating an account or sending
+ * a confirmation/reset email; `cancel` when the visitor backed out before that.
+ */
+export type AuthCloseReason = 'done' | 'cancel';
+
 export interface AuthDialogProps {
   open: boolean;
-  onClose: () => void;
+  onClose: (how?: AuthCloseReason) => void;
   initialMode?: AuthMode;
   /**
    * Gated action, e.g. "upvote": the sub line becomes "Sign in to upvote. It takes a few seconds."
@@ -141,7 +147,7 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
       if (mode === 'signin') {
         const r = await signInWithPassword(email, password);
         if (r.error) return fail(r.error);
-        onClose();
+        onClose('done');
         toast('Signed in');
         return;
       }
@@ -154,7 +160,7 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
         setMode('confirm');
         return;
       }
-      onClose();
+      onClose('done');
       toast('Account created');
     } finally {
       setBusy(false);
@@ -202,6 +208,11 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
     if (r.error) setError(r.error);
   }
 
+  // Esc, Close or outside click. Once a confirmation or reset email has gone out
+  // the visitor has done their part, so that counts as finished, not backing out.
+  const dismiss = () => onClose(mode === 'confirm' || mode === 'sent' ? 'done' : 'cancel');
+  const leave = () => onClose('cancel');
+
   const c = COPY[mode];
   const sub =
     keepReason && reason
@@ -215,7 +226,7 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
   const linkClass = 'border-0 bg-transparent p-0 font-semibold text-ink no-underline hover:underline cursor-pointer';
 
   return (
-    <Dialog open={open} onClose={onClose} title={c.title} hideTitle initialFocus={focusTarget}>
+    <Dialog open={open} onClose={dismiss} title={c.title} hideTitle initialFocus={focusTarget}>
       <form noValidate onSubmit={submit} className="-mt-4 flex flex-col text-center">
         <span className="mb-3 inline-grid place-items-center text-brand" aria-hidden="true">
           <BrandGlyph size={26} />
@@ -340,11 +351,11 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
         </p>
         <p className="mt-2 mb-0 text-xs text-ink-muted">
           By continuing you agree to the{' '}
-          <Link to="/terms" onClick={onClose} className="text-ink-muted underline underline-offset-2">
+          <Link to="/terms" onClick={leave} className="text-ink-muted underline underline-offset-2">
             Terms
           </Link>{' '}
           and{' '}
-          <Link to="/privacy" onClick={onClose} className="text-ink-muted underline underline-offset-2">
+          <Link to="/privacy" onClick={leave} className="text-ink-muted underline underline-offset-2">
             Privacy Policy
           </Link>
           .

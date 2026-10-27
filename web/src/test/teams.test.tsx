@@ -48,6 +48,8 @@ const boardsApi = vi.hoisted(() => ({
   fetchFollowedScopes: vi.fn(),
   fetchTrending: vi.fn(),
 }));
+const authApi = vi.hoisted(() => ({ signUp: vi.fn() }));
+vi.mock('../api/auth', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/auth')>()), ...authApi }));
 const postsApi = vi.hoisted(() => ({
   fetchPostList: vi.fn(),
   fetchRoadmap: vi.fn(),
@@ -189,6 +191,56 @@ describe('generic claim overview', () => {
     renderGeneric(true);
     const picker = await screen.findByRole('dialog', { name: 'Choose your board' });
     expect(await within(picker).findByRole('searchbox')).toBeTruthy();
+    expect(localStorage.getItem('publisense:claim-intent')).toBeNull();
+  });
+
+  it('forgets the claim when the visitor backs out of sign-up, so a later sign-in doesn’t reopen it', async () => {
+    localStorage.clear();
+    renderGeneric(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Claim your board' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Get started' }));
+    const auth = await screen.findByRole('dialog', { name: 'Create your account' });
+    expect(localStorage.getItem('publisense:claim-intent')).not.toBeNull();
+    fireEvent.click(within(auth).getByRole('button', { name: 'Close' }));
+    expect(localStorage.getItem('publisense:claim-intent')).toBeNull();
+    // Later, an unrelated sign-in: no claim dialog.
+    cleanup();
+    renderGeneric(true);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('forgets a product-scoped claim when sign-up is dismissed with Escape', async () => {
+    localStorage.clear();
+    renderAt('/b/cursor', false);
+    fireEvent.click(await screen.findByRole('button', { name: /Work at Cursor/ }));
+    const intro = await screen.findByRole('dialog', { name: 'Claim Cursor' });
+    fireEvent.click(within(intro).getByRole('button', { name: 'Get started' }));
+    await screen.findByRole('dialog', { name: 'Create your account' });
+    expect(JSON.parse(localStorage.getItem('publisense:claim-intent') ?? '{}').board).toBe('cursor');
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(localStorage.getItem('publisense:claim-intent')).toBeNull();
+  });
+
+  it('keeps the claim through a completed sign-up and resumes it after the email is confirmed', async () => {
+    localStorage.clear();
+    authApi.signUp.mockResolvedValue({ error: null, needsConfirmation: true });
+    renderGeneric(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Claim your board' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Get started' }));
+    const auth = await screen.findByRole('dialog', { name: 'Create your account' });
+    fireEvent.change(within(auth).getByRole('textbox', { name: 'Name' }), { target: { value: 'Nia' } });
+    fireEvent.change(within(auth).getByRole('textbox', { name: 'Email address' }), { target: { value: 'nia@cursor.com' } });
+    fireEvent.change(within(auth).getByLabelText('Password'), { target: { value: 'Long-enough-1' } });
+    fireEvent.click(within(auth).getByRole('button', { name: 'Create account' }));
+    const confirm = await screen.findByRole('dialog', { name: 'Confirm your email' });
+    // Closing the “Confirm your email” screen is not backing out: the email is on its way.
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Close' }));
+    expect(localStorage.getItem('publisense:claim-intent')).not.toBeNull();
+    // The confirmation link signs them in (here, a fresh tab): the claim picks up at product search.
+    cleanup();
+    renderGeneric(true);
+    expect(await screen.findByRole('dialog', { name: 'Choose your board' })).toBeTruthy();
     expect(localStorage.getItem('publisense:claim-intent')).toBeNull();
   });
 

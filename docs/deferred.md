@@ -23,7 +23,7 @@
 
 ### D-015 · Replies have no edit window
 
-**Status:** 🟢 cosmetic/minor · **Deferred:** 2026-10-27 · **PR:** feedback-loop polish (follow-up to the QA report in #172)
+**Status:** 🟢 cosmetic/minor · **Deferred:** 2026-10-27 · **PR:** feedback-loop polish (follow-up to the QA report in #172) · **Decision:** #181 (reply editing rules, open)
 
 Posts now lock for their author 1 hour after posting and once Shipped, Closed or Merged
 (`0045_v2_post_edit_window.sql`, enforced by a trigger). Replies were left as they were: an author can

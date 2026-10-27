@@ -4,6 +4,7 @@ import {
   isSourceUrl,
   sourceAuthorFromUrl,
   TITLE_MAX,
+  TITLE_TOO_LONG,
   useEditSeededPost,
   useUpdatePost,
   validatePost,
@@ -143,8 +144,12 @@ export function EditPostDialog({ post, open, onClose, seeded = false }: { post: 
           </Select>
         </Field>
         <PlatformField value={draft.platform ?? null} onChange={(platform) => setDraft((d) => ({ ...d, platform }))} />
-        <Field label="Title" error={errors.title} aside={`${draft.title.trim().length}/${TITLE_MAX}`}>
-          <Input value={draft.title} maxLength={TITLE_MAX + 20} onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))} />
+        <Field
+          label="Title"
+          error={draft.title.trim().length > TITLE_MAX ? TITLE_TOO_LONG : errors.title}
+          aside={`${draft.title.trim().length}/${TITLE_MAX}`}
+        >
+          <Input value={draft.title} onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))} />
         </Field>
         {seeded ? (
           <div className="flex flex-col gap-4 sm:flex-row">

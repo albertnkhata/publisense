@@ -22,6 +22,9 @@ import {
   logoSrc,
   matchesAll,
   TITLE_MAX,
+  TITLE_MIN,
+  TITLE_TOO_LONG,
+  TITLE_TOO_SHORT,
   useBoards,
   useCreatePost,
   useHubs,
@@ -159,7 +162,26 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
   }, [title]);
   const similar = useSimilarPosts(debounced, similarBoards, viewer?.id ?? null);
 
-  const valid = Boolean(board && type && title.trim() && (!seeding || sourceUrl.trim()));
+  // Why Post is disabled, said next to it (#171). One reason at a time, in form order.
+  const titleLength = title.trim().length;
+  const titleTooLong = titleLength > TITLE_MAX;
+  const blocker = !board
+    ? 'Choose a product to post.'
+    : !type
+      ? 'Choose a type to post.'
+      : !titleLength
+        ? 'Add a title to post.'
+        : titleLength < TITLE_MIN
+          ? TITLE_TOO_SHORT
+          : titleTooLong
+            ? TITLE_TOO_LONG
+            : seeding && !sourceUrl.trim()
+              ? 'Paste the source link to post.'
+              : null;
+  const valid = !blocker;
+  const blockerId = useId();
+  // Over the limit is said at the field the moment it happens; the paste is kept so it can be shortened.
+  const titleError = titleTooLong ? TITLE_TOO_LONG : errors.title;
 
   const submit = (e?: FormEvent) => {
     e?.preventDefault();
@@ -211,11 +233,17 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
       dismissable={!create.isPending}
       footer={
         <>
-          <span className="mr-auto text-sm text-ink-muted max-sm:hidden">{footNote}</span>
+          {blocker ? (
+            <span id={blockerId} role="status" className="mr-auto text-sm text-ink-muted">
+              {blocker}
+            </span>
+          ) : (
+            <span className="mr-auto text-sm text-ink-muted max-sm:hidden">{footNote}</span>
+          )}
           <Button variant="secondary" onClick={onClose} disabled={create.isPending}>
             Cancel
           </Button>
-          <Button type="submit" form={formId} disabled={!valid} loading={create.isPending}>
+          <Button type="submit" form={formId} disabled={!valid} aria-describedby={blocker ? blockerId : undefined} loading={create.isPending}>
             {seeding ? 'Add post' : 'Post'}
           </Button>
         </>
@@ -343,14 +371,16 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
 
         <PlatformField value={platform} onChange={setPlatform} />
 
-        <Field label="Title" error={errors.title} aside={`${title.length}/${TITLE_MAX}`}>
+        <Field label="Title" error={titleError} aside={`${titleLength}/${TITLE_MAX}`}>
           <Input
             ref={titleRef}
             value={title}
-            maxLength={TITLE_MAX}
             placeholder="Sum it up in one line"
             autoComplete="off"
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              setErrors((x) => ({ ...x, title: undefined }));
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !(e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
