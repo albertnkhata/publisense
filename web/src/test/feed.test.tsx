@@ -200,12 +200,7 @@ describe('signed-out pitch', () => {
     fireEvent.click(await screen.findByRole('button', { name: PITCH.claim }));
     const overview = await screen.findByRole('dialog', { name: 'Claim your board' });
     expect(within(overview).queryByRole('searchbox')).toBeNull();
-    fireEvent.click(within(overview).getByRole('button', { name: 'Choose a board' }));
-    const picker = await screen.findByRole('dialog', { name: 'Choose your board' });
-    fireEvent.click(await within(picker).findByRole('button', { name: /Cursor/ }));
-    const intro = await screen.findByRole('dialog', { name: 'Claim Cursor' });
-    expect(within(intro).getByText('Set statuses, pin official replies and run the roadmap')).toBeTruthy();
-    fireEvent.click(within(intro).getByRole('button', { name: 'Create an account to claim' }));
+    fireEvent.click(within(overview).getByRole('button', { name: 'Get started' }));
     const auth = await screen.findByRole('dialog', { name: 'Create your account' });
     expect(within(auth).getByText('Create an account to claim your product’s board. It takes a few seconds.')).toBeTruthy();
   });
