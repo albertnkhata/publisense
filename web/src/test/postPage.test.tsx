@@ -82,7 +82,7 @@ describe('post page', () => {
     await waitFor(() => expect(document.title).toBe('Ghost preview in split windows · Publisense'));
   });
 
-  it('shows the post, its status timeline, pinned official reply and threads', async () => {
+  it('shows the post, its status timeline, the official reply unpinned and threads', async () => {
     const post = makePost({ title: 'Ghost preview in split windows', status: 'planned', reply_count: 3, body: 'Line one\nLine two' });
     const official = makeReply(post, { is_official: true, body: 'On the roadmap for next cycle.', created_at: iso(1) });
     const root = makeReply(post, { body: 'Same here on a monorepo.' });
@@ -103,17 +103,18 @@ describe('post page', () => {
 
     const replies = screen.getByRole('region', { name: 'Replies' });
     const items = await within(replies).findAllByRole('article');
-    expect(items[0]!.textContent).toContain('Pinned');
-    expect(items[0]!.textContent).toContain('On the roadmap for next cycle.');
+    // Not pinned (Albert, 2026-10-27): "Top" puts the most discussed thread first.
+    expect(replies.textContent).not.toContain('Pinned');
+    expect(items[0]!.textContent).toContain('Same here on a monorepo.');
+    expect(items[1]!.textContent).toContain('Matches what I see.');
+    expect(items[2]!.textContent).toContain('On the roadmap for next cycle.');
     // The official reply speaks as the board: no teammate handle anywhere on it.
-    expect(items[0]!.textContent).toContain('Cursor Team');
-    expect(items[0]!.textContent).not.toContain('@');
-    expect(items[0]!.getAttribute('aria-label')).toBe('Reply by Cursor · Team');
-    expect(items[1]!.textContent).toContain('Same here on a monorepo.');
-    expect(items[2]!.textContent).toContain('Matches what I see.');
+    expect(items[2]!.textContent).toContain('Cursor Team');
+    expect(items[2]!.textContent).not.toContain('@');
+    expect(items[2]!.getAttribute('aria-label')).toBe('Reply by Cursor · Team');
     // Only the author gets Edit and Delete.
-    expect(within(items[1]!).queryByRole('button', { name: 'Edit' })).toBeNull();
-    expect(within(items[2]!).getByRole('button', { name: 'Edit' })).toBeTruthy();
+    expect(within(items[0]!).queryByRole('button', { name: 'Edit' })).toBeNull();
+    expect(within(items[1]!).getByRole('button', { name: 'Edit' })).toBeTruthy();
   });
 
   it('answers a non-id path with Post not found and no request', async () => {
@@ -178,7 +179,7 @@ describe('replies', () => {
     expect(await screen.findByText('Nested answer')).toBeTruthy();
   });
 
-  it('a team member on their own board replies as the team by default, personal one tap away (#160)', async () => {
+  it('a team member replies as themselves by default and picks the team voice explicitly', async () => {
     boardsApi.fetchIsBoardTeam.mockResolvedValue(true);
     const post = makePost({ reply_count: 0 });
     renderPost(post);
@@ -188,22 +189,58 @@ describe('replies', () => {
     const box = await screen.findByRole('textbox', { name: 'Add a reply' });
     fireEvent.focus(box);
     const as = (await screen.findByRole('combobox', { name: 'Reply as' })) as HTMLSelectElement;
-    expect(as.value).toBe('team');
-    expect(as.options[as.selectedIndex]!.text).toBe('Cursor · Team');
-    fireEvent.change(box, { target: { value: 'Fixed in 2.4.' } });
+    expect(as.value).toBe('me');
+    fireEvent.change(box, { target: { value: 'Personally, I love it.' } });
     fireEvent.click(screen.getByRole('button', { name: 'Reply' }));
-    await waitFor(() => expect(api.createReply).toHaveBeenCalledWith(post.id, 'Fixed in 2.4.', null, true));
-    expect(await screen.findByText('Official reply posted')).toBeTruthy();
+    await waitFor(() => expect(api.createReply).toHaveBeenCalledWith(post.id, 'Personally, I love it.', null, false));
+    expect(await screen.findByText('Reply posted')).toBeTruthy();
 
-    // Choosing yourself is one change away and posts a personal reply.
     const again = screen.getByRole('textbox', { name: 'Add a reply' });
     fireEvent.focus(again);
     const as2 = (await screen.findByRole('combobox', { name: 'Reply as' })) as HTMLSelectElement;
-    expect(as2.value).toBe('team');
-    fireEvent.change(as2, { target: { value: 'me' } });
-    fireEvent.change(again, { target: { value: 'Personally, I love it.' } });
+    expect(as2.value).toBe('me');
+    fireEvent.change(as2, { target: { value: 'team' } });
+    expect(as2.options[as2.selectedIndex]!.text).toBe('Cursor · Team');
+    fireEvent.change(again, { target: { value: 'Fixed in 2.4.' } });
     fireEvent.keyDown(again, { key: 'Enter', ctrlKey: true });
-    await waitFor(() => expect(api.createReply).toHaveBeenLastCalledWith(post.id, 'Personally, I love it.', null, false));
+    await waitFor(() => expect(api.createReply).toHaveBeenLastCalledWith(post.id, 'Fixed in 2.4.', null, true));
+  });
+
+  it('team members get the same Reply as choice on a nested reply, defaulting to themselves', async () => {
+    boardsApi.fetchIsBoardTeam.mockResolvedValue(true);
+    const post = makePost({ reply_count: 2 });
+    const root = makeReply(post, { body: 'Root reply' });
+    const child = makeReply(post, { parent_id: root.id, body: 'Child reply' });
+    renderPost(post, { replies: [root, child] });
+    api.createReply.mockImplementation(async (_p: string, body: string, parentId: string | null, official: boolean) =>
+      makeReply(post, { body, parent_id: parentId, author: ME, author_id: ME.id, is_official: official }),
+    );
+    const item = (await screen.findByText('Child reply')).closest('article')!;
+    fireEvent.click(within(item).getByRole('button', { name: 'Reply' }));
+    const as = (await within(item).findByRole('combobox', { name: 'Reply as' })) as HTMLSelectElement;
+    expect(as.value).toBe('me');
+    fireEvent.change(as, { target: { value: 'team' } });
+    const box = within(item).getByRole('textbox', { name: 'Reply to this thread' });
+    fireEvent.change(box, { target: { value: 'Team answer, nested' } });
+    fireEvent.keyDown(box, { key: 'Enter', ctrlKey: true });
+    // A true child of the reply answered, not of its thread (0050).
+    await waitFor(() => expect(api.createReply).toHaveBeenCalledWith(post.id, 'Team answer, nested', child.id, true));
+  });
+
+  it('nests replies to replies, links @mentions and opens deep branches on their own', async () => {
+    const post = makePost({ reply_count: 6 });
+    const r0 = makeReply(post, { body: 'Level zero', created_at: iso(10) });
+    const r1 = makeReply(post, { parent_id: r0.id, body: 'Level one @someone', created_at: iso(9) });
+    const r2 = makeReply(post, { parent_id: r1.id, body: 'Level two', created_at: iso(8) });
+    const r3 = makeReply(post, { parent_id: r2.id, body: 'Level three', created_at: iso(7) });
+    const r4 = makeReply(post, { parent_id: r3.id, body: 'Level four', created_at: iso(6) });
+    const r5 = makeReply(post, { parent_id: r4.id, body: 'Level five', created_at: iso(5) });
+    renderPost(post, { replies: [r0, r1, r2, r3, r4, r5] });
+    expect(await screen.findByText('Level three')).toBeTruthy();
+    expect(screen.queryByText('Level four')).toBeNull();
+    const more = screen.getByRole('link', { name: /Continue this thread \(2 replies\)/ });
+    expect(more.getAttribute('href')).toContain(`thread=${r3.id}`);
+    expect(screen.getByRole('link', { name: '@someone' }).getAttribute('href')).toBe('/u/someone');
   });
 
   it('someone outside the team never sees Reply as and replies personally', async () => {
@@ -214,12 +251,12 @@ describe('replies', () => {
     expect(screen.queryByRole('combobox', { name: 'Reply as' })).toBeNull();
   });
 
-  it('replying under an official reply doesn’t prefill a teammate’s handle', async () => {
+  it('replying to a reply doesn’t prefill an @mention (the thread shows who it answers)', async () => {
     const post = makePost({ reply_count: 2 });
-    const official = makeReply(post, { is_official: true, body: 'Team answer' });
-    const child = makeReply(post, { parent_id: official.id, is_official: true, body: 'Team follow-up' });
-    renderPost(post, { replies: [official, child] });
-    const item = (await screen.findByText('Team follow-up')).closest('article')!;
+    const root = makeReply(post, { body: 'Root' });
+    const child = makeReply(post, { parent_id: root.id, author: OTHER, author_id: OTHER.id, body: 'Someone else' });
+    renderPost(post, { replies: [root, child] });
+    const item = (await screen.findByText('Someone else')).closest('article')!;
     fireEvent.click(within(item).getByRole('button', { name: 'Reply' }));
     const box = within(item).getByRole('textbox', { name: 'Reply to this thread' }) as HTMLTextAreaElement;
     expect(box.value).toBe('');
@@ -368,18 +405,20 @@ describe('author edit and delete', () => {
 });
 
 describe('post helpers', () => {
-  it('groups replies one level deep, official first', () => {
+  it('builds the reply tree at any depth, official replies unpinned', () => {
     const p = makePost();
     const a = makeReply(p, { created_at: iso(5) });
     const b = makeReply(p, { created_at: iso(4) });
     const a1 = makeReply(p, { parent_id: a.id, created_at: iso(1) });
     const a0 = makeReply(p, { parent_id: a.id, created_at: iso(2) });
     const o = makeReply(p, { is_official: true, created_at: iso(3) });
-    const top = buildThreads([a, b, a1, a0, o], 'top');
-    expect(top.pinned.map((t) => t.reply.id)).toEqual([o.id]);
-    expect(top.threads.map((t) => t.reply.id)).toEqual([a.id, b.id]);
-    expect(top.threads[0]!.children.map((c) => c.id)).toEqual([a0.id, a1.id]);
-    expect(buildThreads([a, b, a1, a0, o], 'new').threads.map((t) => t.reply.id)).toEqual([b.id, a.id]);
+    const a00 = makeReply(p, { parent_id: a0.id, created_at: iso(0) });
+    const top = buildThreads([a, b, a1, a0, o, a00], 'top');
+    expect(top.map((t) => t.reply.id)).toEqual([a.id, b.id, o.id]);
+    expect(top[0]!.children.map((c) => c.reply.id)).toEqual([a0.id, a1.id]);
+    expect(top[0]!.children[0]!.children.map((c) => c.reply.id)).toEqual([a00.id]);
+    expect(top[0]!.total).toBe(3);
+    expect(buildThreads([a, b, a1, a0, o], 'new').map((t) => t.reply.id)).toEqual([o.id, b.id, a.id]);
   });
 
   it('tells seeded, deleted and community posts apart', () => {

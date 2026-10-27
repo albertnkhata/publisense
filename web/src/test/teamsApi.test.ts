@@ -180,3 +180,14 @@ describe('setPostStatus (0044)', () => {
     await expect(setPostStatus('p1', 'shipped', 'hi')).rejects.toThrow('Pick a new status to add a timeline note.');
   });
 });
+
+describe('rateLimitMessage (#183)', () => {
+  it('says how long to wait when the server sends retry_after', async () => {
+    const { rateLimitMessage } = await import('../api/teams');
+    const now = new Date('2026-10-27T10:00:00Z');
+    expect(rateLimitMessage('2026-10-27T10:22:10Z', now)).toMatch(/^Too many codes in the last hour\. Try again in 23 minutes \(at .+\)\.$/);
+    expect(rateLimitMessage('2026-10-27T10:00:20Z', now)).toMatch(/Try again in 1 minute /);
+    expect(rateLimitMessage(undefined, now)).toBe('Too many codes in the last hour. Try again later.');
+  });
+});
+

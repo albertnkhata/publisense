@@ -9,7 +9,7 @@ import { Button, EmptyState, Icon, Skeleton, STATUS_META, TYPE_META, useToast } 
 
 /**
  * PostPage (FOUNDATION §5): the post, its status timeline, the reply thread
- * (official replies pinned) and "More on {board}". The board's team updates the
+ * and "More on {board}". The board's team updates the
  * status, merges and hides from the ⋯ menu and can reply as the team; for 10
  * minutes after a merge the team can undo it from the merged notice.
  */

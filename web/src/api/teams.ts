@@ -125,11 +125,26 @@ export class TeamError extends ApiError {
   }
 }
 
+/**
+ * The hourly code limit, with when to try again (0050, #183): start_domain_email
+ * returns retry_after, when the oldest code in the window turns an hour old.
+ */
+export function rateLimitMessage(retryAfter: unknown, now: Date = new Date()): string {
+  const at = typeof retryAfter === 'string' ? new Date(retryAfter) : null;
+  if (!at || Number.isNaN(at.getTime())) return teamErrorMessage('rate_limited');
+  const mins = Math.max(1, Math.ceil((at.getTime() - now.getTime()) / 60000));
+  const clock = at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return `Too many codes in the last hour. Try again in ${mins} ${mins === 1 ? 'minute' : 'minutes'} (at ${clock}).`;
+}
+
 async function rpc<T extends RpcResult = RpcResult>(fn: string, args: Record<string, unknown>, ctx?: Parameters<typeof teamErrorMessage>[1]): Promise<T> {
   const { data, error } = await getSupabase().rpc(fn, args);
   if (error) throw new TeamError('network', 'Something went wrong. Try again.');
   const res = (data ?? { ok: false }) as T;
-  if (!res.ok) throw new TeamError(res.error ?? 'unknown', teamErrorMessage(res.error, ctx));
+  if (!res.ok) {
+    const msg = res.error === 'rate_limited' ? rateLimitMessage(res.retry_after) : teamErrorMessage(res.error, ctx);
+    throw new TeamError(res.error ?? 'unknown', msg);
+  }
   return res;
 }
 

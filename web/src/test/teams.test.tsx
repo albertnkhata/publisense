@@ -268,7 +268,7 @@ describe('claim a board', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Work at Cursor?' }));
     const dialog = await screen.findByRole('dialog', { name: 'Claim Cursor' });
     expect(within(dialog).getByText('Get a verified badge on your board and your team’s replies')).toBeTruthy();
-    expect(within(dialog).getByText('Set statuses, pin official replies and run the roadmap')).toBeTruthy();
+    expect(within(dialog).getByText('Set statuses, reply as the team and run the roadmap')).toBeTruthy();
     expect(within(dialog).getByText(/Verify with a 6-digit code sent to your/)).toBeTruthy();
     expect(within(dialog).getByText('@cursor.com')).toBeTruthy();
     expect(within(dialog).queryByLabelText('Your work email')).toBeNull();
@@ -296,7 +296,7 @@ describe('claim a board', () => {
     renderAt('/b/cursor');
     fireEvent.click(await screen.findByRole('button', { name: 'Work at Cursor?' }));
     const dialog = await screen.findByRole('dialog', { name: 'Claim Cursor' });
-    expect(within(dialog).getByText('Set statuses, pin official replies and run the roadmap')).toBeTruthy();
+    expect(within(dialog).getByText('Set statuses, reply as the team and run the roadmap')).toBeTruthy();
 
     const email = within(dialog).getByLabelText('Your work email');
     fireEvent.change(email, { target: { value: 'me@gmail.com' } });
@@ -315,6 +315,31 @@ describe('claim a board', () => {
     await waitFor(() => expect(teamsApi.claimBoard).toHaveBeenCalledWith(CURSOR.id, { name: 'Cursor', domain: 'cursor.com' }));
     expect(await screen.findByRole('dialog', { name: 'Board claimed' })).toBeTruthy();
     expect(screen.getByText('You manage Cursor now')).toBeTruthy();
+  });
+
+  it('a sent code can still be entered after the dialog is closed and reopened (#183)', async () => {
+    localStorage.clear();
+    renderAt('/b/cursor');
+    fireEvent.click(await screen.findByRole('button', { name: 'Work at Cursor?' }));
+    let dialog = await screen.findByRole('dialog', { name: 'Claim Cursor' });
+    fireEvent.change(within(dialog).getByLabelText('Your work email'), { target: { value: 'carol@cursor.com' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Send code' }));
+    await within(dialog).findByLabelText('Enter the 6-digit code');
+    expect(teamsApi.startEmailCode).toHaveBeenCalledTimes(1);
+
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Claim Cursor' })).toBeNull());
+    fireEvent.click(screen.getByRole('button', { name: 'Work at Cursor?' }));
+    dialog = await screen.findByRole('dialog', { name: 'Claim Cursor' });
+    const code = await within(dialog).findByLabelText('Enter the 6-digit code');
+    expect(within(dialog).getByText(/We already sent a code to/)).toBeTruthy();
+    expect(within(dialog).getByRole('button', { name: 'Send a new code' })).toBeTruthy();
+    // Reopening neither sends nor voids a code.
+    expect(teamsApi.startEmailCode).toHaveBeenCalledTimes(1);
+    fireEvent.change(code, { target: { value: '123456' } });
+    await waitFor(() => expect(teamsApi.verifyEmailCode).toHaveBeenCalledWith('carol@cursor.com', '123456', 'cursor.com'));
+    await waitFor(() => expect(teamsApi.claimBoard).toHaveBeenCalled());
+    expect(localStorage.getItem('publisense:claim-code')).toBeNull();
   });
 
   it('shows the server’s refusal when the code is wrong', async () => {
@@ -512,7 +537,7 @@ describe('status updates and official replies', () => {
     const save = screen.getByRole('button', { name: 'Update status' });
     expect((save as HTMLButtonElement).disabled).toBe(true);
     const note = screen.getByLabelText(/Note \(shown on the timeline\)/);
-    expect(screen.getByText(/Saved with this change on the post’s status timeline\. For a pinned team reply, reply on the post as Cursor team\./)).toBeTruthy();
+    expect(screen.getByText(/Saved with this change on the post’s status timeline\. For a team reply, reply on the post as Cursor team\./)).toBeTruthy();
     // A note on its own is not a status change: Save stays off and says why.
     fireEvent.change(note, { target: { value: 'Live now.' } });
     expect((save as HTMLButtonElement).disabled).toBe(true);

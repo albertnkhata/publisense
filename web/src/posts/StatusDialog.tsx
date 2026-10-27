@@ -8,7 +8,7 @@ import { Button, Dialog, Field, Icon, STATUS_META, Textarea, useToast } from '..
  * optional note. One call to set_post_status (0044) records the change and the note
  * together on the post's status timeline and sends followers ONE notification that
  * carries the note (voters follow automatically), so there is no "don't notify"
- * switch. The note is not a reply: a pinned team reply is written in the reply box
+ * switch. The note is not a reply: a team reply is written in the reply box
  * on the post ("Reply as {board} team"), deliberately separate from this dialog.
  */
 export const TEAM_STATUSES: PostStatus[] = ['open', 'under_review', 'planned', 'in_progress', 'shipped', 'closed'];
@@ -118,7 +118,7 @@ export function StatusDialog({ post, open, onClose }: { post: Post; open: boolea
         hint={
           !changed && note.trim()
             ? 'Pick a new status to save a note with it.'
-            : `Saved with this change on the post’s status timeline. For a pinned team reply, reply on the post as ${team}.`
+            : `Saved with this change on the post’s status timeline. For a team reply, reply on the post as ${team}.`
         }
         error={error}
       >

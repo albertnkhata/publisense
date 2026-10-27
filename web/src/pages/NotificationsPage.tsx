@@ -62,6 +62,9 @@ export function describeNotification(n: AppNotification, viewerId: string | null
   const who = asTeam ? team : <B>{n.actor ? `@${n.actor.handle}` : 'Someone'}</B>;
   const teamAv = asTeam ? { boardAvatar: boardAv } : {};
   const d = n.data as Record<string, string | number | undefined>;
+  // Reply and mention links open the post at that reply (0050), not just the thread.
+  const replyHref = n.target_type === 'reply' && n.post_id ? `${postHref}#reply-${n.target_id}` : `${postHref}#replies`;
+  const toTeam = String(d.team) === 'true';
   switch (n.kind) {
     case 'reply':
       return {
@@ -70,12 +73,16 @@ export function describeNotification(n: AppNotification, viewerId: string | null
             <>
               {who} replied to your post <B>{title}</B>
             </>
+          ) : toTeam ? (
+            <>
+              {who} replied to your team on <B>{title}</B>
+            </>
           ) : (
             <>
               {who} replied to you on <B>{title}</B>
             </>
           ),
-        href: `${postHref}#replies`,
+        href: replyHref,
         badge: 'reply',
         quote: n.quote,
         ...teamAv,
@@ -84,10 +91,10 @@ export function describeNotification(n: AppNotification, viewerId: string | null
       return {
         text: (
           <>
-            {who} mentioned you in a reply on <B>{title}</B>
+            {who} mentioned {toTeam ? 'your team' : 'you'} in a reply on <B>{title}</B>
           </>
         ),
-        href: `${postHref}#replies`,
+        href: replyHref,
         badge: 'reply',
         quote: n.quote,
         ...teamAv,

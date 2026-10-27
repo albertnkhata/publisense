@@ -285,6 +285,15 @@ jobs:
           PGPASSWORD: postgres
         run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_helper_oracle_test.sql
 
+      # Reply threads (0050): replies nest at any depth, notifications follow the real
+      # parent (an official parent reaches the team), @mentions and @<board slug> notify
+      # without doubling up, deleting a reply takes its subtree, and the claim-code
+      # limit returns retry_after (#183). Rolled back.
+      - name: v2 reply threads tests
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_reply_threads_test.sql
+
       - name: Report public read-policy count
         env:
           PGPASSWORD: postgres
