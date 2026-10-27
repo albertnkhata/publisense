@@ -24,6 +24,7 @@ import { useComposer } from '../shell/composer';
 import { BoardAvatar, Button, EmptyState, HubAvatar, Icon, TabPanel, Tabs, useToast } from '../ui';
 import { useClaim } from '../claim/ClaimDialog';
 import { actionLink, ClaimLink, HeaderSkeleton, RoadmapTab, ScopeNotFound, SORT_CHOICES } from './BoardPage';
+import { useSetUrlParams } from '../lib/useUrlParam';
 
 /**
  * Hub page (FOUNDATION §9 `/h/:hub`): a public group of boards. Feedback from
@@ -61,19 +62,15 @@ function HubView({ hub }: { hub: Hub }) {
   const { viewer } = useViewer();
   const role = useScopeRole('hub', hub.id, viewer?.id ?? null);
   const { openComposer } = useComposer();
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
+  const setUrl = useSetUrlParams();
   const tabParam = params.get('tab');
   const tab: HubTab = tabParam === 'boards' || tabParam === 'roadmap' ? tabParam : 'feedback';
   const ids = useMemo(() => hub.boards.map((b) => b.id), [hub.boards]);
   const counts = usePostCounts(ids);
   const first = hub.boards[0];
 
-  const setParam = (key: string, value: string, fallback: string) => {
-    const next = new URLSearchParams(params);
-    if (value === fallback) next.delete(key);
-    else next.set(key, value);
-    setParams(next, { replace: key !== 'tab' });
-  };
+  const setParam = (key: string, value: string, fallback: string) => setUrl([[key, value, fallback]], { replace: key !== 'tab' });
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">

@@ -33,6 +33,7 @@ import { HeaderSkeleton, ScopeNotFound, actionLink } from '../pages/BoardPage';
 import { useAuthDialog } from '../shell/auth';
 import { BoardAvatar, Button, EmptyState, Field, Icon, Input, TabPanel, Tabs, Textarea, useToast } from '../ui';
 import { AddTeammate, BlockedList, canManage, Chips, Inbox, JoinRequests, ReleaseSection, Section, TeamList, Tiles, TYPE_OPTIONS } from './parts';
+import { useSetUrlParams } from '../lib/useUrlParam';
 
 /**
  * Manage (FOUNDATION §9 `/b/:board/manage`, `/h/:hub/manage`), the mockup's team
@@ -45,15 +46,11 @@ type BoardTab = 'triage' | 'posts' | 'team' | 'settings';
 type HubTab = 'inbox' | 'boards' | 'team' | 'settings';
 
 function useTabParam<T extends string>(allowed: readonly T[], fallback: T) {
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
+  const setUrl = useSetUrlParams();
   const raw = params.get('tab');
   const tab = (allowed as readonly string[]).includes(raw ?? '') ? (raw as T) : fallback;
-  const set = (key: string, value: string, def: string) => {
-    const next = new URLSearchParams(params);
-    if (value === def) next.delete(key);
-    else next.set(key, value);
-    setParams(next, { replace: key !== 'tab' });
-  };
+  const set = (key: string, value: string, def: string) => setUrl([[key, value, def]], { replace: key !== 'tab' });
   return { tab, params, set };
 }
 

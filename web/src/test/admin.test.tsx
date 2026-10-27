@@ -111,7 +111,8 @@ describe('reports queue', () => {
   it('an empty queue says so', async () => {
     mod.fetchReportQueue.mockResolvedValue([]);
     renderAt('/admin/reports');
-    expect(await screen.findByText('No open reports')).toBeTruthy();
+    expect(await screen.findByText('No reports waiting')).toBeTruthy();
+    expect(screen.getByText('Posts and replies people report wait here for a moderator.')).toBeTruthy();
   });
 });
 
@@ -136,6 +137,15 @@ describe('disputes queue', () => {
   });
 });
 
+describe('empty queues', () => {
+  it('disputes: a headline and one sentence', async () => {
+    mod.fetchDisputes.mockResolvedValue([]);
+    renderAt('/admin/disputes');
+    expect(await screen.findByText('No disputes waiting')).toBeTruthy();
+    expect(screen.getByText('“Report the wrong owner” requests wait here, and the board’s team never sees them.')).toBeTruthy();
+  });
+});
+
 describe('admin team', () => {
   it('the only admin cannot step down', async () => {
     renderAt('/admin/team');
@@ -144,15 +154,18 @@ describe('admin team', () => {
     expect(within(list).getByRole('button', { name: 'Step down' }).hasAttribute('disabled')).toBe(true);
   });
 
-  it('finds someone and appoints them after confirming', async () => {
+  it('finds someone and appoints them after confirming who was found', async () => {
     mod.findUser.mockResolvedValue({ ...OTHER, is_admin: false });
     renderAt('/admin/team');
-    fireEvent.change(await screen.findByLabelText('Handle or email'), { target: { value: 'jm@linear.app' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Find' }));
+    const field = await screen.findByLabelText('Handle or email');
+    expect(field.getAttribute('placeholder')).toBe('Handle or email');
+    fireEvent.change(field, { target: { value: 'jm@linear.app' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Appoint' }));
     await waitFor(() => expect(mod.findUser).toHaveBeenCalledWith('jm@linear.app'));
-    fireEvent.click(await screen.findByRole('button', { name: 'Make admin' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Make @jmwamba an admin?' });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Make admin' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Appoint @jmwamba as an admin?' });
+    expect(within(dialog).getByText('@jmwamba')).toBeTruthy();
+    expect(mod.grantPlatformAdmin).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Appoint' }));
     await waitFor(() => expect(mod.grantPlatformAdmin).toHaveBeenCalledWith(OTHER.id));
     expect(await screen.findByText('@jmwamba is now an admin')).toBeTruthy();
   });
@@ -161,8 +174,31 @@ describe('admin team', () => {
     mod.findUser.mockRejectedValue(new ModerationError('not_found', 'We couldn’t find that.'));
     renderAt('/admin/team');
     fireEvent.change(await screen.findByLabelText('Handle or email'), { target: { value: '@ghost' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Find' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Appoint' }));
     expect(await screen.findByText('No account uses that handle or email.')).toBeTruthy();
+  });
+
+  it('says when the person is already an admin, without a confirm', async () => {
+    mod.findUser.mockResolvedValue({ ...OTHER, is_admin: true });
+    renderAt('/admin/team');
+    fireEvent.change(await screen.findByLabelText('Handle or email'), { target: { value: '@jmwamba' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Appoint' }));
+    expect(await screen.findByText('@jmwamba is already an admin.')).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('asks before stepping down', async () => {
+    mod.fetchPlatformAdmins.mockResolvedValue([
+      { user_id: TEST_VIEWER.id, granted_at: iso(100), profile: ME },
+      { user_id: OTHER.id, granted_at: iso(10), profile: OTHER },
+    ]);
+    renderAt('/admin/team');
+    const list = await screen.findByRole('list', { name: 'Admins' });
+    fireEvent.click(within(list).getByRole('button', { name: 'Step down' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Step down as admin?' });
+    expect(mod.revokePlatformAdmin).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(mod.revokePlatformAdmin).not.toHaveBeenCalled();
   });
 
   it('removes another admin and shows the log', async () => {

@@ -4,6 +4,7 @@ import { CATEGORIES, isLive, matchCatalogue, useBoards, useHubs, useTrending, us
 import { BoardCard, CardGrid, HubRow, PostRow, RowItem, RowList, Section } from '../boards/parts';
 import { cx } from '../lib/cx';
 import { usePageTitle } from '../lib/usePageTitle';
+import { useSetUrlParams, useUrlTextParam } from '../lib/useUrlParam';
 import { LoadError } from '../posts/PostList';
 import { AddProductLink } from '../products/AddProductDialog';
 import { Icon, ScrollRow, SkeletonBlock } from '../ui';
@@ -20,8 +21,11 @@ type Cat = 'all' | BoardCategory;
 
 export function ExplorePage() {
   usePageTitle('Explore');
-  const [params, setParams] = useSearchParams();
-  const q = params.get('q') ?? '';
+  const [params] = useSearchParams();
+  // The field keeps its own state so fast typing never drops a character; the
+  // URL follows shortly after.
+  const [q, setQ] = useUrlTextParam('q');
+  const setUrl = useSetUrlParams();
   const catParam = params.get('cat');
   const cat: Cat = (CATEGORIES.find((c) => c.value === catParam)?.value ?? 'all') as Cat;
   const boards = useBoards();
@@ -30,13 +34,6 @@ export function ExplorePage() {
   // one in the URL. All of them while the boards are still loading.
   const used = boards.data ? new Set(boards.data.filter(isLive).map((b) => b.category)) : null;
   const chips = CATEGORIES.filter((c) => c.value === 'all' || c.value === cat || !used || used.has(c.value));
-
-  const set = (key: 'q' | 'cat', value: string, fallback: string) => {
-    const next = new URLSearchParams(params);
-    if (value === fallback) next.delete(key);
-    else next.set(key, value);
-    setParams(next, { replace: true });
-  };
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
@@ -51,7 +48,7 @@ export function ExplorePage() {
         <input
           type="search"
           value={q}
-          onChange={(e) => set('q', e.target.value, '')}
+          onChange={(e) => setQ(e.target.value)}
           placeholder="Search products"
           aria-label="Search products"
           autoComplete="off"
@@ -64,7 +61,7 @@ export function ExplorePage() {
             key={c.value}
             type="button"
             aria-pressed={cat === c.value}
-            onClick={() => set('cat', c.value, 'all')}
+            onClick={() => setUrl([['cat', c.value, 'all']])}
             className={cx(
               'h-7 shrink-0 rounded-pill border px-3 text-sm font-medium transition-colors duration-120',
               cat === c.value ? 'border-ink bg-ink text-card' : 'border-line bg-card text-ink-secondary hover:border-line-strong hover:text-ink',

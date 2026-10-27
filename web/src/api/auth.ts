@@ -22,7 +22,12 @@ export const AUTH_COPY = {
   network: 'We couldn’t reach Publisense. Check your connection and try again.',
   generic: 'Something went wrong. Try again.',
   signupFailed: 'We couldn’t create that account. If you already have one, sign in or reset your password.',
+  resendRateLimited: 'We just sent one. Wait a minute, then try again.',
+  resendFailed: 'We couldn’t resend the email. Try again in a moment.',
 } as const;
+
+/** Seconds between confirmation-email resends (Supabase's own limit is 60s per address). */
+export const RESEND_COOLDOWN_S = 60;
 
 export const MIN_PASSWORD = 8;
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -65,6 +70,20 @@ export async function signUp(name: string, email: string, password: string): Pro
   });
   if (error) return { error: explainAuthError(error, 'signup'), needsConfirmation: false };
   return { error: null, needsConfirmation: !data.session };
+}
+
+/**
+ * Send the sign-up confirmation email again. Like the rest of this file it never
+ * says whether the address has an account; only throttling and network trouble
+ * come back as errors.
+ */
+export async function resendSignupConfirmation(email: string): Promise<AuthResult> {
+  const { error } = await getSupabase().auth.resend({ type: 'signup', email: email.trim(), options: { emailRedirectTo: origin() } });
+  if (!error) return { error: null };
+  const msg = explainAuthError(error);
+  if (msg === AUTH_COPY.rateLimited) return { error: AUTH_COPY.resendRateLimited };
+  if (msg === AUTH_COPY.network) return { error: msg };
+  return { error: AUTH_COPY.resendFailed };
 }
 
 /**

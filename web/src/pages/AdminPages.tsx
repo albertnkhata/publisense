@@ -126,6 +126,16 @@ function Quiet({ children }: { children: ReactNode }) {
   return <div className="rounded-md border border-line bg-card px-4 py-9 text-center text-base text-ink-muted">{children}</div>;
 }
 
+/** An empty admin queue: a headline and one sentence on what lands here. Same shape on every admin page. */
+function EmptyQueue({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <Quiet>
+      <b className="mb-1 block font-semibold text-ink">{title}</b>
+      {children}
+    </Quiet>
+  );
+}
+
 // ------------------------------------------------------------------ new products (0024)
 
 export function AdminProductsPage() {
@@ -158,10 +168,11 @@ function ProductQueue() {
       ) : queue.isError ? (
         <LoadError title="We couldn’t load new products" onRetry={() => void queue.refetch()} retrying={queue.isRefetching} />
       ) : list.length === 0 ? (
-        <Quiet>
-          <b className="block font-semibold text-ink">{status === 'pending' ? 'Nothing to review' : 'Nothing decided yet'}</b>
-          {status === 'pending' ? 'Products people add wait here until someone approves them.' : 'Approved and rejected products show here.'}
-        </Quiet>
+        <EmptyQueue title={status === 'pending' ? 'No products waiting' : 'No decisions yet'}>
+          {status === 'pending'
+            ? 'Products people add wait here for review before they go public.'
+            : 'Products you approve or reject show here, with who decided and why.'}
+        </EmptyQueue>
       ) : (
         <ul className="m-0 flex list-none flex-col gap-3 p-0" aria-label={status === 'pending' ? 'Products waiting for review' : 'Decided products'}>
           {list.map((b) => (
@@ -221,10 +232,10 @@ function ProductCard({ b }: { b: QueuedBoard }) {
       {pending ? (
         <div className="mt-3 flex flex-wrap gap-2">
           <Button size="sm" onClick={() => setDeciding('approve')}>
-            Approve…
+            Review and approve
           </Button>
           <Button size="sm" variant="secondary" onClick={() => setDeciding('reject')}>
-            Reject…
+            Reject
           </Button>
         </div>
       ) : null}
@@ -273,7 +284,7 @@ function ApproveDialog({ b, onClose }: { b: QueuedBoard; onClose: () => void }) 
       { id: b.id, approve: true, name: name.trim(), tagline: tagline.trim(), category, ...(hub ? { hub } : {}) },
       {
         onSuccess: () => {
-          toast(`${name.trim()} is live`);
+          toast(`${name.trim()} approved`);
           onClose();
         },
         onError: (err) => setError(err instanceof Error ? err.message : 'Something went wrong. Try again.'),
@@ -429,10 +440,7 @@ function CompanyList() {
   const rows = list.data ?? [];
   if (rows.length === 0) {
     return (
-      <Quiet>
-        <b className="block font-semibold text-ink">No companies yet</b>
-        Companies appear when someone adds a product with one, or approves one here.
-      </Quiet>
+      <EmptyQueue title="No companies yet">Companies show here when someone adds a product with one, or when you approve one with a product.</EmptyQueue>
     );
   }
   return (
@@ -623,10 +631,9 @@ function ReportsQueue() {
       ) : queue.isError ? (
         <LoadError title="We couldn’t load the reports" onRetry={() => void queue.refetch()} retrying={queue.isRefetching} />
       ) : list.length === 0 ? (
-        <Quiet>
-          <b className="block font-semibold text-ink">{status === 'open' ? 'No open reports' : 'Nothing decided yet'}</b>
-          {status === 'open' ? 'Reports from people land here.' : 'Decided reports show here.'}
-        </Quiet>
+        <EmptyQueue title={status === 'open' ? 'No reports waiting' : 'No decisions yet'}>
+          {status === 'open' ? 'Posts and replies people report wait here for a moderator.' : 'Reports you dismiss or act on show here.'}
+        </EmptyQueue>
       ) : (
         <ul className="m-0 flex list-none flex-col gap-3 p-0" aria-label={status === 'open' ? 'Open reports' : 'Decided reports'}>
           {list.map((g) => (
@@ -763,10 +770,9 @@ function DisputesQueue() {
       ) : disputes.isError ? (
         <LoadError title="We couldn’t load the disputes" onRetry={() => void disputes.refetch()} retrying={disputes.isRefetching} />
       ) : list.length === 0 ? (
-        <Quiet>
-          <b className="block font-semibold text-ink">{status === 'pending' ? 'No open disputes' : 'Nothing decided yet'}</b>
-          {status === 'pending' ? '“Report the wrong owner” requests land here. The board’s team never sees them.' : 'Decided disputes show here.'}
-        </Quiet>
+        <EmptyQueue title={status === 'pending' ? 'No disputes waiting' : 'No decisions yet'}>
+          {status === 'pending' ? '“Report the wrong owner” requests wait here, and the board’s team never sees them.' : 'Disputes you settle show here.'}
+        </EmptyQueue>
       ) : (
         <ul className="m-0 flex list-none flex-col gap-3 p-0" aria-label={status === 'pending' ? 'Open disputes' : 'Decided disputes'}>
           {list.map((d) => (
@@ -942,9 +948,9 @@ function Appoint() {
   const [who, setWho] = useState('');
   const [found, setFound] = useState<FoundUser | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [confirming, setConfirming] = useState(false);
   const [grantError, setGrantError] = useState<string | null>(null);
   const ref = useRef<HTMLInputElement>(null);
+  // Appoint looks the person up first, then asks to confirm with who was found.
   const submit = (e: FormEvent) => {
     e.preventDefault();
     const v = who.trim();
@@ -952,7 +958,11 @@ function Appoint() {
     setError(null);
     setFound(null);
     find.mutate(v, {
-      onSuccess: (u) => setFound(u),
+      onSuccess: (u) => {
+        if (u.is_admin) return setError(`@${u.handle} is already an admin.`);
+        setGrantError(null);
+        setFound(u);
+      },
       onError: (err) => setError(err instanceof Error && 'code' in err && err.code === 'not_found' ? 'No account uses that handle or email.' : err instanceof Error ? err.message : 'Something went wrong.'),
     });
   };
@@ -968,51 +978,27 @@ function Appoint() {
             onChange={(e) => {
               setWho(e.target.value);
               setError(null);
-              setFound(null);
             }}
-            placeholder="@handle or name@company.com"
+            placeholder="Handle or email"
             autoComplete="off"
           />
         </Field>
         <Button type="submit" variant="secondary" loading={find.isPending} className="mt-7 max-sm:mt-0">
-          Find
+          Appoint
         </Button>
       </form>
-      {found ? (
-        <div className="mt-3 flex items-center gap-3 rounded-md border border-line px-3 py-2">
-          <UserAvatar src={avatarSrc(found)} size="md" />
-          <span className="flex min-w-0 flex-1 flex-col">
-            <b className="truncate text-base font-semibold text-ink">{found.name || `@${found.handle}`}</b>
-            <span className="truncate text-sm text-ink-muted">@{found.handle}</span>
-          </span>
-          {found.is_admin ? (
-            <span className="rounded-pill bg-subtle px-2 text-xs font-medium text-ink-secondary">Already an admin</span>
-          ) : (
-            <Button
-              size="sm"
-              onClick={() => {
-                setGrantError(null);
-                setConfirming(true);
-              }}
-            >
-              Make admin
-            </Button>
-          )}
-        </div>
-      ) : null}
       <ConfirmDialog
-        open={confirming && Boolean(found)}
-        title={`Make @${found?.handle ?? ''} an admin?`}
-        confirmLabel="Make admin"
+        open={Boolean(found)}
+        title={`Appoint @${found?.handle ?? ''} as an admin?`}
+        confirmLabel="Appoint"
         busy={grant.isPending}
         error={grantError}
-        onClose={() => setConfirming(false)}
+        onClose={() => setFound(null)}
         onConfirm={() =>
           found &&
           grant.mutate(found.id, {
             onSuccess: () => {
               toast(`@${found.handle} is now an admin`);
-              setConfirming(false);
               setFound(null);
               setWho('');
             },
@@ -1020,6 +1006,15 @@ function Appoint() {
           })
         }
       >
+        {found ? (
+          <span className="mb-3 flex items-center gap-3 rounded-md border border-line px-3 py-2" data-found-user>
+            <UserAvatar src={avatarSrc(found)} size="md" />
+            <span className="flex min-w-0 flex-1 flex-col">
+              <b className="truncate text-base font-semibold text-ink">{found.name || `@${found.handle}`}</b>
+              <span className="truncate text-sm text-ink-muted">@{found.handle}</span>
+            </span>
+          </span>
+        ) : null}
         They’ll see every report and ownership dispute, can hide content anywhere, and can appoint or remove admins. This is recorded in the log.
       </ConfirmDialog>
     </Card>

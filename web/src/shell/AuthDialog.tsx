@@ -5,6 +5,8 @@ import {
   isEmail,
   MIN_PASSWORD,
   requestPasswordReset,
+  RESEND_COOLDOWN_S,
+  resendSignupConfirmation,
   signInWithGoogle,
   signInWithPassword,
   signUp,
@@ -70,6 +72,11 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
   const [sentTo, setSentTo] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  // Confirm-email screen: when the last email went out, and the resend state.
+  const [sentAt, setSentAt] = useState(0);
+  const [canResend, setCanResend] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resent, setResent] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const pwRef = useRef<HTMLInputElement>(null);
@@ -83,6 +90,20 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
     setPassword('');
     setError('');
   };
+
+  // Resend unlocks a minute after the last confirmation email. No ticking counter
+  // on screen (clean design); the line just changes when it is ready.
+  useEffect(() => {
+    if (mode !== 'confirm' || !sentAt) return;
+    const left = sentAt + RESEND_COOLDOWN_S * 1000 - Date.now();
+    if (left <= 0) {
+      setCanResend(true);
+      return;
+    }
+    setCanResend(false);
+    const t = setTimeout(() => setCanResend(true), left);
+    return () => clearTimeout(t);
+  }, [mode, sentAt]);
 
   // Mockup: switching mode moves focus to the first visible field.
   useEffect(() => {
@@ -128,6 +149,8 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
       if (r.error) return fail(r.error);
       if (r.needsConfirmation) {
         setSentTo(email.trim());
+        setSentAt(Date.now());
+        setResent(false);
         setMode('confirm');
         return;
       }
@@ -136,6 +159,35 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
     } finally {
       setBusy(false);
     }
+  }
+
+  async function resendConfirmation() {
+    if (resending || !canResend) return;
+    setResending(true);
+    setError('');
+    try {
+      const r = await resendSignupConfirmation(sentTo);
+      if (r.error) {
+        setError(r.error);
+        // Throttled by the server: wait out a fresh minute before offering it again.
+        if (r.error === AUTH_COPY.resendRateLimited) setSentAt(Date.now());
+        return;
+      }
+      setResent(true);
+      setSentAt(Date.now());
+      toast('Confirmation email sent');
+    } finally {
+      setResending(false);
+    }
+  }
+
+  /** Back to sign-up with the name and email kept, so the address can be fixed. */
+  function editEmail() {
+    setModeState('signup');
+    setKeepReason(false);
+    setError('');
+    setResent(false);
+    setTimeout(() => emailRef.current?.focus(), 0);
   }
 
   async function resend() {
@@ -269,7 +321,20 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
             <SwitchLine text="Didn’t get it?" action="Resend" onClick={resend} />
           ) : mode === 'expired' ? (
             <SwitchLine text="Already confirmed your email?" action="Sign in" onClick={() => setMode('signin')} />
-          ) : mode === 'confirm' ? null : (
+          ) : mode === 'confirm' ? (
+            <span className="flex flex-col items-center gap-2">
+              <span>
+                {canResend ? (
+                  <SwitchLine text={resent ? 'Still nothing?' : 'Didn’t get it?'} action={resending ? 'Sending…' : 'Resend email'} onClick={resendConfirmation} />
+                ) : resent ? (
+                  'Sent again. Check your spam folder too. You can resend in a minute.'
+                ) : (
+                  'Didn’t get it? You can resend it in a minute.'
+                )}
+              </span>
+              <SwitchLine text="Wrong address?" action="Use a different email" onClick={editEmail} />
+            </span>
+          ) : (
             <SwitchLine text="Remembered it?" action="Back to sign in" onClick={() => setMode('signin')} />
           )}
         </p>
