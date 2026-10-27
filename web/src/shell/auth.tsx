@@ -1,14 +1,23 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useViewer } from '../lib/viewer';
-import { AuthDialog, type AuthMode } from './AuthDialog';
+import { AuthDialog, type AuthCloseReason, type AuthMode } from './AuthDialog';
 
 /**
  * Opens the AuthDialog from anywhere inside the shell: the sign-in buttons now,
  * and every gated action later through `useRequireAuth()`.
  */
+export interface OpenAuthOptions {
+  /**
+   * Called when the visitor backs out (Esc, Close, outside click) before signing
+   * in or finishing sign-up. Not called once a sign-up has sent its confirmation
+   * email, and not called on a successful sign-in.
+   */
+  onCancel?: () => void;
+}
+
 interface AuthCtx {
   authOpen: boolean;
-  openAuth: (mode?: AuthMode, reason?: string) => void;
+  openAuth: (mode?: AuthMode, reason?: string, opts?: OpenAuthOptions) => void;
   closeAuth: () => void;
 }
 
@@ -20,15 +29,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     mode: 'signin',
     key: 0,
   });
-  const openAuth = useCallback((mode: AuthMode = 'signin', reason?: string) => {
+  const onCancel = useRef<(() => void) | null>(null);
+  const openAuth = useCallback((mode: AuthMode = 'signin', reason?: string, opts?: OpenAuthOptions) => {
+    onCancel.current = opts?.onCancel ?? null;
     setState((s) => ({ open: true, mode, reason, key: s.key + 1 }));
   }, []);
-  const closeAuth = useCallback(() => setState((s) => ({ ...s, open: false })), []);
+  const closeAuth = useCallback(() => {
+    onCancel.current = null;
+    setState((s) => ({ ...s, open: false }));
+  }, []);
+  const onDialogClose = useCallback(
+    (how: AuthCloseReason = 'done') => {
+      const cancel = how === 'cancel' ? onCancel.current : null;
+      closeAuth();
+      cancel?.();
+    },
+    [closeAuth],
+  );
   const value = useMemo(() => ({ authOpen: state.open, openAuth, closeAuth }), [state.open, openAuth, closeAuth]);
   return (
     <AuthContext.Provider value={value}>
       {children}
-      <AuthDialog key={state.key} open={state.open} initialMode={state.mode} reason={state.reason} onClose={closeAuth} />
+      <AuthDialog key={state.key} open={state.open} initialMode={state.mode} reason={state.reason} onClose={onDialogClose} />
     </AuthContext.Provider>
   );
 }

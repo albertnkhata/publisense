@@ -206,6 +206,22 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
   const stepHeading = useRef<HTMLElement>(null);
   const genericEntry = !opts.board && !opts.hub;
 
+  /**
+   * Sign up to claim. The intent is kept for the confirmation email (a new tab),
+   * but backing out of sign-up forgets it, so a later, unrelated sign-in doesn't
+   * reopen this dialog.
+   */
+  const signUpToClaim = (intent: Pick<ClaimOptions, 'board' | 'hub'>, next: Step | null = null) => {
+    rememberClaimIntent(intent);
+    pendingStep.current = next;
+    openAuth('signup', CLAIM_AUTH_REASON, {
+      onCancel: () => {
+        clearClaimIntent();
+        pendingStep.current = null;
+      },
+    });
+  };
+
   // Announce each explanation/selection screen without moving focus behind auth.
   useEffect(() => {
     if (!authOpen && ['welcome', 'pick', 'intro', 'taken'].includes(step)) stepHeading.current?.focus();
@@ -393,7 +409,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
     setError(null);
     if (!viewer) {
       pendingStep.current = next;
-      openAuth('signin', CLAIM_AUTH_REASON);
+      openAuth('signin', CLAIM_AUTH_REASON, { onCancel: () => { pendingStep.current = null; } });
       return;
     }
     setStep(next);
@@ -454,7 +470,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
       </>
     );
     footer = !viewer ? (
-      <Button onClick={() => { rememberClaimIntent({}); pendingStep.current = 'pick'; openAuth('signup', CLAIM_AUTH_REASON); }} block>Get started</Button>
+      <Button onClick={() => signUpToClaim({}, 'pick')} block>Get started</Button>
     ) : (
       <Button onClick={() => setStep('pick')} block>Get started</Button>
     );
@@ -562,7 +578,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
       </form>
     );
     footer = !target.domain ? null : !viewer ? (
-      <Button onClick={() => { rememberClaimIntent(target.scope === 'hub' ? { hub: target.slug } : { board: target.slug }); openAuth('signup', CLAIM_AUTH_REASON); }} block>Get started</Button>
+      <Button onClick={() => signUpToClaim(target.scope === 'hub' ? { hub: target.slug } : { board: target.slug })} block>Get started</Button>
     ) : (
       <Actions>
         <Button type="submit" form="claim-form" loading={busy}>

@@ -137,6 +137,49 @@ describe('composer', () => {
     expect(await within(dialog).findByText('You can’t post on this board.')).toBeTruthy();
   });
 
+  it('keeps a pasted title over the limit, says so at the field and explains why Post is off (#171)', async () => {
+    renderComposer();
+    const dialog = await open();
+    await chooseSupabase(dialog);
+    chooseType(dialog, 'Bug');
+    const title = within(dialog).getByRole('textbox', { name: 'Title' }) as HTMLInputElement;
+    expect(title.maxLength).toBe(-1); // no silent browser cut
+    const long = 'x'.repeat(175);
+    fireEvent.change(title, { target: { value: long } });
+    expect(title.value).toBe(long);
+    expect(within(dialog).getByText('175/140')).toBeTruthy();
+    expect(within(dialog).getAllByText('Titles can be up to 140 characters.').length).toBeGreaterThan(0);
+    expect(title.getAttribute('aria-invalid')).toBe('true');
+    const post = within(dialog).getByRole('button', { name: 'Post' }) as HTMLButtonElement;
+    expect(post.disabled).toBe(true);
+    expect(post.getAttribute('aria-describedby')).toBeTruthy();
+    expect(document.getElementById(post.getAttribute('aria-describedby')!)?.textContent).toBe('Titles can be up to 140 characters.');
+
+    fireEvent.change(title, { target: { value: 'x'.repeat(140) } });
+    expect(within(dialog).queryByText('Titles can be up to 140 characters.')).toBeNull();
+    expect(post.disabled).toBe(false);
+    expect(post.getAttribute('aria-describedby')).toBeNull();
+  });
+
+  it('says why Post is disabled, one reason at a time', async () => {
+    renderComposer();
+    const dialog = await open();
+    const post = within(dialog).getByRole('button', { name: 'Post' }) as HTMLButtonElement;
+    const reason = () => document.getElementById(post.getAttribute('aria-describedby') ?? '')?.textContent;
+    expect(post.disabled).toBe(true);
+    expect(reason()).toBe('Choose a product to post.');
+    await chooseSupabase(dialog);
+    expect(reason()).toBe('Choose a type to post.');
+    chooseType(dialog, 'Bug');
+    expect(reason()).toBe('Add a title to post.');
+    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Title' }), { target: { value: 'ab' } });
+    expect(reason()).toBe('Give it a title of at least 3 characters.');
+    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Title' }), { target: { value: 'abc' } });
+    expect(post.disabled).toBe(false);
+    expect(post.getAttribute('aria-describedby')).toBeNull();
+    expect(within(dialog).queryByRole('status')).toBeNull();
+  });
+
   it('says when no product matches and lets you change the product', async () => {
     renderComposer();
     const dialog = await open();

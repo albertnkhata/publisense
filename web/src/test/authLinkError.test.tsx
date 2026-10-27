@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { parseAuthLinkError, withoutAuthLinkError } from '../api/authLinkError';
 import { AuthLinkErrorWatcher } from '../shell/AuthLinkErrorWatcher';
 import { renderWith } from './renderApp';
@@ -80,6 +80,35 @@ describe('AuthLinkErrorWatcher', () => {
     await screen.findByRole('dialog', { name: 'That link has expired' });
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(await screen.findByRole('dialog', { name: 'Sign in to Publisense' })).toBeTruthy();
+  });
+
+  it('strips all three error params from the query string too, keeping anything else', async () => {
+    window.history.replaceState(null, '', '/explore?error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired&cat=dev');
+    renderWith(<AuthLinkErrorWatcher initial={null} />);
+    expect(await screen.findByRole('dialog', { name: 'That link has expired' })).toBeTruthy();
+    expect(window.location.pathname).toBe('/explore');
+    expect(window.location.search).toBe('?cat=dev');
+    expect(window.location.href).not.toMatch(/error/);
+  });
+
+  it('handles a link opened in a tab that already has the app (hash change, no reload)', async () => {
+    window.history.replaceState(null, '', '/');
+    renderWith(<AuthLinkErrorWatcher initial={null} />);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    act(() => {
+      window.history.replaceState(null, '', `/${EXPIRED_HASH}`);
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+    });
+    expect(await screen.findByRole('dialog', { name: 'That link has expired' })).toBeTruthy();
+    expect(window.location.hash).toBe('');
+  });
+
+  it('on the reset page, only cleans the URL: the page explains the expired link itself', () => {
+    window.history.replaceState(null, '', `/auth/reset${EXPIRED_HASH}`);
+    renderWith(<AuthLinkErrorWatcher initial={null} />, { path: '/auth/reset' });
+    expect(window.location.hash).toBe('');
+    expect(window.location.pathname).toBe('/auth/reset');
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('does nothing on a normal visit', () => {

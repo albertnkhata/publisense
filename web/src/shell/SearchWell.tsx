@@ -1,6 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import {
   avatarSrc,
   CATEGORIES,
@@ -116,8 +116,8 @@ function toggleSearchModal(): void {
 
 export function SearchWell({ className, onSubmitted }: { className?: string; onSubmitted?: () => void }) {
   const navigate = useNavigate();
-  const [params] = useSearchParams();
-  const [q, setQ] = useState(params.get('q') ?? '');
+  const location = useLocation();
+  const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const [itemCount, setItemCount] = useState(0);
@@ -133,6 +133,22 @@ export function SearchWell({ className, onSubmitted }: { className?: string; onS
   const modalInputRef = useRef<HTMLInputElement>(null);
   const returnToRef = useRef<HTMLElement | null>(null);
   const [shortcut] = useState(() => (isApplePlatform() ? 'Meta+K' : 'Control+K'));
+
+  // Every close (Escape, Close, outside click, picking a result, navigating away)
+  // starts the next search fresh.
+  useEffect(() => {
+    if (open) return;
+    setQ('');
+    setActive(-1);
+  }, [open]);
+
+  // Navigating (Back, Forward, a link elsewhere) closes the modal.
+  const lastLocation = useRef(location.key);
+  useEffect(() => {
+    if (lastLocation.current === location.key) return;
+    lastLocation.current = location.key;
+    setOpen(false);
+  }, [location.key]);
 
   const openExclusive = () => {
     for (const [id, c] of modalControllers.entries()) {

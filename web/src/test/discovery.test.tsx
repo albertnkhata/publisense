@@ -524,6 +524,62 @@ describe('search modal', () => {
     expect(document.activeElement).toBe(button);
   });
 
+  it('clears the query whenever the modal closes: Escape, Close and outside click', async () => {
+    renderAt('/well');
+    const typeAndReopen = async (close: (modal: HTMLElement) => void) => {
+      fireEvent.click(trigger());
+      let modal = await screen.findByRole('dialog', { name: 'Search' });
+      fireEvent.change(within(modal).getByRole('combobox', { name: /Search products/ }), { target: { value: 'figma' } });
+      close(modal);
+      expect(screen.queryByRole('dialog', { name: 'Search' })).toBeNull();
+      fireEvent.click(trigger());
+      modal = await screen.findByRole('dialog', { name: 'Search' });
+      expect((within(modal).getByRole('combobox', { name: /Search products/ }) as HTMLInputElement).value).toBe('');
+      fireEvent.keyDown(document, { key: 'Escape' });
+    };
+    await typeAndReopen(() => fireEvent.keyDown(document, { key: 'Escape' }));
+    await typeAndReopen((modal) => fireEvent.click(within(modal).getByRole('button', { name: 'Close' })));
+    await typeAndReopen((modal) => fireEvent.click(modal.parentElement!.querySelector('[aria-hidden="true"]')!));
+  });
+
+  it('closes and clears the query when the page navigates', async () => {
+    const { router } = renderWith(
+      <>
+        <SearchWell />
+        <Routes>
+          <Route path="*" element={<h1>Page</h1>} />
+        </Routes>
+      </>,
+      { path: '/explore' },
+    );
+    fireEvent.click(trigger());
+    const modal = await screen.findByRole('dialog', { name: 'Search' });
+    fireEvent.change(within(modal).getByRole('combobox', { name: /Search products/ }), { target: { value: 'figma' } });
+    await act(async () => {
+      await router.navigate('/notifications');
+    });
+    expect(screen.queryByRole('dialog', { name: 'Search' })).toBeNull();
+    fireEvent.click(trigger());
+    const again = await screen.findByRole('dialog', { name: 'Search' });
+    expect((within(again).getByRole('combobox', { name: /Search products/ }) as HTMLInputElement).value).toBe('');
+  });
+
+  it('opens empty on the search page instead of carrying the page’s query', async () => {
+    boardsApi.searchAll.mockResolvedValue({ boards: [], hubs: [], posts: [] });
+    renderWith(
+      <>
+        <SearchWell />
+        <Routes>
+          <Route path="/search" element={<h1>Search page</h1>} />
+        </Routes>
+      </>,
+      { path: '/search?q=figma' },
+    );
+    fireEvent.click(trigger());
+    const modal = await screen.findByRole('dialog', { name: 'Search' });
+    expect((within(modal).getByRole('combobox', { name: /Search products/ }) as HTMLInputElement).value).toBe('');
+  });
+
   it('keeps the listbox to options and labelled groups', async () => {
     boardsApi.searchAll.mockResolvedValue({ boards: [FIGMA, FIGJAM], hubs: [FIGMA_HUB], posts: [makePost({ title: 'Figma variables export' })] });
     renderAt('/well');
