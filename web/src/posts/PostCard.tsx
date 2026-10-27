@@ -7,6 +7,7 @@ import { useViewer } from '../lib/viewer';
 import { useRequireAuth } from '../shell/auth';
 import { BoardAvatar, Icon, StatusPill, TypePill, UserAvatar, useToast } from '../ui';
 import { PostMenu } from './PostMenu';
+import { TeamByline } from './TeamByline';
 import { VoteButton } from './VoteButton';
 
 /**
@@ -197,8 +198,12 @@ function OfficialQuote({ post }: { post: Post }) {
   if (!o) return null;
   return (
     <div className="mt-3 rounded-sm border-0 border-l-2 border-solid border-brand bg-brand-soft px-3 py-2">
-      <p className="m-0 text-xs font-semibold text-brand">
-        {post.board?.name ?? 'Team'} team{o.author ? ` · @${o.author.handle}` : ''}
+      {/* The team speaks as the board (#160 follow-up): logo, name and Team badge, never the teammate's handle. */}
+      <p className="m-0 flex items-center gap-2 text-sm">
+        {post.board ? (
+          <BoardAvatar name={post.board.name} color={post.board.color} logoSrc={boardLogoSrc(post.board)} size="xs" decorative />
+        ) : null}
+        <TeamByline name={post.board?.name ?? 'Board'} />
       </p>
       <p className="mt-1 mb-0 line-clamp-3 text-base text-ink">{o.body}</p>
     </div>

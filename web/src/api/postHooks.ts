@@ -249,7 +249,7 @@ export function useCreateReply(post: Post | null | undefined, viewerId: string |
         reply_count: p.reply_count + 1,
         following: followed ? true : p.following,
         // An official reply is quoted on the card straight away.
-        official: reply.is_official && !reply.parent_id ? { id: reply.id, body: reply.body, created_at: reply.created_at, author: reply.author } : p.official,
+        official: reply.is_official && !reply.parent_id ? { id: reply.id, body: reply.body, created_at: reply.created_at } : p.official,
       }));
     },
   });

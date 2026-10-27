@@ -30,13 +30,13 @@ import {
   MenuLabel,
   Select,
   SkeletonBlock,
-  TeamPill,
   Textarea,
   UserAvatar,
   useToast,
 } from '../ui';
 import { ConfirmDialog } from './dialogs';
 import { ReportDialog } from './ReportDialog';
+import { TeamByline, teamLabel } from './TeamByline';
 
 /**
  * The reply thread on a post page (FOUNDATION §5 PostPage: replies one level
@@ -188,12 +188,7 @@ function ReplyItem({
 
   let who: ReactNode;
   if (reply.is_official && post.board) {
-    who = (
-      <>
-        <b className="font-semibold text-ink">{post.board.name}</b>
-        <TeamPill />
-      </>
-    );
+    who = <TeamByline name={post.board.name} />;
   } else if (reply.author) {
     who = (
       <Link to={`/u/${reply.author.handle}`} className="font-semibold text-ink no-underline hover:underline hover:underline-offset-2">
@@ -205,7 +200,8 @@ function ReplyItem({
   }
 
   return (
-    <article aria-label={`Reply by ${reply.author ? '@' + reply.author.handle : 'deleted user'}`} className="relative pl-gutter">
+    <article
+      aria-label={`Reply by ${reply.is_official && post.board ? teamLabel(post.board.name) : reply.author ? '@' + reply.author.handle : 'deleted user'}`} className="relative pl-gutter">
       <span className="absolute top-0 left-0">
         <ReplyAuthor post={post} reply={reply} {...(nested ? { nested } : {})} />
       </span>
@@ -297,7 +293,7 @@ function ReplyItem({
           <ReplyComposer
             post={post}
             parentId={rootId ?? reply.id}
-            initial={nested && reply.author ? `@${reply.author.handle} ` : ''}
+            initial={nested && reply.author && !reply.is_official ? `@${reply.author.handle} ` : ''}
             autoFocus
             onDone={() => setMode('view')}
           />
@@ -414,7 +410,10 @@ export function ReplyComposer({
   const create = useCreateReply(post, viewer?.id ?? null);
   // Team members can reply as the board on a new thread (mockup "Reply as"); the DB checks it.
   const team = useIsBoardTeam(parentId ? undefined : post.board_id, viewer?.id ?? null);
-  const [asTeam, setAsTeam] = useState(false);
+  // #160: a team member on their own board replies as the team by default; "me" is one tap away.
+  // null = not chosen yet, so the default follows the team check once it loads.
+  const [choice, setChoice] = useState<'team' | 'me' | null>(null);
+  const asTeam = Boolean(team.data) && choice !== 'me';
   const [body, setBody] = useState(initial);
   const [open, setOpen] = useState(Boolean(autoFocus));
   const [error, setError] = useState<string | null>(null);
@@ -425,7 +424,7 @@ export function ReplyComposer({
     setBody('');
     setError(null);
     setOpen(false);
-    setAsTeam(false);
+    setChoice(null);
     onDone?.();
   };
 
@@ -435,10 +434,10 @@ export function ReplyComposer({
     if (problem) return setError(problem);
     setError(null);
     create.mutate(
-      { body, parentId, official: Boolean(team.data && asTeam) },
+      { body, parentId, official: asTeam },
       {
         onSuccess: () => {
-          toast(team.data && asTeam ? 'Official reply posted' : 'Reply posted');
+          toast(asTeam ? 'Official reply posted' : 'Reply posted');
           reset();
         },
         onError: (e) => setError(e instanceof Error ? e.message : 'We couldn’t post your reply. Try again.'),
@@ -459,7 +458,11 @@ export function ReplyComposer({
   return (
     <div className="relative pl-gutter">
       <span className="absolute top-1 left-0">
-        <UserAvatar src={viewer?.avatarUrl ?? null} size={parentId ? 'sm' : 'md'} />
+        {asTeam && post.board ? (
+          <BoardAvatar name={post.board.name} color={post.board.color} logoSrc={boardLogoSrc(post.board)} size={parentId ? 'sm' : 'md'} decorative />
+        ) : (
+          <UserAvatar src={viewer?.avatarUrl ?? null} size={parentId ? 'sm' : 'md'} />
+        )}
       </span>
       <label htmlFor={id} className="sr-only">
         {parentId ? 'Reply to this thread' : 'Add a reply'}
@@ -495,12 +498,12 @@ export function ReplyComposer({
               Reply as
               <Select
                 value={asTeam ? 'team' : 'me'}
-                onChange={(e) => setAsTeam(e.target.value === 'team')}
+                onChange={(e) => setChoice(e.target.value === 'team' ? 'team' : 'me')}
                
                 aria-label="Reply as"
               >
                 <option value="me">{viewer ? `@${viewer.handle}` : 'You'}</option>
-                <option value="team">{post.board.name} team</option>
+                <option value="team">{teamLabel(post.board.name)}</option>
               </Select>
             </label>
           ) : null}

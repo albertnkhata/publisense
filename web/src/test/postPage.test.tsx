@@ -35,6 +35,8 @@ const api = vi.hoisted(() => ({
 vi.mock('../api/posts', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/posts')>()), ...api }));
 const modApi = vi.hoisted(() => ({ fetchIsPlatformAdmin: vi.fn(async () => false) }));
 vi.mock('../api/moderation', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/moderation')>()), ...modApi }));
+const boardsApi = vi.hoisted(() => ({ fetchIsBoardTeam: vi.fn(async () => false) }));
+vi.mock('../api/boards', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/boards')>()), ...boardsApi }));
 
 function renderPost(post: Post, { replies = [] as Reply[], events = [] as StatusEvent[], signedIn = true, found = true } = {}) {
   api.fetchPost.mockResolvedValue(found ? post : null);
@@ -54,6 +56,7 @@ beforeEach(() => {
   api.fetchRelated.mockResolvedValue([]);
   api.setVote.mockResolvedValue(undefined);
   api.setPostFollow.mockResolvedValue(undefined);
+  boardsApi.fetchIsBoardTeam.mockResolvedValue(false);
 });
 
 describe('post page', () => {
@@ -94,12 +97,18 @@ describe('post page', () => {
     const timeline = await screen.findByRole('region', { name: 'Status' });
     expect(within(timeline).getByText('Posted')).toBeTruthy();
     expect(within(timeline).getByText('Planned')).toBeTruthy();
-    expect(within(timeline).getByText(/Cursor team/)).toBeTruthy();
+    // The status change is the team's, shown as the board with its Team badge.
+    expect(timeline.textContent).toContain('Cursor Team');
+    expect(timeline.textContent).not.toContain('Cursor team');
 
     const replies = screen.getByRole('region', { name: 'Replies' });
     const items = await within(replies).findAllByRole('article');
     expect(items[0]!.textContent).toContain('Pinned');
     expect(items[0]!.textContent).toContain('On the roadmap for next cycle.');
+    // The official reply speaks as the board: no teammate handle anywhere on it.
+    expect(items[0]!.textContent).toContain('Cursor Team');
+    expect(items[0]!.textContent).not.toContain('@');
+    expect(items[0]!.getAttribute('aria-label')).toBe('Reply by Cursor · Team');
     expect(items[1]!.textContent).toContain('Same here on a monorepo.');
     expect(items[2]!.textContent).toContain('Matches what I see.');
     // Only the author gets Edit and Delete.
@@ -167,6 +176,53 @@ describe('replies', () => {
     fireEvent.keyDown(box, { key: 'Enter', ctrlKey: true });
     await waitFor(() => expect(api.createReply).toHaveBeenCalledWith(post.id, 'Nested answer', root.id, false));
     expect(await screen.findByText('Nested answer')).toBeTruthy();
+  });
+
+  it('a team member on their own board replies as the team by default, personal one tap away (#160)', async () => {
+    boardsApi.fetchIsBoardTeam.mockResolvedValue(true);
+    const post = makePost({ reply_count: 0 });
+    renderPost(post);
+    api.createReply.mockImplementation(async (postId: string, body: string, parentId: string | null, official: boolean) =>
+      makeReply(post, { post_id: postId, body, parent_id: parentId, author: ME, author_id: ME.id, is_official: official }),
+    );
+    const box = await screen.findByRole('textbox', { name: 'Add a reply' });
+    fireEvent.focus(box);
+    const as = (await screen.findByRole('combobox', { name: 'Reply as' })) as HTMLSelectElement;
+    expect(as.value).toBe('team');
+    expect(as.options[as.selectedIndex]!.text).toBe('Cursor · Team');
+    fireEvent.change(box, { target: { value: 'Fixed in 2.4.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Reply' }));
+    await waitFor(() => expect(api.createReply).toHaveBeenCalledWith(post.id, 'Fixed in 2.4.', null, true));
+    expect(await screen.findByText('Official reply posted')).toBeTruthy();
+
+    // Choosing yourself is one change away and posts a personal reply.
+    const again = screen.getByRole('textbox', { name: 'Add a reply' });
+    fireEvent.focus(again);
+    const as2 = (await screen.findByRole('combobox', { name: 'Reply as' })) as HTMLSelectElement;
+    expect(as2.value).toBe('team');
+    fireEvent.change(as2, { target: { value: 'me' } });
+    fireEvent.change(again, { target: { value: 'Personally, I love it.' } });
+    fireEvent.keyDown(again, { key: 'Enter', ctrlKey: true });
+    await waitFor(() => expect(api.createReply).toHaveBeenLastCalledWith(post.id, 'Personally, I love it.', null, false));
+  });
+
+  it('someone outside the team never sees Reply as and replies personally', async () => {
+    const post = makePost({ reply_count: 0 });
+    renderPost(post);
+    fireEvent.focus(await screen.findByRole('textbox', { name: 'Add a reply' }));
+    await screen.findByRole('button', { name: 'Reply' });
+    expect(screen.queryByRole('combobox', { name: 'Reply as' })).toBeNull();
+  });
+
+  it('replying under an official reply doesn’t prefill a teammate’s handle', async () => {
+    const post = makePost({ reply_count: 2 });
+    const official = makeReply(post, { is_official: true, body: 'Team answer' });
+    const child = makeReply(post, { parent_id: official.id, is_official: true, body: 'Team follow-up' });
+    renderPost(post, { replies: [official, child] });
+    const item = (await screen.findByText('Team follow-up')).closest('article')!;
+    fireEvent.click(within(item).getByRole('button', { name: 'Reply' }));
+    const box = within(item).getByRole('textbox', { name: 'Reply to this thread' }) as HTMLTextAreaElement;
+    expect(box.value).toBe('');
   });
 
   it('signed out, focusing the reply box opens sign-in', async () => {

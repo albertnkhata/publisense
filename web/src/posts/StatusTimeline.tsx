@@ -2,13 +2,15 @@ import type { Post, StatusEvent } from '../api';
 import { formatDate } from '../api';
 import { cx } from '../lib/cx';
 import { STATUS_META } from '../ui';
+import { TeamByline } from './TeamByline';
 
 /**
  * StatusTimeline (FOUNDATION §5): "Posted", then every status change in order,
  * from status_event. The current step is filled; Shipped is the only green.
  */
 export function StatusTimeline({ post, events }: { post: Post; events: StatusEvent[] }) {
-  const team = post.board ? `${post.board.name} team` : 'Team';
+  // Status changes are the team's, shown as the board (same byline as an official reply).
+  const team = post.board?.name ?? 'Board';
   const steps = [
     { key: 'posted', label: 'Posted', at: post.created_at, by: null as string | null, note: null as string | null, status: null as Post['status'] | null },
     ...events.map((e) => ({ key: e.id, label: STATUS_META[e.to].label, at: e.at, by: e.actor_id ? team : null, note: e.note, status: e.to })),
@@ -37,7 +39,12 @@ export function StatusTimeline({ post, events }: { post: Post; events: StatusEve
                 <p className="m-0 text-sm text-ink-muted">
                   <b className="font-semibold text-ink">{s.label}</b>{' '}
                   <time dateTime={s.at}>{formatDate(s.at, new Date(), true)}</time>
-                  {s.by ? ` · ${s.by}` : ''}
+                  {s.by ? (
+                    <>
+                      {' · '}
+                      <TeamByline name={s.by} className="inline-flex items-center gap-1 align-middle" />
+                    </>
+                  ) : null}
                 </p>
                 {s.note ? <p className="mt-1 mb-0 text-sm text-ink-secondary whitespace-pre-line">{s.note}</p> : null}
               </div>

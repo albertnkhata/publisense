@@ -63,8 +63,8 @@ describe('notification copy', () => {
       [REPLY, '@jmwamba replied to your post Composer drops edits on rebase'],
       [note({ post: { id: 'p1', title: 'X post', author_id: OTHER.id, board: null } }), '@jmwamba replied to you on X post'],
       [note({ kind: 'upvote_milestone', data: { votes: 100 } }), 'Your post Composer drops edits on rebase reached 100 upvotes'],
-      [note({ kind: 'status_change', data: { to: 'planned' } }), 'The Cursor team marked Composer drops edits on rebase as Planned'],
-      [SHIPPED, 'Composer drops edits on rebase, a post you follow, is marked Shipped by the Cursor team'],
+      [note({ kind: 'status_change', data: { to: 'planned' } }), 'Cursor Team marked Composer drops edits on rebase as Planned'],
+      [SHIPPED, 'Cursor Team marked Composer drops edits on rebase as Shipped'],
       [note({ kind: 'status_change', data: { to: 'merged', into: 'p9', into_title: 'Caret lost' } }), 'Composer drops edits on rebase, a post you follow, was merged into Caret lost', '/post/p9'],
       [note({ kind: 'claim', target_type: 'board', data: { scope: 'board', slug: 'cursor', name: 'Cursor' } }), 'You’re now managing Cursor’s board. Your replies show as verified.', '/b/cursor'],
       [note({ kind: 'claim', target_type: 'board', data: { scope: 'board', slug: 'linear', name: 'Linear', dispute: 'approved' } }), 'We upheld your report about Linear. You now manage it.'],
@@ -88,6 +88,45 @@ describe('notification copy', () => {
       expect(screen.getByTestId(`t${i}`).textContent).toBe(text);
       if (href) expect(described[i]?.href).toBe(href);
     });
+  });
+});
+
+describe('official replies speak as the board (#160 follow-up)', () => {
+  const OFFICIAL = note({ official: true, quote: 'Fixed in 2.4.' });
+
+  it('names the board and its Team badge, never the teammate', () => {
+    const cases: Array<[AppNotification, string]> = [
+      [OFFICIAL, 'Cursor Team replied to your post Composer drops edits on rebase'],
+      [note({ official: true, post: { id: 'p1', title: 'X post', author_id: OTHER.id, board: { ...BOARD } } }), 'Cursor Team replied to you on X post'],
+      [note({ kind: 'mention', official: true }), 'Cursor Team mentioned you in a reply on Composer drops edits on rebase'],
+    ];
+    const described = cases.map(([x]) => describeNotification(x, ME.id));
+    renderWith(
+      <>
+        {described.map((d, i) => (
+          <p key={i} data-testid={`o${i}`}>
+            {d.text}
+          </p>
+        ))}
+      </>,
+    );
+    cases.forEach(([, text], i) => {
+      expect(screen.getByTestId(`o${i}`).textContent).toBe(text);
+      expect(screen.getByTestId(`o${i}`).textContent).not.toContain(OTHER.handle);
+      expect(described[i]?.boardAvatar?.name).toBe(BOARD.name);
+    });
+  });
+
+  it('a personal reply stays personal', () => {
+    const d = describeNotification(note({ official: false }), ME.id);
+    expect(d.boardAvatar).toBeUndefined();
+  });
+
+  it('shows the board logo, not the teammate’s avatar, in the list', async () => {
+    const { container } = renderPage([OFFICIAL]);
+    const link = await screen.findByRole('link', { name: /Cursor Team replied to your post/ });
+    expect(link.textContent).not.toContain('@');
+    expect(container.querySelector('.bg-board')).toBeTruthy();
   });
 });
 
