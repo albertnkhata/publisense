@@ -85,23 +85,29 @@ select pg_temp.expect('0049: a request with a message is filed (trimmed)',
 select pg_temp.expect('0049: the requester reads their own message back, trimmed',
   (select message from public.join_request where user_id = (select asker from f))
     = E'I run support here.\n Need to answer bug reports.');
-select pg_temp.expect('0049: exactly 280 characters is accepted on a repeat and replaces the message',
-  (public.request_join('board', (select board from f), 'asha@jmci-acme.dev', repeat('y', 280)) ->> 'already')::boolean
-  and (select message from public.join_request where user_id = (select asker from f)) = repeat('y', 280));
-select pg_temp.expect('0049: a repeat without a message keeps the old one',
-  (public.request_join('board', (select board from f), 'asha@jmci-acme.dev') ->> 'already')::boolean
-  and (select message from public.join_request where user_id = (select asker from f)) = repeat('y', 280));
+-- Each RPC call is its own statement: a statement's snapshot doesn't see what a
+-- function it calls wrote, so the read-back comes in the next statement.
+select pg_temp.expect('0049: exactly 280 characters is accepted on a repeat',
+  (public.request_join('board', (select board from f), 'asha@jmci-acme.dev', repeat('y', 280)) ->> 'already')::boolean);
+select pg_temp.expect('0049: ... and replaces the message',
+  (select message from public.join_request where user_id = (select asker from f)) = repeat('y', 280));
+select pg_temp.expect('0049: a repeat without a message is accepted',
+  (public.request_join('board', (select board from f), 'asha@jmci-acme.dev') ->> 'already')::boolean);
+select pg_temp.expect('0049: ... and keeps the old message',
+  (select message from public.join_request where user_id = (select asker from f)) = repeat('y', 280));
 
 select pg_temp.as_user((select quiet from f));
-select pg_temp.expect('0049: the old three-argument call still works, blank message stored as null',
-  (public.request_join('board', (select board from f), 'quinn@jmci-acme.dev') ->> 'ok')::boolean
-  and (select message is null from public.join_request where user_id = (select quiet from f)));
+select pg_temp.expect('0049: the old three-argument call still works',
+  (public.request_join('board', (select board from f), 'quinn@jmci-acme.dev') ->> 'ok')::boolean);
+select pg_temp.expect('0049: ... and stores no message',
+  (select message is null from public.join_request where user_id = (select quiet from f)));
 select pg_temp.as_owner();
 update public.join_request set status = 'withdrawn' where user_id = (select quiet from f);
 select pg_temp.as_user((select quiet from f));
-select pg_temp.expect('0049: a whitespace-only message is stored as null',
-  (public.request_join('board', (select board from f), 'quinn@jmci-acme.dev', E'   \n  ') ->> 'ok')::boolean
-  and (select message is null from public.join_request where user_id = (select quiet from f) and status = 'pending'));
+select pg_temp.expect('0049: a whitespace-only message is accepted',
+  (public.request_join('board', (select board from f), 'quinn@jmci-acme.dev', E'   \n  ') ->> 'ok')::boolean);
+select pg_temp.expect('0049: ... and stored as null',
+  (select message is null from public.join_request where user_id = (select quiet from f) and status = 'pending'));
 
 -- ------------------------------------------------------------ who reads it
 
