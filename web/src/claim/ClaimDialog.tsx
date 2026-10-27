@@ -454,10 +454,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
       </>
     );
     footer = !viewer ? (
-      <Actions>
-        <Button onClick={() => { rememberClaimIntent({}); pendingStep.current = 'pick'; openAuth('signup', CLAIM_AUTH_REASON); }}>Get started</Button>
-        <Alt onClick={() => { pendingStep.current = 'pick'; openAuth('signin', CLAIM_AUTH_REASON); }}>I have an account</Alt>
-      </Actions>
+      <Button onClick={() => { rememberClaimIntent({}); pendingStep.current = 'pick'; openAuth('signup', CLAIM_AUTH_REASON); }} block>Get started</Button>
     ) : (
       <Button onClick={() => setStep('pick')} block>Get started</Button>
     );
@@ -565,10 +562,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
       </form>
     );
     footer = !target.domain ? null : !viewer ? (
-      <Actions>
-        <Button onClick={() => { rememberClaimIntent(target.scope === 'hub' ? { hub: target.slug } : { board: target.slug }); openAuth('signup', CLAIM_AUTH_REASON); }}>Get started</Button>
-        <Alt onClick={() => openAuth('signin', CLAIM_AUTH_REASON)}>I have an account</Alt>
-      </Actions>
+      <Button onClick={() => { rememberClaimIntent(target.scope === 'hub' ? { hub: target.slug } : { board: target.slug }); openAuth('signup', CLAIM_AUTH_REASON); }} block>Get started</Button>
     ) : (
       <Actions>
         <Button type="submit" form="claim-form" loading={busy}>
