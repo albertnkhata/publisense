@@ -618,6 +618,66 @@ describe('team management', () => {
     await waitFor(() => expect((screen.getByLabelText('Email or handle') as HTMLInputElement).value).toBe(''));
   });
 
+  const LEE_REQUEST = { id: 'jr1', user_id: 'u3', scope: 'board' as const, scope_id: CURSOR.id, work_email: 'lee@cursor.com', created_at: new Date().toISOString(), profile: { id: 'u3', handle: 'lee', name: 'Lee', avatar_path: null } };
+
+  it('offers Member (default) and Admin, never Owner, when approving (#188)', async () => {
+    teamsApi.fetchScopeRole.mockResolvedValue('owner');
+    teamsApi.fetchTeam.mockResolvedValue(team());
+    teamsApi.fetchJoinRequests.mockResolvedValue([LEE_REQUEST]);
+    renderAt('/b/cursor/manage?tab=team');
+    const select = (await screen.findByLabelText('Role for Lee')) as HTMLSelectElement;
+    expect(select.value).toBe('member');
+    expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['Member', 'Admin']);
+  });
+
+  it('approves as Admin with the existing RPCs: approve, then set the role (#188)', async () => {
+    teamsApi.fetchScopeRole.mockResolvedValue('admin');
+    teamsApi.fetchTeam.mockResolvedValue(team());
+    teamsApi.fetchJoinRequests.mockResolvedValue([LEE_REQUEST]);
+    renderAt('/b/cursor/manage?tab=team');
+    fireEvent.change(await screen.findByLabelText('Role for Lee'), { target: { value: 'admin' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    await waitFor(() => expect(teamsApi.setMemberRole).toHaveBeenCalledWith('board', CURSOR.id, 'u3', 'admin'));
+    expect(teamsApi.decideJoinRequest).toHaveBeenCalledWith('jr1', true);
+    expect(teamsApi.decideJoinRequest.mock.invocationCallOrder[0]!).toBeLessThan(teamsApi.setMemberRole.mock.invocationCallOrder[0]!);
+    expect(await screen.findByText('Lee joined the team as Admin')).toBeTruthy();
+  });
+
+  it('says they joined as Member when the role change is refused (#188)', async () => {
+    teamsApi.fetchScopeRole.mockResolvedValue('owner');
+    teamsApi.fetchTeam.mockResolvedValue(team());
+    teamsApi.fetchJoinRequests.mockResolvedValue([LEE_REQUEST]);
+    teamsApi.setMemberRole.mockRejectedValueOnce(new TeamError('not_allowed', 'Only admins can do that.'));
+    renderAt('/b/cursor/manage?tab=team');
+    fireEvent.change(await screen.findByLabelText('Role for Lee'), { target: { value: 'admin' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    expect(await screen.findByText('Lee joined as Member, but we couldn’t make them Admin. Change it in Members.')).toBeTruthy();
+  });
+
+  it('does not set a role when the approve itself fails (#188)', async () => {
+    teamsApi.fetchScopeRole.mockResolvedValue('owner');
+    teamsApi.fetchTeam.mockResolvedValue(team());
+    teamsApi.fetchJoinRequests.mockResolvedValue([LEE_REQUEST]);
+    teamsApi.decideJoinRequest.mockRejectedValueOnce(new TeamError('decided', 'Someone already answered this request.'));
+    renderAt('/b/cursor/manage?tab=team');
+    fireEvent.change(await screen.findByLabelText('Role for Lee'), { target: { value: 'admin' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    expect(await screen.findByText('Someone already answered this request.')).toBeTruthy();
+    expect(teamsApi.setMemberRole).not.toHaveBeenCalled();
+  });
+
+  it('links the requester to their profile (#188)', async () => {
+    teamsApi.fetchScopeRole.mockResolvedValue('owner');
+    teamsApi.fetchTeam.mockResolvedValue(team());
+    teamsApi.fetchJoinRequests.mockResolvedValue([LEE_REQUEST, { ...LEE_REQUEST, id: 'jr2', user_id: 'gone', work_email: 'old@cursor.com', profile: null }]);
+    renderAt('/b/cursor/manage?tab=team');
+    const link = await screen.findByRole('link', { name: 'Lee' });
+    expect(link.getAttribute('href')).toBe('/u/lee');
+    expect(screen.getByText(/@lee · lee@cursor.com · verified/)).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Someone' })).toBeNull();
+    expect(screen.getByText('Someone')).toBeTruthy();
+  });
+
   it('saves the board description from Settings', async () => {
     teamsApi.fetchScopeRole.mockResolvedValue('owner');
     teamsApi.updateBoardTagline.mockResolvedValue(undefined);

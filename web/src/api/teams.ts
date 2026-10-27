@@ -306,6 +306,14 @@ export async function fetchJoinRequests(scopes: Array<{ scope: Scope; id: string
   return ((data ?? []) as unknown as JoinRequest[]).filter((r) => wanted.has(`${r.scope}:${r.scope_id}`));
 }
 
+/**
+ * Roles offered when approving a join request (#188). Never Owner: handing over a
+ * board stays a deliberate step in Members. Owners and admins may both grant Admin
+ * (set_member_role), and only they see requests.
+ */
+export type ApproveRole = Exclude<Role, 'owner'>;
+export const APPROVE_ROLES: ApproveRole[] = ['member', 'admin'];
+
 export async function decideJoinRequest(id: string, approve: boolean): Promise<void> {
   await rpc('decide_join_request', { p_request: id, p_approve: approve });
 }

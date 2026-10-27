@@ -22,6 +22,8 @@ import {
   updateBoardTagline,
   updateHub,
   uploadBoardLogo,
+  type ApproveRole,
+  type JoinRequest,
   type Role,
   type Scope,
 } from './teams';
@@ -120,6 +122,31 @@ export function useDecideJoin() {
   return useMutation({
     mutationFn: (v: { id: string; approve: boolean }) => decideJoinRequest(v.id, v.approve),
     onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['join-requests'] });
+      void qc.invalidateQueries({ queryKey: ['team'] });
+    },
+  });
+}
+
+/**
+ * Approve a join request with a role (#188). Existing RPCs only: approve (which adds
+ * them as Member), then, for Admin, set_member_role, which re-checks the approver's
+ * permission. `roleSet: false` means they joined but stayed Member.
+ */
+export function useApproveJoin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { request: Pick<JoinRequest, 'id' | 'scope' | 'scope_id' | 'user_id'>; role: ApproveRole }) => {
+      await decideJoinRequest(v.request.id, true);
+      if (v.role === 'member') return { roleSet: true };
+      try {
+        await setMemberRole(v.request.scope, v.request.scope_id, v.request.user_id, v.role);
+        return { roleSet: true };
+      } catch {
+        return { roleSet: false };
+      }
+    },
+    onSettled: () => {
       void qc.invalidateQueries({ queryKey: ['join-requests'] });
       void qc.invalidateQueries({ queryKey: ['team'] });
     },
