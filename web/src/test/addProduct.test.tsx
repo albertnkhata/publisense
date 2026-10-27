@@ -634,7 +634,48 @@ describe('admin: new products', () => {
     expect(screen.getByText('Companies show here when someone adds a product with one, or when you approve one with a product.')).toBeTruthy();
   });
 
-  it('rejects with an optional reason', async () => {
+  it('needs a reason to reject, and says so without calling the server', async () => {
+    productsApi.fetchProductQueue.mockResolvedValue([QUEUED]);
+    renderApp('/admin/products');
+    fireEvent.click(await screen.findByRole('button', { name: 'Reject' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Reject Acme Notes?' });
+    fireEvent.change(within(dialog).getByLabelText(/^Reason/), { target: { value: '   ' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Reject' }));
+    expect(await within(dialog).findByText('Add a reason. It’s shown to the person who added it.')).toBeTruthy();
+    expect(productsApi.decideBoard).not.toHaveBeenCalled();
+    expect(within(dialog).queryByText('Optional')).toBeNull();
+  });
+
+  it('approves with an optional note to the submitter', async () => {
+    productsApi.fetchProductQueue.mockResolvedValue([QUEUED]);
+    renderApp('/admin/products');
+    fireEvent.click(await screen.findByRole('button', { name: 'Review and approve' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Approve Acme Notes?' });
+    fireEvent.change(within(dialog).getByLabelText(/^Note to the person who added it/), { target: { value: ' Welcome aboard ' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Approve' }));
+    await waitFor(() => expect(productsApi.decideBoard).toHaveBeenCalledWith(expect.objectContaining({ id: ACME_ID, approve: true, reason: 'Welcome aboard' })));
+  });
+
+  it('shows each decision with who decided, when, and the reason or note', async () => {
+    productsApi.fetchProductQueue.mockImplementation(async (status: string) =>
+      status === 'pending'
+        ? []
+        : [
+            { ...QUEUED, status: 'rejected', reviewed_at: iso(2), review_note: 'Duplicate', decision: { decision: 'rejected', note: 'Duplicate of Acme', decided_at: iso(2), decider: ME } },
+            { ...QUEUED, id: 'b-live', slug: 'muse', name: 'Muse', status: 'live', reviewed_at: iso(3), decision: { decision: 'approved', note: 'Welcome aboard', decided_at: iso(3), decider: ME } },
+            { ...QUEUED, id: 'b-old', slug: 'old', name: 'Old One', status: 'live', reviewed_at: iso(30), decision: null },
+          ],
+    );
+    renderApp('/admin/products');
+    fireEvent.click(await screen.findByRole('tab', { name: /Decided/ }));
+    const list = await screen.findByRole('list', { name: 'Decided products' });
+    const items = within(list).getAllByRole('listitem');
+    expect(items[0]!.querySelector('[data-decision]')?.textContent).toMatch(/^Rejected by @alice · .+Reason: Duplicate of Acme$/);
+    expect(items[1]!.querySelector('[data-decision]')?.textContent).toMatch(/^Approved by @alice · .+Note: Welcome aboard$/);
+    expect(items[2]!.querySelector('[data-decision]')?.textContent).toMatch(/^Approved · /);
+  });
+
+  it('rejects with a reason', async () => {
     productsApi.fetchProductQueue.mockResolvedValue([QUEUED]);
     renderApp('/admin/products');
     fireEvent.click(await screen.findByRole('button', { name: 'Reject' }));
@@ -785,6 +826,8 @@ describe('product notifications', () => {
   it('say when a product went live, or why it did not', () => {
     const live = describeNotification({ ...base, kind: 'product', data: { status: 'approved', slug: 'acme-notes', name: 'Acme Notes' } }, TEST_VIEWER.id);
     expect(live.href).toBe('/b/acme-notes');
+    const noted = describeNotification({ ...base, kind: 'product', data: { status: 'approved', slug: 'acme-notes', name: 'Acme Notes', note: 'Welcome aboard' } }, TEST_VIEWER.id);
+    expect(renderWith(<p>{noted.text}</p>).container.textContent).toBe('Acme Notes is live. Thanks for adding it: anyone can post on its board now. Note from the team: Welcome aboard');
     const no = describeNotification({ ...base, kind: 'product', data: { status: 'rejected', slug: 'acme-notes', name: 'Acme Notes', reason: 'Duplicate' } }, TEST_VIEWER.id);
     const { container } = renderWith(<p>{no.text}</p>);
     expect(container.textContent).toBe('Acme Notes wasn’t approved: Duplicate');

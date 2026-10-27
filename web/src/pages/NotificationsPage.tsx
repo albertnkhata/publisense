@@ -262,6 +262,7 @@ export function describeNotification(n: AppNotification, viewerId: string | null
           text: (
             <>
               <B>{name}</B> is live. Thanks for adding it: anyone can post on its board now.
+              {d.note ? <> Note from the team: {String(d.note)}</> : null}
             </>
           ),
           href,
