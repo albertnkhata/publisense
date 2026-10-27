@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes } from 'react-router';
+import { rememberSearch } from '../api/boards';
 import type { FeedPage, Post } from '../api/posts';
 import { BoardPage } from '../pages/BoardPage';
 import { ExplorePage } from '../pages/ExplorePage';
@@ -8,6 +9,7 @@ import { HubPage } from '../pages/HubPage';
 import { SearchPage } from '../pages/SearchPage';
 import { ClaimProvider } from '../claim/ClaimDialog';
 import { ComposerProvider } from '../shell/composer';
+import { SearchWell } from '../shell/SearchWell';
 import { CURSOR, FIGJAM, FIGMA, FIGMA_HUB, makeSummary, SUPABASE } from './boardFixtures';
 import { makePost } from './postFixtures';
 import { renderWith, TEST_VIEWER } from './renderApp';
@@ -51,6 +53,7 @@ function renderAt(path: string, signedIn = false) {
         <Route path="/h/:hub" element={<HubPage />} />
         <Route path="/explore" element={<ExplorePage />} />
         <Route path="/search" element={<SearchPage />} />
+        <Route path="/well" element={<SearchWell />} />
         <Route path="/post/:id" element={<h1>Post page</h1>} />
         <Route path="/" element={<h1>Home page</h1>} />
       </Routes>
@@ -436,6 +439,53 @@ describe('search', () => {
   });
 });
 
+describe('search modal', () => {
+  it('opens on Ctrl+K, shows recent searches and popular products, and closes on Escape', async () => {
+    rememberSearch('dark mode');
+    renderAt('/well');
+    expect(screen.queryByRole('dialog', { name: 'Search' })).toBeNull();
+
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+    const modal = await screen.findByRole('dialog', { name: 'Search' });
+    expect(within(modal).getByRole('option', { name: /dark mode/ })).toBeTruthy();
+    expect(await within(modal).findByRole('option', { name: /Cursor/ })).toBeTruthy();
+
+    fireEvent.click(within(modal).getByRole('button', { name: 'Clear' }));
+    expect(within(modal).queryByRole('option', { name: /dark mode/ })).toBeNull();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Search' })).toBeNull();
+  });
+
+  it('filters live results by scope pills and navigates via keyboard', async () => {
+    boardsApi.searchAll.mockResolvedValue({
+      boards: [FIGMA, FIGJAM],
+      hubs: [FIGMA_HUB],
+      posts: [makePost({ title: 'Figma variables export', status: 'planned' })],
+    });
+    const { router } = renderAt('/well');
+    fireEvent.focus(screen.getByRole('combobox', { name: /Search products/ }));
+    const modal = await screen.findByRole('dialog', { name: 'Search' });
+    const input = within(modal).getByRole('combobox', { name: /Search products/ });
+
+    fireEvent.change(input, { target: { value: 'fig' } });
+    expect(await within(modal).findByRole('option', { name: /Figma variables export/ })).toBeTruthy();
+    expect(within(modal).getByRole('option', { name: /Figma hub/ })).toBeTruthy();
+
+    // Filter to Posts only
+    const toolbar = within(modal).getByRole('toolbar', { name: 'Filter search results' });
+    fireEvent.click(within(toolbar).getByRole('button', { name: /Posts/ }));
+    expect(within(modal).queryByRole('option', { name: /Figma hub/ })).toBeNull();
+    expect(within(modal).getByRole('option', { name: /Figma variables export/ })).toBeTruthy();
+
+    // Switch back to Products and pick the first item with ArrowDown + Enter
+    fireEvent.click(within(toolbar).getByRole('button', { name: /Products/ }));
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    fireEvent.submit(input.closest('form')!);
+    await waitFor(() => expect(router.state.location.pathname).toBe('/b/figma'));
+    expect(screen.queryByRole('dialog', { name: 'Search' })).toBeNull();
+  });
+});
 
 /*
  * 0030: a company that changed its name still owns the address it used to publish under.
