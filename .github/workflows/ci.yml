@@ -252,6 +252,14 @@ jobs:
           PGPASSWORD: postgres
         run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_vote_privacy_test.sql
 
+      # Feedback-loop polish (PR #172 follow-up, 0043-0045): merged permalinks readable,
+      # one notification and one email per status change with a note, the author edit
+      # window. Stubs pg_net and Vault in a rolled-back transaction; needs the seeded CI database.
+      - name: v2 feedback loop tests
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_feedback_loop_test.sql
+
       - name: Report public read-policy count
         env:
           PGPASSWORD: postgres

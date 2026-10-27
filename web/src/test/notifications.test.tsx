@@ -91,6 +91,15 @@ describe('notification copy', () => {
   });
 });
 
+describe('status change with a note (0044)', () => {
+  it('quotes the team’s timeline note in the one status notification', () => {
+    const d = describeNotification(note({ kind: 'status_change', target_type: 'post', data: { to: 'shipped', note: 'Live in 2.4.' } }), ME.id);
+    expect(d.quote).toBe('Live in 2.4.');
+    expect(describeNotification(note({ kind: 'status_change', target_type: 'post', data: { to: 'planned', note: 'Next cycle.' } }), ME.id).quote).toBe('Next cycle.');
+    expect(describeNotification(SHIPPED, ME.id).quote).toBeNull();
+  });
+});
+
 describe('notifications page', () => {
   it('groups by day, marks unread, and opening one marks it read', async () => {
     renderPage([REPLY, FOLLOW, SHIPPED]);

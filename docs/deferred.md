@@ -21,6 +21,21 @@
 
 ## Open
 
+### D-015 · Replies have no edit window
+
+**Status:** 🟢 cosmetic/minor · **Deferred:** 2026-10-27 · **PR:** feedback-loop polish (follow-up to the QA report in #172)
+
+Posts now lock for their author 1 hour after posting and once Shipped, Closed or Merged
+(`0045_v2_post_edit_window.sql`, enforced by a trigger). Replies were left as they were: an author can
+still edit their own reply at any time, and it shows "edited". A reply is a conversation turn rather
+than the record the team answers, and nobody asked for a reply lock, so the change was kept to posts.
+
+**Revisit when:** people edit replies to change their meaning after others answered them, or a team
+asks for it. The same pattern applies: a BEFORE UPDATE trigger on `reply` reading
+`public.v2_post_edit_window()` (or its own setting).
+
+---
+
 ### D-012 · The Google consent screen shows no app logo
 
 **Status:** 🟢 DEFERRED by owner decision 2026-10-21 — auto-verification bounced twice; not pursuing now · **Raised:** 2026-10-21 · **Revisit:** when a distinctive brand mark exists, or if a sensitive scope forces a review anyway

@@ -16,6 +16,11 @@ export interface ShareMeta {
   description: string;
   /** Path on the site, e.g. /b/cursor */
   path: string;
+  /**
+   * Where search engines should send this page's ranking, when it is not the page
+   * itself: a merged post points at the post it was merged into (0043).
+   */
+  canonicalPath?: string;
 }
 
 const CRAWLER =
@@ -50,7 +55,29 @@ export function hubMeta(h: { slug: string; name: string; description?: string | 
   };
 }
 
-export function postMeta(p: { id: string; title: string; body?: string | null; board?: { name: string } | null }): ShareMeta {
+export interface PostMetaRow {
+  id: string;
+  title: string;
+  body?: string | null;
+  board?: { name: string } | null;
+  status?: string | null;
+  merged_into?: string | null;
+  /** The surviving post, embedded through merged_into. */
+  merged?: { id: string; title: string } | null;
+}
+
+export function postMeta(p: PostMetaRow): ShareMeta {
+  // A merged post is a real page ("Merged into …"), not a 404, but its canonical URL is
+  // the surviving post, so search engines index that one instead of the duplicate.
+  if (p.status === 'merged' && p.merged_into) {
+    const into = p.merged?.title?.trim();
+    return {
+      title: clip(`${p.title}${p.board ? ` · ${p.board.name}` : ''} · Publisense`, 110),
+      description: clip(into ? `Merged into “${into}”. Votes and followers moved there.` : 'Merged into another post. Votes and followers moved there.'),
+      path: `/post/${p.id}`,
+      canonicalPath: `/post/${p.merged_into}`,
+    };
+  }
   return {
     title: clip(`${p.title}${p.board ? ` · ${p.board.name}` : ''} · Publisense`, 110),
     description: clip(p.body?.trim() || (p.board ? `Feedback for ${p.board.name} on Publisense.` : DEFAULT_DESCRIPTION)),
@@ -71,7 +98,7 @@ export function escapeAttr(s: string): string {
 export function applyMeta(html: string, meta: ShareMeta): string {
   const title = escapeAttr(meta.title);
   const desc = escapeAttr(meta.description);
-  const url = escapeAttr(`${SITE}${meta.path}`);
+  const url = escapeAttr(`${SITE}${meta.canonicalPath ?? meta.path}`);
   return html
     .replace(/<title>[^<]*<\/title>/, `<title>${title}</title>`)
     .replace(/(<meta name="description" content=")[^"]*(")/, `$1${desc}$2`)

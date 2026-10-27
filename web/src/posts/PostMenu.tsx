@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { postKind, useDeletePost, useFollowPost, useHidePost, useIsBoardTeam, useIsPlatformAdmin, type Post } from '../api';
+import { editLockReason, postKind, useDeletePost, useFollowPost, useHidePost, useIsBoardTeam, useIsPlatformAdmin, type Post } from '../api';
 import { copyText, postUrl } from '../lib/share';
 import { useViewer } from '../lib/viewer';
 import { useRequireAuth } from '../shell/auth';
@@ -36,7 +36,9 @@ export function PostMenu({ post, onDeleted }: { post: Post; onDeleted?: () => vo
   const isAuthor = Boolean(viewer && post.author_id === viewer.id);
   // Staff look after seeded posts (no author, a source link): edit and delete them (0031).
   const staffSeeded = Boolean(staff.data) && postKind(post) === 'seeded';
-  const canEdit = (isAuthor && post.status !== 'merged') || staffSeeded;
+  // Authors edit within the window and never once Shipped, Closed or Merged (0045; the DB enforces it).
+  const lock = staffSeeded ? null : editLockReason(post);
+  const showEdit = isAuthor || staffSeeded;
   const canDelete = isAuthor || staffSeeded;
   const canHide = Boolean(team.data || staff.data);
 
@@ -87,7 +89,7 @@ export function PostMenu({ post, onDeleted }: { post: Post; onDeleted?: () => vo
           {post.following ? 'Unfollow post' : 'Follow post'}
         </MenuItem>
         {team.data && post.status !== 'merged' ? (
-          <MenuItem icon="status-planned" description="Set a status and post an official reply" onSelect={() => setStatusOpen(true)}>
+          <MenuItem icon="status-planned" description="Set a status and add a timeline note" onSelect={() => setStatusOpen(true)}>
             Update status
           </MenuItem>
         ) : null}
@@ -134,8 +136,8 @@ export function PostMenu({ post, onDeleted }: { post: Post; onDeleted?: () => vo
         {canDelete ? (
           <>
             <MenuSeparator />
-            {canEdit ? (
-              <MenuItem icon="edit" onSelect={() => setEditing(true)}>
+            {showEdit ? (
+              <MenuItem icon="edit" disabled={Boolean(lock)} description={lock ?? undefined} onSelect={() => setEditing(true)}>
                 Edit post
               </MenuItem>
             ) : null}

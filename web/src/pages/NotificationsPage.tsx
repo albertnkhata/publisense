@@ -109,6 +109,8 @@ export function describeNotification(n: AppNotification, viewerId: string | null
           boardAvatar: boardAv,
         };
       }
+      // 0044: a status change carries the team's timeline note, if they wrote one.
+      const note = typeof d.note === 'string' && d.note.trim() ? d.note : null;
       if (to === 'shipped') {
         return {
           text: (
@@ -120,6 +122,7 @@ export function describeNotification(n: AppNotification, viewerId: string | null
           href: postHref,
           badge: 'ship',
           boardAvatar: boardAv,
+          quote: note,
         };
       }
       const label = STATUS_META[to]?.label;
@@ -137,6 +140,7 @@ export function describeNotification(n: AppNotification, viewerId: string | null
         href: postHref,
         badge: 'status',
         boardAvatar: boardAv,
+        quote: note,
       };
     }
     case 'followed_post':
