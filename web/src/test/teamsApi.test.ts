@@ -150,6 +150,16 @@ describe('helpers', () => {
     expect(sorted.map((x) => x.user_id)).toEqual(['me', 'b', 'c', 'a']);
   });
 
+  it('words already_member for the requester themselves, and for someone being added', () => {
+    expect(teamErrorMessage('already_member', { self: true })).toBe('You’re already on this team.');
+    expect(teamErrorMessage('already_member')).toBe('They’re already on the team.');
+  });
+
+  it('tells a requester who is already on the team that it is them', async () => {
+    sb.answers.push(refused('already_member'));
+    await expect(requestJoin('board', 'b1', 'me@acme.com', 'acme.com')).rejects.toThrow('You’re already on this team.');
+  });
+
   it('has a message for every refusal the RPCs return', () => {
     for (const code of ['sign_in', 'shared_domain', 'rate_limited', 'email_unavailable', 'expired', 'too_many_attempts', 'hub_claimed', 'not_verified', 'not_claimed', 'already_member', 'not_allowed', 'owners_only', 'decided', 'reason_length']) {
       expect(teamErrorMessage(code)).not.toBe('Something went wrong. Try again.');
