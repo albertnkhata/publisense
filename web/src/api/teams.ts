@@ -56,7 +56,8 @@ interface RpcResult {
 }
 
 /** What each refusal means to a person (mockup wording where it has one). */
-export function teamErrorMessage(code: string | undefined, ctx: { domain?: string | null; name?: string } = {}): string {
+/** `self`: the refusal is about the caller (their own join request or dispute), not someone they're adding. */
+export function teamErrorMessage(code: string | undefined, ctx: { domain?: string | null; name?: string; self?: boolean } = {}): string {
   const at = ctx.domain ? `@${ctx.domain}` : 'work';
   switch (code) {
     case 'sign_in':
@@ -97,7 +98,7 @@ export function teamErrorMessage(code: string | undefined, ctx: { domain?: strin
     case 'not_claimed':
       return 'No team has claimed this yet. You can claim it instead.';
     case 'already_member':
-      return 'They’re already on the team.';
+      return ctx.self ? 'You’re already on this team.' : 'They’re already on the team.';
     case 'not_allowed':
       return 'Only admins can do that.';
     case 'owners_only':
@@ -223,7 +224,7 @@ export async function requestJoin(scope: Scope, scopeId: string, workEmail: stri
   await rpc(
     'request_join',
     { p_scope: scope, p_scope_id: scopeId, p_work_email: workEmail.trim().toLowerCase(), ...(note ? { p_message: note } : {}) },
-    { domain },
+    { domain, self: true },
   );
 }
 
@@ -231,7 +232,7 @@ export const REASON_MIN = 10;
 export const REASON_MAX = 2000;
 
 export async function openDispute(scope: Scope, scopeId: string, reason: string, workEmail: string, domain: string | null): Promise<void> {
-  await rpc('open_dispute', { p_scope: scope, p_scope_id: scopeId, p_reason: reason.trim(), p_work_email: workEmail.trim().toLowerCase() }, { domain });
+  await rpc('open_dispute', { p_scope: scope, p_scope_id: scopeId, p_reason: reason.trim(), p_work_email: workEmail.trim().toLowerCase() }, { domain, self: true });
 }
 
 // ------------------------------------------------------------------ team
