@@ -80,6 +80,7 @@ _CI steps read from `.github/workflows/ci.yml`; v2 test counts are under v2 buil
 - CI · v2 vote privacy tests: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_vote_privacy_test.sql`
 - CI · v2 feedback loop tests: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_feedback_loop_test.sql`
 - CI · v2 product decision tests: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_product_decision_test.sql`
+- CI · v2 helper oracle tests: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_helper_oracle_test.sql`
 - CI · Report public read-policy count: inline script
 
 <!-- status:repo-derived:end -->

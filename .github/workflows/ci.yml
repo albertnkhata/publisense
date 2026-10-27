@@ -269,6 +269,15 @@ jobs:
           PGPASSWORD: postgres
         run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_product_decision_test.sql
 
+      # Visibility helpers (0047, #179): no public helper takes a caller-chosen uid, so
+      # neither a signed-out visitor nor another member can ask "can user X see Y?";
+      # the creator, team and blocked users get the same answers about themselves, and
+      # the policies and triggers built on the private helpers still hold. Rolled back.
+      - name: v2 helper oracle tests
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_helper_oracle_test.sql
+
       - name: Report public read-policy count
         env:
           PGPASSWORD: postgres
