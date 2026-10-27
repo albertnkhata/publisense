@@ -198,7 +198,10 @@ describe('signed-out pitch', () => {
     api.fetchFeed.mockResolvedValue(page([makePost()]));
     renderHome();
     fireEvent.click(await screen.findByRole('button', { name: PITCH.claim }));
-    const picker = await screen.findByRole('dialog', { name: 'Claim a board' });
+    const overview = await screen.findByRole('dialog', { name: 'Claim your board' });
+    expect(within(overview).queryByRole('searchbox')).toBeNull();
+    fireEvent.click(within(overview).getByRole('button', { name: 'Choose a board' }));
+    const picker = await screen.findByRole('dialog', { name: 'Choose your board' });
     fireEvent.click(await within(picker).findByRole('button', { name: /Cursor/ }));
     const intro = await screen.findByRole('dialog', { name: 'Claim Cursor' });
     expect(within(intro).getByText('Set statuses, pin official replies and run the roadmap')).toBeTruthy();
