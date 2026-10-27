@@ -56,9 +56,9 @@ insert into public.board (id, slug, name, site, claimed_at)
 select board, 'jmci-acme-' || left(board::text, 6), 'JM Acme', 'jmci-acme.dev', now() from f;
 insert into public.membership (user_id, scope, scope_id, role) select owner, 'board', board, 'owner' from f;
 insert into public.verified_domain (domain, verified_by, method)
-select 'jmci-acme.dev', owner, 'email' from f
-union all select 'jmci-acme.dev', asker, 'email' from f
-union all select 'jmci-acme.dev', quiet, 'email' from f;
+select 'jmci-acme.dev', owner, 'email'::public.v2_domain_method from f
+union all select 'jmci-acme.dev', asker, 'email'::public.v2_domain_method from f
+union all select 'jmci-acme.dev', quiet, 'email'::public.v2_domain_method from f;
 
 -- ------------------------------------------------------------ schema
 
