@@ -37,6 +37,44 @@ import { BoardAvatar, Button, Dialog, Field, HubAvatar, Icon, Input, Textarea, u
 const CLAIM_AUTH_REASON = 'claim your product’s board';
 
 /**
+ * Sign-up can send a confirmation email whose link opens a new tab. Remember
+ * where the visitor was heading so the claim picks up again after they return.
+ * Stored in localStorage (the link opens in a new tab) and good for an hour,
+ * the lifetime of the email link.
+ */
+const CLAIM_INTENT_KEY = 'publisense:claim-intent';
+const CLAIM_INTENT_TTL_MS = 60 * 60 * 1000;
+
+function rememberClaimIntent(opts: Pick<ClaimOptions, 'board' | 'hub'>) {
+  try {
+    localStorage.setItem(CLAIM_INTENT_KEY, JSON.stringify({ board: opts.board, hub: opts.hub, at: Date.now() }));
+  } catch { /* storage unavailable: the claim just starts over after confirmation */ }
+}
+
+function clearClaimIntent() {
+  try { localStorage.removeItem(CLAIM_INTENT_KEY); } catch { /* ignore */ }
+}
+
+function readClaimIntent(): ClaimOptions | null {
+  try {
+    const raw = localStorage.getItem(CLAIM_INTENT_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as { board?: unknown; hub?: unknown; at?: unknown };
+    if (typeof v.at !== 'number' || Date.now() - v.at > CLAIM_INTENT_TTL_MS) {
+      clearClaimIntent();
+      return null;
+    }
+    return {
+      board: typeof v.board === 'string' ? v.board : undefined,
+      hub: typeof v.hub === 'string' ? v.hub : undefined,
+      resume: true,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * ClaimFlow (FOUNDATION §5, §7 Claim): unclaimed → verifying (work-email code or
  * DNS TXT) → claimed, then "Claim all of {hub}?" when the hub's domain is proved,
  * then add teammates. On a board that is already claimed: "Request to join the
@@ -52,6 +90,8 @@ export interface ClaimOptions {
   hub?: string;
   /** Jump straight to the DNS step (the board header's "Claim pending · check DNS"). */
   dns?: boolean;
+  /** Signed-in visitor continuing after sign-up: skip the explanation and go to the next step. */
+  resume?: boolean;
 }
 
 interface ClaimCtx {
@@ -65,7 +105,7 @@ export function ClaimProvider({ children }: { children: ReactNode }) {
   const opener = useRef<HTMLElement | null>(null);
   const openClaim = useCallback((opts?: ClaimOptions) => {
     opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const clean: ClaimOptions = opts && typeof opts === 'object' && !('nativeEvent' in opts) ? { board: opts.board, hub: opts.hub, dns: opts.dns } : {};
+    const clean: ClaimOptions = opts && typeof opts === 'object' && !('nativeEvent' in opts) ? { board: opts.board, hub: opts.hub, dns: opts.dns, resume: opts.resume } : {};
     setState((s) => ({ open: true, opts: clean, key: s.key + 1 }));
   }, []);
   const close = useCallback(() => {
@@ -74,6 +114,17 @@ export function ClaimProvider({ children }: { children: ReactNode }) {
     queueMicrotask(() => { if (opener.current?.isConnected) opener.current.focus(); });
   }, []);
   const value = useMemo(() => ({ openClaim }), [openClaim]);
+  const { viewer } = useViewer();
+  const resumed = useRef(false);
+  // Back from the confirmation email: pick the claim up where the visitor left it.
+  useEffect(() => {
+    if (!viewer || resumed.current) return;
+    resumed.current = true;
+    const intent = readClaimIntent();
+    if (!intent) return;
+    clearClaimIntent();
+    setState((s) => (s.open ? s : { open: true, opts: intent, key: s.key + 1 }));
+  }, [viewer]);
   return (
     <ClaimContext.Provider value={value}>
       {children}
@@ -137,7 +188,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
   const addMember = useAddMember();
 
   const [target, setTarget] = useState<Target | null>(null);
-  const [step, setStep] = useState<Step>(opts.board || opts.hub ? 'intro' : 'welcome');
+  const [step, setStep] = useState<Step>(opts.board || opts.hub ? 'intro' : opts.resume ? 'pick' : 'welcome');
   const [purpose, setPurpose] = useState<Purpose>('claim');
   const [query, setQuery] = useState('');
   const [email, setEmail] = useState('');
@@ -200,6 +251,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
 
   // Resume a taken-board action ("Request to join" / "Report the wrong owner") once the visitor signs in.
   useEffect(() => {
+    if (viewer) clearClaimIntent();
     if (viewer && pendingStep.current) {
       setStep(pendingStep.current);
       pendingStep.current = null;
@@ -393,15 +445,22 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
         <div className="rounded-md border border-line bg-subtle px-3 py-3">
           <h3 className="mt-0 mb-2 text-base font-semibold">How it works</h3>
           <ol className="m-0 flex list-decimal flex-col gap-2 pl-4 text-sm text-ink-secondary">
-            <li>Choose your product’s board.</li>
-            <li>Create an account or sign in.</li>
+            {!viewer ? <li>Create an account or sign in.</li> : null}
+            <li>Find your product’s board.</li>
             <li>Verify your product’s domain with a work-email code or a DNS TXT record.</li>
           </ol>
         </div>
         <p className="mb-0 mt-3 text-sm text-ink-muted">Already claimed? You can request to join the team or report the wrong owner.</p>
       </>
     );
-    footer = <Button onClick={() => setStep('pick')} block>Choose a board</Button>;
+    footer = !viewer ? (
+      <Actions>
+        <Button onClick={() => { rememberClaimIntent({}); pendingStep.current = 'pick'; openAuth('signup', CLAIM_AUTH_REASON); }}>Get started</Button>
+        <Alt onClick={() => { pendingStep.current = 'pick'; openAuth('signin', CLAIM_AUTH_REASON); }}>I have an account</Alt>
+      </Actions>
+    ) : (
+      <Button onClick={() => setStep('pick')} block>Get started</Button>
+    );
   } else if (boards.isError || hubs.isError) {
     body = <p role="alert" className="m-0 text-sm text-danger">We couldn’t load the boards. Try again.</p>;
     footer = <Button onClick={() => { void boards.refetch(); void hubs.refetch(); }}>Try again</Button>;
@@ -507,7 +566,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
     );
     footer = !target.domain ? null : !viewer ? (
       <Actions>
-        <Button onClick={() => openAuth('signup', CLAIM_AUTH_REASON)}>Create an account to claim</Button>
+        <Button onClick={() => { rememberClaimIntent(target.scope === 'hub' ? { hub: target.slug } : { board: target.slug }); openAuth('signup', CLAIM_AUTH_REASON); }}>Get started</Button>
         <Alt onClick={() => openAuth('signin', CLAIM_AUTH_REASON)}>I have an account</Alt>
       </Actions>
     ) : (
@@ -875,4 +934,4 @@ function Done({ title, children }: { title: string; children: ReactNode }) {
       <p className="m-0 text-sm text-ink-secondary">{children}</p>
     </div>
   );
-}
+                        }
