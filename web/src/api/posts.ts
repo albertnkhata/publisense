@@ -282,6 +282,7 @@ async function decorate(rows: PostRow[], viewerId: string | null): Promise<Post[
       .from('reply')
       .select('id, post_id, body, created_at')
       .eq('is_official', true)
+      .is('parent_id', null)
       .is('hidden_at', null)
       .in('post_id', ids)
       .order('created_at', { ascending: false }),
@@ -417,6 +418,7 @@ export async function fetchStatusEvents(postId: string): Promise<StatusEvent[]> 
 export interface Reply {
   id: string;
   post_id: string;
+  /** The reply this one answers, at any depth (0050); null for a top-level reply. */
   parent_id: string | null;
   author_id: string | null;
   body: string;
@@ -446,36 +448,50 @@ export const publicReply = (r: Reply): Reply => (r.is_official ? { ...r, author:
 
 export interface ReplyThread {
   reply: Reply;
-  children: Reply[];
+  /** Direct answers to this reply, oldest first, each with its own answers. */
+  children: ReplyThread[];
+  /** Every reply below this one, at any depth. */
+  total: number;
 }
 
 /**
- * Group into one-level threads (the DB flattens deeper replies). Official replies
- * are pinned first, newest first; the rest follow `sort`: "top" puts the most
- * discussed threads first (replies have no votes in v2), "new" the newest.
- * Children always read oldest first.
+ * Build the reply tree (0050: replies nest at any depth, Twitter/X-style). Official
+ * replies are not pinned: top-level threads follow `sort`. "top" puts the most
+ * discussed first (replies have no votes in v2), "new" the newest. Answers inside a
+ * thread always read oldest first. A reply whose parent isn't in the list (hidden
+ * from this viewer) is shown at the top level rather than lost.
  */
-export function buildThreads(replies: Reply[], sort: FeedSort): { pinned: ReplyThread[]; threads: ReplyThread[] } {
+export function buildThreads(replies: Reply[], sort: FeedSort): ReplyThread[] {
   const byId = new Map<string, ReplyThread>();
+  for (const r of replies) byId.set(r.id, { reply: r, children: [], total: 0 });
   const roots: ReplyThread[] = [];
-  for (const r of replies) {
-    if (!r.parent_id) {
-      const t = { reply: r, children: [] };
-      byId.set(r.id, t);
-      roots.push(t);
-    }
-  }
-  for (const r of replies) {
-    if (r.parent_id) byId.get(r.parent_id)?.children.push(r);
+  for (const t of byId.values()) {
+    const parent = t.reply.parent_id ? byId.get(t.reply.parent_id) : undefined;
+    if (parent && parent !== t) parent.children.push(t);
+    else roots.push(t);
   }
   const time = (r: Reply) => new Date(r.created_at).getTime();
-  for (const t of roots) t.children.sort((a, b) => time(a) - time(b));
-  const pinned = roots.filter((t) => t.reply.is_official).sort((a, b) => time(b.reply) - time(a.reply));
-  const threads = roots.filter((t) => !t.reply.is_official);
-  threads.sort((a, b) =>
-    sort === 'new' ? time(b.reply) - time(a.reply) : b.children.length - a.children.length || time(a.reply) - time(b.reply),
-  );
-  return { pinned, threads };
+  const seen = new Set<string>();
+  const finish = (t: ReplyThread): number => {
+    if (seen.has(t.reply.id)) return 0;
+    seen.add(t.reply.id);
+    t.children.sort((a, b) => time(a.reply) - time(b.reply));
+    t.total = t.children.reduce((n, c) => n + 1 + finish(c), 0);
+    return t.total;
+  };
+  for (const t of roots) finish(t);
+  roots.sort((a, b) => (sort === 'new' ? time(b.reply) - time(a.reply) : b.total - a.total || time(a.reply) - time(b.reply)));
+  return roots;
+}
+
+/** The chain of replies from a top-level thread down to `id` (inclusive), or [] if absent. */
+export function replyPath(threads: ReplyThread[], id: string): ReplyThread[] {
+  for (const t of threads) {
+    if (t.reply.id === id) return [t];
+    const below = replyPath(t.children, id);
+    if (below.length) return [t, ...below];
+  }
+  return [];
 }
 
 // ------------------------------------------------------------------ writes

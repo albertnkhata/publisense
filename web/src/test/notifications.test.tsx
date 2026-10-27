@@ -62,6 +62,9 @@ describe('notification copy', () => {
     const cases: Array<[AppNotification, string, string?]> = [
       [REPLY, '@jmwamba replied to your post Composer drops edits on rebase'],
       [note({ post: { id: 'p1', title: 'X post', author_id: OTHER.id, board: null } }), '@jmwamba replied to you on X post'],
+      [note({ target_id: 'r77', post: { id: 'p1', title: 'X post', author_id: OTHER.id, board: null } }), '@jmwamba replied to you on X post', '/post/p1#reply-r77'],
+      [note({ data: { team: true }, post: { id: 'p1', title: 'X post', author_id: OTHER.id, board: null } }), '@jmwamba replied to your team on X post'],
+      [note({ kind: 'mention', target_id: 'r78', data: { team: true } }), '@jmwamba mentioned your team in a reply on Composer drops edits on rebase', '/post/p1#reply-r78'],
       [note({ kind: 'upvote_milestone', data: { votes: 100 } }), 'Your post Composer drops edits on rebase reached 100 upvotes'],
       [note({ kind: 'status_change', data: { to: 'planned' } }), 'Cursor Team marked Composer drops edits on rebase as Planned'],
       [SHIPPED, 'Cursor Team marked Composer drops edits on rebase as Shipped'],

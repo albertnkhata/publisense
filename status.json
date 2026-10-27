@@ -137,7 +137,7 @@
     ],
     "webTests": {
       "files": 40,
-      "cases": 472
+      "cases": 476
     },
     "gates": [
       {
@@ -293,6 +293,13 @@
         "name": "v2 helper oracle tests",
         "runs": [
           "psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_helper_oracle_test.sql"
+        ],
+        "scripted": false
+      },
+      {
+        "name": "v2 reply threads tests",
+        "runs": [
+          "psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_reply_threads_test.sql"
         ],
         "scripted": false
       },

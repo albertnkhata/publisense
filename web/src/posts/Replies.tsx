@@ -1,10 +1,11 @@
-import { useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
-import { Link } from 'react-router';
+import { Fragment, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import {
   avatarSrc,
   boardLogoSrc,
   buildThreads,
   REPLY_MAX,
+  replyPath,
   shortAge,
   useCreateReply,
   useDeleteReply,
@@ -17,6 +18,7 @@ import {
   type FeedSort,
   type Post,
   type Reply,
+  type ReplyThread,
 } from '../api';
 import { cx } from '../lib/cx';
 import { useViewer } from '../lib/viewer';
@@ -39,10 +41,15 @@ import { ReportDialog } from './ReportDialog';
 import { TeamByline, teamLabel } from './TeamByline';
 
 /**
- * The reply thread on a post page (FOUNDATION §5 PostPage: replies one level
- * deep). Official replies are pinned. Replies have no votes in v2 (no table for
- * them), so the mockup's reply upvote is left out and "Top" means most discussed.
+ * The reply thread on a post page. Replies nest at any depth, Twitter/X-style
+ * (0050; Albert, 2026-10-27): the tree is indented up to MAX_DEPTH levels, and a
+ * deeper branch opens on its own ("Continue this thread", ?thread=<reply id>), so
+ * phones stay readable. Official replies are not pinned. Replies have no votes in
+ * v2, so "Top" means most discussed. #reply-<id> in the URL (notification links)
+ * scrolls to that reply and highlights it.
  */
+const MAX_DEPTH = 3;
+const REPLY_HASH = /^#reply-([0-9a-f-]{36})$/i;
 const REPLY_SORTS: Array<{ value: FeedSort; label: string; hint: string }> = [
   { value: 'top', label: 'Top', hint: 'Most discussed' },
   { value: 'new', label: 'New', hint: 'Most recent first' },
@@ -55,9 +62,49 @@ const actClass =
 export function ReplySection({ post }: { post: Post }) {
   const replies = useReplies(post.id);
   const [sort, setSort] = useState<FeedSort>('top');
-  const { pinned, threads } = useMemo(() => buildThreads(replies.data ?? [], sort), [replies.data, sort]);
+  const threads = useMemo(() => buildThreads(replies.data ?? [], sort), [replies.data, sort]);
   const current = REPLY_SORTS.find((s) => s.value === sort) ?? REPLY_SORTS[0];
   const closed = post.status === 'merged' || Boolean(post.hidden_at);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const focusId = params.get('thread');
+  const focusPath = useMemo(() => (focusId ? replyPath(threads, focusId) : []), [threads, focusId]);
+  const focused = focusPath.length ? focusPath[focusPath.length - 1] : null;
+  const shown = focused ? [focused] : threads;
+  const target = REPLY_HASH.exec(location.hash)?.[1]?.toLowerCase() ?? null;
+  const [highlight, setHighlight] = useState<string | null>(null);
+
+  // A notification link (#reply-<id>): open the branch it sits in if it's deeper
+  // than the page shows, then scroll to it and highlight it for a moment.
+  useEffect(() => {
+    if (!target || !replies.data) return;
+    const path = replyPath(shown, target);
+    if (path.length === 0) {
+      const full = replyPath(threads, target);
+      if (full.length === 0) return;
+      const depth = full.length - 1;
+      const branch = full[Math.max(0, depth - MAX_DEPTH)];
+      if (depth > MAX_DEPTH && branch) {
+        void navigate({ search: `?thread=${branch.reply.id}`, hash: location.hash }, { replace: true });
+      } else if (focused) {
+        void navigate({ search: '', hash: location.hash }, { replace: true });
+      }
+      return;
+    }
+    if (path.length - 1 > MAX_DEPTH) {
+      const branch = path[path.length - 1 - MAX_DEPTH];
+      if (branch) void navigate({ search: `?thread=${branch.reply.id}`, hash: location.hash }, { replace: true });
+      return;
+    }
+    const el = document.getElementById(`reply-${target}`);
+    if (!el) return;
+    el.scrollIntoView?.({ block: 'center' });
+    setHighlight(target);
+    const t = window.setTimeout(() => setHighlight(null), 2500);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target, replies.data, focusId]);
 
   return (
     <section id="replies" aria-label="Replies" className="scroll-mt-6 rounded-md border border-line bg-card px-5 py-4 max-sm:p-4">
@@ -89,11 +136,31 @@ export function ReplySection({ post }: { post: Post }) {
         </Menu>
       </div>
 
-      {closed ? null : (
+      {closed || focused ? null : (
         <div className="mt-3">
           <ReplyComposer post={post} parentId={null} />
         </div>
       )}
+
+      {focused ? (
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+          <Link to={{ search: '', hash: '#replies' }} className="inline-flex items-center gap-1 font-medium text-ink-secondary no-underline hover:text-ink">
+            <Icon name="arrow-left" size={14} />
+            All replies
+          </Link>
+          {focusPath.length > 1 ? (
+            <span className="text-ink-muted">
+              Part of a longer thread.{' '}
+              <Link
+                to={{ search: focusPath.length > 2 ? `?thread=${focusPath[Math.max(0, focusPath.length - 1 - MAX_DEPTH)]?.reply.id ?? ''}` : '', hash: `#reply-${focused.reply.id}` }}
+                className="font-medium text-ink-secondary hover:text-ink"
+              >
+                Show earlier replies
+              </Link>
+            </span>
+          ) : null}
+        </div>
+      ) : null}
 
       {replies.isPending ? (
         <div role="status" aria-label="Loading replies" className="mt-4 flex flex-col gap-3">
@@ -108,27 +175,83 @@ export function ReplySection({ post }: { post: Post }) {
             Try again
           </Button>
         </div>
-      ) : pinned.length + threads.length === 0 ? (
-        <p className="mt-4 mb-1 text-sm text-ink-muted">No replies yet. Add what you know, a workaround or a +1 with your use case.</p>
+      ) : shown.length === 0 ? (
+        <p className="mt-4 mb-1 text-sm text-ink-muted">
+          {focusId ? 'This reply isn’t here any more.' : 'No replies yet. Add what you know, a workaround or a +1 with your use case.'}
+        </p>
       ) : (
         <ul className="m-0 mt-2 flex list-none flex-col p-0">
-          {[...pinned, ...threads].map((t) => (
+          {shown.map((t) => (
             <li key={t.reply.id} className="border-t border-line py-4 first:border-t-0">
-              <ReplyItem post={post} reply={t.reply} pinned={t.reply.is_official} childCount={t.children.length} />
-              {t.children.length ? (
-                <ul className="m-0 mt-3 flex list-none flex-col gap-3 p-0 pl-gutter">
-                  {t.children.map((c) => (
-                    <li key={c.id}>
-                      <ReplyItem post={post} reply={c} nested rootId={t.reply.id} />
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
+              <ThreadNode post={post} node={t} depth={0} highlight={highlight} />
             </li>
           ))}
         </ul>
       )}
     </section>
+  );
+}
+
+/** One reply and, up to MAX_DEPTH, the replies to it; deeper branches open on their own. */
+function ThreadNode({ post, node, depth, highlight }: { post: Post; node: ReplyThread; depth: number; highlight: string | null }) {
+  return (
+    <>
+      <ReplyItem post={post} reply={node.reply} nested={depth > 0} childCount={node.total} highlighted={highlight === node.reply.id} />
+      {node.children.length ? (
+        depth < MAX_DEPTH ? (
+          <ul aria-label={`Replies to this reply`} className="m-0 mt-3 ml-3 flex list-none flex-col gap-3 border-0 border-l border-solid border-line p-0 pl-3 sm:ml-4 sm:pl-4">
+            {node.children.map((c) => (
+              <li key={c.reply.id}>
+                <ThreadNode post={post} node={c} depth={depth + 1} highlight={highlight} />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <Link
+            to={{ search: `?thread=${node.reply.id}`, hash: `#reply-${node.children[0]?.reply.id ?? node.reply.id}` }}
+            className="mt-2 ml-gutter inline-flex items-center gap-1 text-sm font-medium text-brand no-underline hover:underline"
+          >
+            Continue this thread ({node.total} {node.total === 1 ? 'reply' : 'replies'})
+            <Icon name="chevron-right" size={14} />
+          </Link>
+        )
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * Reply text with @mentions as links: the board's slug goes to the board (its
+ * team is notified), any other @handle to that person's profile.
+ */
+function ReplyBody({ post, body }: { post: Post; body: string }) {
+  const parts: ReactNode[] = [];
+  const re = /(^|[^A-Za-z0-9_@./-])@([A-Za-z0-9_]{1,40})/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(body))) {
+    const start = m.index + (m[1]?.length ?? 0);
+    const handle = (m[2] ?? '').toLowerCase();
+    parts.push(body.slice(last, start));
+    const toBoard = post.board && handle === post.board.slug;
+    parts.push(
+      <Link
+        key={start}
+        to={toBoard ? `/b/${handle}` : `/u/${handle}`}
+        className="font-medium text-brand no-underline hover:underline hover:underline-offset-2"
+      >
+        @{m[2]}
+      </Link>,
+    );
+    last = start + 1 + (m[2]?.length ?? 0);
+  }
+  parts.push(body.slice(last));
+  return (
+    <p className="mt-1 mb-0 text-md text-ink whitespace-pre-line wrap-break-word">
+      {parts.map((p, i) => (
+        <Fragment key={i}>{p}</Fragment>
+      ))}
+    </p>
   );
 }
 
@@ -149,17 +272,15 @@ function ReplyAuthor({ post, reply, nested }: { post: Post; reply: Reply; nested
 function ReplyItem({
   post,
   reply,
-  pinned,
   nested,
-  rootId,
   childCount = 0,
+  highlighted,
 }: {
   post: Post;
   reply: Reply;
-  pinned?: boolean;
   nested?: boolean;
-  rootId?: string;
   childCount?: number;
+  highlighted?: boolean;
 }) {
   const { viewer } = useViewer();
   const requireAuth = useRequireAuth();
@@ -201,16 +322,17 @@ function ReplyItem({
 
   return (
     <article
-      aria-label={`Reply by ${reply.is_official && post.board ? teamLabel(post.board.name) : reply.author ? '@' + reply.author.handle : 'deleted user'}`} className="relative pl-gutter">
+      id={`reply-${reply.id}`}
+      aria-label={`Reply by ${reply.is_official && post.board ? teamLabel(post.board.name) : reply.author ? '@' + reply.author.handle : 'deleted user'}`}
+      aria-current={highlighted ? 'true' : undefined}
+      className={cx(
+        'relative scroll-mt-24 rounded-sm pl-gutter transition-colors duration-500 ease-out',
+        highlighted && 'bg-brand-soft',
+      )}
+    >
       <span className="absolute top-0 left-0">
         <ReplyAuthor post={post} reply={reply} {...(nested ? { nested } : {})} />
       </span>
-      {pinned ? (
-        <p className="m-0 mb-1 inline-flex items-center gap-1 text-xs font-medium text-ink-muted">
-          <Icon name="pin" size={12} />
-          Pinned
-        </p>
-      ) : null}
       <div className="flex min-h-4 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-muted">
         {who}
         <span aria-hidden="true">·</span>
@@ -232,7 +354,7 @@ function ReplyItem({
       {mode === 'edit' ? (
         <EditReply postId={post.id} reply={reply} onDone={() => setMode('view')} />
       ) : (
-        <p className="mt-1 mb-0 text-md text-ink whitespace-pre-line wrap-break-word">{reply.body}</p>
+        <ReplyBody post={post} body={reply.body} />
       )}
 
       {mode !== 'edit' ? (
@@ -292,8 +414,7 @@ function ReplyItem({
         <div className="mt-3">
           <ReplyComposer
             post={post}
-            parentId={rootId ?? reply.id}
-            initial={nested && reply.author && !reply.is_official ? `@${reply.author.handle} ` : ''}
+            parentId={reply.id}
             autoFocus
             onDone={() => setMode('view')}
           />
@@ -408,12 +529,12 @@ export function ReplyComposer({
   const requireAuth = useRequireAuth();
   const { toast } = useToast();
   const create = useCreateReply(post, viewer?.id ?? null);
-  // Team members can reply as the board on a new thread (mockup "Reply as"); the DB checks it.
-  const team = useIsBoardTeam(parentId ? undefined : post.board_id, viewer?.id ?? null);
-  // #160: a team member on their own board replies as the team by default; "me" is one tap away.
-  // null = not chosen yet, so the default follows the team check once it loads.
-  const [choice, setChoice] = useState<'team' | 'me' | null>(null);
-  const asTeam = Boolean(team.data) && choice !== 'me';
+  // Team members choose who they reply as, at every level (mockup "Reply as"); the DB checks it.
+  const team = useIsBoardTeam(post.board_id, viewer?.id ?? null);
+  // Their own handle unless they pick the team: nothing posts as the team by default
+  // (Albert, 2026-10-27: no automatic team voice).
+  const [choice, setChoice] = useState<'team' | 'me'>('me');
+  const asTeam = Boolean(team.data) && choice === 'team';
   const [body, setBody] = useState(initial);
   const [open, setOpen] = useState(Boolean(autoFocus));
   const [error, setError] = useState<string | null>(null);
@@ -424,7 +545,7 @@ export function ReplyComposer({
     setBody('');
     setError(null);
     setOpen(false);
-    setChoice(null);
+    setChoice('me');
     onDone?.();
   };
 

@@ -52,6 +52,47 @@ function rememberClaimIntent(opts: Pick<ClaimOptions, 'board' | 'hub'>) {
   } catch { /* storage unavailable: the claim just starts over after confirmation */ }
 }
 
+/**
+ * #183: a work-email code that was sent stays enterable after the dialog closes,
+ * or the visitor leaves for their inbox and comes back. Remembered per viewer and
+ * board/hub for the code's 10 minutes; reopening never sends or voids a code.
+ */
+const PENDING_CODE_KEY = 'publisense:claim-code';
+const PENDING_CODE_TTL_MS = 10 * 60 * 1000;
+interface PendingCode {
+  viewerId: string;
+  targetId: string;
+  email: string;
+  purpose: 'claim' | 'join' | 'dispute';
+  reason?: string;
+  joinMessage?: string;
+  sentAt: number;
+}
+function rememberPendingCode(p: PendingCode) {
+  try {
+    localStorage.setItem(PENDING_CODE_KEY, JSON.stringify(p));
+  } catch {
+    /* private mode: the code just can't be resumed */
+  }
+}
+function clearPendingCode() {
+  try { localStorage.removeItem(PENDING_CODE_KEY); } catch { /* ignore */ }
+}
+export function readPendingCode(viewerId: string, targetId: string, now = Date.now()): PendingCode | null {
+  try {
+    const raw = localStorage.getItem(PENDING_CODE_KEY);
+    if (!raw) return null;
+    const p = JSON.parse(raw) as PendingCode;
+    if (typeof p.sentAt !== 'number' || now - p.sentAt >= PENDING_CODE_TTL_MS) {
+      clearPendingCode();
+      return null;
+    }
+    return p.viewerId === viewerId && p.targetId === targetId && typeof p.email === 'string' ? p : null;
+  } catch {
+    return null;
+  }
+}
+
 function clearClaimIntent() {
   try { localStorage.removeItem(CLAIM_INTENT_KEY); } catch { /* ignore */ }
 }
@@ -203,6 +244,9 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
   const [claimed, setClaimed] = useState<{ names: string[]; hub: string | null }>({ names: [], hub: null });
   const [invite, setInvite] = useState('');
   const [inviteError, setInviteError] = useState<string | null>(null);
+  // When the code on screen was sent, and whether it was sent before the dialog was reopened.
+  const [sentAt, setSentAt] = useState<number | null>(null);
+  const [resumed, setResumed] = useState(false);
   const initialised = useRef(false);
   const pendingStep = useRef<Step | null>(null);
   const stepHeading = useRef<HTMLElement>(null);
@@ -244,6 +288,19 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
       setError(null);
       setPurpose('claim');
       const taken = t.scope === 'hub' ? Boolean(t.hub?.claimed_at) : t.board ? isClaimed(t.board, hubs.data) : false;
+      // #183: a code already sent for this board in the last 10 minutes can still be entered.
+      const pending = viewerId ? readPendingCode(viewerId, t.id) : null;
+      if (pending && (pending.purpose !== 'claim' || !taken)) {
+        setEmail(pending.email);
+        setPurpose(pending.purpose);
+        if (pending.reason) setReason(pending.reason);
+        if (pending.joinMessage) setJoinMessage(pending.joinMessage);
+        setSentAt(pending.sentAt);
+        setResumed(true);
+        setCode('');
+        setStep('code');
+        return;
+      }
       if (taken) setStep('taken');
       else if (viewerId && (wantDns || (t.domain && pendingDns.data?.includes(t.domain)))) {
         setStep('dns');
@@ -327,6 +384,10 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
       setPurpose(why);
       if (isVerified && why !== 'claim') return finish(target, why);
       await startEmailCode(email, domain);
+      const at = Date.now();
+      if (viewerId) rememberPendingCode({ viewerId, targetId: target.id, email: email.trim().toLowerCase(), purpose: why, reason, joinMessage, sentAt: at });
+      setSentAt(at);
+      setResumed(false);
       setCode('');
       setStep('code');
       toast('Code sent');
@@ -336,7 +397,13 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
     run(async () => {
       if (!target) return;
       if (!/^\d{6}$/.test(value)) throw new TeamError('wrong_code', 'Enter all 6 digits.');
-      await verifyEmailCode(email, value, domain);
+      try {
+        await verifyEmailCode(email, value, domain);
+      } catch (e) {
+        if (e instanceof TeamError && (e.code === 'expired' || e.code === 'too_many_attempts')) clearPendingCode();
+        throw e;
+      }
+      clearPendingCode();
       void qc.invalidateQueries({ queryKey: ['verified-domains'] });
       await finish(target, purpose);
     });
@@ -344,6 +411,11 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
   const resend = () =>
     run(async () => {
       await startEmailCode(email, domain);
+      const at = Date.now();
+      if (viewerId && target) rememberPendingCode({ viewerId, targetId: target.id, email: email.trim().toLowerCase(), purpose, reason, joinMessage, sentAt: at });
+      setSentAt(at);
+      setResumed(false);
+      setCode('');
       toast('New code sent');
     });
 
@@ -458,7 +530,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
         </p>
         <ul className="m-0 mb-4 flex list-none flex-col gap-2 p-0 text-base text-ink">
           <Perk>Reply as the verified team behind your product</Perk>
-          <Perk>Set statuses, pin official replies and run the roadmap</Perk>
+          <Perk>Set statuses, reply as the team and run the roadmap</Perk>
         </ul>
         <div className="rounded-md border border-line bg-subtle px-3 py-3">
           <h3 className="mt-0 mb-2 text-base font-semibold">How it works</h3>
@@ -531,7 +603,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
         {head}
         <ul className="m-0 mb-4 flex list-none flex-col gap-2 p-0 text-base text-ink">
           <Perk>Get a verified badge on your board and your team’s replies</Perk>
-          <Perk>Set statuses, pin official replies and run the roadmap</Perk>
+          <Perk>Set statuses, reply as the team and run the roadmap</Perk>
           {offersHub && target.hub ? (
             <Perk>
               One check covers the {target.hub.name} hub{siblings.length ? ` and all ${siblings.length + 1} products on ${target.domain}` : ''}
@@ -596,7 +668,22 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
     body = (
       <form id="claim-form" onSubmit={submit(() => void verify())}>
         {head}
-        <Field label="Enter the 6-digit code" error={error} hint={error ? undefined : <>Sent to <b className="font-semibold text-ink">{email.trim().toLowerCase()}</b>. It expires in 10 minutes.</>}>
+        <Field
+          label="Enter the 6-digit code"
+          error={error}
+          hint={
+            error ? undefined : (
+              <>
+                {resumed ? 'We already sent a code to ' : 'Sent to '}
+                <b className="font-semibold text-ink">{email.trim().toLowerCase()}</b>.{' '}
+                {sentAt
+                  ? `It works until ${new Date(sentAt + PENDING_CODE_TTL_MS).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`
+                  : 'It expires in 10 minutes.'}
+                {resumed ? ' Didn’t get it? Send a new one below.' : ''}
+              </>
+            )
+          }
+        >
           <Input
             inputMode="numeric"
             autoComplete="one-time-code"
@@ -620,9 +707,11 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
         <Button type="submit" form="claim-form" loading={busy}>
           Verify
         </Button>
-        <Alt onClick={() => void resend()}>Resend code</Alt>
+        <Alt onClick={() => void resend()}>{resumed ? 'Send a new code' : 'Resend code'}</Alt>
         <Alt
           onClick={() => {
+            clearPendingCode();
+            setResumed(false);
             setError(null);
             setStep(purpose === 'claim' ? 'intro' : purpose);
           }}
