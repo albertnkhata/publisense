@@ -521,11 +521,6 @@ function SearchModalBody({
                       <Icon name="check" size={12} strokeWidth={2.5} />
                     </span>
                   ) : null}
-                  {b.category && CATEGORY_LABEL.has(b.category) ? (
-                    <span className="shrink-0 rounded-sm border border-line bg-subtle px-2 text-xs text-ink-muted">
-                      {CATEGORY_LABEL.get(b.category)}
-                    </span>
-                  ) : null}
                 </span>
                 <span className="truncate text-xs text-ink-muted">{b.tagline}</span>
               </span>
@@ -857,7 +852,6 @@ function SearchModalBody({
 }
 
 function BoardSpotlightCard({ board }: { board: Board }) {
-  const catLabel = board.category ? CATEGORY_LABEL.get(board.category) : undefined;
   return (
     <>
       <div className="flex min-w-0 items-center gap-3">
@@ -874,8 +868,8 @@ function BoardSpotlightCard({ board }: { board: Board }) {
           <span className="truncate text-xs text-ink-muted">{board.tagline}</span>
         </div>
       </div>
-      {board.follower_count > 0 || board.post_count > 0 || catLabel ? (
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-2 text-xs text-ink-muted">
+      {board.follower_count > 0 || board.post_count > 0 ? (
+        <div className="flex flex-wrap items-center gap-2 border-t border-line pt-2 text-xs text-ink-muted">
           <div className="flex items-center gap-2">
             {board.follower_count > 0 ? (
               <span>
@@ -889,7 +883,6 @@ function BoardSpotlightCard({ board }: { board: Board }) {
               </span>
             ) : null}
           </div>
-          {catLabel ? <span className="rounded-sm bg-card px-2 text-xs text-ink-secondary">{catLabel}</span> : null}
         </div>
       ) : null}
     </>
