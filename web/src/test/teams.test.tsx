@@ -386,10 +386,29 @@ describe('"Work here?" on a claimed board', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: /Request to join the team/ }));
     fireEvent.change(await screen.findByLabelText('Your work email'), { target: { value: 'dan@cursor.com' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send request' }));
-    await waitFor(() => expect(teamsApi.requestJoin).toHaveBeenCalledWith('board', CURSOR.id, 'dan@cursor.com', 'cursor.com'));
+    await waitFor(() => expect(teamsApi.requestJoin).toHaveBeenCalledWith('board', CURSOR.id, 'dan@cursor.com', 'cursor.com', ''));
     expect(teamsApi.startEmailCode).not.toHaveBeenCalled();
     expect(await screen.findByRole('dialog', { name: 'Request sent' })).toBeTruthy();
     expect(screen.getByText('We’ve asked the Cursor admins')).toBeTruthy();
+  });
+
+  it('sends an optional message with the request (#189)', async () => {
+    boardsApi.fetchBoard.mockResolvedValue(CLAIMED);
+    boardsApi.fetchBoards.mockResolvedValue([CLAIMED, FIGJAM, FIGMA]);
+    teamsApi.fetchVerifiedDomains.mockResolvedValue(['cursor.com']);
+    renderAt('/b/cursor');
+    fireEvent.click(await screen.findByRole('button', { name: 'Work here?' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Cursor is already claimed' });
+    fireEvent.click(within(dialog).getByRole('button', { name: /Request to join the team/ }));
+    fireEvent.change(await screen.findByLabelText('Your work email'), { target: { value: 'dan@cursor.com' } });
+    const message = screen.getByLabelText(/^Message/) as HTMLTextAreaElement;
+    expect(message.maxLength).toBe(280);
+    fireEvent.change(message, { target: { value: 'I run support and want to answer bug reports.' } });
+    expect(screen.getByText('45/280')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Send request' }));
+    await waitFor(() =>
+      expect(teamsApi.requestJoin).toHaveBeenCalledWith('board', CURSOR.id, 'dan@cursor.com', 'cursor.com', 'I run support and want to answer bug reports.'),
+    );
   });
 
   it('says a request is pending instead of offering another', async () => {
@@ -618,7 +637,7 @@ describe('team management', () => {
     await waitFor(() => expect((screen.getByLabelText('Email or handle') as HTMLInputElement).value).toBe(''));
   });
 
-  const LEE_REQUEST = { id: 'jr1', user_id: 'u3', scope: 'board' as const, scope_id: CURSOR.id, work_email: 'lee@cursor.com', created_at: new Date().toISOString(), profile: { id: 'u3', handle: 'lee', name: 'Lee', avatar_path: null } };
+  const LEE_REQUEST = { id: 'jr1', user_id: 'u3', scope: 'board' as const, scope_id: CURSOR.id, work_email: 'lee@cursor.com', message: null as string | null, created_at: new Date().toISOString(), profile: { id: 'u3', handle: 'lee', name: 'Lee', avatar_path: null } };
 
   it('offers Member (default) and Admin, never Owner, when approving (#188)', async () => {
     teamsApi.fetchScopeRole.mockResolvedValue('owner');
@@ -664,6 +683,15 @@ describe('team management', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
     expect(await screen.findByText('Someone already answered this request.')).toBeTruthy();
     expect(teamsApi.setMemberRole).not.toHaveBeenCalled();
+  });
+
+  it('shows the requester’s message on the row (#189)', async () => {
+    teamsApi.fetchScopeRole.mockResolvedValue('owner');
+    teamsApi.fetchTeam.mockResolvedValue(team());
+    teamsApi.fetchJoinRequests.mockResolvedValue([{ ...LEE_REQUEST, message: 'I run support here.' }, { ...LEE_REQUEST, id: 'jr2', user_id: 'u4', message: null, profile: { id: 'u4', handle: 'mo', name: 'Mo', avatar_path: null } }]);
+    renderAt('/b/cursor/manage?tab=team');
+    expect((await screen.findByText('I run support here.')).hasAttribute('data-join-message')).toBe(true);
+    expect(document.querySelectorAll('[data-join-message]').length).toBe(1);
   });
 
   it('links the requester to their profile (#188)', async () => {

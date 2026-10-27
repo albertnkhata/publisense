@@ -137,7 +137,7 @@
     ],
     "webTests": {
       "files": 40,
-      "cases": 466
+      "cases": 470
     },
     "gates": [
       {
@@ -279,6 +279,13 @@
         "name": "v2 product decision tests",
         "runs": [
           "psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_product_decision_test.sql"
+        ],
+        "scripted": false
+      },
+      {
+        "name": "v2 join message tests",
+        "runs": [
+          "psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_join_message_test.sql"
         ],
         "scripted": false
       },

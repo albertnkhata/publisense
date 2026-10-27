@@ -91,6 +91,16 @@ describe('notification copy', () => {
   });
 });
 
+describe('join request messages (#189)', () => {
+  it('quotes the requester’s message on the pending notification, and nothing when there is none', () => {
+    const scope = { name: 'Cursor', slug: 'cursor', color: null };
+    const withMsg = describeNotification(note({ kind: 'join', target_type: 'board', data: { status: 'pending', message: 'I run support here.' }, scope }), ME.id);
+    const without = describeNotification(note({ kind: 'join', target_type: 'board', data: { status: 'pending' }, scope }), ME.id);
+    expect(withMsg.quote).toBe('I run support here.');
+    expect(without.quote ?? null).toBeNull();
+  });
+});
+
 describe('official replies speak as the board (#160 follow-up)', () => {
   const OFFICIAL = note({ official: true, quote: 'Fixed in 2.4.' });
 

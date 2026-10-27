@@ -108,6 +108,8 @@ export function teamErrorMessage(code: string | undefined, ctx: { domain?: strin
       return 'Someone already answered this request.';
     case 'reason_length':
       return 'Tell us a little more (at least 10 characters).';
+    case 'message_length':
+      return `Keep the message to ${JOIN_MESSAGE_MAX} characters.`;
     default:
       return 'Something went wrong. Try again.';
   }
@@ -213,8 +215,16 @@ export async function fetchMyRequests(scope: Scope, scopeId: string, viewerId: s
   return { join: (join.data as MyRequests['join']) ?? null, dispute: (dispute.data as MyRequests['dispute']) ?? null };
 }
 
-export async function requestJoin(scope: Scope, scopeId: string, workEmail: string, domain: string | null): Promise<void> {
-  await rpc('request_join', { p_scope: scope, p_scope_id: scopeId, p_work_email: workEmail.trim().toLowerCase() }, { domain });
+/** A join request's optional note to the admins (0049, #189). */
+export const JOIN_MESSAGE_MAX = 280;
+
+export async function requestJoin(scope: Scope, scopeId: string, workEmail: string, domain: string | null, message?: string): Promise<void> {
+  const note = message?.trim();
+  await rpc(
+    'request_join',
+    { p_scope: scope, p_scope_id: scopeId, p_work_email: workEmail.trim().toLowerCase(), ...(note ? { p_message: note } : {}) },
+    { domain },
+  );
 }
 
 export const REASON_MIN = 10;
@@ -285,6 +295,8 @@ export interface JoinRequest {
   scope: Scope;
   scope_id: string;
   work_email: string;
+  /** Optional note from the requester (0049, #189). */
+  message: string | null;
   created_at: string;
   profile: PersonRef | null;
 }
@@ -296,7 +308,7 @@ export async function fetchJoinRequests(scopes: Array<{ scope: Scope; id: string
   const ids = scopes.map((s) => s.id);
   const { data, error } = await getSupabase()
     .from('join_request')
-    .select('id, user_id, scope, scope_id, work_email, created_at, profile:profile!user_id(id, handle, name, avatar_path)')
+    .select('id, user_id, scope, scope_id, work_email, message, created_at, profile:profile!user_id(id, handle, name, avatar_path)')
     .in('scope_id', ids)
     .eq('status', 'pending')
     .gte('created_at', since)
