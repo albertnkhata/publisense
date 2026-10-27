@@ -4,7 +4,7 @@
  * /post/:id here; people never hit this function, so a failure here can't
  * break the app. Any error still answers with the plain index.html.
  */
-import { applyMeta, boardMeta, hubMeta, postMeta, SITE, type ShareMeta } from './_lib/shareMeta.js';
+import { applyMeta, boardMeta, hubMeta, postMeta, SITE, type PostMetaRow, type ShareMeta } from './_lib/shareMeta.js';
 
 interface Req { query: Record<string, string | string[] | undefined>; headers: Record<string, string | string[] | undefined> }
 interface Res { status(code: number): Res; setHeader(k: string, v: string): void; send(body: string): void }
@@ -25,7 +25,7 @@ export async function lookup(kind: string, key: string): Promise<Lookup> {
       : kind === 'hub' && /^[a-z0-9-]{1,80}$/i.test(key)
         ? `hub?select=slug,name,description&slug=eq.${k}&limit=1`
         : kind === 'post' && /^[0-9a-f-]{36}$/i.test(key)
-          ? `post?select=id,title,body,board(name)&id=eq.${k}&hidden_at=is.null&limit=1`
+          ? `post?select=id,title,body,status,merged_into,board(name),merged:merged_into(id,title)&id=eq.${k}&hidden_at=is.null&limit=1`
           : null;
   // A key that can't name a board, hub or post is a definite miss.
   if (!q) return 'missing';
@@ -34,11 +34,12 @@ export async function lookup(kind: string, key: string): Promise<Lookup> {
   const rows = (await r.json()) as Array<Record<string, unknown>>;
   const row = rows[0];
   // The query ran and the public can't see such a row: unknown, pending, rejected,
-  // hidden or deleted. Crawlers get a real 404 so these aren't indexed as soft 404s.
+  // hidden or deleted (a merged post is visible, and gets a page). Crawlers get a real 404 so these aren't indexed as soft 404s.
   if (!row) return 'missing';
   if (kind === 'board') return boardMeta(row as { slug: string; name: string; tagline: string | null });
   if (kind === 'hub') return hubMeta(row as { slug: string; name: string; description: string | null });
-  return postMeta(row as { id: string; title: string; body: string | null; board: { name: string } | null });
+  // A merged post (readable since 0043) answers 200 with its canonical set to the post it was merged into.
+  return postMeta(row as unknown as PostMetaRow);
 }
 
 export default async function handler(req: Req, res: Res): Promise<void> {

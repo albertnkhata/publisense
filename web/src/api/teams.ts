@@ -312,11 +312,17 @@ export async function decideJoinRequest(id: string, approve: boolean): Promise<v
 
 // ------------------------------------------------------------------ inbox
 
-/** Change a post's status (writes a status_event; followers and voters are notified by the RPC). */
-export async function setPostStatus(postId: string, to: PostStatus): Promise<void> {
-  const { error } = await getSupabase().rpc('set_post_status', { p_post: postId, p_to: to });
+/**
+ * Change a post's status. One RPC, one transaction (0044): it writes the status_event
+ * with the optional note (shown on the post's status timeline) and sends followers and
+ * voters ONE notification that carries the note. The note is never a reply.
+ */
+export async function setPostStatus(postId: string, to: PostStatus, note?: string): Promise<void> {
+  const trimmed = note?.trim();
+  const { error } = await getSupabase().rpc('set_post_status', { p_post: postId, p_to: to, ...(trimmed ? { p_note: trimmed } : {}) });
   if (error) {
     if (error.code === '42501') throw new ApiError('Only the team can change status.');
+    if (error.hint === 'note_without_change') throw new ApiError('Pick a new status to add a timeline note.');
     throw new ApiError('We couldn’t update the status. Try again.');
   }
 }

@@ -7,6 +7,7 @@ import {
   domainCovers,
   requestJoin,
   setMemberRole,
+  setPostStatus,
   siteDomain,
   sortMembers,
   startEmailCode,
@@ -142,5 +143,19 @@ describe('helpers', () => {
     for (const code of ['sign_in', 'shared_domain', 'rate_limited', 'email_unavailable', 'expired', 'too_many_attempts', 'hub_claimed', 'not_verified', 'not_claimed', 'already_member', 'not_allowed', 'owners_only', 'decided', 'reason_length']) {
       expect(teamErrorMessage(code)).not.toBe('Something went wrong. Try again.');
     }
+  });
+});
+
+describe('setPostStatus (0044)', () => {
+  it('sends the status and the trimmed note in one RPC, and no note when there is none', async () => {
+    await setPostStatus('p1', 'shipped', '  Live in 2.4.  ');
+    expect(sb.calls.at(-1)).toEqual(['set_post_status', { p_post: 'p1', p_to: 'shipped', p_note: 'Live in 2.4.' }]);
+    await setPostStatus('p1', 'planned', '   ');
+    expect(sb.calls.at(-1)).toEqual(['set_post_status', { p_post: 'p1', p_to: 'planned' }]);
+  });
+
+  it('explains a note sent without a status change', async () => {
+    sb.answers.push({ data: null, error: { code: '23514', hint: 'note_without_change', message: 'x' } });
+    await expect(setPostStatus('p1', 'shipped', 'hi')).rejects.toThrow('Pick a new status to add a timeline note.');
   });
 });

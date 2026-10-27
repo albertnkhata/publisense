@@ -186,6 +186,24 @@ describe('replies', () => {
   });
 });
 
+describe('merged permalink (0043)', () => {
+  it('a signed-out visitor sees "Merged into …" linking to the surviving post, not Post not found', async () => {
+    const target = 'a0000000-0000-4000-8000-0000000000ee';
+    api.fetchPostTitle.mockResolvedValue({ id: target, title: 'Caret lost after rebase' });
+    renderPost(makePost({ title: 'Composer drops edits', status: 'merged', merged_into: target }), {
+      signedIn: false,
+      events: [{ id: 'e1', from: 'open', to: 'merged', note: null, actor_id: OTHER.id, at: iso(30) }],
+    });
+    const link = await screen.findByRole('link', { name: 'Caret lost after rebase' });
+    expect(link.getAttribute('href')).toBe(`/post/${target}`);
+    expect(screen.getByText(/Votes and followers moved there/)).toBeTruthy();
+    expect(screen.queryByText('Post not found')).toBeNull();
+    // Closed: no voting, no reply box, no undo for a visitor.
+    expect(screen.queryByRole('button', { name: 'Undo merge' })).toBeNull();
+    expect(screen.queryByRole('textbox', { name: 'Add a reply' })).toBeNull();
+  });
+});
+
 describe('author edit and delete', () => {
   it('only the author sees Edit post and Delete post', async () => {
     renderPost(makePost());
@@ -195,7 +213,8 @@ describe('author edit and delete', () => {
   });
 
   it('edits the post and shows the change', async () => {
-    const post = makePost({ author: ME, author_id: ME.id, title: 'Old title', type: 'bug' });
+    // Inside the 1-hour edit window (0045).
+    const post = makePost({ author: ME, author_id: ME.id, title: 'Old title', type: 'bug', created_at: iso(0.25) });
     renderPost(post);
     api.updatePost.mockImplementation(async (id: string, d: { type: string; title: string; body: string }) => ({
       id,
@@ -223,6 +242,26 @@ describe('author edit and delete', () => {
     expect(screen.getByText('Feature request')).toBeTruthy();
     expect(screen.getByText('edited')).toBeTruthy();
     expect(screen.getByText('Post updated')).toBeTruthy();
+  });
+
+  it('disables Edit post with the reason once the 1-hour window has passed (0045)', async () => {
+    renderPost(makePost({ author: ME, author_id: ME.id, created_at: iso(2) }));
+    fireEvent.click(await screen.findByRole('button', { name: 'More options' }));
+    const edit = screen.getByRole('menuitem', { name: /Edit post/ });
+    expect(edit.getAttribute('aria-disabled')).toBe('true');
+    expect(edit.textContent).toContain('Editing closes 1 hour after posting');
+    fireEvent.click(edit);
+    expect(screen.queryByRole('dialog', { name: 'Edit post' })).toBeNull();
+    // Delete is unchanged.
+    expect(screen.getByRole('menuitem', { name: 'Delete post' })).toBeTruthy();
+  });
+
+  it('disables Edit post once the team has shipped or closed it, even inside the window', async () => {
+    renderPost(makePost({ author: ME, author_id: ME.id, created_at: iso(0.1), status: 'shipped' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'More options' }));
+    const edit = screen.getByRole('menuitem', { name: /Edit post/ });
+    expect(edit.getAttribute('aria-disabled')).toBe('true');
+    expect(edit.textContent).toContain('Can’t edit once it’s Shipped');
   });
 
   it('deletes the post after confirming and goes home', async () => {

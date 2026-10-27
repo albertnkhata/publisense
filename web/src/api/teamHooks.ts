@@ -160,7 +160,7 @@ export function useRemoveMember() {
 export function useSetPostStatus() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { postId: string; to: PostStatus }) => setPostStatus(v.postId, v.to),
+    mutationFn: (v: { postId: string; to: PostStatus; note?: string }) => (v.note?.trim() ? setPostStatus(v.postId, v.to, v.note) : setPostStatus(v.postId, v.to)),
     onSuccess: (_d, v) => {
       patchPost(qc, v.postId, (p) => ({ ...p, status: v.to }));
       for (const key of [['posts', 'list'], ['post-counts'], ['roadmap'], ['changelog'], ['manage-stats'], ['status_events', v.postId], ['related'], ['wanted']]) {

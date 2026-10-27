@@ -68,15 +68,18 @@ export interface UserReply {
 export async function fetchUserReplies(userId: string, limit = 30): Promise<UserReply[]> {
   const { data, error } = await getSupabase()
     .from('reply')
-    .select('id, body, created_at, post:post!post_id(id, title, board:board!board_id(id, slug, name, color, logo_path))')
+    .select('id, body, created_at, post:post!post_id(id, title, status, board:board!board_id(id, slug, name, color, logo_path))')
     .eq('author_id', userId)
     .eq('is_official', false)
     .is('hidden_at', null)
     .order('created_at', { ascending: false })
     .limit(limit);
   if (error) throw error;
-  // A reply whose post the viewer may no longer see comes back without its post.
-  return ((data ?? []) as unknown as UserReply[]).filter((r) => r.post);
+  // A reply whose post the viewer may no longer see comes back without its post. Merged
+  // posts are readable at their permalink (0043) but stay out of lists like this one.
+  return ((data ?? []) as unknown as Array<UserReply & { post: (UserReply['post'] & { status?: string }) | null }>)
+    .filter((r) => r.post && r.post.status !== 'merged')
+    .map(({ post, ...r }) => ({ ...r, post: post ? { id: post.id, title: post.title, board: post.board } : null }));
 }
 
 // ------------------------------------------------------------------ following people

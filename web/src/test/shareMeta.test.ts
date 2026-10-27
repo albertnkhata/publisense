@@ -50,3 +50,29 @@ describe('rate limit words', () => {
     expect(slowDown({ hint: 'day' }, 'upvotes')).toBe('You’ve hit today’s limit for upvotes. Try again tomorrow.');
   });
 });
+
+describe('merged post previews (0043)', () => {
+  it('a merged post keeps its own page but points canonical and og:url at the surviving post', () => {
+    const m = postMeta({
+      id: 'dup',
+      title: 'Composer drops edits',
+      body: 'old body',
+      board: { name: 'Cursor' },
+      status: 'merged',
+      merged_into: 'orig',
+      merged: { id: 'orig', title: 'Caret lost after rebase' },
+    });
+    expect(m.path).toBe('/post/dup');
+    expect(m.canonicalPath).toBe('/post/orig');
+    expect(m.description).toBe('Merged into “Caret lost after rebase”. Votes and followers moved there.');
+    const out = applyMeta(html, m);
+    expect(out).toContain('<link rel="canonical" href="https://publisense.app/post/orig" />');
+    expect(out).toContain('<meta property="og:url" content="https://publisense.app/post/orig" />');
+  });
+
+  it('a live post is its own canonical', () => {
+    const m = postMeta({ id: 'p1', title: 'Dark mode', status: 'open', merged_into: null });
+    expect(m.canonicalPath).toBeUndefined();
+    expect(applyMeta(html, m)).toContain('<link rel="canonical" href="https://publisense.app/post/p1" />');
+  });
+});
