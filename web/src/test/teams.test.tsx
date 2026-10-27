@@ -215,7 +215,7 @@ describe('claim a board', () => {
     renderAt('/b/cursor', false);
     fireEvent.click(await screen.findByRole('button', { name: 'Work at Cursor?' }));
     const dialog = await screen.findByRole('dialog', { name: 'Claim Cursor' });
-    expect(within(dialog).getByText("Get a verified badge on your board and your team's replies.")).toBeTruthy();
+    expect(within(dialog).getByText('Get a verified badge on your board and your team’s replies')).toBeTruthy();
     expect(within(dialog).getByText('Set statuses, pin official replies and run the roadmap')).toBeTruthy();
     expect(within(dialog).getByText(/Verify with a 6-digit code sent to your/)).toBeTruthy();
     expect(within(dialog).getByText('@cursor.com')).toBeTruthy();
@@ -434,21 +434,35 @@ describe('Manage inbox', () => {
 });
 
 describe('status updates and official replies', () => {
-  it('sets the status and posts the note as an official reply', async () => {
+  it('sets the status with the note in ONE call; the note goes on the timeline, not into a reply (0044)', async () => {
     const post = makePost({ title: 'Settings sync between machines' });
-    postsApi.createReply.mockResolvedValue({
-      id: 'c1', post_id: post.id, parent_id: null, author_id: ME.id, body: 'Live now.', is_official: true, hidden_at: null, edited_at: null, created_at: new Date().toISOString(), author: ME,
-    });
     const onClose = vi.fn();
     renderWith(<StatusDialog post={post} open onClose={onClose} />, { viewer: TEST_VIEWER });
     const save = screen.getByRole('button', { name: 'Update status' });
     expect((save as HTMLButtonElement).disabled).toBe(true);
+    const note = screen.getByLabelText(/Note \(shown on the timeline\)/);
+    expect(screen.getByText(/Saved with this change on the post’s status timeline\. For a pinned team reply, reply on the post as Cursor team\./)).toBeTruthy();
+    // A note on its own is not a status change: Save stays off and says why.
+    fireEvent.change(note, { target: { value: 'Live now.' } });
+    expect((save as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText('Pick a new status to save a note with it.')).toBeTruthy();
     fireEvent.click(screen.getByRole('radio', { name: /Shipped/ }));
-    fireEvent.change(screen.getByLabelText(/Official reply/), { target: { value: 'Live now.' } });
+    expect(screen.getByText('Followers and upvoters get one notification with the new status and your note.')).toBeTruthy();
     fireEvent.click(save);
-    await waitFor(() => expect(teamsApi.setPostStatus).toHaveBeenCalledWith(post.id, 'shipped'));
-    await waitFor(() => expect(postsApi.createReply).toHaveBeenCalledWith(post.id, 'Live now.', null, true));
+    await waitFor(() => expect(teamsApi.setPostStatus).toHaveBeenCalledWith(post.id, 'shipped', 'Live now.'));
+    expect(teamsApi.setPostStatus).toHaveBeenCalledTimes(1);
+    expect(postsApi.createReply).not.toHaveBeenCalled();
     await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(await screen.findByText('Marked Shipped · followers notified')).toBeTruthy();
+  });
+
+  it('a status change without a note sends no note', async () => {
+    const post = makePost({ status: 'planned' });
+    renderWith(<StatusDialog post={post} open onClose={vi.fn()} />, { viewer: TEST_VIEWER });
+    fireEvent.click(screen.getByRole('radio', { name: /In progress/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Update status' }));
+    await waitFor(() => expect(teamsApi.setPostStatus).toHaveBeenCalledWith(post.id, 'in_progress'));
+    expect(postsApi.createReply).not.toHaveBeenCalled();
   });
 
   it('offers "Reply as {board} team" to team members', async () => {

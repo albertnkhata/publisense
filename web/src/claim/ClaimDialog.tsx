@@ -512,7 +512,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
       <form ref={(el) => { stepHeading.current = el; }} tabIndex={-1} className="outline-none" id="claim-form" onSubmit={submit(() => (isVerified ? void run(() => finish(target, 'claim')) : void sendCode('claim')))}>
         {head}
         <ul className="m-0 mb-4 flex list-none flex-col gap-2 p-0 text-base text-ink">
-          <Perk>Get a verified badge on your board and your team's replies.</Perk>
+          <Perk>Get a verified badge on your board and your team’s replies</Perk>
           <Perk>Set statuses, pin official replies and run the roadmap</Perk>
           {offersHub && target.hub ? (
             <Perk>

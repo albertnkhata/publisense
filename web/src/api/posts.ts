@@ -167,10 +167,43 @@ export function formatDate(iso: string, now: Date = new Date(), withYear = false
   return withYear || d.getFullYear() !== now.getFullYear() ? `${base}, ${d.getFullYear()}` : base;
 }
 
+/**
+ * How long after posting an author may edit their post (0045). The database enforces
+ * it with public.v2_post_edit_window(); this mirrors it so the menu can explain the
+ * lock before anyone tries. Change both together (a unit test fails while they differ).
+ */
+export const POST_EDIT_WINDOW_MINUTES = 60;
+
+/** Statuses after which the author can no longer edit (0045). */
+const EDIT_LOCKED: ReadonlySet<PostStatus> = new Set<PostStatus>(['shipped', 'closed', 'merged']);
+
+/** "1 hour", "30 minutes", "2 hours": the window as people read it. */
+export function editWindowLabel(minutes: number = POST_EDIT_WINDOW_MINUTES): string {
+  if (minutes % 60 === 0) {
+    const h = minutes / 60;
+    return `${h} ${h === 1 ? 'hour' : 'hours'}`;
+  }
+  return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
+}
+
+/**
+ * Why the author can't edit this post right now, or null when they can: within
+ * POST_EDIT_WINDOW_MINUTES of posting, and never once Shipped, Closed or Merged.
+ */
+export function editLockReason(p: Pick<Post, 'status' | 'created_at'>, now: Date = new Date()): string | null {
+  if (p.status === 'merged') return 'Merged posts can’t be edited';
+  if (EDIT_LOCKED.has(p.status)) return `Can’t edit once it’s ${p.status === 'shipped' ? 'Shipped' : 'Closed'}`;
+  const age = now.getTime() - new Date(p.created_at).getTime();
+  if (age > POST_EDIT_WINDOW_MINUTES * 60_000) return `Editing closes ${editWindowLabel()} after posting`;
+  return null;
+}
+
 export const TITLE_MIN = 3;
 export const TITLE_MAX = 140;
 export const BODY_MAX = 10_000;
 export const REPLY_MAX = 5_000;
+/** status_event.note (0016). */
+export const STATUS_NOTE_MAX = 1_000;
 
 export type Platform = 'ios' | 'android' | 'web' | 'desktop';
 export const PLATFORMS: { value: Platform; label: string }[] = [
@@ -470,6 +503,9 @@ export async function updatePost(id: string, d: PostDraft): Promise<Pick<Post, '
     .eq('id', id)
     .select('id, type, title, body, platform, edited_at')
     .maybeSingle();
+  // 0045: the database refuses edits after the window or once the post is Shipped, Closed or Merged.
+  if (error?.hint === 'edit_window_closed') throw failed(`Posts can be edited for ${editWindowLabel()} after posting.`);
+  if (error?.hint === 'edit_locked_status') throw failed('This post can’t be edited any more: the team has shipped or closed it.');
   if (error || !data) throw failed('We couldn’t save your changes. Try again.');
   return data as Pick<Post, 'id' | 'type' | 'title' | 'body' | 'platform' | 'edited_at'>;
 }

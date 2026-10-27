@@ -3,6 +3,11 @@
   "repo": {
     "openDecisions": [
       {
+        "id": "D-015",
+        "title": "Replies have no edit window",
+        "revisit": ""
+      },
+      {
         "id": "D-012",
         "title": "The Google consent screen shows no app logo",
         "revisit": "when a distinctive brand mark exists, or if a sensitive scope forces a review anyway"
@@ -131,8 +136,8 @@
       }
     ],
     "webTests": {
-      "files": 37,
-      "cases": 393
+      "files": 38,
+      "cases": 409
     },
     "gates": [
       {
@@ -264,6 +269,13 @@
         "scripted": false
       },
       {
+        "name": "v2 feedback loop tests",
+        "runs": [
+          "psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_feedback_loop_test.sql"
+        ],
+        "scripted": false
+      },
+      {
         "name": "Report public read-policy count",
         "runs": [],
         "scripted": true
@@ -341,4 +353,4 @@
     },
     "unitTests": "unknown"
   }
-  }
+}
