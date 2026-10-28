@@ -25,7 +25,8 @@ function readCollapsed(): boolean {
 /**
  * Left navigation rail (mockup "vertical-nav"). Every row shares one 40px
  * icon column, so collapsing only hides labels: icons never move.
- * 248px wide; 64px when collapsed by the user ("[") or below lg (1060px).
+ * 248px wide; 64px when collapsed by the user ("[") or below xl (1336px), so it
+ * gives up its width before the right rail (hidden below lg) or the feed do.
  * Hidden at sm, where the TabBar takes over. Terms · Privacy · © sit at its
  * foot (a ⋯ menu when collapsed), so they are on every page above sm.
  */
@@ -33,9 +34,9 @@ export function NavRail() {
   const { viewer, ready } = useViewer();
   const { openComposer } = useComposer();
   const { openAuth } = useAuthDialog();
-  const belowLg = useMediaQuery(MQ.lg);
+  const belowXl = useMediaQuery(MQ.xl);
   const [manual, setManual] = useState<boolean>(readCollapsed);
-  const collapsed = manual || belowLg;
+  const collapsed = manual || belowXl;
   const unread = useUnreadCount(viewer?.id ?? null).data ?? 0;
 
   const toggle = useCallback(() => {
@@ -48,7 +49,7 @@ export function NavRail() {
       return !c;
     });
   }, []);
-  useShortcut('[', toggle, { enabled: !belowLg });
+  useShortcut('[', toggle, { enabled: !belowXl });
   useShortcut('c', () => openComposer(), { enabled: Boolean(viewer) });
 
   return (
@@ -62,7 +63,7 @@ export function NavRail() {
       )}
     >
       <div className="relative mb-5">
-        {collapsed && !belowLg ? (
+        {collapsed && !belowXl ? (
           <Tooltip content="Expand sidebar" kbd="[" side="right">
             <button
               type="button"

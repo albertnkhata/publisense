@@ -67,7 +67,7 @@ Weights: 400, 500, 600, 700 (the mockup's 650 becomes 600).
 **Radius:** `--r-sm` 6 · `--r-md` 10 · `--r-lg` 14 · `--r-pill` 999.
 **Space:** 4-px scale, `--s-1`…`--s-10` = 4, 8, 12, 16, 20, 24, 32, 40, 48, 64.
 **Layout:** nav 248 (collapsed 64) · gutter (avatar column) 40 · row height 38 · content max 680 · rail 320.
-**Breakpoints:** `sm` ≤ 520 (icon tab bar, sheets instead of dialogs) · `md` ≤ 720 · `lg` ≤ 1060 (no right rail, top search bar, nav collapses).
+**Breakpoints:** `sm` ≤ 520 (icon tab bar, sheets instead of dialogs) · `md` ≤ 720 · `lg` ≤ 1152 (no right rail, top search bar) · `xl` ≤ 1336 (nav collapses). Narrowing collapses the nav first, then hides the rail, and only then narrows the feed.
 **Motion:** 120 ms for hover and press, 180 ms for overlays, ease-out; respect `prefers-reduced-motion`.
 
 ## 4. Primitives

@@ -37,7 +37,7 @@ Colours: `bg-page|card|subtle|elevated`, `border-line|line-strong`, `text-ink|in
 `bg-brand|brand-hover|brand-soft`, `text-success|warning|danger`. Board colour comes from data:
 `style={{ '--board-color': board.color }}` with `bg-board`.
 
-Breakpoints are max-width variants: `max-sm:` (<520), `max-md:` (<720), `max-lg:` (<1060).
+Breakpoints are max-width variants: `max-sm:` (<520), `max-md:` (<720), `max-lg:` (<1152), `max-xl:` (<1336; the nav collapses here, before the rail hides at lg).
 
 ## Auth in development
 
