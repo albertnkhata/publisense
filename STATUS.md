@@ -27,20 +27,19 @@ _derived from `docs/v2/BUILD.md` checkbox state · one PR per step, see `docs/v2
 - [x] 8. Moderation and people
 - [x] 9. Cutover
 
-- v2 web tests (`web/src/**/*.test.ts(x)`): **40** files, **477** declared cases
+- v2 web tests (`web/src/**/*.test.ts(x)`): **40** files, **482** declared cases
 
 ### Open decisions and risks
 
 _derived from `docs/deferred.md` · the ids link to the entry, which is canonical_
 
-- **D-015** · Replies have no edit window
 - **D-012** · The Google consent screen shows no app logo — revisit: when a distinctive brand mark exists, or if a sensitive scope forces a review anyway
 - **D-007** · Background rows for other users have no email in the client
 - **D-003** · Test coverage is narrow — no automatic user-flow test in CI
 
-### Resolved (11)
+### Resolved (12)
 
-**D-011** · **D-002** · **D-014** · **D-013** · **D-010** · **D-005** · **D-009** · **D-008** · **D-006** · **D-004** · **D-001**
+**D-015** · **D-011** · **D-002** · **D-014** · **D-013** · **D-010** · **D-005** · **D-009** · **D-008** · **D-006** · **D-004** · **D-001**
 
 ### Roadmap phases (v1, frozen)
 
@@ -83,6 +82,7 @@ _CI steps read from `.github/workflows/ci.yml`; v2 test counts are under v2 buil
 - CI · v2 join message tests: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_join_message_test.sql`
 - CI · v2 helper oracle tests: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_helper_oracle_test.sql`
 - CI · v2 reply threads tests: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_reply_threads_test.sql`
+- CI · v2 reply edit rules tests: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_reply_edit_rules_test.sql`
 - CI · v2 trimmed text tests: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_trimmed_text_test.sql`
 - CI · Report public read-policy count: inline script
 

@@ -5,6 +5,7 @@ import {
   boardLogoSrc,
   buildThreads,
   REPLY_MAX,
+  replyEditLockReason,
   replyPath,
   shortAge,
   useCreateReply,
@@ -58,6 +59,11 @@ const REPLY_SORTS: Array<{ value: FeedSort; label: string; hint: string }> = [
 const actClass =
   'inline-flex h-6 items-center gap-1 rounded-sm border-0 bg-transparent px-2 text-sm font-medium text-ink-secondary ' +
   'transition-colors duration-120 ease-out hover:bg-subtle hover:text-ink';
+/** An action the rules don't allow right now (reply Edit after the window, 0051): it
+ *  stays focusable and says why, but looks and acts disabled. */
+const lockedActClass =
+  'inline-flex h-6 items-center gap-1 rounded-sm border-0 bg-transparent px-2 text-sm font-medium text-ink-secondary ' +
+  'cursor-default opacity-45';
 
 export function ReplySection({ post }: { post: Post }) {
   const replies = useReplies(post.id);
@@ -294,6 +300,9 @@ function ReplyItem({
   const staff = useIsPlatformAdmin(viewer?.id ?? null);
   const [reporting, setReporting] = useState(false);
   const isAuthor = Boolean(viewer && reply.author_id === viewer.id);
+  // Authors edit within the rules of 0051 (#181); the DB enforces them too.
+  const editLock = isAuthor ? replyEditLockReason(reply, post) : null;
+  const lockId = useId();
   const closed = post.status === 'merged' || Boolean(post.hidden_at);
   const canHide = Boolean(team.data || staff.data);
   const toggleHidden = () => {
@@ -374,9 +383,28 @@ function ReplyItem({
           )}
           {isAuthor ? (
             <>
-              <button type="button" className={actClass} onClick={() => setMode('edit')}>
-                Edit
-              </button>
+              {editLock ? (
+                // 0051: still focusable so the reason reaches keyboard and screen-reader users.
+                <>
+                  <button
+                    type="button"
+                    className={lockedActClass}
+                    aria-disabled="true"
+                    aria-describedby={lockId}
+                    title={editLock}
+                    onClick={() => toast(editLock)}
+                  >
+                    Edit
+                  </button>
+                  <span id={lockId} className="sr-only">
+                    {editLock}
+                  </span>
+                </>
+              ) : (
+                <button type="button" className={actClass} onClick={() => setMode('edit')}>
+                  Edit
+                </button>
+              )}
               <button
                 type="button"
                 className={cx(actClass, 'hover:text-danger')}

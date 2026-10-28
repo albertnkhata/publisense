@@ -21,20 +21,6 @@
 
 ## Open
 
-### D-015 · Replies have no edit window
-
-**Status:** 🟢 cosmetic/minor · **Deferred:** 2026-10-27 · **PR:** feedback-loop polish (follow-up to the QA report in #172) · **Decision:** #181 (reply editing rules, open)
-
-Posts now lock for their author 1 hour after posting and once Shipped, Closed or Merged
-(`0045_v2_post_edit_window.sql`, enforced by a trigger). Replies were left as they were: an author can
-still edit their own reply at any time, and it shows "edited". A reply is a conversation turn rather
-than the record the team answers, and nobody asked for a reply lock, so the change was kept to posts.
-
-**Revisit when:** people edit replies to change their meaning after others answered them, or a team
-asks for it. The same pattern applies: a BEFORE UPDATE trigger on `reply` reading
-`public.v2_post_edit_window()` (or its own setting).
-
----
 
 ### D-012 · The Google consent screen shows no app logo
 
@@ -134,6 +120,28 @@ depend on third-party pages and are checked by hand.
 ---
 
 ## Resolved
+
+### D-015 · Replies have no edit window
+
+**Status:** ✅ RESOLVED 2026-10-28 · decision #181 (approved by Albert 2026-10-28) · **Deferred:** 2026-10-27 · **PR:** feedback-loop polish (follow-up to the QA report in #172) · **Fix:** migration `0051_v2_reply_edit_rules.sql`
+
+Posts now lock for their author 1 hour after posting and once Shipped, Closed or Merged
+(`0045_v2_post_edit_window.sql`, enforced by a trigger). Replies were left as they were: an author can
+still edit their own reply at any time, and it shows "edited". A reply is a conversation turn rather
+than the record the team answers, and nobody asked for a reply lock, so the change was kept to posts.
+
+**Revisit when:** people edit replies to change their meaning after others answered them, or a team
+asks for it. The same pattern applies: a BEFORE UPDATE trigger on `reply` reading
+`public.v2_post_edit_window()` (or its own setting).
+
+**Resolution (2026-10-28).** A BEFORE UPDATE trigger on `reply` (0051): community replies are
+editable by their author for `public.v2_post_edit_window()` (1 hour, shared with posts); official
+team replies are author-only and exempt from the window while the post is open; every reply locks
+once the post is Shipped, Closed or Merged (hints `edit_window_closed` / `edit_locked_status`). No
+team edits of someone else's reply; deleting is unchanged. The reply's Edit is disabled with the
+reason. Test: `supabase/tests/v2_reply_edit_rules_test.sql`.
+
+---
 
 ### D-011 · Every post in production is imported from a public source, and nothing says so
 
