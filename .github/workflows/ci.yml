@@ -294,6 +294,14 @@ jobs:
           PGPASSWORD: postgres
         run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_reply_threads_test.sql
 
+      # Whitespace-only titles and replies (0052, #170): post.title is 3-140 characters
+      # and reply.body 1-5000 once trimmed (JavaScript's trim set), on insert and update,
+      # for every writer. Own fixtures, rolled back.
+      - name: v2 trimmed text tests
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_trimmed_text_test.sql
+
       - name: Report public read-policy count
         env:
           PGPASSWORD: postgres
