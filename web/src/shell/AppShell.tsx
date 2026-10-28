@@ -60,7 +60,7 @@ export function AppShell() {
       {chrome === 'site' ? (
         <div className="flex min-h-dvh flex-col bg-page text-ink">
           <SiteHeader />
-          <div className="mx-auto flex w-full flex-1 justify-center px-7 pt-8 pb-12 max-sm:px-3 max-sm:pt-5">
+          <div className="mx-auto flex w-full flex-1 justify-center px-7 pt-8 pb-9 max-sm:px-3 max-sm:pt-5">
             <main id="main" tabIndex={-1} className="w-full max-w-content min-w-0 outline-none">
               <Outlet />
             </main>
