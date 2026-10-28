@@ -203,6 +203,26 @@ export function editLockReason(p: Pick<Post, 'status' | 'created_at'>, now: Date
   return null;
 }
 
+/**
+ * Why the viewer can't edit this reply right now, or null when they can (0051, #181).
+ * Only the author ever edits a reply (RLS); this is about when. Community replies:
+ * within POST_EDIT_WINDOW_MINUTES of posting (the window posts use). Official team
+ * replies: any time while the post is open. Nobody once the post is Shipped, Closed
+ * or Merged. The database enforces the same rules.
+ */
+export function replyEditLockReason(
+  r: Pick<Reply, 'is_official' | 'created_at'>,
+  p: Pick<Post, 'status'>,
+  now: Date = new Date(),
+): string | null {
+  if (p.status === 'merged') return 'Can’t edit: the post was merged';
+  if (EDIT_LOCKED.has(p.status)) return `Can’t edit once the post is ${p.status === 'shipped' ? 'Shipped' : 'Closed'}`;
+  if (r.is_official) return null;
+  const age = now.getTime() - new Date(r.created_at).getTime();
+  if (age > POST_EDIT_WINDOW_MINUTES * 60_000) return `Editing closes ${editWindowLabel()} after posting`;
+  return null;
+}
+
 export const TITLE_MIN = 3;
 export const TITLE_MAX = 140;
 /** Shown live as soon as a title runs over (#171): the text is kept, never cut. */
@@ -569,6 +589,10 @@ export async function updateReply(id: string, body: string): Promise<Pick<Reply,
     .eq('id', id)
     .select('id, body, edited_at')
     .maybeSingle();
+  // 0051: the database refuses edits after the window (community replies) or once the
+  // post is Shipped, Closed or Merged (every reply).
+  if (error?.hint === 'edit_window_closed') throw failed(`Replies can be edited for ${editWindowLabel()} after posting.`);
+  if (error?.hint === 'edit_locked_status') throw failed('This reply can’t be edited any more: the post has been shipped, closed or merged.');
   if (error || !data) throw failed('We couldn’t save your reply. Try again.');
   return data as Pick<Reply, 'id' | 'body' | 'edited_at'>;
 }
