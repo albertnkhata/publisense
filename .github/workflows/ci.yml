@@ -294,6 +294,15 @@ jobs:
           PGPASSWORD: postgres
         run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_reply_threads_test.sql
 
+      # Reply edit rules (0051, #181): community replies editable by their author for the
+      # shared 1-hour window, official replies while the post is open, none once Shipped,
+      # Closed or Merged; nobody edits someone else's reply; delete and moderation unchanged.
+      # Own fixtures, rolled back.
+      - name: v2 reply edit rules tests
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_reply_edit_rules_test.sql
+
       - name: Report public read-policy count
         env:
           PGPASSWORD: postgres

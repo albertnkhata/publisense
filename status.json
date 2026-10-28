@@ -3,11 +3,6 @@
   "repo": {
     "openDecisions": [
       {
-        "id": "D-015",
-        "title": "Replies have no edit window",
-        "revisit": ""
-      },
-      {
         "id": "D-012",
         "title": "The Google consent screen shows no app logo",
         "revisit": "when a distinctive brand mark exists, or if a sensitive scope forces a review anyway"
@@ -24,6 +19,7 @@
       }
     ],
     "resolved": [
+      "D-015",
       "D-011",
       "D-002",
       "D-014",
@@ -137,7 +133,7 @@
     ],
     "webTests": {
       "files": 40,
-      "cases": 477
+      "cases": 482
     },
     "gates": [
       {
@@ -300,6 +296,13 @@
         "name": "v2 reply threads tests",
         "runs": [
           "psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_reply_threads_test.sql"
+        ],
+        "scripted": false
+      },
+      {
+        "name": "v2 reply edit rules tests",
+        "runs": [
+          "psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_reply_edit_rules_test.sql"
         ],
         "scripted": false
       },

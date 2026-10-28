@@ -290,7 +290,7 @@ describe('replies', () => {
 
   it('lets the author edit and delete their reply', async () => {
     const post = makePost({ reply_count: 2 });
-    const mine = makeReply(post, { author: ME, author_id: ME.id, body: 'Frist!' });
+    const mine = makeReply(post, { author: ME, author_id: ME.id, body: 'Frist!', created_at: iso(0.1) });
     const answer = makeReply(post, { parent_id: mine.id, body: 'Answer to it' });
     renderPost(post, { replies: [mine, answer] });
     api.updateReply.mockResolvedValue({ id: mine.id, body: 'First!', edited_at: iso(0) });
@@ -313,6 +313,51 @@ describe('replies', () => {
     await waitFor(() => expect(screen.queryByText('First!')).toBeNull());
     expect(screen.queryByText('Answer to it')).toBeNull();
     expect(screen.getByRole('heading', { name: '0 replies' })).toBeTruthy();
+  });
+});
+
+describe('reply edit rules (0051, #181)', () => {
+  it('disables Edit on a community reply after the 1-hour window, with the reason; Delete stays', async () => {
+    const post = makePost({ reply_count: 1 });
+    const mine = makeReply(post, { author: ME, author_id: ME.id, body: 'Old words', created_at: iso(2) });
+    renderPost(post, { replies: [mine] });
+    const item = (await screen.findByText('Old words')).closest('article')!;
+    const edit = within(item).getByRole('button', { name: 'Edit' });
+    expect(edit.getAttribute('aria-disabled')).toBe('true');
+    expect(edit.getAttribute('title')).toBe('Editing closes 1 hour after posting');
+    expect(document.getElementById(edit.getAttribute('aria-describedby')!)?.textContent).toBe('Editing closes 1 hour after posting');
+    fireEvent.click(edit);
+    expect(within(item).queryByRole('textbox', { name: 'Edit reply' })).toBeNull();
+    expect(within(item).getByRole('button', { name: 'Delete' })).toBeTruthy();
+  });
+
+  it('keeps Edit on an old official reply while the post is open', async () => {
+    const post = makePost({ reply_count: 1 });
+    const mine = makeReply(post, { author: ME, author_id: ME.id, body: 'Team answer', is_official: true, created_at: iso(72) });
+    renderPost(post, { replies: [mine] });
+    const item = (await screen.findByText('Team answer')).closest('article')!;
+    const edit = within(item).getByRole('button', { name: 'Edit' });
+    expect(edit.getAttribute('aria-disabled')).toBeNull();
+    fireEvent.click(edit);
+    expect(within(item).getByRole('textbox', { name: 'Edit reply' })).toBeTruthy();
+  });
+
+  it('locks every reply, official included, once the post is Shipped', async () => {
+    const post = makePost({ reply_count: 1, status: 'shipped' });
+    const mine = makeReply(post, { author: ME, author_id: ME.id, body: 'Shipped answer', is_official: true, created_at: iso(0.1) });
+    renderPost(post, { replies: [mine] });
+    const item = (await screen.findByText('Shipped answer')).closest('article')!;
+    const edit = within(item).getByRole('button', { name: 'Edit' });
+    expect(edit.getAttribute('aria-disabled')).toBe('true');
+    expect(edit.getAttribute('title')).toBe('Can’t edit once the post is Shipped');
+  });
+
+  it('shows no Edit on someone else’s reply', async () => {
+    const post = makePost({ reply_count: 1 });
+    const theirs = makeReply(post, { body: 'Their words', created_at: iso(0.1) });
+    renderPost(post, { replies: [theirs] });
+    const item = (await screen.findByText('Their words')).closest('article')!;
+    expect(within(item).queryByRole('button', { name: 'Edit' })).toBeNull();
   });
 });
 

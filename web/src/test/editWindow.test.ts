@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { editLockReason, editWindowLabel, POST_EDIT_WINDOW_MINUTES } from '../api/posts';
+import { editLockReason, editWindowLabel, POST_EDIT_WINDOW_MINUTES, replyEditLockReason } from '../api/posts';
 
 /* The author edit window (0045): one setting in the database, mirrored here. */
 
@@ -27,6 +27,17 @@ describe('edit window', () => {
     expect(editLockReason({ status: 'shipped', created_at: ago(1) }, now)).toBe('Can’t edit once it’s Shipped');
     expect(editLockReason({ status: 'closed', created_at: ago(1) }, now)).toBe('Can’t edit once it’s Closed');
     expect(editLockReason({ status: 'merged', created_at: ago(1) }, now)).toBe('Merged posts can’t be edited');
+  });
+
+  it('reply rules (0051): community replies for the window, official replies while open, none once locked', () => {
+    const community = (minutes: number) => ({ is_official: false, created_at: ago(minutes) });
+    const official = (minutes: number) => ({ is_official: true, created_at: ago(minutes) });
+    expect(replyEditLockReason(community(5), { status: 'open' }, now)).toBeNull();
+    expect(replyEditLockReason(community(61), { status: 'planned' }, now)).toBe('Editing closes 1 hour after posting');
+    expect(replyEditLockReason(official(3 * 24 * 60), { status: 'in_progress' }, now)).toBeNull();
+    expect(replyEditLockReason(official(1), { status: 'shipped' }, now)).toBe('Can’t edit once the post is Shipped');
+    expect(replyEditLockReason(community(1), { status: 'closed' }, now)).toBe('Can’t edit once the post is Closed');
+    expect(replyEditLockReason(official(1), { status: 'merged' }, now)).toBe('Can’t edit: the post was merged');
   });
 
   it('matches the latest public.v2_post_edit_window() in supabase/migrations', () => {
