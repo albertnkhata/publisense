@@ -60,7 +60,7 @@ export function SiteHeader() {
 export function SiteFooter() {
   return (
     <footer aria-label="Site footer" className="border-t border-line">
-      <p className="mx-auto my-0 w-full max-w-wide px-7 py-5 text-xs text-ink-muted max-sm:px-3">© 2026 Publisense</p>
+      <p className="mx-auto my-0 w-full max-w-wide px-7 py-5 text-center text-xs text-ink-muted max-sm:px-3">© 2026 Publisense</p>
     </footer>
   );
 }

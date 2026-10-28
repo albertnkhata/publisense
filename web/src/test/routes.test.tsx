@@ -57,8 +57,8 @@ describe('routes', () => {
   // (shell/layout.ts). Browsing pages keep it; task pages drop it, wide or narrow.
   const paths = CASES.map(([p]) => p);
   const WIDE = [...paths.filter((p) => p.startsWith('/admin')), '/b/supabase/manage', '/h/acme/manage'];
-  const NARROW = ['/notifications', '/settings', '/auth/reset', '/unsubscribe?token=abc'];
-  const SITE = ['/privacy', '/terms'];
+  const NARROW = ['/notifications', '/settings'];
+  const SITE = ['/privacy', '/terms', '/auth/reset', '/unsubscribe?token=abc'];
   const RAIL = ['/', '/explore', '/search?q=dark%20mode', '/b/supabase', '/b/supabase?tab=roadmap', '/h/acme', '/post/123', '/u/alex', '/no/such/page'];
 
   it('every route case is classified', () => {
@@ -101,9 +101,11 @@ describe('routes', () => {
     const legal = within(header).getByRole('navigation', { name: 'Legal links' });
     expect(within(legal).getByRole('link', { name: 'Terms' }).getAttribute('href')).toBe('/terms');
     expect(within(legal).getByRole('link', { name: 'Privacy' }).getAttribute('href')).toBe('/privacy');
-    expect(within(legal).getByRole('link', { current: 'page' }).getAttribute('href')).toBe(path);
+    if (path === '/terms' || path === '/privacy') {
+      expect(within(legal).getByRole('link', { current: 'page' }).getAttribute('href')).toBe(path);
+    }
     expect(screen.getAllByRole('navigation', { name: 'Legal links' })).toHaveLength(1);
-    expect(screen.getByText('© 2026 Publisense')).toBeTruthy();
+    expect(screen.getByText('© 2026 Publisense').className).toContain('text-center');
     const main = document.getElementById('main')!;
     expect(main.className).toContain('max-w-content');
     expect(main.className).not.toContain('max-w-wide');
