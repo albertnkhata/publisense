@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { AppShell } from './shell/AppShell';
+import type { ShellHandle } from './shell/layout';
 import { NotFound } from './pages/NotFound';
 import {
   AdminDisputesPage,
@@ -49,12 +50,19 @@ export const routes = [
       { path: 'terms', element: <TermsPage /> },
       { path: 'auth/reset', element: <AuthResetPage /> },
       { path: 'unsubscribe', element: <UnsubscribePage /> },
-      { path: 'admin', element: <AdminOverviewPage /> },
-      { path: 'admin/products', element: <AdminProductsPage /> },
-      { path: 'admin/companies', element: <AdminCompaniesPage /> },
-      { path: 'admin/reports', element: <AdminReportsPage /> },
-      { path: 'admin/disputes', element: <AdminDisputesPage /> },
-      { path: 'admin/team', element: <AdminTeamPage /> },
+      // Staff Command Centre: no right rail, full-width content (shell/layout.ts).
+      {
+        path: 'admin',
+        handle: { rail: false } satisfies ShellHandle,
+        children: [
+          { index: true, element: <AdminOverviewPage /> },
+          { path: 'products', element: <AdminProductsPage /> },
+          { path: 'companies', element: <AdminCompaniesPage /> },
+          { path: 'reports', element: <AdminReportsPage /> },
+          { path: 'disputes', element: <AdminDisputesPage /> },
+          { path: 'team', element: <AdminTeamPage /> },
+        ],
+      },
       { path: '*', element: <NotFound /> },
     ],
   },

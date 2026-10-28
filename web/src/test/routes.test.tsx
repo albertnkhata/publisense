@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { routes } from '../App';
 import { Providers } from '../Providers';
+import { shellLayoutFor } from '../shell/layout';
 
 // FOUNDATION §9, with sample params. Each must render a page heading, not NotFound.
 const CASES: Array<[string, string]> = [
@@ -50,5 +51,38 @@ describe('routes', () => {
     renderAt('/nope/really');
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Page not found');
     expect(screen.getByRole('complementary', { name: 'Main navigation' })).toBeTruthy();
+  });
+
+  // The right rail (search, boards card, claim line, legal footer) is opt-out per route via
+  // `handle: { rail: false }`. Today only the staff /admin branch drops it.
+  const ADMIN = CASES.map(([p]) => p).filter((p) => p.startsWith('/admin'));
+  const PUBLIC = CASES.map(([p]) => p).filter((p) => !p.startsWith('/admin'));
+
+  it.each(ADMIN)('%s has no right rail, a full-width column and a top bar with search at every width', (path) => {
+    renderAt(path);
+    expect(screen.queryByRole('complementary', { name: 'Sidebar' })).toBeNull();
+    const main = document.getElementById('main')!;
+    expect(main.className).toContain('max-w-wide');
+    expect(main.className).not.toContain('max-w-content');
+    const header = screen.getAllByRole('banner')[0]!;
+    expect(header.className.split(/\s+/)).toContain('flex');
+    expect(header.className).not.toContain('max-lg:flex');
+    expect(screen.getAllByRole('button', { name: /search/i }).length).toBeGreaterThan(0);
+  });
+
+  it.each(PUBLIC)('%s keeps the right rail', (path) => {
+    renderAt(path);
+    expect(screen.getByRole('complementary', { name: 'Sidebar' })).toBeTruthy();
+    expect(document.getElementById('main')!.className).toContain('max-w-content');
+    expect(screen.getAllByRole('banner')[0]!.className).toContain('max-lg:flex');
+  });
+});
+
+describe('shellLayoutFor', () => {
+  it('defaults to the rail and lets the deepest route that says something win', () => {
+    expect(shellLayoutFor([])).toEqual({ rail: true });
+    expect(shellLayoutFor([undefined, null, 'x', {}])).toEqual({ rail: true });
+    expect(shellLayoutFor([undefined, { rail: false }, undefined])).toEqual({ rail: false });
+    expect(shellLayoutFor([{ rail: false }, { rail: true }])).toEqual({ rail: true });
   });
 });

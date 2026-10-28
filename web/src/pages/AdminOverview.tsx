@@ -289,7 +289,8 @@ export function AdminOverview() {
           <StatTile label={`Share clicks (${days}d)`} value={traffic.share_clicks} sub="Copied or shared links" />
           <StatTile label={`Bot unfurls (${days}d)`} value={traffic.share_unfurls} sub="Slack, X, Discord previews" />
         </div>
-        <div className="grid grid-cols-2 gap-3 max-md:grid-cols-1">
+        {/* Four across on the full-width admin layout (each chart is drawn 240 wide), two below lg. */}
+        <div className="grid grid-cols-4 gap-3 max-lg:grid-cols-2 max-md:grid-cols-1">
           <SeriesChart label="Daily visits" total={traffic.visits} points={series} pick={(p) => p.visits} />
           <SeriesChart label="Daily page views" total={traffic.page_views} points={series} pick={(p) => p.page_views} />
           <SeriesChart

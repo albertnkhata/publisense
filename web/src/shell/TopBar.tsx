@@ -10,14 +10,23 @@ import { useAuthDialog } from './auth';
 /**
  * Top bar below lg, where the right rail (and its search) is hidden.
  * At sm the search trigger is an icon button that opens the search modal.
+ *
+ * `always` keeps it on above lg too, for routes that drop the right rail
+ * (shell/layout.ts), so search is still visible there. Above lg the nav rail
+ * already has Notifications and Sign in, so the bell and button stay below lg.
  */
-export function TopBar() {
+export function TopBar({ always = false }: { always?: boolean }) {
   const { viewer, ready } = useViewer();
   const { openAuth } = useAuthDialog();
   const unread = useUnreadCount(viewer?.id ?? null).data ?? 0;
 
   return (
-    <header className="sticky top-0 z-20 hidden h-9 items-center gap-3 border-b border-line bg-glass px-5 backdrop-blur-md max-lg:flex max-sm:px-3">
+    <header
+      className={cx(
+        'sticky top-0 z-20 h-9 items-center gap-3 border-b border-line bg-glass px-5 backdrop-blur-md max-sm:px-3',
+        always ? 'flex' : 'hidden max-lg:flex',
+      )}
+    >
       <Link
         to="/"
         aria-label="Publisense home"
@@ -33,9 +42,11 @@ export function TopBar() {
         </span>
         {viewer ? <NotificationBell count={unread} /> : null}
         {!viewer && ready ? (
-          <Button size="sm" onClick={() => openAuth('signin')}>
-            Sign in
-          </Button>
+          <span className="contents lg:hidden">
+            <Button size="sm" onClick={() => openAuth('signin')}>
+              Sign in
+            </Button>
+          </span>
         ) : null}
       </span>
     </header>
@@ -51,7 +62,7 @@ function NotificationBell({ count }: { count: number }) {
       title="Notifications"
       className={({ isActive }) =>
         cx(
-          'relative grid size-8 place-items-center rounded-md no-underline transition-colors duration-120 hover:bg-subtle hover:text-ink max-sm:hidden',
+          'relative grid size-8 place-items-center rounded-md no-underline transition-colors duration-120 hover:bg-subtle hover:text-ink max-sm:hidden lg:hidden',
           isActive ? 'text-brand' : 'text-ink-secondary',
         )
       }
