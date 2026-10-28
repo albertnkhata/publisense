@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { AppShell } from './shell/AppShell';
-import { NO_RAIL_NARROW, NO_RAIL_WIDE } from './shell/layout';
+import { NO_RAIL_NARROW, NO_RAIL_WIDE, SITE_PAGE } from './shell/layout';
 import { NotFound } from './pages/NotFound';
 import {
   AdminDisputesPage,
@@ -33,7 +33,8 @@ const DevKit = lazy(() => import('./pages/DevKit'));
  * FOUNDATION §9 route table. Real paths; the mockup's #hash routes do not carry over.
  * The right rail shows on browsing pages (home, explore, search, boards, hubs, posts,
  * profiles, 404). Task pages drop it (shell/layout.ts): Manage and /admin go wide;
- * settings, notifications, legal, password reset and unsubscribe keep the reading width.
+ * settings, notifications, password reset and unsubscribe keep the reading width.
+ * The legal pages swap the app frame for a plain website header (SITE_PAGE).
  */
 export const routes = [
   {
@@ -51,8 +52,8 @@ export const routes = [
       { path: 'u/:handle', element: <UserPage /> },
       { path: 'notifications', handle: NO_RAIL_NARROW, element: <NotificationsPage /> },
       { path: 'settings', handle: NO_RAIL_NARROW, element: <SettingsPage /> },
-      { path: 'privacy', handle: NO_RAIL_NARROW, element: <PrivacyPage /> },
-      { path: 'terms', handle: NO_RAIL_NARROW, element: <TermsPage /> },
+      { path: 'privacy', handle: SITE_PAGE, element: <PrivacyPage /> },
+      { path: 'terms', handle: SITE_PAGE, element: <TermsPage /> },
       { path: 'auth/reset', handle: NO_RAIL_NARROW, element: <AuthResetPage /> },
       { path: 'unsubscribe', handle: NO_RAIL_NARROW, element: <UnsubscribePage /> },
       // Staff Command Centre: no right rail, full-width content (shell/layout.ts).
