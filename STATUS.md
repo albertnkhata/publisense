@@ -72,6 +72,7 @@ _CI steps read from `.github/workflows/ci.yml`; v2 test counts are under v2 buil
 - CI · Assert no world-open write policy exists: inline script
 - CI · v2 permission tests: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_rls_test.sql`
 - CI · v2 definer function grants: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_definer_grants_test.sql`
+- CI · Analytics rate-limit concurrency tests: `bash scripts/test_analytics_rate_limit_concurrency.sh`
 - CI · v2 company name-history tests: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_hub_names_test.sql`
 - CI · v2 dev seed applies: inline script
 - CI · Live smoke suite (on CI data): `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_live_smoke.sql`

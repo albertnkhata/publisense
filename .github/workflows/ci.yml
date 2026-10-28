@@ -214,6 +214,15 @@ jobs:
           PGPASSWORD: postgres
         run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_definer_grants_test.sql
 
+      # Separate sessions make the analytics sliding-window checks genuinely concurrent.
+      - name: Analytics rate-limit concurrency tests
+        env:
+          PGPASSWORD: postgres
+          PGHOST: localhost
+          PGUSER: postgres
+          PGDATABASE: publisense_ci
+        run: bash scripts/test_analytics_rate_limit_concurrency.sh
+
       # A company's name history: renames keep the old name, a former slug still resolves,
       # and no other company can take a slug that once belonged to someone else.
       - name: v2 company name-history tests
