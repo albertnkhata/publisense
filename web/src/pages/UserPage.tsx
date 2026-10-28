@@ -31,7 +31,7 @@ import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { ConfirmDialog } from '../posts/dialogs';
 import { PostCard } from '../posts/PostCard';
-import { LoadError, PostList, PostListSkeleton } from '../posts/PostList';
+import { FEED_LIST, LoadError, PostList, PostListSkeleton } from '../posts/PostList';
 import { ReportDialog } from '../posts/ReportDialog';
 import { useRequireAuth } from '../shell/auth';
 import { BoardAvatar, Button, EmptyState, HubAvatar, Icon, IconButton, Menu, MenuItem, MenuLabel, MenuSeparator, Skeleton, TabPanel, Tabs, UserAvatar, useToast } from '../ui';
@@ -428,7 +428,7 @@ function Upvoted({ query }: { query: ReturnType<typeof useUpvotedPosts> }) {
       ) : (query.data ?? []).length === 0 ? (
         <Empty>Nothing here yet.</Empty>
       ) : (
-        <ul className="m-0 flex list-none flex-col gap-4 p-0" aria-label="Posts you upvoted">
+        <ul className={FEED_LIST} aria-label="Posts you upvoted">
           {(query.data ?? []).map((p) => (
             <li key={p.id}>
               <PostCard post={p} />
