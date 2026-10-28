@@ -48,8 +48,10 @@ export function PostCard({ post, variant = 'feed', onDeleted, hideBoard = false 
       aria-labelledby={`post-title-${post.id}`}
       onClick={onCardClick}
       className={cx(
-        'rounded-md border border-line bg-card px-5 py-4 max-sm:p-4',
-        !page && 'cursor-pointer transition-colors duration-120 hover:border-line-strong',
+        page
+          ? 'rounded-md border border-line bg-card px-5 py-4 max-sm:p-4'
+          : // Borderless feed row: the list draws a hairline between posts (FEED_LIST), the row tints on hover.
+            'cursor-pointer px-5 py-4 transition-colors duration-120 hover:bg-subtle max-sm:px-4',
       )}
     >
       <div className="relative min-w-0 pl-gutter">
@@ -218,7 +220,7 @@ function PostFooter({ post, page }: { post: Post; page: boolean }) {
   const { toast } = useToast();
   const replies = `${post.reply_count} ${post.reply_count === 1 ? 'reply' : 'replies'}`;
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-1 border-t border-line pt-3">
+    <div className={cx('flex flex-wrap items-center gap-1', page ? 'mt-3 border-t border-line pt-3' : 'mt-2 -ml-2')}>
       <VoteButton post={post} />
       <Link to={page ? '#replies' : `/post/${post.id}#replies`} className={actClass} aria-label={replies} title="Replies">
         <Icon name="reply" size={16} strokeWidth={1.8} />

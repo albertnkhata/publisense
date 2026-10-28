@@ -9,6 +9,9 @@ import { PostCard } from './PostCard';
  * when the observer is missing and a retry when a page fails. Shared by the
  * home feed, board pages and hub pages.
  */
+/** A feed of borderless PostCards: no gaps, a hairline between posts. */
+export const FEED_LIST = 'm-0 list-none divide-y divide-line p-0';
+
 export interface PostListProps {
   posts: Post[];
   hasNextPage: boolean;
@@ -41,7 +44,7 @@ export function PostList({ posts, hasNextPage, isFetchingNextPage, isError, fetc
 
   return (
     <>
-      <ul className="m-0 flex list-none flex-col gap-4 p-0" aria-label={label}>
+      <ul className={FEED_LIST} aria-label={label}>
         {posts.map((p) => (
           <li key={p.id}>
             <PostCard post={p} hideBoard={hideBoard} />

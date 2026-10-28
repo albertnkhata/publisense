@@ -6,7 +6,7 @@ import { BoardRow, HubRow, RowItem, RowList, rowLink } from '../boards/parts';
 import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { PostCard } from '../posts/PostCard';
-import { LoadError, PostListSkeleton } from '../posts/PostList';
+import { FEED_LIST, LoadError, PostListSkeleton } from '../posts/PostList';
 import { useComposer } from '../shell/composer';
 import { AddProductLink } from '../products/AddProductDialog';
 import { Button, Icon, IconButton, TabPanel, Tabs, UserAvatar } from '../ui';
@@ -188,7 +188,7 @@ function Results({ q, tab, setTab }: { q: string; tab: SearchTab; setTab: (t: Se
 
   const postList = (list: typeof posts) =>
     list.length ? (
-      <ul className="m-0 flex list-none flex-col gap-4 p-0" aria-label="Posts">
+      <ul className={FEED_LIST} aria-label="Posts">
         {list.map((p) => (
           <li key={p.id}>
             <PostCard post={p} />
