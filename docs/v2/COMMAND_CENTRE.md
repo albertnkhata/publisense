@@ -1,6 +1,6 @@
 # Publisense v2: admin command centre & first-party analytics
 
-> **Status:** planned, 2026-10-27. Privacy Policy updated in [`web/src/pages/LegalPages.tsx`](../../web/src/pages/LegalPages.tsx) to cover aggregate first-party usage events and temporary per-visit session tokens. Linked from [`BUILD.md`](./BUILD.md) and [`docs/archive/roadmap.md`](../archive/roadmap.md).
+> **Status:** planned, 2026-10-27. The Privacy Policy is **not** updated yet: update [`web/src/pages/LegalPages.tsx`](../../web/src/pages/LegalPages.tsx) in the same PR that ships `record_event`, so the policy never describes tracking that doesn't exist (keep the Vercel line "counts page views without cookies or personal identifiers"). Linked from [`BUILD.md`](./BUILD.md) and [`docs/archive/roadmap.md`](../archive/roadmap.md).
 
 ---
 
@@ -10,7 +10,7 @@ Publisense needs an operational command centre inside `/admin` so staff can see 
 
 Three constraints from [`FOUNDATION.md`](./FOUNDATION.md) and [`STATUS.md`](../../STATUS.md) shape the design:
 
-1. **No advertising cookies, no consent banner, no ad-blocker blind spots.** Developer and product audiences block external trackers (`googletagmanager.com`, `*.sentry.io`) by default. Recording first-party events to our own Supabase project (EU Frankfurt) keeps data on our existing processor, requires no cookie banner, and cannot be silently dropped by third-party filter lists.
+1. **No advertising cookies, no consent banner, no ad-blocker blind spots.** Developer and product audiences block external trackers (e.g. `googletagmanager.com`) by default (Sentry already goes through the same-origin `/api/monitoring` tunnel since #182). Recording first-party events to our own Supabase project (EU Frankfurt) keeps data on our existing processor, requires no cookie banner, and cannot be silently dropped by third-party filter lists.
 2. **Honest numbers (`D-011`).** Seeded/imported posts (`author_id IS NULL`) and member-authored posts (`author_id IS NOT NULL`) are never summed into a single headline traction counter without showing the split. Any external probe that is unconfigured degrades to `unknown`, never `0`.
 3. **Security boundaries stay intact.** `service_role` never enters the browser bundle. All cross-table counts and event aggregations run inside a `SECURITY DEFINER` RPC guarded by `private.is_platform_admin()`.
 
@@ -74,7 +74,7 @@ A lightweight append-only table in the `private` schema (never directly readable
 | `at` | `timestamptz not null default now()` | Indexed by `(at desc)` and `(kind, at desc)` |
 
 **Write path:**
-* `public.record_event(p_visit_id uuid, p_kind text, p_path text, p_board_id uuid, p_hub_id uuid, p_referrer_host text, p_meta jsonb)` — `SECURITY DEFINER`, `search_path = pg_catalog, public, private`, executable by `anon` and `authenticated`. Silently drops unknown `kind` values or oversized `meta` payloads so client bugs never surface as errors.
+* `public.record_event(p_visit_id uuid, p_kind text, p_path text, p_board_id uuid, p_hub_id uuid, p_referrer_host text, p_meta jsonb)` — `SECURITY DEFINER`, `search_path = pg_catalog, public, private`, executable by `anon` and `authenticated`. Silently drops unknown `kind` values or oversized `meta` payloads so client bugs never surface as errors. Must also rate-limit per `visit_id` (and cap total writes per minute) so anonymous callers can't flood the table.
 * [`web/api/share.ts`](../../web/api/share.ts) logs `share_unfurl` when crawlers (Slack, Discord, X, LinkedIn, Bluesky) fetch OpenGraph previews for a board, hub, or post.
 
 **Retention & rollup:**
