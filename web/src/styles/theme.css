@@ -154,7 +154,12 @@
   /* Breakpoints. Used as max-* variants: max-sm = narrower than 520px, etc. */
   --breakpoint-sm: 520px;
   --breakpoint-md: 720px;
-  --breakpoint-lg: 1060px;
+  /* Collapse order as the window narrows (#206): the nav collapses first (below xl:
+     nav 248 + padding 64 + content 680 + gap 24 + rail 320), then the right rail
+     hides (below lg: the same with the 64px collapsed nav), and only then does the
+     feed column give up width. */
+  --breakpoint-lg: 1152px;
+  --breakpoint-xl: 1336px;
 
   /* Motion: 120 ms hover/press, 180 ms overlays, ease-out */
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
