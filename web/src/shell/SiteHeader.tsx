@@ -22,7 +22,7 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-glass backdrop-blur-md">
-      <div className="mx-auto flex h-9 w-full max-w-wide items-center gap-6 px-7 max-sm:gap-4 max-sm:px-3">
+      <div className="flex h-9 w-full items-center gap-6 px-7 max-sm:gap-4 max-sm:px-3">
         <Link to="/" aria-label="Publisense home" className="flex items-center gap-2 text-md font-bold text-ink no-underline">
           <BrandSymbol />
           <span className="max-sm:hidden">Publisense</span>
