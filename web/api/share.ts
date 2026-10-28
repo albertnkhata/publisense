@@ -52,7 +52,21 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     html = await page.text();
     const meta = await lookup(one(req.query.kind), one(req.query.key));
     if (meta === 'missing') missing = true;
-    else if (meta) html = applyMeta(html, meta);
+    else if (meta) {
+      html = applyMeta(html, meta);
+      const base = (process.env.VITE_SUPABASE_URL ?? '').trim().replace(/\/$/, '');
+      const anon = (process.env.VITE_SUPABASE_ANON_KEY ?? '').trim();
+      const kind = one(req.query.kind);
+      const key = one(req.query.key);
+      if (base && anon && (kind === 'board' || kind === 'hub' || kind === 'post')) {
+        const prefix = kind === 'board' ? 'b' : kind === 'hub' ? 'h' : 'post';
+        void fetch(`${base}/rest/v1/rpc/record_event`, {
+          method: 'POST',
+          headers: { apikey: anon, authorization: `Bearer ${anon}`, 'content-type': 'application/json' },
+          body: JSON.stringify({ p_visit_id: '00000000-0000-0000-0000-000000000000', p_kind: 'share_unfurl', p_path: `/${prefix}/${key}` }),
+        }).catch(() => {});
+      }
+    }
   } catch {
     // fall through with whatever we have
   }

@@ -35,6 +35,7 @@ insert into anon_ok values
   ('v2_board_visible(uuid)'),
   ('v2_hub_visible(uuid)'),
   -- public client RPCs
+  ('record_event(uuid,text,text,uuid,uuid,text,jsonb)'), -- anonymous first-party analytics (0054)
   ('resolve_hub_slug(text)'),
   ('unsubscribe(uuid,v2_notification_kind)'),
   ('v2_scope_role(v2_scope,uuid)');      -- client RPC, wrapper over private (0047)
@@ -147,3 +148,5 @@ end
 $gate$;
 
 rollback;
+
+\ir v2_command_centre_test.sql

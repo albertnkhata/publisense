@@ -16,6 +16,7 @@ import {
 import { Link, useNavigate } from 'react-router';
 import {
   BODY_MAX,
+  recordEvent,
   isLive,
   isPostable,
   isSourceUrl,
@@ -85,6 +86,7 @@ export function ComposerProvider({ children }: { children: ReactNode }) {
         opts && typeof opts === 'object' && !('nativeEvent' in opts)
           ? { board: opts.board, hub: opts.hub, title: opts.title, firstPost: opts.firstPost, onClaim: opts.onClaim, seed: opts.seed }
           : {};
+      recordEvent('composer_open');
       setState((s) => ({ open: true, opts: clean, key: s.key + 1 }));
     },
     [requireAuth],
@@ -655,7 +657,7 @@ function Similar({ posts, onOpen }: { posts: Post[]; onOpen: () => void }) {
       <ul className="m-0 list-none p-0">
         {posts.map((p) => (
           <li key={p.id} className="flex items-center gap-3 border-t border-line py-2 first:border-t-0">
-            <Link to={`/post/${p.id}`} onClick={onOpen} className="flex min-w-0 flex-1 flex-col text-ink no-underline hover:underline">
+            <Link to={`/post/${p.id}`} onClick={() => { recordEvent('similar_post_click', { boardId: p.board_id }); onOpen(); }} className="flex min-w-0 flex-1 flex-col text-ink no-underline hover:underline">
               <span className="text-base font-medium">{p.title}</span>
               <span className="text-xs text-ink-muted">
                 {p.status !== 'open' ? `${STATUS_META[p.status].label} · ` : ''}

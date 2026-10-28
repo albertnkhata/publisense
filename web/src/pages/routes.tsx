@@ -18,7 +18,7 @@ export { BoardManagePage, HubManagePage } from '../manage/ManagePage';
 // Step 8: moderation and people.
 export { UserPage } from './UserPage';
 export { NotificationsPage } from './NotificationsPage';
-export { AdminDisputesPage, AdminReportsPage, AdminTeamPage } from './AdminPages';
+export { AdminDisputesPage, AdminOverviewPage, AdminReportsPage, AdminTeamPage } from './AdminPages';
 
 // Add a product (0024): the admin review queue.
 export { AdminProductsPage } from './AdminPages';

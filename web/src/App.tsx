@@ -4,6 +4,7 @@ import { AppShell } from './shell/AppShell';
 import { NotFound } from './pages/NotFound';
 import {
   AdminDisputesPage,
+  AdminOverviewPage,
   AdminProductsPage,
   AdminCompaniesPage,
   AdminReportsPage,
@@ -48,6 +49,7 @@ export const routes = [
       { path: 'terms', element: <TermsPage /> },
       { path: 'auth/reset', element: <AuthResetPage /> },
       { path: 'unsubscribe', element: <UnsubscribePage /> },
+      { path: 'admin', element: <AdminOverviewPage /> },
       { path: 'admin/products', element: <AdminProductsPage /> },
       { path: 'admin/companies', element: <AdminCompaniesPage /> },
       { path: 'admin/reports', element: <AdminReportsPage /> },

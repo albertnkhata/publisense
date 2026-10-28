@@ -1,5 +1,6 @@
-import { useCallback } from 'react';
-import { Outlet } from 'react-router';
+import { useCallback, useEffect } from 'react';
+import { Outlet, useLocation } from 'react-router';
+import { recordEvent } from '../api/analytics';
 import { AuthProvider } from './auth';
 import { AuthLinkErrorWatcher } from './AuthLinkErrorWatcher';
 import { RecoveryWatcher } from './RecoveryWatcher';
@@ -21,6 +22,14 @@ export function AppShell() {
   const { toggle } = useTheme();
   const onTheme = useCallback(() => toggle(), [toggle]);
   useShortcut('d', onTheme, { ctrl: true });
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    // Board pages (/b/:slug) log their own page_view with boardId once the board loads;
+    // staff /admin pages are excluded from public traffic counts.
+    if (pathname.startsWith('/admin') || pathname.startsWith('/b/')) return;
+    recordEvent('page_view', { path: pathname });
+  }, [pathname]);
 
   return (
     <AuthProvider>

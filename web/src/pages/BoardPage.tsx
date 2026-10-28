@@ -1,7 +1,8 @@
-import { useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, type ReactNode } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import {
   dedupePosts,
+  recordEvent,
   logoSrc,
   useBoard,
   useChangelog,
@@ -80,6 +81,9 @@ export function BoardPage() {
   const query = useBoard(slug);
   const board = query.data;
   usePageTitle(board ? board.name : query.isPending ? null : 'Board not found');
+  useEffect(() => {
+    if (board) recordEvent('page_view', { path: `/b/${board.slug}`, boardId: board.id });
+  }, [board?.id, board?.slug]);
 
   if (query.isPending) return <HeaderSkeleton label="Loading board" />;
   if (query.isError) {

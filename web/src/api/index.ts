@@ -20,3 +20,4 @@ export * from './peopleHooks';
 export * from './notificationHooks';
 export * from './products';
 export * from './productHooks';
+export * from './analytics';

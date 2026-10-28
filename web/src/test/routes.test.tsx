@@ -23,6 +23,7 @@ const CASES: Array<[string, string]> = [
   ['/auth/reset', 'Set a new password'],
   ['/unsubscribe?token=abc', 'Unsubscribe'],
   // Admin screens are for platform admins only; signed out they ask you to sign in.
+  ['/admin', 'Sign in'],
   ['/admin/reports', 'Sign in'],
   ['/admin/disputes', 'Sign in'],
   ['/admin/team', 'Sign in'],

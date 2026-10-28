@@ -1,3 +1,5 @@
+import { recordEvent } from '../api/analytics';
+
 /** Absolute link to a post page. */
 export function postUrl(id: string): string {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -21,6 +23,7 @@ export async function copyText(text: string): Promise<boolean> {
  * sheet handled it (or was dismissed).
  */
 export async function sharePost(id: string, title: string): Promise<string | null> {
+  recordEvent('share_click', { path: `/post/${id}` });
   const url = postUrl(id);
   if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
     try {
