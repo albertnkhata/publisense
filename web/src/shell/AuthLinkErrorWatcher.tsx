@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { recordEvent } from '../api/analytics';
 import { initialAuthLinkError, parseAuthLinkError, withoutAuthLinkError, type AuthLinkError } from '../api/authLinkError';
 import { useToast } from '../ui';
 import { useAuthDialog } from './auth';
@@ -26,8 +27,10 @@ export function AuthLinkErrorWatcher({ initial = initialAuthLinkError }: { initi
       if (!err) return;
       window.history.replaceState(window.history.state, '', withoutAuthLinkError(window.location.href));
       if (OWN_ERROR_SCREEN.test(window.location.pathname)) return;
-      if (err.expired) latest.current.openAuth('expired');
-      else {
+      if (err.expired) {
+        recordEvent('auth_link_expired');
+        latest.current.openAuth('expired');
+      } else {
         latest.current.toast('That sign-in link didn’t work. Sign in, or ask for a new link.');
         latest.current.openAuth('signin');
       }

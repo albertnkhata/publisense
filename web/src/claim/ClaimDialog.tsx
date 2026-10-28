@@ -2,6 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useNavigate } from 'react-router';
 import {
   checkDns,
+  claimFailReason,
+  recordEvent,
   covered,
   DNS_NOT_FOUND,
   isPostable,
@@ -148,6 +150,7 @@ export function ClaimProvider({ children }: { children: ReactNode }) {
   const openClaim = useCallback((opts?: ClaimOptions) => {
     opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const clean: ClaimOptions = opts && typeof opts === 'object' && !('nativeEvent' in opts) ? { board: opts.board, hub: opts.hub, dns: opts.dns, resume: opts.resume } : {};
+    recordEvent('claim_open');
     setState((s) => ({ open: true, opts: clean, key: s.key + 1 }));
   }, []);
   const close = useCallback(() => {
@@ -258,6 +261,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
    * reopen this dialog.
    */
   const signUpToClaim = (intent: Pick<ClaimOptions, 'board' | 'hub'>, next: Step | null = null) => {
+    recordEvent('claim_auth_prompt', { boardId: target?.board?.id ?? null });
     rememberClaimIntent(intent);
     pendingStep.current = next;
     openAuth('signup', CLAIM_AUTH_REASON, {
@@ -384,6 +388,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
       setPurpose(why);
       if (isVerified && why !== 'claim') return finish(target, why);
       await startEmailCode(email, domain);
+      if (why === 'claim') recordEvent('claim_verify_started', { boardId: target.board?.id ?? null, meta: { method: 'email' } });
       const at = Date.now();
       if (viewerId) rememberPendingCode({ viewerId, targetId: target.id, email: email.trim().toLowerCase(), purpose: why, reason, joinMessage, sentAt: at });
       setSentAt(at);
@@ -400,6 +405,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
       try {
         await verifyEmailCode(email, value, domain);
       } catch (e) {
+        if (purpose === 'claim') recordEvent('claim_verify_failed', { boardId: target.board?.id ?? null, meta: { reason: claimFailReason(e) } });
         if (e instanceof TeamError && (e.code === 'expired' || e.code === 'too_many_attempts')) clearPendingCode();
         throw e;
       }
@@ -423,6 +429,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
     run(async () => {
       if (!domain) return;
       setToken(await startDnsCheck(domain));
+      recordEvent('claim_verify_started', { boardId: target?.board?.id ?? null, meta: { method: 'dns' } });
       setStep('dns');
       void qc.invalidateQueries({ queryKey: ['pending-dns'] });
     });
@@ -433,6 +440,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
       try {
         await checkDns(domain);
       } catch (e) {
+        recordEvent('claim_verify_failed', { boardId: target.board?.id ?? null, meta: { reason: claimFailReason(e) } });
         if (e instanceof TeamError && e.code === 'not_found') throw new TeamError('not_found', DNS_NOT_FOUND);
         throw e;
       }
@@ -568,7 +576,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
               <li key={b.id}>
                 <button
                   type="button"
-                  onClick={() => enter(boardTarget(b, hubs.data))}
+                  onClick={() => { recordEvent('claim_board_picked', { boardId: b.id }); enter(boardTarget(b, hubs.data)); }}
                   className="flex w-full items-center gap-3 rounded-md border-0 bg-transparent px-2 py-2 text-left text-ink hover:bg-subtle"
                 >
                   <BoardAvatar name={b.name} color={b.color} logoSrc={logoSrc(b)} size="sm" decorative />

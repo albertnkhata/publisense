@@ -44,6 +44,7 @@ import { LoadError } from '../posts/PostList';
 import { useAuthDialog } from '../shell/auth';
 import { CompanyPicker } from '../products/CompanyPicker';
 import { BoardAvatar, Button, Dialog, EmptyState, Field, Icon, IconButton, Input, Select, SkeletonBlock, Tabs, Textarea, UserAvatar, useToast } from '../ui';
+import { AdminOverview } from './AdminOverview';
 import { NotFound } from './NotFound';
 
 /**
@@ -90,6 +91,9 @@ function AdminNav() {
     );
   return (
     <nav aria-label="Admin" className="mb-4 flex flex-wrap gap-2">
+      <NavLink to="/admin" end className={item}>
+        Overview
+      </NavLink>
       <NavLink to="/admin/products" className={item}>
         New products
       </NavLink>
@@ -133,6 +137,14 @@ function EmptyQueue({ title, children }: { title: string; children: ReactNode })
       <b className="mb-1 block font-semibold text-ink">{title}</b>
       {children}
     </Quiet>
+  );
+}
+
+export function AdminOverviewPage() {
+  return (
+    <AdminGate title="Command centre">
+      <AdminOverview />
+    </AdminGate>
   );
 }
 

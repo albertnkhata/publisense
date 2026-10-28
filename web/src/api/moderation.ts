@@ -1,5 +1,6 @@
 import { getSupabase } from './supabase';
 import { ApiError, type PersonRef, type PostStatus, type PostType } from './posts';
+import type { CommandCentreData, CommandCentreWindow } from './analytics';
 import type { Role, Scope } from './teams';
 
 /*
@@ -62,6 +63,12 @@ async function rpc<T extends RpcResult = RpcResult>(fn: string, args: Record<str
 }
 
 // ------------------------------------------------------------------ platform admin
+
+/** Load the /admin Command Centre metrics (0054, platform_admin only). */
+export async function fetchCommandCentre(days: CommandCentreWindow = 30): Promise<CommandCentreData> {
+  const res = await rpc<RpcResult & CommandCentreData>('admin_command_centre', { p_days: days });
+  return res;
+}
 
 /** Is the viewer Publisense staff? (platform_admin: you can read your own row.) */
 export async function fetchIsPlatformAdmin(viewerId: string): Promise<boolean> {

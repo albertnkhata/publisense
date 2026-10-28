@@ -12,7 +12,7 @@ import { Card } from '../ui';
  */
 
 const CONTACT = 'support@publisense.app';
-const UPDATED = '25 October 2026';
+const UPDATED = '28 October 2026';
 
 const linkClass = 'font-semibold text-ink underline underline-offset-2 hover:text-brand';
 
@@ -68,9 +68,15 @@ export function PrivacyPage() {
     >
       <Section heading="What we store about you">
         <P>
-          Your email address, the name and handle you choose, an optional photo and short bio, and when you joined. We also store what you do here:
-          the posts and replies you write, the votes you cast, the boards, hubs, posts and people you follow, your notification settings, and, if you
-          claim a board, the work email or domain you verify with that claim.
+          When you have an account: your email address, the name and handle you choose, an optional photo and short bio, and when you joined. We also
+          store what you do here: the posts and replies you write, the votes you cast, the boards, hubs, posts and people you follow, your
+          notification settings, and, if you claim a board, the work email or domain you verify with that claim.
+        </P>
+        <P>
+          For all visitors: we record individual usage events, such as the page path you viewed, the website that referred you, search terms that
+          found no results, and whether steps like claiming a board succeed or fail. Events from one browser tab are grouped by a temporary random
+          visit token that is not linked to your account. We keep these individual events for 30 days and then roll them into daily totals. They
+          never include your name, email address or IP address.
         </P>
         <P>
           If you sign in with Google, we receive your email address, name and profile picture from Google. We never receive your Google password, and
@@ -80,22 +86,25 @@ export function PrivacyPage() {
       <Section heading="Why we store it">
         <P>
           To sign you in, show your name and photo next to what you post, count votes once per person, let teams answer feedback on their own boards,
-          and send you the notifications you asked for. Nothing here is used to build an advertising profile, and we do not sell or rent data to
-          anyone.
+          send you the notifications you asked for, and understand how the site is being used so we can improve it. Nothing here is used to build an
+          advertising profile, and we do not sell or rent data to anyone.
         </P>
       </Section>
       <Section heading="Who processes it">
         <P>
-          <strong className="text-ink">Supabase</strong> hosts sign-in, the database and uploaded photos (EU region, Frankfurt).{' '}
-          <strong className="text-ink">Vercel</strong> serves the website and counts page views without cookies or personal identifiers.{' '}
-          <strong className="text-ink">Sentry</strong> receives crash reports (the error and the page it happened on, not your name or email) so we can fix bugs. <strong className="text-ink">Resend</strong> delivers email.{' '}
+          <strong className="text-ink">Supabase</strong> hosts sign-in, the database, first-party usage events and uploaded photos (EU region,
+          Frankfurt). <strong className="text-ink">Vercel</strong> serves the website and counts page views without cookies or personal identifiers.{' '}
+          <strong className="text-ink">Sentry</strong> receives crash reports (the error and the page it happened on, not your name or email) so we
+          can fix bugs. <strong className="text-ink">Resend</strong> delivers email.{' '}
           <strong className="text-ink">Google</strong> is involved only if you choose Google sign-in. Each sees only what it needs to do its job.
         </P>
       </Section>
-      <Section heading="Cookies and local storage">
+      <Section heading="Cookies and browser storage">
         <P>
-          We use your browser’s local storage, not advertising cookies, to keep you signed in and remember your theme. There are no advertising or
-          cross-site tracking scripts on this site. Clearing your browser storage signs you out; it does not delete your account.
+          We use your browser’s local and session storage for essential site functions—such as keeping you signed in, remembering your theme and
+          recent searches, holding your place during sign-up or board claiming, and grouping page views within a single visit using a temporary random
+          token. We do not use advertising cookies or cross-site tracking scripts. Clearing your browser storage signs you out and resets these
+          preferences; it does not delete your account.
         </P>
       </Section>
       <Section heading="Public by design">

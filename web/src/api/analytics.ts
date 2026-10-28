@@ -1,0 +1,326 @@
+import { useQuery } from '@tanstack/react-query';
+import type { BoardCategory } from './boards';
+import { fetchCommandCentre } from './moderation';
+export { fetchCommandCentre };
+import type { PostStatus } from './posts';
+import { getSupabase, hasSupabaseConfig } from './supabase';
+
+/*
+ * First-party usage events & the /admin Command Centre (0054,
+ * docs/v2/COMMAND_CENTRE.md).
+ *
+ * Events carry a temporary per-visit UUID kept in sessionStorage (cleared when
+ * the tab closes), never a user_id, email or IP address. recordEvent is
+ * fire-and-forget and becomes a no-op when Supabase is not configured (unit
+ * tests without VITE_SUPABASE_URL).
+ */
+
+export const ANALYTICS_KINDS = [
+  'page_view',
+  'share_unfurl',
+  'search_open',
+  'search_click',
+  'search_empty',
+  'claim_open',
+  'claim_board_picked',
+  'claim_auth_prompt',
+  'claim_verify_started',
+  'claim_verify_failed',
+  'composer_open',
+  'similar_post_click',
+  'share_click',
+  'auth_open',
+  'auth_link_expired',
+] as const;
+
+export type AnalyticsKind = (typeof ANALYTICS_KINDS)[number];
+
+export type CommandCentreWindow = 7 | 30 | 90;
+
+const VISIT_STORAGE_KEY = 'publisense.visit';
+let memoryVisitId: string | null = null;
+
+function randomUuid(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Per-tab random visit token. Stored in sessionStorage so closing the tab drops it. */
+export function getVisitId(): string {
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      const existing = window.sessionStorage.getItem(VISIT_STORAGE_KEY);
+      if (existing && UUID_RE.test(existing)) return existing;
+      const next = randomUuid();
+      window.sessionStorage.setItem(VISIT_STORAGE_KEY, next);
+      return next;
+    }
+  } catch {
+    /* private mode or blocked storage: fall back to memory */
+  }
+  if (!memoryVisitId) memoryVisitId = randomUuid();
+  return memoryVisitId;
+}
+
+/** Extract lowercase external hostname from a referrer URL, or null for same-origin/direct. */
+export function externalReferrerHost(referrer?: string | null, currentHost?: string | null): string | null {
+  if (!referrer) return null;
+  try {
+    const u = new URL(referrer);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+    const host = u.hostname.toLowerCase().replace(/^www\./, '');
+    const self = (currentHost ?? (typeof window !== 'undefined' ? window.location.hostname : '')).toLowerCase().replace(/^www\./, '');
+    if (!host || host === self || host === 'publisense.app' || host === 'v2.publisense.app' || host === 'localhost' || !/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(host)) {
+      return null;
+    }
+    return host.slice(0, 120);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * True when a search term looks like contact details: anything with '@', an
+ * "name (at) domain.tld" spelling, or a phone-like run of 7+ digits. Such terms are
+ * never logged. Mirrors private.analytics_term_is_personal() in migration 0054.
+ */
+export function looksPersonal(q: string): boolean {
+  if (q.includes('@')) return true;
+  if (/[a-z0-9._%+-]+\s*(\(at\)|\[at\])\s*[a-z0-9-]+\.[a-z]{2,}/i.test(q)) return true;
+  for (const run of q.matchAll(/\+?\(?[0-9][0-9 ().-]{5,}[0-9]/g)) {
+    if (run[0].replace(/[^0-9]/g, '').length >= 7) return true;
+  }
+  return false;
+}
+
+/** Shortest search term worth logging as unmet demand. */
+export const SEARCH_EMPTY_MIN = 3;
+
+/** How long a zero-result query must stay unchanged (after the search debounce) before it is logged. */
+export const SEARCH_EMPTY_SETTLE_MS = 1200;
+
+/** The normalised term to log for a zero-result search, or null when it must not be logged. */
+export function loggableSearchTerm(raw: string): string | null {
+  const q = raw.trim().replace(/\s+/g, ' ').slice(0, 60);
+  if (q.length < SEARCH_EMPTY_MIN || looksPersonal(q)) return null;
+  return q;
+}
+
+/**
+ * How a claim verification was started (claim_verify_started meta.method). These are
+ * the verified_domain / domain_challenge method values (0021). record_event (0054)
+ * keeps only these and strips anything else.
+ */
+export const CLAIM_VERIFY_METHODS = ['email', 'dns'] as const;
+export type ClaimVerifyMethod = (typeof CLAIM_VERIFY_METHODS)[number];
+
+/**
+ * Why a claim verification failed (claim_verify_failed meta.reason): the error codes
+ * verify_domain_email and check_domain_dns return (0021), plus the two the client
+ * raises itself (dns_slow when the DNS poll times out, network when the RPC call
+ * fails). record_event (0054) maps anything else to 'other'. Never free text.
+ */
+export const CLAIM_VERIFY_FAIL_REASONS = [
+  'wrong_code',
+  'expired',
+  'too_many_attempts',
+  'not_found',
+  'dns_slow',
+  'dns_failed',
+  'dns_unavailable',
+  'no_challenge',
+  'sign_in',
+  'network',
+  'other',
+] as const;
+export type ClaimVerifyFailReason = (typeof CLAIM_VERIFY_FAIL_REASONS)[number];
+
+/** The enum reason to log for a failed claim verification: a known error code, or 'other'. */
+export function claimFailReason(err: unknown): ClaimVerifyFailReason {
+  const code = err && typeof err === 'object' && 'code' in err ? (err as { code: unknown }).code : null;
+  return typeof code === 'string' && (CLAIM_VERIFY_FAIL_REASONS as readonly string[]).includes(code)
+    ? (code as ClaimVerifyFailReason)
+    : 'other';
+}
+
+export interface RecordEventOptions {
+  path?: string | null;
+  boardId?: string | null;
+  hubId?: string | null;
+  referrerHost?: string | null;
+  meta?: Record<string, unknown>;
+}
+
+/** Fire-and-forget first-party event logger. Never throws. */
+export function recordEvent(kind: AnalyticsKind, opts: RecordEventOptions = {}): void {
+  if (!hasSupabaseConfig) return;
+  try {
+    const path = opts.path ?? (typeof window !== 'undefined' ? window.location.pathname : null);
+    const referrerHost =
+      opts.referrerHost !== undefined
+        ? opts.referrerHost
+        : typeof document !== 'undefined'
+          ? externalReferrerHost(document.referrer)
+          : null;
+    void Promise.resolve(
+      getSupabase().rpc('record_event', {
+        p_visit_id: getVisitId(),
+        p_kind: kind,
+        p_path: path ? path.slice(0, 200) : null,
+        p_board_id: opts.boardId ?? null,
+        p_hub_id: opts.hubId ?? null,
+        p_referrer_host: referrerHost,
+        p_meta: opts.meta ?? {},
+      }),
+    ).catch(() => {});
+  } catch {
+    /* never surface analytics errors to the user */
+  }
+}
+
+// ------------------------------------------------------------------ Command Centre read model
+
+export interface CommandCentreQueues {
+  pending_products: number;
+  pending_companies: number;
+  open_reports: number;
+  open_disputes: number;
+  pending_joins: number;
+}
+
+export interface CommandCentreTraction {
+  users_total: number;
+  users_window: number;
+  member_posts_total: number;
+  member_posts_window: number;
+  imported_posts_total: number;
+  replies_total: number;
+  replies_window: number;
+  official_replies_total: number;
+  official_replies_window: number;
+  votes_total: number;
+  votes_window: number;
+  follows_total: number;
+}
+
+export interface CommandCentreLoop {
+  live_boards: number;
+  claimed_boards: number;
+  live_hubs: number;
+  claimed_hubs: number;
+  responded_posts: number;
+  shipped_posts: number;
+  median_first_response_hours: number | null;
+  by_status: Record<PostStatus, number>;
+}
+
+export interface CommandCentreTraffic {
+  page_views: number;
+  visits: number;
+  share_unfurls: number;
+  share_clicks: number;
+}
+
+export interface CommandCentreFunnels {
+  claim: {
+    open: number;
+    board_picked: number;
+    auth_prompt: number;
+    verify_started: number;
+    verify_failed: number;
+    completed: number;
+    /** claim_verify_started split by method; started events without a valid method count in neither. */
+    verify_methods?: Record<ClaimVerifyMethod, number>;
+    /** claim_verify_failed by enum reason, most frequent first. */
+    verify_fail_reasons?: Array<{ reason: ClaimVerifyFailReason; count: number }>;
+  };
+  composer: {
+    open: number;
+    similar_click: number;
+    posts_created: number;
+  };
+  search: {
+    open: number;
+    click: number;
+    empty: number;
+  };
+}
+
+export interface CommandCentreDayPoint {
+  day: string;
+  visits: number;
+  page_views: number;
+  signups: number;
+  posts: number;
+  votes: number;
+  responses: number;
+}
+
+export interface HotUnclaimedBoard {
+  id: string;
+  slug: string;
+  name: string;
+  color: string;
+  logo_path: string | null;
+  category: BoardCategory | null;
+  views: number;
+  claim_opens: number;
+  post_count: number;
+  vote_count: number;
+}
+
+export interface EmptySearchRow {
+  query: string;
+  count: number;
+  last_at: string;
+}
+
+export interface ReferrerRow {
+  host: string;
+  views: number;
+  visits: number;
+}
+
+export interface AuthTriggerRow {
+  trigger: string;
+  count: number;
+}
+
+export interface CommandCentreData {
+  days: CommandCentreWindow;
+  generated_at: string;
+  queues: CommandCentreQueues;
+  traction: CommandCentreTraction;
+  loop: CommandCentreLoop;
+  traffic: CommandCentreTraffic;
+  funnels: CommandCentreFunnels;
+  series: CommandCentreDayPoint[];
+  hot_unclaimed_boards: HotUnclaimedBoard[];
+  empty_searches: EmptySearchRow[];
+  referrers: ReferrerRow[];
+  auth_triggers: {
+    expired_links: number;
+    triggers: AuthTriggerRow[];
+  };
+}
+
+export const analyticsKeys = {
+  commandCentre: (days: CommandCentreWindow) => ['admin-command-centre', days] as const,
+};
+
+export function useCommandCentre(days: CommandCentreWindow = 30, enabled = true) {
+  return useQuery({
+    queryKey: analyticsKeys.commandCentre(days),
+    queryFn: () => fetchCommandCentre(days),
+    enabled,
+    staleTime: 30_000,
+  });
+}

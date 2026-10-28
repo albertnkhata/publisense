@@ -60,6 +60,8 @@ const postsApi = vi.hoisted(() => ({
 vi.mock('../api/teams', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/teams')>()), ...teamsApi }));
 vi.mock('../api/boards', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/boards')>()), ...boardsApi }));
 vi.mock('../api/posts', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/posts')>()), ...postsApi }));
+const analyticsApi = vi.hoisted(() => ({ recordEvent: vi.fn() }));
+vi.mock('../api/analytics', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/analytics')>()), ...analyticsApi }));
 
 const { TeamError } = await vi.importActual<typeof import('../api/teams')>('../api/teams');
 
@@ -315,6 +317,8 @@ describe('claim a board', () => {
     await waitFor(() => expect(teamsApi.claimBoard).toHaveBeenCalledWith(CURSOR.id, { name: 'Cursor', domain: 'cursor.com' }));
     expect(await screen.findByRole('dialog', { name: 'Board claimed' })).toBeTruthy();
     expect(screen.getByText('You manage Cursor now')).toBeTruthy();
+    expect(analyticsApi.recordEvent).toHaveBeenCalledWith('claim_verify_started', { boardId: CURSOR.id, meta: { method: 'email' } });
+    expect(analyticsApi.recordEvent).not.toHaveBeenCalledWith('claim_verify_failed', expect.anything());
   });
 
   it('a sent code can still be entered after the dialog is closed and reopened (#183)', async () => {
@@ -352,6 +356,18 @@ describe('claim a board', () => {
     fireEvent.change(await within(dialog).findByLabelText('Enter the 6-digit code'), { target: { value: '000000' } });
     expect(await within(dialog).findByText('That code isn’t right. Check the email and try again.')).toBeTruthy();
     expect(teamsApi.claimBoard).not.toHaveBeenCalled();
+    expect(analyticsApi.recordEvent).toHaveBeenCalledWith('claim_verify_failed', { boardId: CURSOR.id, meta: { reason: 'wrong_code' } });
+  });
+
+  it('logs an unknown verify error as reason other, never its text', async () => {
+    teamsApi.verifyEmailCode.mockRejectedValue(new TeamError('something_new', 'Detail mentioning carol@cursor.com'));
+    renderAt('/b/cursor');
+    fireEvent.click(await screen.findByRole('button', { name: 'Work at Cursor?' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Claim Cursor' });
+    fireEvent.change(within(dialog).getByLabelText('Your work email'), { target: { value: 'carol@cursor.com' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Send code' }));
+    fireEvent.change(await within(dialog).findByLabelText('Enter the 6-digit code'), { target: { value: '000000' } });
+    await waitFor(() => expect(analyticsApi.recordEvent).toHaveBeenCalledWith('claim_verify_failed', { boardId: CURSOR.id, meta: { reason: 'other' } }));
   });
 
   it('offers DNS when there is no company email', async () => {
@@ -365,6 +381,20 @@ describe('claim a board', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Check now' }));
     await waitFor(() => expect(teamsApi.checkDns).toHaveBeenCalledWith('cursor.com'));
     await waitFor(() => expect(teamsApi.claimBoard).toHaveBeenCalled());
+    expect(analyticsApi.recordEvent).toHaveBeenCalledWith('claim_verify_started', { boardId: CURSOR.id, meta: { method: 'dns' } });
+  });
+
+  it('logs a DNS check that times out as reason dns_slow', async () => {
+    teamsApi.startDnsCheck.mockResolvedValue('publisense-verify=abc123');
+    teamsApi.checkDns.mockRejectedValue(new TeamError('dns_slow', 'DNS hasn’t answered yet. Changes can take a few minutes; check again soon.'));
+    renderAt('/b/cursor');
+    fireEvent.click(await screen.findByRole('button', { name: 'Work at Cursor?' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Claim Cursor' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'No company email? Verify with a DNS record' }));
+    await within(dialog).findByText('publisense-verify=abc123');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Check now' }));
+    await waitFor(() => expect(analyticsApi.recordEvent).toHaveBeenCalledWith('claim_verify_failed', { boardId: CURSOR.id, meta: { reason: 'dns_slow' } }));
+    expect(teamsApi.claimBoard).not.toHaveBeenCalled();
   });
 
   it('offers the whole hub when its domain is proved, then claims it', async () => {

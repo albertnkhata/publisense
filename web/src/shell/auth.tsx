@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
+import { recordEvent } from '../api/analytics';
 import { useViewer } from '../lib/viewer';
 import { AuthDialog, type AuthCloseReason, type AuthMode } from './AuthDialog';
 
@@ -32,6 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const onCancel = useRef<(() => void) | null>(null);
   const openAuth = useCallback((mode: AuthMode = 'signin', reason?: string, opts?: OpenAuthOptions) => {
     onCancel.current = opts?.onCancel ?? null;
+    recordEvent('auth_open', { meta: { trigger: (reason || mode).slice(0, 40) } });
     setState((s) => ({ open: true, mode, reason, key: s.key + 1 }));
   }, []);
   const closeAuth = useCallback(() => {

@@ -47,7 +47,7 @@ export function UserMenu({ viewer, collapsed }: { viewer: Viewer; collapsed: boo
         Settings
       </MenuItem>
       {staff ? (
-        <MenuItem icon="shield" to="/admin/reports" description="New products, reports, disputes and the admin team">
+        <MenuItem icon="shield" to="/admin" description="Command centre, new products, reports, disputes and the admin team">
           Admin
         </MenuItem>
       ) : null}

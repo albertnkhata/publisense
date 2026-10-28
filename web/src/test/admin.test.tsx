@@ -2,11 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes } from 'react-router';
 import type { DisputeRow, ReportGroup } from '../api/moderation';
-import { AdminDisputesPage, AdminReportsPage, AdminTeamPage } from '../pages/AdminPages';
+import type { CommandCentreData } from '../api/analytics';
+import { CLAIM_VERIFY_FAIL_REASONS, claimFailReason, externalReferrerHost, getVisitId, loggableSearchTerm, looksPersonal } from '../api/analytics';
+import { AdminDisputesPage, AdminOverviewPage, AdminReportsPage, AdminTeamPage } from '../pages/AdminPages';
 import { iso, ME, OTHER } from './postFixtures';
 import { renderWith, TEST_VIEWER } from './renderApp';
 
 const mod = vi.hoisted(() => ({
+  fetchCommandCentre: vi.fn(),
   fetchIsPlatformAdmin: vi.fn(),
   fetchReportQueue: vi.fn(),
   decideReports: vi.fn(),
@@ -25,6 +28,7 @@ const { ModerationError } = await vi.importActual<typeof import('../api/moderati
 function renderAt(path: string, signedIn = true) {
   return renderWith(
     <Routes>
+      <Route path="/admin" element={<AdminOverviewPage />} />
       <Route path="/admin/reports" element={<AdminReportsPage />} />
       <Route path="/admin/disputes" element={<AdminDisputesPage />} />
       <Route path="/admin/team" element={<AdminTeamPage />} />
@@ -61,8 +65,74 @@ const DISPUTE: DisputeRow = {
   owners: [ME],
 };
 
+const COMMAND_CENTRE: CommandCentreData = {
+  days: 30,
+  generated_at: iso(0),
+  queues: { pending_products: 3, pending_companies: 1, open_reports: 2, open_disputes: 0, pending_joins: 1 },
+  traction: {
+    users_total: 42,
+    users_window: 12,
+    member_posts_total: 18,
+    member_posts_window: 7,
+    imported_posts_total: 11,
+    replies_total: 25,
+    replies_window: 9,
+    official_replies_total: 6,
+    official_replies_window: 4,
+    votes_total: 94,
+    votes_window: 31,
+    follows_total: 19,
+  },
+  loop: {
+    live_boards: 30,
+    claimed_boards: 9,
+    live_hubs: 6,
+    claimed_hubs: 2,
+    responded_posts: 14,
+    shipped_posts: 5,
+    median_first_response_hours: 4.2,
+    by_status: { open: 15, under_review: 4, planned: 3, in_progress: 2, shipped: 5, closed: 0, merged: 0 },
+  },
+  traffic: { page_views: 640, visits: 210, share_unfurls: 14, share_clicks: 9 },
+  funnels: {
+    claim: {
+      open: 20,
+      board_picked: 15,
+      auth_prompt: 6,
+      verify_started: 10,
+      verify_failed: 3,
+      completed: 4,
+      verify_methods: { email: 7, dns: 3 },
+      verify_fail_reasons: [
+        { reason: 'wrong_code', count: 2 },
+        { reason: 'dns_slow', count: 1 },
+      ],
+    },
+    composer: { open: 28, similar_click: 5, posts_created: 7 },
+    search: { open: 85, click: 44, empty: 6 },
+  },
+  series: [
+    { day: '2026-10-27', visits: 100, page_views: 300, signups: 5, posts: 3, votes: 14, responses: 2 },
+    { day: '2026-10-28', visits: 110, page_views: 340, signups: 7, posts: 4, votes: 17, responses: 3 },
+  ],
+  hot_unclaimed_boards: [
+    { id: 'b-lin', slug: 'linear', name: 'Linear', color: '#5E6AD2', logo_path: null, category: 'prod', views: 88, claim_opens: 4, post_count: 6, vote_count: 29 },
+  ],
+  empty_searches: [
+    { query: 'raycast', count: 4, last_at: iso(1) },
+  ],
+  referrers: [
+    { host: 'news.ycombinator.com', visits: 54, views: 130 },
+  ],
+  auth_triggers: {
+    expired_links: 2,
+    triggers: [{ trigger: 'vote', count: 11 }, { trigger: 'post feedback', count: 6 }],
+  },
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
+  mod.fetchCommandCentre.mockResolvedValue(COMMAND_CENTRE);
   mod.fetchIsPlatformAdmin.mockResolvedValue(true);
   mod.fetchReportQueue.mockResolvedValue([GROUP]);
   mod.decideReports.mockResolvedValue(2);
@@ -214,5 +284,117 @@ describe('admin team', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Remove @jmwamba?' });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Remove admin' }));
     await waitFor(() => expect(mod.revokePlatformAdmin).toHaveBeenCalledWith(OTHER.id));
+  });
+});
+
+describe('command centre (/admin)', () => {
+  it('renders action queues, D-011 member vs imported split, funnels, hot boards and unmet search demand', async () => {
+    renderAt('/admin');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Command centre' })).toBeTruthy();
+
+    const queues = await screen.findByRole('region', { name: 'Action queues' });
+    expect(within(queues).getByText('New products')).toBeTruthy();
+    expect(within(queues).getByText('3')).toBeTruthy();
+
+    // D-011: member posts and imported seed posts are shown separately
+    expect(screen.getByText('18')).toBeTruthy();
+    expect(screen.getByText(/\+7 in 30d · 11 imported/)).toBeTruthy();
+
+    // Feedback-to-response loop
+    expect(screen.getByText('9/30')).toBeTruthy();
+    expect(screen.getByText('4.2h')).toBeTruthy();
+
+    // Hot unclaimed boards & unmet search demand
+    const hot = screen.getByRole('list', { name: 'Hot unclaimed boards' });
+    expect(within(hot).getByText('Linear')).toBeTruthy();
+    expect(within(hot).getByText('4 claim clicks')).toBeTruthy();
+
+    const empty = screen.getByRole('list', { name: 'Unmet search demand' });
+    expect(within(empty).getByText('“raycast”')).toBeTruthy();
+    expect(within(empty).getByText(/4 searches/)).toBeTruthy();
+
+    // External referrers
+    const refs = screen.getByRole('list', { name: 'Top external referrers' });
+    expect(within(refs).getByText('news.ycombinator.com')).toBeTruthy();
+  });
+
+  it('splits claim verification by email vs DNS and lists failure reasons', async () => {
+    renderAt('/admin');
+    const method = await screen.findByRole('region', { name: 'Claim verification method' });
+    expect(within(method).getByText('Work email code')).toBeTruthy();
+    expect(within(method).getByText('7')).toBeTruthy();
+    expect(within(method).getByText('(70%)')).toBeTruthy();
+    expect(within(method).getByText('DNS TXT record')).toBeTruthy();
+    expect(within(method).getByText('(30%)')).toBeTruthy();
+    const failed = screen.getByRole('region', { name: 'Why verification failed' });
+    expect(within(failed).getByText('Wrong code')).toBeTruthy();
+    expect(within(failed).getByText('2')).toBeTruthy();
+    expect(within(failed).getByText('DNS still propagating')).toBeTruthy();
+  });
+
+  it('shows an empty failure-reason state and a zero split when there is no claim verify detail', async () => {
+    mod.fetchCommandCentre.mockResolvedValue({
+      ...COMMAND_CENTRE,
+      funnels: { ...COMMAND_CENTRE.funnels, claim: { ...COMMAND_CENTRE.funnels.claim, verify_methods: { email: 0, dns: 0 }, verify_fail_reasons: [] } },
+    });
+    renderAt('/admin');
+    const failed = await screen.findByRole('region', { name: 'Why verification failed' });
+    expect(within(failed).getByText('No failed verifications in the last 30 days.')).toBeTruthy();
+  });
+
+  it('maps claim verify errors to the fixed reason enum, never free text', () => {
+    expect(claimFailReason({ code: 'wrong_code' })).toBe('wrong_code');
+    expect(claimFailReason({ code: 'dns_slow' })).toBe('dns_slow');
+    expect(claimFailReason({ code: 'network' })).toBe('network');
+    expect(claimFailReason({ code: 'unknown' })).toBe('other');
+    expect(claimFailReason({ code: 'Could not verify jane@example.com' })).toBe('other');
+    expect(claimFailReason(new Error('boom'))).toBe('other');
+    expect(claimFailReason(null)).toBe('other');
+    expect(CLAIM_VERIFY_FAIL_REASONS).toContain('other');
+  });
+
+  it('switches the time window between 7d, 30d and 90d', async () => {
+    renderAt('/admin');
+    await screen.findByRole('region', { name: 'Action queues' });
+    expect(mod.fetchCommandCentre).toHaveBeenCalledWith(30);
+
+    fireEvent.click(screen.getByRole('button', { name: '7d' }));
+    await waitFor(() => expect(mod.fetchCommandCentre).toHaveBeenCalledWith(7));
+
+    fireEvent.click(await screen.findByRole('button', { name: '90d' }));
+    await waitFor(() => expect(mod.fetchCommandCentre).toHaveBeenCalledWith(90));
+  });
+
+  it('labels unmet search demand as the last 30 days when 90d is selected (search terms are raw-only)', async () => {
+    renderAt('/admin');
+    expect(await screen.findByRole('heading', { name: 'Unmet search demand' })).toBeTruthy();
+    fireEvent.click(await screen.findByRole('button', { name: '90d' }));
+    expect(await screen.findByRole('heading', { name: 'Unmet search demand (last 30 days)' })).toBeTruthy();
+    expect(screen.getByText(/Search terms are kept for 30 days/)).toBeTruthy();
+  });
+
+  it('never logs search terms that look like an email or phone number, or are under 3 characters', () => {
+    expect(looksPersonal('jane@example.com')).toBe(true);
+    expect(looksPersonal('jane (at) example.com')).toBe(true);
+    expect(looksPersonal('call +260 97 640 4079')).toBe(true);
+    expect(looksPersonal('0976-404-079')).toBe(true);
+    expect(looksPersonal('ipad 2024 vs 2025')).toBe(false);
+    expect(looksPersonal('linear')).toBe(false);
+    expect(loggableSearchTerm('  linear   app ')).toBe('linear app');
+    expect(loggableSearchTerm('ab')).toBeNull();
+    expect(loggableSearchTerm('x@y')).toBeNull();
+    expect(loggableSearchTerm('a'.repeat(80))).toHaveLength(60);
+  });
+
+  it('keeps a stable per-tab visit UUID and strips referrers to external hostnames only', () => {
+    const first = getVisitId();
+    const second = getVisitId();
+    expect(first).toBe(second);
+    expect(first).toMatch(/^[0-9a-f-]{36}$/i);
+
+    expect(externalReferrerHost('https://www.News.YCombinator.com/item?id=1', 'publisense.app')).toBe('news.ycombinator.com');
+    expect(externalReferrerHost('https://publisense.app/explore', 'publisense.app')).toBeNull();
+    expect(externalReferrerHost('https://localhost:3001/b/cursor', 'localhost')).toBeNull();
+    expect(externalReferrerHost('not-a-url', 'publisense.app')).toBeNull();
   });
 });

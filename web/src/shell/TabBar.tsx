@@ -80,7 +80,7 @@ export function TabBar() {
               Settings
             </SheetLink>
             {staff ? (
-              <SheetLink to="/admin/reports" icon="shield" onClick={() => setSheet(false)}>
+              <SheetLink to="/admin" icon="shield" onClick={() => setSheet(false)}>
                 Admin
               </SheetLink>
             ) : null}
