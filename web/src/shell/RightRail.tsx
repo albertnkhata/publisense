@@ -2,12 +2,12 @@ import { Link, useLocation } from 'react-router';
 import { compactCount, hasSupabaseConfig, isLive, logoSrc, shortAge, useBoards, useTrending, type Board } from '../api';
 import { BoardAvatar, Card, SkeletonBlock } from '../ui';
 import { useClaim } from '../claim/ClaimDialog';
-import { LegalLinks } from './LegalLinks';
 import { SearchWell } from './SearchWell';
 
 /**
- * Right rail above lg: search, a boards card, the claim line and the legal
- * footer. The boards card says what its ordering is (#156): "Trending this
+ * Right rail above lg: search, a boards card and the claim line. Terms ·
+ * Privacy sit at the foot of the nav rail instead, so they are on every page,
+ * not only the ones with this rail. The boards card says what its ordering is (#156): "Trending this
  * week" (boards with new posts this week, most first, with that count) when
  * there is activity, else "Recently added" (newest boards, with their age).
  */
@@ -17,7 +17,6 @@ export function RightRail() {
       <SearchWell />
       <Card padding="md">{hasSupabaseConfig ? <RailBoards /> : <RailEmpty />}</Card>
       <ClaimLine />
-      <LegalLinks />
     </aside>
   );
 }

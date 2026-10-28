@@ -1,17 +1,16 @@
 import { useIsPlatformAdmin } from '../api';
 import { useTheme } from '../lib/ThemeProvider';
-import { MQ, useMediaQuery } from '../lib/useMediaQuery';
 import { useViewer, type Viewer } from '../lib/viewer';
 import { cx } from '../lib/cx';
 import { Icon, Menu, MenuItem, MenuSeparator, UserAvatar, useToast } from '../ui';
 
 /**
  * The avatar menu at the foot of the nav rail. Holds the theme toggle.
- * Settings opens /settings (profile, notifications, account).
+ * Settings opens /settings (profile, notifications, account). Terms and
+ * Privacy are at the foot of the nav rail, under this menu, at every width.
  */
 export function UserMenu({ viewer, collapsed }: { viewer: Viewer; collapsed: boolean }) {
   const { theme, pref, toggle, setPref } = useTheme();
-  const belowLg = useMediaQuery(MQ.lg);
   const { signOut } = useViewer();
   const { toast } = useToast();
   const staff = useIsPlatformAdmin(viewer.id).data ?? false;
@@ -70,13 +69,6 @@ export function UserMenu({ viewer, collapsed }: { viewer: Viewer; collapsed: boo
       >
         Sign out
       </MenuItem>
-      {belowLg ? (
-        <>
-          <MenuSeparator />
-          <MenuItem to="/terms">Terms</MenuItem>
-          <MenuItem to="/privacy">Privacy</MenuItem>
-        </>
-      ) : null}
     </Menu>
   );
 }
