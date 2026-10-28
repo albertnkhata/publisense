@@ -7,6 +7,7 @@
 -- The lock is database-wide, released automatically at transaction end, and is
 -- taken only after cheap input validation/sanitization. Capture the timestamp
 -- after acquiring it so a waiting request uses the actual admission time.
+-- The wait is capped by lock_timeout (250 ms); a caller that times out is dropped.
 
 create or replace function public.record_event(
   p_visit_id      uuid,
@@ -20,6 +21,10 @@ create or replace function public.record_event(
 language plpgsql
 security definer
 set search_path = pg_catalog, public, private
+-- Bound the wait for the shared lock: under a flood, callers queue for at most
+-- 250 ms (holding a pooled connection) and are then dropped, so analytics can
+-- never starve the rest of the app of connections. Analytics is lossy by design.
+set lock_timeout = '250ms'
 as $$
 declare
   v_kind  text := btrim(coalesce(p_kind, ''));
@@ -94,9 +99,16 @@ begin
   -- Serialize every accepted event because the global cap spans all visits; this
   -- also makes each per-visit count-and-insert check atomic. Transaction scope
   -- avoids retaining a session lock in pooled PostgREST connections.
-  perform pg_catalog.pg_advisory_xact_lock(
-    pg_catalog.hashtextextended('publisense:analytics:record_event:rate-limit', 0)
-  );
+  -- The lock taken inside this block survives the block (an xact lock acquired in a
+  -- committed subtransaction stays with the transaction). On timeout the event is
+  -- dropped quietly instead of raising to the client.
+  begin
+    perform pg_catalog.pg_advisory_xact_lock(
+      pg_catalog.hashtextextended('publisense:analytics:record_event:rate-limit', 0)
+    );
+  exception when lock_not_available then
+    return;
+  end;
   v_now := pg_catalog.clock_timestamp();
 
   -- Flood guards. Per visit token: 60 per minute and 120 per 5 minutes. share_unfurl
