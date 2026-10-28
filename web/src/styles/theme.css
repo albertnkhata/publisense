@@ -140,6 +140,7 @@
   --spacing-row: 38px;
   --spacing-content: 680px;
   --spacing-rail: 320px;
+  --spacing-wide: 1024px;       /* not in §3: content + gap-6 + rail, for routes without the right rail (shell/layout.ts) */
   --spacing-dialog: 440px;      /* not in §3: standard dialog width (mockup 400–460) */
   --spacing-dialog-lg: 600px;   /* not in §3: composer-size dialog (mockup 600) */
   --spacing-menu: 224px;        /* not in §3: menu min width (mockup user menu) */
