@@ -6,6 +6,7 @@ import {
   plural,
   shortAge,
   useCommandCentre,
+  type ClaimVerifyFailReason,
   type CommandCentreDayPoint,
   type CommandCentreWindow,
   type PostStatus,
@@ -25,6 +26,21 @@ const STATUS_ORDER: PostStatus[] = ['open', 'under_review', 'planned', 'in_progr
 
 /** Raw usage events (and so search terms) are kept this many days before the nightly rollup (0054). */
 const SEARCH_TERM_DAYS = 30;
+
+/** Plain-language labels for the claim_verify_failed reason enum (0054). */
+const FAIL_REASON_LABEL: Record<ClaimVerifyFailReason, string> = {
+  wrong_code: 'Wrong code',
+  expired: 'Code expired',
+  too_many_attempts: 'Too many wrong tries',
+  not_found: 'DNS record not found',
+  dns_slow: 'DNS still propagating',
+  dns_failed: 'DNS lookup failed',
+  dns_unavailable: 'DNS check unavailable',
+  no_challenge: 'No DNS challenge',
+  sign_in: 'Signed out',
+  network: 'Network error',
+  other: 'Other',
+};
 
 function pct(part: number, total: number): string {
   if (total <= 0) return '0%';
@@ -170,6 +186,9 @@ export function AdminOverview() {
 
   const d = query.data;
   const { queues, traction, loop, traffic, funnels, series, hot_unclaimed_boards, empty_searches, referrers, auth_triggers } = d;
+  const methods = funnels.claim.verify_methods ?? { email: 0, dns: 0 };
+  const methodTotal = methods.email + methods.dns;
+  const failReasons = funnels.claim.verify_fail_reasons ?? [];
   const visiblePosts = Math.max(0, traction.member_posts_total + traction.imported_posts_total);
 
   const queueCards = [
@@ -365,6 +384,40 @@ export function AdminOverview() {
               { label: 'Zero-result queries', value: funnels.search.empty, muted: true },
             ]}
           />
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-3 max-md:grid-cols-1">
+          <section aria-label="Claim verification method" className="flex flex-col gap-2 rounded-md border border-line bg-subtle px-4 py-3">
+            <h3 className="m-0 text-sm font-semibold text-ink">Verification method</h3>
+            <dl className="m-0 flex flex-col gap-2">
+              {[
+                { label: 'Work email code', value: methods.email },
+                { label: 'DNS TXT record', value: methods.dns },
+              ].map((r) => (
+                <div key={r.label} className="flex items-baseline justify-between gap-2 border-t border-line pt-2 first:border-t-0 first:pt-0">
+                  <dt className="text-xs text-ink-secondary">{r.label}</dt>
+                  <dd className="m-0 flex items-baseline gap-2 font-mono text-xs tabular-nums">
+                    <strong className="font-semibold text-ink">{r.value}</strong>
+                    {methodTotal > 0 ? <span className="text-ink-muted">({pct(r.value, methodTotal)})</span> : null}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+          <section aria-label="Why verification failed" className="flex flex-col gap-2 rounded-md border border-line bg-subtle px-4 py-3">
+            <h3 className="m-0 text-sm font-semibold text-ink">Why verification failed</h3>
+            {failReasons.length === 0 ? (
+              <p className="m-0 text-xs text-ink-muted">No failed verifications in the last {days} days.</p>
+            ) : (
+              <dl className="m-0 flex flex-col gap-2">
+                {failReasons.map((r) => (
+                  <div key={r.reason} className="flex items-baseline justify-between gap-2 border-t border-line pt-2 first:border-t-0 first:pt-0">
+                    <dt className="text-xs text-ink-secondary">{FAIL_REASON_LABEL[r.reason] ?? FAIL_REASON_LABEL.other}</dt>
+                    <dd className="m-0 font-mono text-xs font-semibold text-ink tabular-nums">{r.count}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+          </section>
         </div>
       </Panel>
 

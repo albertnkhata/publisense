@@ -114,6 +114,43 @@ export function loggableSearchTerm(raw: string): string | null {
   return q;
 }
 
+/**
+ * How a claim verification was started (claim_verify_started meta.method). These are
+ * the verified_domain / domain_challenge method values (0021). record_event (0054)
+ * keeps only these and strips anything else.
+ */
+export const CLAIM_VERIFY_METHODS = ['email', 'dns'] as const;
+export type ClaimVerifyMethod = (typeof CLAIM_VERIFY_METHODS)[number];
+
+/**
+ * Why a claim verification failed (claim_verify_failed meta.reason): the error codes
+ * verify_domain_email and check_domain_dns return (0021), plus the two the client
+ * raises itself (dns_slow when the DNS poll times out, network when the RPC call
+ * fails). record_event (0054) maps anything else to 'other'. Never free text.
+ */
+export const CLAIM_VERIFY_FAIL_REASONS = [
+  'wrong_code',
+  'expired',
+  'too_many_attempts',
+  'not_found',
+  'dns_slow',
+  'dns_failed',
+  'dns_unavailable',
+  'no_challenge',
+  'sign_in',
+  'network',
+  'other',
+] as const;
+export type ClaimVerifyFailReason = (typeof CLAIM_VERIFY_FAIL_REASONS)[number];
+
+/** The enum reason to log for a failed claim verification: a known error code, or 'other'. */
+export function claimFailReason(err: unknown): ClaimVerifyFailReason {
+  const code = err && typeof err === 'object' && 'code' in err ? (err as { code: unknown }).code : null;
+  return typeof code === 'string' && (CLAIM_VERIFY_FAIL_REASONS as readonly string[]).includes(code)
+    ? (code as ClaimVerifyFailReason)
+    : 'other';
+}
+
 export interface RecordEventOptions {
   path?: string | null;
   boardId?: string | null;
@@ -200,6 +237,10 @@ export interface CommandCentreFunnels {
     verify_started: number;
     verify_failed: number;
     completed: number;
+    /** claim_verify_started split by method; started events without a valid method count in neither. */
+    verify_methods?: Record<ClaimVerifyMethod, number>;
+    /** claim_verify_failed by enum reason, most frequent first. */
+    verify_fail_reasons?: Array<{ reason: ClaimVerifyFailReason; count: number }>;
   };
   composer: {
     open: number;

@@ -16,6 +16,8 @@ drop function if exists private.rollup_analytics_events();
 drop function if exists public.record_event(uuid, text, text, uuid, uuid, text, jsonb);
 drop function if exists private.analytics_buckets(timestamptz);
 drop function if exists private.analytics_detail(text, jsonb);
+drop function if exists private.analytics_claim_fail_reason(text);
+drop function if exists private.analytics_claim_method(text);
 drop function if exists private.analytics_term_is_personal(text);
 drop table if exists private.analytics_daily;
 drop table if exists private.analytics_event;

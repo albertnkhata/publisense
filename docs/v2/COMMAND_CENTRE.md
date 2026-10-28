@@ -70,7 +70,7 @@ A lightweight append-only table in the `private` schema (never directly readable
 | `hub_id` | `uuid references public.hub(id) on delete set null` | Optional hub context |
 | `path` | `text` | Route path (`/` · `/explore` · `/b/:slug` · `/h/:slug` · `/post/:id`) |
 | `referrer_host` | `text` | External hostname only (e.g. `news.ycombinator.com`, `google.com`, `x.com`), stripped of paths and query strings; `null` for same-origin or direct |
-| `meta` | `jsonb not null default '{}'::jsonb` | Whitelisted by `record_event`: only `q` on `search_empty` (max 60 chars) and `trigger` on `auth_open` (max 40 chars); every other key is stripped. Payloads over 512 bytes are dropped |
+| `meta` | `jsonb not null default '{}'::jsonb` | Whitelisted by `record_event`: only `q` on `search_empty` (max 60 chars), `trigger` on `auth_open` (max 40 chars), `method` on `claim_verify_started` (strict enum, see below) and `reason` on `claim_verify_failed` (strict enum, see below); every other key and value is stripped. Payloads over 512 bytes are dropped |
 | `at` | `timestamptz not null default now()` | Indexed by `(at desc)` and `(kind, at desc)` |
 
 **Write path:**
@@ -80,7 +80,7 @@ A lightweight append-only table in the `private` schema (never directly readable
 * [`web/api/share.ts`](../../web/api/share.ts) logs `share_unfurl` when crawlers (Slack, Discord, X, LinkedIn, Bluesky) fetch OpenGraph previews for a board, hub, or post. Each unfurl gets its own `crypto.randomUUID()` visit token, and the log is awaited with a 1.5 s timeout before the preview is answered, so Vercel doesn't cut the request off.
 
 **Retention & rollup:**
-* `private.rollup_analytics_events()` (nightly via `pg_cron` at 03:15 UTC when the extension is available; otherwise run it from a scheduled job) aggregates raw events older than 30 days into `private.analytics_daily (day, kind, board_id, referrer_host, detail, events, visits)`, deletes the raw rows and returns how many it deleted. It also writes a per-day `kind = 'visit'` total (distinct visit tokens that day). `detail` keeps only the `auth_open` trigger; search terms are never rolled up.
+* `private.rollup_analytics_events()` (nightly via `pg_cron` at 03:15 UTC when the extension is available; otherwise run it from a scheduled job) aggregates raw events older than 30 days into `private.analytics_daily (day, kind, board_id, referrer_host, detail, events, visits)`, deletes the raw rows and returns how many it deleted. It also writes a per-day `kind = 'visit'` total (distinct visit tokens that day). `detail` keeps one value per kind: the `auth_open` trigger, the `claim_verify_started` method and the `claim_verify_failed` reason (`private.analytics_detail`, which re-checks the enums); search terms are never rolled up.
 * `analytics_daily.board_id` is a plain uuid with no foreign key: an `on delete set null` there would collide with an existing null-board bucket in the unique index and block board deletion. Rows for a deleted board simply stop joining.
 * **Reads:** `admin_command_centre` reads every analytics figure through `private.analytics_buckets(since)`: days the rollup has absorbed come from `analytics_daily`, later days from raw events, split at the day after the newest rolled-up day, so the two never overlap. Visits are distinct visit tokens per UTC day, summed over the window (a tab left open across midnight counts on each day). Traffic, funnels, referrers, hot boards and sign-in triggers therefore cover the full 90-day window; **unmet search demand is raw-only (last 30 days)**, and the UI labels it so when 90d is selected.
 
@@ -98,8 +98,8 @@ A lightweight append-only table in the `private` schema (never directly readable
 | `claim_open` | Visitor opens `ClaimDialog` | Top-of-funnel builder interest per board |
 | `claim_board_picked` | Visitor chooses a board in the generic claim modal | Which boards attract self-serve claims |
 | `claim_auth_prompt` | Signed-out claimant clicks *Get started* to sign in/up | Sign-up wall conversion inside claiming |
-| `claim_verify_started` | Claimant requests a work-email code or triggers DNS TXT check | Verification attempts per board |
-| `claim_verify_failed` | Verification attempt fails | How often builders get stuck during verification |
+| `claim_verify_started` | Claimant requests a work-email code or triggers DNS TXT check (`meta.method`: `email` or `dns`) | Verification attempts per board, email vs. DNS |
+| `claim_verify_failed` | Verification attempt fails (`meta.reason`: a fixed error code, else `other`) | How often, and why, builders get stuck during verification |
 | `composer_open` | User opens the feedback composer | Post intent volume |
 | `similar_post_click` | User clicks an existing similar post suggested inside the composer | **Duplicate deflection rate:** how often suggestions prevent duplicate posts |
 | `share_click` | User clicks Share on a post or board | Active user sharing rate |
@@ -124,7 +124,16 @@ Added to [`web/src/pages/AdminPages.tsx`](../../web/src/pages/AdminPages.tsx) in
 5. **Two-column operational tables**:
    * **Hot unclaimed boards** (outreach priority): Unclaimed live boards ranked by `views + claim_open + posts + votes` in the window.
    * **Unmet search demand**: Top `search_empty` queries with occurrence counts and a one-click *Add product* shortcut.
-   * **Claim & composer funnels**: Step-by-step bar showing conversion from `claim_open → verify_started → claimed` and `composer_open → similar_post_click / post_created`.
+   * **Claim & composer funnels**: Step-by-step bar showing conversion from `claim_open → verify_started → claimed` and `composer_open → similar_post_click / post_created`, plus the claim verification split (work-email code vs. DNS TXT) and failed verifications by reason. Both read `analytics_daily.detail` for rolled-up days, so they cover the full 90-day window.
+
+### Claim-funnel detail enums (strict)
+
+Claim meta is never free text. `record_event` keeps these values only, and `private.analytics_detail` re-checks them before anything reaches `analytics_daily.detail`. The lists live in `private.analytics_claim_method` / `private.analytics_claim_fail_reason` (0054) and `CLAIM_VERIFY_METHODS` / `CLAIM_VERIFY_FAIL_REASONS` in `web/src/api/analytics.ts`; change both together.
+
+| Kind | Key | Allowed values | Anything else |
+| --- | --- | --- | --- |
+| `claim_verify_started` | `method` | `email`, `dns` (the `domain_challenge` / `verified_domain` method values, 0021) | stripped (meta `{}`; counts in neither half of the split) |
+| `claim_verify_failed` | `reason` | `wrong_code`, `expired`, `too_many_attempts` (from `verify_domain_email`); `not_found`, `dns_failed`, `dns_unavailable`, `no_challenge` (from `check_domain_dns`); `sign_in` (both); `dns_slow` (client: DNS poll timed out); `network` (client: RPC call failed); `other` | mapped to `other` (unknown codes, free text, missing or non-string) |
    * **Top referrers & social unfurls**: External domains sending traffic and boards/posts unfurled via `/api/share`.
 
 ---

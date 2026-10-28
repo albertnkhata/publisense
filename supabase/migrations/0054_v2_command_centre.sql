@@ -6,12 +6,14 @@
 --      or IP), stored in `private` (never exposed as PostgREST tables).
 --   2. public.record_event(...): SECURITY DEFINER write RPC callable by anon and
 --      authenticated. Enforces an explicit allow-list of 15 event kinds, a meta
---      whitelist (q for search_empty, trigger for auth_open; everything else is
---      stripped), drops search terms that look like an email or phone number,
---      keeps hostname-only referrers, and rate-limits: 60/min and 120/5 min per
---      visit token (share_unfurl exempt; it gets a fresh server-side token per
---      unfurl) plus 600/min globally, silently dropping anything invalid or over
---      budget.
+--      whitelist (q for search_empty, trigger for auth_open, method for
+--      claim_verify_started limited to 'email'/'dns', reason for claim_verify_failed
+--      limited to a fixed set of claim error codes with anything else mapped to
+--      'other'; every other key and value is stripped), drops search terms that
+--      look like an email or phone number, keeps hostname-only referrers, and
+--      rate-limits: 60/min and 120/5 min per visit token (share_unfurl exempt; it
+--      gets a fresh server-side token per unfurl) plus 600/min globally, silently
+--      dropping anything invalid or over budget.
 --   3. private.rollup_analytics_events(): rolls raw events older than 30 days into
 --      private.analytics_daily (per-day buckets plus a per-day 'visit' total) and
 --      prunes the raw rows; returns the number of raw rows deleted. Scheduled
@@ -59,7 +61,8 @@ create index if not exists analytics_event_board_idx on private.analytics_event 
 -- and make board deletion fail. Rows for a deleted board simply stop joining.
 -- kind 'visit' is a per-day total (board/referrer/detail null): events = all events
 -- that day, visits = distinct visit tokens that day.
--- detail holds the auth_open trigger so sign-in triggers survive the rollup.
+-- detail holds the one meta value kept per kind so it survives the rollup: the
+-- auth_open trigger, the claim_verify_started method, the claim_verify_failed reason.
 create table if not exists private.analytics_daily (
   day           date not null,
   kind          text not null,
@@ -99,6 +102,39 @@ $$;
 
 revoke all on function private.analytics_term_is_personal(text) from public, anon, authenticated;
 
+-- claim_verify_started meta.method: the domain_challenge / verified_domain methods
+-- (0021). Anything else is null (stripped). Mirrors CLAIM_VERIFY_METHODS in
+-- web/src/api/analytics.ts.
+create or replace function private.analytics_claim_method(p_method text) returns text
+language sql
+immutable
+set search_path = pg_catalog
+as $$
+  select case when p_method in ('email', 'dns') then p_method end
+$$;
+
+revoke all on function private.analytics_claim_method(text) from public, anon, authenticated;
+
+-- claim_verify_failed meta.reason: the error codes verify_domain_email and
+-- check_domain_dns return (0021) plus the client-side dns_slow (DNS poll timed out)
+-- and network (RPC call failed). Anything else, missing or not a string, is 'other'.
+-- Mirrors CLAIM_VERIFY_FAIL_REASONS in web/src/api/analytics.ts.
+create or replace function private.analytics_claim_fail_reason(p_reason text) returns text
+language sql
+immutable
+set search_path = pg_catalog
+as $$
+  select case when p_reason in (
+                'wrong_code', 'expired', 'too_many_attempts',
+                'not_found', 'dns_slow', 'dns_failed', 'dns_unavailable', 'no_challenge',
+                'sign_in', 'network', 'other'
+              ) then p_reason
+              else 'other'
+         end
+$$;
+
+revoke all on function private.analytics_claim_fail_reason(text) from public, anon, authenticated;
+
 create or replace function public.record_event(
   p_visit_id      uuid,
   p_kind          text,
@@ -120,6 +156,7 @@ declare
   v_meta  jsonb := '{}'::jsonb;
   v_q     text;
   v_trig  text;
+  v_enum  text;
   v_board uuid := null;
   v_hub   uuid := null;
 begin
@@ -142,7 +179,9 @@ begin
     return;
   end if;
 
-  -- Meta whitelist: only q (search_empty) and trigger (auth_open) are kept, clamped.
+  -- Meta whitelist: only q (search_empty) and trigger (auth_open) are kept, clamped;
+  -- method (claim_verify_started) and reason (claim_verify_failed) only as strict
+  -- enums. Every other key is stripped.
   if v_kind = 'search_empty' then
     v_q := left(regexp_replace(btrim(coalesce(v_in->>'q', '')), '\s+', ' ', 'g'), 60);
     -- Only settled queries of 3+ characters, and never anything that looks like
@@ -156,6 +195,18 @@ begin
     if v_trig is not null then
       v_meta := jsonb_build_object('trigger', v_trig);
     end if;
+  elsif v_kind = 'claim_verify_started' then
+    -- 'email' or 'dns' only; anything else (or a non-string) is stripped.
+    v_enum := case when jsonb_typeof(v_in->'method') = 'string'
+                   then private.analytics_claim_method(v_in->>'method') end;
+    if v_enum is not null then
+      v_meta := jsonb_build_object('method', v_enum);
+    end if;
+  elsif v_kind = 'claim_verify_failed' then
+    -- A known claim error code, else 'other'. Never free text.
+    v_enum := private.analytics_claim_fail_reason(
+                case when jsonb_typeof(v_in->'reason') = 'string' then v_in->>'reason' end);
+    v_meta := jsonb_build_object('reason', v_enum);
   end if;
 
   -- Strip any path/query/scheme if a caller accidentally passed more than a hostname.
@@ -199,14 +250,18 @@ grant execute on function public.record_event(uuid, text, text, uuid, uuid, text
 
 -- ================================================================ rollup & retention
 
--- auth_open's trigger, the only meta kept after rollup.
+-- The one meta value kept after rollup, per kind: auth_open's trigger,
+-- claim_verify_started's method (null when none was sent) and claim_verify_failed's
+-- reason. The enums are re-checked here, so detail can only ever hold an allowed value.
 create or replace function private.analytics_detail(p_kind text, p_meta jsonb) returns text
 language sql
 immutable
-set search_path = pg_catalog
+set search_path = pg_catalog, private
 as $$
-  select case when p_kind = 'auth_open'
-              then coalesce(nullif(left(btrim(p_meta->>'trigger'), 40), ''), 'nav')
+  select case p_kind
+           when 'auth_open'            then coalesce(nullif(left(btrim(p_meta->>'trigger'), 40), ''), 'nav')
+           when 'claim_verify_started' then private.analytics_claim_method(p_meta->>'method')
+           when 'claim_verify_failed'  then private.analytics_claim_fail_reason(p_meta->>'reason')
          end
 $$;
 
@@ -437,6 +492,22 @@ begin
       'auth_prompt',    coalesce((select n from k where kind = 'claim_auth_prompt'), 0),
       'verify_started', coalesce((select n from k where kind = 'claim_verify_started'), 0),
       'verify_failed',  coalesce((select n from k where kind = 'claim_verify_failed'), 0),
+      -- Email vs. DNS, from the detail column (raw meta or analytics_daily.detail).
+      'verify_methods', jsonb_build_object(
+        'email', coalesce((select sum(events)::int from private.analytics_buckets(v_since)
+                            where kind = 'claim_verify_started' and detail = 'email'), 0),
+        'dns',   coalesce((select sum(events)::int from private.analytics_buckets(v_since)
+                            where kind = 'claim_verify_started' and detail = 'dns'), 0)
+      ),
+      'verify_fail_reasons', coalesce((
+        select jsonb_agg(jsonb_build_object('reason', reason, 'count', n) order by n desc, reason asc)
+          from (
+            select coalesce(detail, 'other') as reason, sum(events)::int as n
+              from private.analytics_buckets(v_since)
+             where kind = 'claim_verify_failed'
+             group by 1
+          ) r
+      ), '[]'::jsonb),
       'completed',      (
         (select count(*)::int from public.board where status = 'live' and claimed_at >= v_since) +
         (select count(*)::int from public.hub where status = 'live' and claimed_at >= v_since)

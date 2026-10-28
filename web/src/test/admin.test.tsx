@@ -3,7 +3,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes } from 'react-router';
 import type { DisputeRow, ReportGroup } from '../api/moderation';
 import type { CommandCentreData } from '../api/analytics';
-import { externalReferrerHost, getVisitId, loggableSearchTerm, looksPersonal } from '../api/analytics';
+import { CLAIM_VERIFY_FAIL_REASONS, claimFailReason, externalReferrerHost, getVisitId, loggableSearchTerm, looksPersonal } from '../api/analytics';
 import { AdminDisputesPage, AdminOverviewPage, AdminReportsPage, AdminTeamPage } from '../pages/AdminPages';
 import { iso, ME, OTHER } from './postFixtures';
 import { renderWith, TEST_VIEWER } from './renderApp';
@@ -95,7 +95,19 @@ const COMMAND_CENTRE: CommandCentreData = {
   },
   traffic: { page_views: 640, visits: 210, share_unfurls: 14, share_clicks: 9 },
   funnels: {
-    claim: { open: 20, board_picked: 15, auth_prompt: 6, verify_started: 10, verify_failed: 2, completed: 4 },
+    claim: {
+      open: 20,
+      board_picked: 15,
+      auth_prompt: 6,
+      verify_started: 10,
+      verify_failed: 3,
+      completed: 4,
+      verify_methods: { email: 7, dns: 3 },
+      verify_fail_reasons: [
+        { reason: 'wrong_code', count: 2 },
+        { reason: 'dns_slow', count: 1 },
+      ],
+    },
     composer: { open: 28, similar_click: 5, posts_created: 7 },
     search: { open: 85, click: 44, empty: 6 },
   },
@@ -304,6 +316,41 @@ describe('command centre (/admin)', () => {
     // External referrers
     const refs = screen.getByRole('list', { name: 'Top external referrers' });
     expect(within(refs).getByText('news.ycombinator.com')).toBeTruthy();
+  });
+
+  it('splits claim verification by email vs DNS and lists failure reasons', async () => {
+    renderAt('/admin');
+    const method = await screen.findByRole('region', { name: 'Claim verification method' });
+    expect(within(method).getByText('Work email code')).toBeTruthy();
+    expect(within(method).getByText('7')).toBeTruthy();
+    expect(within(method).getByText('(70%)')).toBeTruthy();
+    expect(within(method).getByText('DNS TXT record')).toBeTruthy();
+    expect(within(method).getByText('(30%)')).toBeTruthy();
+    const failed = screen.getByRole('region', { name: 'Why verification failed' });
+    expect(within(failed).getByText('Wrong code')).toBeTruthy();
+    expect(within(failed).getByText('2')).toBeTruthy();
+    expect(within(failed).getByText('DNS still propagating')).toBeTruthy();
+  });
+
+  it('shows an empty failure-reason state and a zero split when there is no claim verify detail', async () => {
+    mod.fetchCommandCentre.mockResolvedValue({
+      ...COMMAND_CENTRE,
+      funnels: { ...COMMAND_CENTRE.funnels, claim: { ...COMMAND_CENTRE.funnels.claim, verify_methods: { email: 0, dns: 0 }, verify_fail_reasons: [] } },
+    });
+    renderAt('/admin');
+    const failed = await screen.findByRole('region', { name: 'Why verification failed' });
+    expect(within(failed).getByText('No failed verifications in the last 30 days.')).toBeTruthy();
+  });
+
+  it('maps claim verify errors to the fixed reason enum, never free text', () => {
+    expect(claimFailReason({ code: 'wrong_code' })).toBe('wrong_code');
+    expect(claimFailReason({ code: 'dns_slow' })).toBe('dns_slow');
+    expect(claimFailReason({ code: 'network' })).toBe('network');
+    expect(claimFailReason({ code: 'unknown' })).toBe('other');
+    expect(claimFailReason({ code: 'Could not verify jane@example.com' })).toBe('other');
+    expect(claimFailReason(new Error('boom'))).toBe('other');
+    expect(claimFailReason(null)).toBe('other');
+    expect(CLAIM_VERIFY_FAIL_REASONS).toContain('other');
   });
 
   it('switches the time window between 7d, 30d and 90d', async () => {
