@@ -9,6 +9,7 @@ import { Button, Icon, Tooltip, type IconName } from '../ui';
 import { BrandSymbol } from './BrandMark';
 import { useAuthDialog } from './auth';
 import { useComposer } from './composer';
+import { LegalLinks, LegalMenu } from './LegalLinks';
 import { UserMenu } from './UserMenu';
 
 const NAV_KEY = 'publisense:nav-collapsed';
@@ -25,7 +26,8 @@ function readCollapsed(): boolean {
  * Left navigation rail (mockup "vertical-nav"). Every row shares one 40px
  * icon column, so collapsing only hides labels: icons never move.
  * 248px wide; 64px when collapsed by the user ("[") or below lg (1060px).
- * Hidden at sm, where the TabBar takes over.
+ * Hidden at sm, where the TabBar takes over. Terms · Privacy · © sit at its
+ * foot (a ⋯ menu when collapsed), so they are on every page above sm.
  */
 export function NavRail() {
   const { viewer, ready } = useViewer();
@@ -153,6 +155,9 @@ export function NavRail() {
           ) : null}
         </div>
       )}
+
+      {/* Terms · Privacy on every page above sm, whether or not the route has the right rail. */}
+      <div className="mt-3">{collapsed ? <LegalMenu /> : <LegalLinks inline />}</div>
     </aside>
   );
 }

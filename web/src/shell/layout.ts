@@ -2,28 +2,49 @@ import { useMatches } from 'react-router';
 
 /**
  * Per-route shell options, set on a route's `handle` in App.tsx and read by
- * AppShell. The deepest route that says something wins, so a parent can opt a
- * whole branch out (as /admin does) and a child can opt back in.
+ * AppShell. The deepest route that says something wins, key by key, so a
+ * parent can opt a whole branch out (as /admin does) and a child can opt back in.
  *
- * - `rail: false` drops the right rail (search, boards card, claim line, legal
- *   footer). The content column then widens to `max-w-wide` (content + gap +
- *   rail) and the top bar, which carries search below lg, stays on at every
- *   width so search is still one click away.
+ * - `rail: false` drops the right rail (search, boards card, claim line). The
+ *   top bar, which carries search below lg, then stays on at every width so
+ *   search is still one click away.
+ * - `width` sizes the content column when the rail is off:
+ *   - `'wide'` (the default without a rail) widens it to `max-w-wide`
+ *     (content + gap + rail), for dense screens like /admin and Manage.
+ *   - `'narrow'` keeps the reading column (`max-w-content`, 680px), centred
+ *     in the space the rail used to share, for forms, lists and long text
+ *     (Settings, Notifications, the legal pages).
+ *   With the rail on the column is always `max-w-content`; `width` is ignored.
  */
+export type ShellWidth = 'narrow' | 'wide';
+
 export interface ShellHandle {
   rail?: boolean;
+  width?: ShellWidth;
 }
 
 export interface ShellLayout {
   rail: boolean;
+  /** The content column: `narrow` is max-w-content, `wide` is max-w-wide. Always `narrow` with the rail. */
+  width: ShellWidth;
 }
+
+/** No rail, wide column: dense staff and owner screens (/admin, Manage). */
+export const NO_RAIL_WIDE = { rail: false, width: 'wide' } as const satisfies ShellHandle;
+/** No rail, reading-width column: forms, lists and long text. */
+export const NO_RAIL_NARROW = { rail: false, width: 'narrow' } as const satisfies ShellHandle;
 
 export function shellLayoutFor(handles: unknown[]): ShellLayout {
   let rail = true;
+  let width: ShellWidth | undefined;
   for (const h of handles) {
-    if (h && typeof h === 'object' && typeof (h as ShellHandle).rail === 'boolean') rail = (h as ShellHandle).rail as boolean;
+    if (!h || typeof h !== 'object') continue;
+    const s = h as ShellHandle;
+    if (typeof s.rail === 'boolean') rail = s.rail;
+    if (s.width === 'narrow' || s.width === 'wide') width = s.width;
   }
-  return { rail };
+  if (rail) return { rail, width: 'narrow' };
+  return { rail, width: width ?? 'wide' };
 }
 
 export function useShellLayout(): ShellLayout {

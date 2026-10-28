@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { routes } from '../App';
 import { Providers } from '../Providers';
@@ -53,36 +53,76 @@ describe('routes', () => {
     expect(screen.getByRole('complementary', { name: 'Main navigation' })).toBeTruthy();
   });
 
-  // The right rail (search, boards card, claim line, legal footer) is opt-out per route via
-  // `handle: { rail: false }`. Today only the staff /admin branch drops it.
-  const ADMIN = CASES.map(([p]) => p).filter((p) => p.startsWith('/admin'));
-  const PUBLIC = CASES.map(([p]) => p).filter((p) => !p.startsWith('/admin'));
+  // The right rail (search, boards card, claim line) is opt-out per route via `handle`
+  // (shell/layout.ts). Browsing pages keep it; task pages drop it, wide or narrow.
+  const paths = CASES.map(([p]) => p);
+  const WIDE = [...paths.filter((p) => p.startsWith('/admin')), '/b/supabase/manage', '/h/acme/manage'];
+  const NARROW = ['/notifications', '/settings', '/privacy', '/terms', '/auth/reset', '/unsubscribe?token=abc'];
+  const RAIL = ['/', '/explore', '/search?q=dark%20mode', '/b/supabase', '/b/supabase?tab=roadmap', '/h/acme', '/post/123', '/u/alex', '/no/such/page'];
 
-  it.each(ADMIN)('%s has no right rail, a full-width column and a top bar with search at every width', (path) => {
-    renderAt(path);
+  it('every route case is classified', () => {
+    expect([...WIDE, ...NARROW, ...RAIL.filter((p) => p !== '/no/such/page')].sort()).toEqual([...paths].sort());
+  });
+
+  function expectNoRail() {
     expect(screen.queryByRole('complementary', { name: 'Sidebar' })).toBeNull();
-    const main = document.getElementById('main')!;
-    expect(main.className).toContain('max-w-wide');
-    expect(main.className).not.toContain('max-w-content');
     const header = screen.getAllByRole('banner')[0]!;
     expect(header.className.split(/\s+/)).toContain('flex');
     expect(header.className).not.toContain('max-lg:flex');
     expect(screen.getAllByRole('button', { name: /search/i }).length).toBeGreaterThan(0);
+  }
+
+  it.each(WIDE)('%s has no right rail, a wide column and a top bar with search at every width', (path) => {
+    renderAt(path);
+    expectNoRail();
+    const main = document.getElementById('main')!;
+    expect(main.className).toContain('max-w-wide');
+    expect(main.className).not.toContain('max-w-content');
   });
 
-  it.each(PUBLIC)('%s keeps the right rail', (path) => {
+  it.each(NARROW)('%s has no right rail, keeps the narrow reading column and a top bar with search', (path) => {
+    renderAt(path);
+    expectNoRail();
+    const main = document.getElementById('main')!;
+    expect(main.className).toContain('max-w-content');
+    expect(main.className).not.toContain('max-w-wide');
+  });
+
+  it.each(RAIL)('%s keeps the right rail', (path) => {
     renderAt(path);
     expect(screen.getByRole('complementary', { name: 'Sidebar' })).toBeTruthy();
     expect(document.getElementById('main')!.className).toContain('max-w-content');
     expect(screen.getAllByRole('banner')[0]!.className).toContain('max-lg:flex');
   });
+
+  // Terms · Privacy live at the foot of the nav rail on desktop, on every page, once.
+  it.each([...WIDE.slice(0, 1), ...NARROW, ...RAIL])('%s has Terms and Privacy in the nav rail, once', (path) => {
+    renderAt(path);
+    const nav = screen.getByRole('complementary', { name: 'Main navigation' });
+    const legal = within(nav).getByRole('navigation', { name: 'Legal links' });
+    expect(within(legal).getByRole('link', { name: 'Terms' }).getAttribute('href')).toBe('/terms');
+    expect(within(legal).getByRole('link', { name: 'Privacy' }).getAttribute('href')).toBe('/privacy');
+    expect(within(nav).getByText('© 2026 Publisense')).toBeTruthy();
+    expect(screen.getAllByRole('navigation', { name: 'Legal links' })).toHaveLength(1);
+    const rail = screen.queryByRole('complementary', { name: 'Sidebar' });
+    if (rail) expect(within(rail).queryByRole('link', { name: 'Terms' })).toBeNull();
+  });
 });
 
 describe('shellLayoutFor', () => {
   it('defaults to the rail and lets the deepest route that says something win', () => {
-    expect(shellLayoutFor([])).toEqual({ rail: true });
-    expect(shellLayoutFor([undefined, null, 'x', {}])).toEqual({ rail: true });
-    expect(shellLayoutFor([undefined, { rail: false }, undefined])).toEqual({ rail: false });
-    expect(shellLayoutFor([{ rail: false }, { rail: true }])).toEqual({ rail: true });
+    expect(shellLayoutFor([])).toEqual({ rail: true, width: 'narrow' });
+    expect(shellLayoutFor([undefined, null, 'x', {}])).toEqual({ rail: true, width: 'narrow' });
+    expect(shellLayoutFor([undefined, { rail: false }, undefined])).toEqual({ rail: false, width: 'wide' });
+    expect(shellLayoutFor([{ rail: false }, { rail: true }])).toEqual({ rail: true, width: 'narrow' });
+  });
+
+  it('sizes the column without the rail: wide by default, narrow on request, ignored with the rail', () => {
+    expect(shellLayoutFor([{ rail: false, width: 'narrow' }])).toEqual({ rail: false, width: 'narrow' });
+    expect(shellLayoutFor([{ rail: false, width: 'wide' }])).toEqual({ rail: false, width: 'wide' });
+    expect(shellLayoutFor([{ rail: false, width: 'narrow' }, { width: 'wide' }])).toEqual({ rail: false, width: 'wide' });
+    expect(shellLayoutFor([{ rail: false }, { width: 'narrow' }])).toEqual({ rail: false, width: 'narrow' });
+    expect(shellLayoutFor([{ rail: true, width: 'wide' }])).toEqual({ rail: true, width: 'narrow' });
+    expect(shellLayoutFor([{ rail: false, width: 'huge' }])).toEqual({ rail: false, width: 'wide' });
   });
 });

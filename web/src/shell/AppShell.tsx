@@ -21,15 +21,17 @@ import { useShellLayout } from './layout';
  * RightRail (above lg) · TabBar (sm).
  *
  * A route can drop the right rail with `handle: { rail: false }` (see
- * shell/layout.ts). Without it the content column widens to `max-w-wide` and
- * the top bar stays on at every width, so search keeps a visible way in.
+ * shell/layout.ts). Without it the top bar stays on at every width, so search
+ * keeps a visible way in, and the column is `max-w-wide` or, with
+ * `width: 'narrow'`, stays `max-w-content` and centres. Terms · Privacy live
+ * at the foot of the nav rail (TabBar sheet at sm), not in the right rail.
  */
 export function AppShell() {
   const { toggle } = useTheme();
   const onTheme = useCallback(() => toggle(), [toggle]);
   useShortcut('d', onTheme, { ctrl: true });
   const { pathname } = useLocation();
-  const { rail } = useShellLayout();
+  const { rail, width } = useShellLayout();
 
   useEffect(() => {
     // Board pages (/b/:slug) log their own page_view with boardId once the board loads;
@@ -57,7 +59,7 @@ export function AppShell() {
         <div className="flex min-w-0 flex-1 flex-col">
           <TopBar always={!rail} />
           <div className="mx-auto flex w-full justify-center gap-6 px-7 pt-6 pb-10 max-sm:px-3 max-sm:pt-4 max-sm:pb-10">
-            <main id="main" tabIndex={-1} className={cx('w-full min-w-0 flex-1 outline-none max-sm:pb-10', rail ? 'max-w-content' : 'max-w-wide')}>
+            <main id="main" tabIndex={-1} className={cx('w-full min-w-0 flex-1 outline-none max-sm:pb-10', width === 'narrow' ? 'max-w-content' : 'max-w-wide')}>
               <Outlet />
             </main>
             {rail ? <RightRail /> : null}

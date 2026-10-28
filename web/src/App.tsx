@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { AppShell } from './shell/AppShell';
-import type { ShellHandle } from './shell/layout';
+import { NO_RAIL_NARROW, NO_RAIL_WIDE } from './shell/layout';
 import { NotFound } from './pages/NotFound';
 import {
   AdminDisputesPage,
@@ -29,7 +29,12 @@ import {
 
 const DevKit = lazy(() => import('./pages/DevKit'));
 
-/** FOUNDATION §9 route table. Real paths; the mockup's #hash routes do not carry over. */
+/**
+ * FOUNDATION §9 route table. Real paths; the mockup's #hash routes do not carry over.
+ * The right rail shows on browsing pages (home, explore, search, boards, hubs, posts,
+ * profiles, 404). Task pages drop it (shell/layout.ts): Manage and /admin go wide;
+ * settings, notifications, legal, password reset and unsubscribe keep the reading width.
+ */
 export const routes = [
   {
     path: '/',
@@ -39,21 +44,21 @@ export const routes = [
       { path: 'explore', element: <ExplorePage /> },
       { path: 'search', element: <SearchPage /> },
       { path: 'b/:board', element: <BoardPage /> },
-      { path: 'b/:board/manage', element: <BoardManagePage /> },
+      { path: 'b/:board/manage', handle: NO_RAIL_WIDE, element: <BoardManagePage /> },
       { path: 'h/:hub', element: <HubPage /> },
-      { path: 'h/:hub/manage', element: <HubManagePage /> },
+      { path: 'h/:hub/manage', handle: NO_RAIL_WIDE, element: <HubManagePage /> },
       { path: 'post/:id', element: <PostPage /> },
       { path: 'u/:handle', element: <UserPage /> },
-      { path: 'notifications', element: <NotificationsPage /> },
-      { path: 'settings', element: <SettingsPage /> },
-      { path: 'privacy', element: <PrivacyPage /> },
-      { path: 'terms', element: <TermsPage /> },
-      { path: 'auth/reset', element: <AuthResetPage /> },
-      { path: 'unsubscribe', element: <UnsubscribePage /> },
+      { path: 'notifications', handle: NO_RAIL_NARROW, element: <NotificationsPage /> },
+      { path: 'settings', handle: NO_RAIL_NARROW, element: <SettingsPage /> },
+      { path: 'privacy', handle: NO_RAIL_NARROW, element: <PrivacyPage /> },
+      { path: 'terms', handle: NO_RAIL_NARROW, element: <TermsPage /> },
+      { path: 'auth/reset', handle: NO_RAIL_NARROW, element: <AuthResetPage /> },
+      { path: 'unsubscribe', handle: NO_RAIL_NARROW, element: <UnsubscribePage /> },
       // Staff Command Centre: no right rail, full-width content (shell/layout.ts).
       {
         path: 'admin',
-        handle: { rail: false } satisfies ShellHandle,
+        handle: NO_RAIL_WIDE,
         children: [
           { index: true, element: <AdminOverviewPage /> },
           { path: 'products', element: <AdminProductsPage /> },
