@@ -4,6 +4,7 @@
  * /post/:id here; people never hit this function, so a failure here can't
  * break the app. Any error still answers with the plain index.html.
  */
+import { randomUUID } from 'node:crypto';
 import { applyMeta, boardMeta, hubMeta, postMeta, SITE, type PostMetaRow, type ShareMeta } from './_lib/shareMeta.js';
 
 interface Req { query: Record<string, string | string[] | undefined>; headers: Record<string, string | string[] | undefined> }
@@ -42,6 +43,25 @@ export async function lookup(kind: string, key: string): Promise<Lookup> {
   return postMeta(row as unknown as PostMetaRow);
 }
 
+/**
+ * Log one share_unfurl (0054). Each unfurl gets its own random visit token minted
+ * here, so crawlers never share one token or trip the per-visit cap. Awaited with a
+ * short timeout so Vercel doesn't freeze the function before the request leaves;
+ * a slow or failed log never delays the preview by more than that or breaks it.
+ */
+export async function recordUnfurl(base: string, anon: string, path: string): Promise<void> {
+  try {
+    await fetch(`${base}/rest/v1/rpc/record_event`, {
+      method: 'POST',
+      headers: { apikey: anon, authorization: `Bearer ${anon}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ p_visit_id: randomUUID(), p_kind: 'share_unfurl', p_path: path.slice(0, 200) }),
+      signal: AbortSignal.timeout(1500),
+    });
+  } catch {
+    // analytics never breaks a preview
+  }
+}
+
 export default async function handler(req: Req, res: Res): Promise<void> {
   const host = one(req.headers['x-forwarded-host']) || one(req.headers.host);
   const origin = host ? `https://${host}` : SITE;
@@ -59,12 +79,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       const kind = one(req.query.kind);
       const key = one(req.query.key);
       if (base && anon && (kind === 'board' || kind === 'hub' || kind === 'post')) {
-        const prefix = kind === 'board' ? 'b' : kind === 'hub' ? 'h' : 'post';
-        void fetch(`${base}/rest/v1/rpc/record_event`, {
-          method: 'POST',
-          headers: { apikey: anon, authorization: `Bearer ${anon}`, 'content-type': 'application/json' },
-          body: JSON.stringify({ p_visit_id: '00000000-0000-0000-0000-000000000000', p_kind: 'share_unfurl', p_path: `/${prefix}/${key}` }),
-        }).catch(() => {});
+        await recordUnfurl(base, anon, `/${kind === 'board' ? 'b' : kind === 'hub' ? 'h' : 'post'}/${key}`);
       }
     }
   } catch {

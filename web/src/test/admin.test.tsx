@@ -3,7 +3,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes } from 'react-router';
 import type { DisputeRow, ReportGroup } from '../api/moderation';
 import type { CommandCentreData } from '../api/analytics';
-import { externalReferrerHost, getVisitId } from '../api/analytics';
+import { externalReferrerHost, getVisitId, loggableSearchTerm, looksPersonal } from '../api/analytics';
 import { AdminDisputesPage, AdminOverviewPage, AdminReportsPage, AdminTeamPage } from '../pages/AdminPages';
 import { iso, ME, OTHER } from './postFixtures';
 import { renderWith, TEST_VIEWER } from './renderApp';
@@ -316,6 +316,27 @@ describe('command centre (/admin)', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: '90d' }));
     await waitFor(() => expect(mod.fetchCommandCentre).toHaveBeenCalledWith(90));
+  });
+
+  it('labels unmet search demand as the last 30 days when 90d is selected (search terms are raw-only)', async () => {
+    renderAt('/admin');
+    expect(await screen.findByRole('heading', { name: 'Unmet search demand' })).toBeTruthy();
+    fireEvent.click(await screen.findByRole('button', { name: '90d' }));
+    expect(await screen.findByRole('heading', { name: 'Unmet search demand (last 30 days)' })).toBeTruthy();
+    expect(screen.getByText(/Search terms are kept for 30 days/)).toBeTruthy();
+  });
+
+  it('never logs search terms that look like an email or phone number, or are under 3 characters', () => {
+    expect(looksPersonal('jane@example.com')).toBe(true);
+    expect(looksPersonal('jane (at) example.com')).toBe(true);
+    expect(looksPersonal('call +260 97 640 4079')).toBe(true);
+    expect(looksPersonal('0976-404-079')).toBe(true);
+    expect(looksPersonal('ipad 2024 vs 2025')).toBe(false);
+    expect(looksPersonal('linear')).toBe(false);
+    expect(loggableSearchTerm('  linear   app ')).toBe('linear app');
+    expect(loggableSearchTerm('ab')).toBeNull();
+    expect(loggableSearchTerm('x@y')).toBeNull();
+    expect(loggableSearchTerm('a'.repeat(80))).toHaveLength(60);
   });
 
   it('keeps a stable per-tab visit UUID and strips referrers to external hostnames only', () => {

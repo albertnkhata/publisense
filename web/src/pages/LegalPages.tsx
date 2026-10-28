@@ -73,9 +73,10 @@ export function PrivacyPage() {
           notification settings, and, if you claim a board, the work email or domain you verify with that claim.
         </P>
         <P>
-          For all visitors: we record aggregate usage and traffic events (such as pages viewed, referring websites, search terms, and whether
-          multi-step actions like claiming a board succeed or fail) so we can see what is working and fix what is not. These records do not include
-          your name, email address or IP address.
+          For all visitors: we record individual usage events, such as the page path you viewed, the website that referred you, search terms that
+          found no results, and whether steps like claiming a board succeed or fail. Events from one browser tab are grouped by a temporary random
+          visit token that is not linked to your account. We keep these individual events for 30 days and then roll them into daily totals. They
+          never include your name, email address or IP address.
         </P>
         <P>
           If you sign in with Google, we receive your email address, name and profile picture from Google. We never receive your Google password, and

@@ -64,7 +64,7 @@ async function rpc<T extends RpcResult = RpcResult>(fn: string, args: Record<str
 
 // ------------------------------------------------------------------ platform admin
 
-/** Load the /admin Command Centre metrics (0053, platform_admin only). */
+/** Load the /admin Command Centre metrics (0054, platform_admin only). */
 export async function fetchCommandCentre(days: CommandCentreWindow = 30): Promise<CommandCentreData> {
   const res = await rpc<RpcResult & CommandCentreData>('admin_command_centre', { p_days: days });
   return res;

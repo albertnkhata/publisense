@@ -23,6 +23,9 @@ const WINDOWS: Array<{ value: CommandCentreWindow; label: string }> = [
 
 const STATUS_ORDER: PostStatus[] = ['open', 'under_review', 'planned', 'in_progress', 'shipped', 'closed', 'merged'];
 
+/** Raw usage events (and so search terms) are kept this many days before the nightly rollup (0054). */
+const SEARCH_TERM_DAYS = 30;
+
 function pct(part: number, total: number): string {
   if (total <= 0) return '0%';
   return `${Math.round((part / total) * 100)}%`;
@@ -262,7 +265,7 @@ export function AdminOverview() {
         note="Cookieless first-party events grouped by temporary per-visit session token."
       >
         <div className="mb-3 grid grid-cols-4 gap-3 max-md:grid-cols-2">
-          <StatTile label={`Visits (${days}d)`} value={traffic.visits} sub="Distinct tab sessions" />
+          <StatTile label={`Visits (${days}d)`} value={traffic.visits} sub="Visit tokens, counted per day" />
           <StatTile label={`Page views (${days}d)`} value={traffic.page_views} sub="Public routes & boards" />
           <StatTile label={`Share clicks (${days}d)`} value={traffic.share_clicks} sub="Copied or shared links" />
           <StatTile label={`Bot unfurls (${days}d)`} value={traffic.share_unfurls} sub="Slack, X, Discord previews" />
@@ -399,11 +402,15 @@ export function AdminOverview() {
         </Panel>
 
         <Panel
-          title="Unmet search demand"
-          note="Searches that returned zero matches—candidates to seed next."
+          title={days > SEARCH_TERM_DAYS ? `Unmet search demand (last ${SEARCH_TERM_DAYS} days)` : 'Unmet search demand'}
+          note={
+            days > SEARCH_TERM_DAYS
+              ? `Searches that returned zero matches—candidates to seed next. Search terms are kept for ${SEARCH_TERM_DAYS} days, so this list covers the last ${SEARCH_TERM_DAYS} days only.`
+              : 'Searches that returned zero matches—candidates to seed next.'
+          }
         >
           {empty_searches.length === 0 ? (
-            <p className="m-0 text-sm text-ink-muted">No zero-result searches recorded in the last {days} days.</p>
+            <p className="m-0 text-sm text-ink-muted">No zero-result searches recorded in the last {Math.min(days, SEARCH_TERM_DAYS)} days.</p>
           ) : (
             <ul className="m-0 flex list-none flex-col p-0" aria-label="Unmet search demand">
               {empty_searches.map((row) => (

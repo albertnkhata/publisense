@@ -1,4 +1,5 @@
--- Rollback for 0054_v2_command_centre.sql.
+-- Rollback for 0054_v2_command_centre.sql. Schema grants on `private` are untouched
+-- (they come from 0042/0047).
 
 do $cron$
 begin
@@ -13,5 +14,8 @@ $cron$;
 drop function if exists public.admin_command_centre(integer);
 drop function if exists private.rollup_analytics_events();
 drop function if exists public.record_event(uuid, text, text, uuid, uuid, text, jsonb);
+drop function if exists private.analytics_buckets(timestamptz);
+drop function if exists private.analytics_detail(text, jsonb);
+drop function if exists private.analytics_term_is_personal(text);
 drop table if exists private.analytics_daily;
 drop table if exists private.analytics_event;

@@ -7,8 +7,10 @@ import {
   compactCount,
   isLive,
   logoSrc,
+  loggableSearchTerm,
   recordEvent,
   rememberSearch,
+  SEARCH_EMPTY_SETTLE_MS,
   SEARCH_MIN,
   shortAge,
   useBoards,
@@ -483,13 +485,21 @@ function SearchModalBody({
   const hubs = search.data && debounced === term ? search.data.hubs : [];
   const posts = search.data && debounced === term ? search.data.posts : [];
   const people = peopleQuery.data && debounced === term ? peopleQuery.data : [];
-  const emptyLoggedRef = useRef<string>('');
+  // Unmet demand (0054): log a zero-result search only once the query has settled
+  // (debounced, then unchanged for SEARCH_EMPTY_SETTLE_MS), is 3+ characters, and
+  // doesn't look like an email or phone number; each term at most once per modal.
+  const emptyLoggedRef = useRef<Set<string>>(new Set());
+  const noResults = hasQuery && Boolean(search.data) && debounced === term && boards.length === 0 && hubs.length === 0 && posts.length === 0;
   useEffect(() => {
-    if (hasQuery && search.data && debounced === term && boards.length === 0 && hubs.length === 0 && posts.length === 0 && emptyLoggedRef.current !== debounced) {
-      emptyLoggedRef.current = debounced;
-      recordEvent('search_empty', { meta: { q: debounced.slice(0, 60) } });
-    }
-  }, [hasQuery, search.data, debounced, term, boards.length, hubs.length, posts.length]);
+    if (!noResults) return;
+    const q = loggableSearchTerm(debounced);
+    if (!q || emptyLoggedRef.current.has(q.toLowerCase())) return;
+    const t = setTimeout(() => {
+      emptyLoggedRef.current.add(q.toLowerCase());
+      recordEvent('search_empty', { meta: { q } });
+    }, SEARCH_EMPTY_SETTLE_MS);
+    return () => clearTimeout(t);
+  }, [noResults, debounced]);
 
   if (!term) {
     // Recent searches are parked until the broad layout is finished, so the empty state starts with boards.

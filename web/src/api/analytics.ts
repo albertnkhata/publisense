@@ -6,7 +6,7 @@ import type { PostStatus } from './posts';
 import { getSupabase, hasSupabaseConfig } from './supabase';
 
 /*
- * First-party anonymous analytics & the /admin Command Centre (0053,
+ * First-party usage events & the /admin Command Centre (0054,
  * docs/v2/COMMAND_CENTRE.md).
  *
  * Events carry a temporary per-visit UUID kept in sessionStorage (cleared when
@@ -85,6 +85,33 @@ export function externalReferrerHost(referrer?: string | null, currentHost?: str
   } catch {
     return null;
   }
+}
+
+/**
+ * True when a search term looks like contact details: anything with '@', an
+ * "name (at) domain.tld" spelling, or a phone-like run of 7+ digits. Such terms are
+ * never logged. Mirrors private.analytics_term_is_personal() in migration 0054.
+ */
+export function looksPersonal(q: string): boolean {
+  if (q.includes('@')) return true;
+  if (/[a-z0-9._%+-]+\s*(\(at\)|\[at\])\s*[a-z0-9-]+\.[a-z]{2,}/i.test(q)) return true;
+  for (const run of q.matchAll(/\+?\(?[0-9][0-9 ().-]{5,}[0-9]/g)) {
+    if (run[0].replace(/[^0-9]/g, '').length >= 7) return true;
+  }
+  return false;
+}
+
+/** Shortest search term worth logging as unmet demand. */
+export const SEARCH_EMPTY_MIN = 3;
+
+/** How long a zero-result query must stay unchanged (after the search debounce) before it is logged. */
+export const SEARCH_EMPTY_SETTLE_MS = 1200;
+
+/** The normalised term to log for a zero-result search, or null when it must not be logged. */
+export function loggableSearchTerm(raw: string): string | null {
+  const q = raw.trim().replace(/\s+/g, ' ').slice(0, 60);
+  if (q.length < SEARCH_EMPTY_MIN || looksPersonal(q)) return null;
+  return q;
 }
 
 export interface RecordEventOptions {

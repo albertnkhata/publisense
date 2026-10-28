@@ -387,7 +387,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
       setPurpose(why);
       if (isVerified && why !== 'claim') return finish(target, why);
       await startEmailCode(email, domain);
-      if (why === 'claim') recordEvent('claim_verify_started', { boardId: target.board?.id ?? null, meta: { method: 'email' } });
+      if (why === 'claim') recordEvent('claim_verify_started', { boardId: target.board?.id ?? null });
       const at = Date.now();
       if (viewerId) rememberPendingCode({ viewerId, targetId: target.id, email: email.trim().toLowerCase(), purpose: why, reason, joinMessage, sentAt: at });
       setSentAt(at);
@@ -404,7 +404,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
       try {
         await verifyEmailCode(email, value, domain);
       } catch (e) {
-        if (purpose === 'claim') recordEvent('claim_verify_failed', { boardId: target.board?.id ?? null, meta: { reason: e instanceof TeamError ? e.code : 'error' } });
+        if (purpose === 'claim') recordEvent('claim_verify_failed', { boardId: target.board?.id ?? null });
         if (e instanceof TeamError && (e.code === 'expired' || e.code === 'too_many_attempts')) clearPendingCode();
         throw e;
       }
@@ -428,7 +428,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
     run(async () => {
       if (!domain) return;
       setToken(await startDnsCheck(domain));
-      recordEvent('claim_verify_started', { boardId: target?.board?.id ?? null, meta: { method: 'dns' } });
+      recordEvent('claim_verify_started', { boardId: target?.board?.id ?? null });
       setStep('dns');
       void qc.invalidateQueries({ queryKey: ['pending-dns'] });
     });
@@ -439,7 +439,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
       try {
         await checkDns(domain);
       } catch (e) {
-        recordEvent('claim_verify_failed', { boardId: target.board?.id ?? null, meta: { reason: e instanceof TeamError ? e.code : 'error' } });
+        recordEvent('claim_verify_failed', { boardId: target.board?.id ?? null });
         if (e instanceof TeamError && e.code === 'not_found') throw new TeamError('not_found', DNS_NOT_FOUND);
         throw e;
       }

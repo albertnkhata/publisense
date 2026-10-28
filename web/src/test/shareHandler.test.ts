@@ -70,3 +70,43 @@ describe('share handler status', () => {
     expect((await call('board', 'cursor')).status).toBe(200);
   });
 });
+
+describe('share_unfurl logging (0054)', () => {
+  const rpcBodies = () =>
+    vi.mocked(fetch).mock.calls
+      .filter(([u]) => String(u).endsWith('/rest/v1/rpc/record_event'))
+      .map(([, init]) => JSON.parse(String((init as RequestInit).body)) as Record<string, string>);
+
+  it('logs each unfurl with its own random visit token, before answering', async () => {
+    mockFetch([{ slug: 'cursor', name: 'Cursor', tagline: 'AI code editor' }]);
+    await call('board', 'cursor');
+    await call('board', 'cursor');
+    const [first, second] = rpcBodies();
+    expect(rpcBodies()).toHaveLength(2);
+    if (!first || !second) throw new Error('expected two unfurl logs');
+    expect(first.p_kind).toBe('share_unfurl');
+    expect(first.p_path).toBe('/b/cursor');
+    expect(first.p_visit_id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect(first.p_visit_id).not.toBe('00000000-0000-0000-0000-000000000000');
+    expect(first.p_visit_id).not.toBe(second.p_visit_id);
+    const init = vi.mocked(fetch).mock.calls.find(([u]) => String(u).endsWith('/rpc/record_event'))?.[1] as RequestInit;
+    expect(init.signal).toBeTruthy();
+  });
+
+  it('still answers the preview when logging fails', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/index.html')) return new Response(INDEX);
+      if (url.endsWith('/rpc/record_event')) throw new Error('timeout');
+      return new Response(JSON.stringify([{ slug: 'cursor', name: 'Cursor', tagline: 'AI code editor' }]));
+    }));
+    const r = await call('board', 'cursor');
+    expect(r.status).toBe(200);
+    expect(r.body).toContain('Cursor');
+  });
+
+  it('logs nothing for a missing page', async () => {
+    mockFetch([]);
+    await call('board', 'nope');
+    expect(rpcBodies()).toHaveLength(0);
+  });
+});
