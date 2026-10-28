@@ -40,6 +40,17 @@ describe('edit window', () => {
     expect(replyEditLockReason(official(1), { status: 'merged' }, now)).toBe('Can’t edit: the post was merged');
   });
 
+  it('official replies only while the author is still on the team (0053)', () => {
+    const official = { is_official: true, created_at: ago(3 * 24 * 60) };
+    const community = { is_official: false, created_at: ago(5) };
+    expect(replyEditLockReason(official, { status: 'open' }, now, true)).toBeNull();
+    expect(replyEditLockReason(official, { status: 'open' }, now, undefined)).toBeNull();
+    expect(replyEditLockReason(official, { status: 'planned' }, now, false)).toBe('Only current team members can edit team replies');
+    // The status lock still speaks first, and community replies ignore team membership.
+    expect(replyEditLockReason(official, { status: 'shipped' }, now, false)).toBe('Can’t edit once the post is Shipped');
+    expect(replyEditLockReason(community, { status: 'open' }, now, false)).toBeNull();
+  });
+
   it('matches the latest public.v2_post_edit_window() in supabase/migrations', () => {
     const dir = resolve(__dirname, '../../../supabase/migrations');
     let latest: string | null = null;

@@ -204,20 +204,25 @@ export function editLockReason(p: Pick<Post, 'status' | 'created_at'>, now: Date
 }
 
 /**
- * Why the viewer can't edit this reply right now, or null when they can (0051, #181).
- * Only the author ever edits a reply (RLS); this is about when. Community replies:
- * within POST_EDIT_WINDOW_MINUTES of posting (the window posts use). Official team
- * replies: any time while the post is open. Nobody once the post is Shipped, Closed
- * or Merged. The database enforces the same rules.
+ * Why the viewer can't edit this reply right now, or null when they can (0051, #181;
+ * 0053). Only the author ever edits a reply (RLS); this is about when. Community
+ * replies: within POST_EDIT_WINDOW_MINUTES of posting (the window posts use). Official
+ * team replies: any time while the post is open, but only while the author is still a
+ * current member of the board's team (`onTeam`; pass false once a membership check says
+ * so, leave undefined while it is unknown). Nobody once the post is Shipped, Closed or
+ * Merged. The database enforces the same rules.
  */
+export const NOT_TEAM_MEMBER_REASON = 'Only current team members can edit team replies';
+
 export function replyEditLockReason(
   r: Pick<Reply, 'is_official' | 'created_at'>,
   p: Pick<Post, 'status'>,
   now: Date = new Date(),
+  onTeam?: boolean,
 ): string | null {
   if (p.status === 'merged') return 'Can’t edit: the post was merged';
   if (EDIT_LOCKED.has(p.status)) return `Can’t edit once the post is ${p.status === 'shipped' ? 'Shipped' : 'Closed'}`;
-  if (r.is_official) return null;
+  if (r.is_official) return onTeam === false ? NOT_TEAM_MEMBER_REASON : null;
   const age = now.getTime() - new Date(r.created_at).getTime();
   if (age > POST_EDIT_WINDOW_MINUTES * 60_000) return `Editing closes ${editWindowLabel()} after posting`;
   return null;
@@ -590,9 +595,12 @@ export async function updateReply(id: string, body: string): Promise<Pick<Reply,
     .select('id, body, edited_at')
     .maybeSingle();
   // 0051: the database refuses edits after the window (community replies) or once the
-  // post is Shipped, Closed or Merged (every reply).
+  // post is Shipped, Closed or Merged (every reply); 0053: official replies once their
+  // author has left the team.
   if (error?.hint === 'edit_window_closed') throw failed(`Replies can be edited for ${editWindowLabel()} after posting.`);
   if (error?.hint === 'edit_locked_status') throw failed('This reply can’t be edited any more: the post has been shipped, closed or merged.');
+  // 0053: official team replies only while their author is still on the board's team.
+  if (error?.hint === 'edit_not_team_member') throw failed(`${NOT_TEAM_MEMBER_REASON}.`);
   if (error || !data) throw failed('We couldn’t save your reply. Try again.');
   return data as Pick<Reply, 'id' | 'body' | 'edited_at'>;
 }

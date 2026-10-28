@@ -309,6 +309,14 @@ jobs:
         env:
           PGPASSWORD: postgres
         run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_trimmed_text_test.sql
+      # Official replies editable only by a current team member (0053): leaving or being
+      # removed from the board's team refuses the edit (hint edit_not_team_member);
+      # rejoining restores it; deleting and community replies unchanged. Own fixtures,
+      # rolled back.
+      - name: v2 reply team edit tests
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_reply_team_edit_test.sql
 
       - name: Report public read-policy count
         env:

@@ -141,6 +141,14 @@ once the post is Shipped, Closed or Merged (hints `edit_window_closed` / `edit_l
 team edits of someone else's reply; deleting is unchanged. The reply's Edit is disabled with the
 reason. Test: `supabase/tests/v2_reply_edit_rules_test.sql`.
 
+**Follow-up (2026-10-28, approved by Albert 07:39 CAT).** Official team replies are editable only
+while their author is still a current member of the board's team (board or hub membership), via
+the same trigger function (`0053_v2_reply_edit_team_member.sql`, hint `edit_not_team_member`).
+Leaving or being removed locks their old official replies; rejoining restores editing. Deleting is
+unchanged (a former member can still delete their own official reply; changing that would be an
+RLS change and was left to Albert). Edit shows disabled with "Only current team members can edit
+team replies". Test: `supabase/tests/v2_reply_team_edit_test.sql`.
+
 ---
 
 ### D-011 · Every post in production is imported from a public source, and nothing says so

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { deletePost, fetchFeed, fetchPost, setVote, updatePost, FEED_PAGE_SIZE } from '../api/posts';
+import { deletePost, fetchFeed, fetchPost, setVote, updatePost, updateReply, FEED_PAGE_SIZE } from '../api/posts';
 
 /*
  * The api layer against a recording stand-in for the Supabase query builder:
@@ -119,6 +119,11 @@ describe('fetchPost and writes', () => {
     await expect(updatePost('p1', draft)).rejects.toThrow('Posts can be edited for 1 hour after posting.');
     db.errors.post = { code: '42501', message: 'x', hint: 'edit_locked_status' };
     await expect(updatePost('p1', draft)).rejects.toThrow('This post can’t be edited any more: the team has shipped or closed it.');
+  });
+
+  it('explains a refused official-reply edit by a former teammate (0053)', async () => {
+    db.errors.reply = { code: '42501', message: 'x', hint: 'edit_not_team_member' };
+    await expect(updateReply('r1', 'new words')).rejects.toThrow('Only current team members can edit team replies.');
   });
 
   it('reports a delete that RLS filtered out (zero rows) as a failure', async () => {

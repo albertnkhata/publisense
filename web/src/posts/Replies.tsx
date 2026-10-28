@@ -300,8 +300,11 @@ function ReplyItem({
   const staff = useIsPlatformAdmin(viewer?.id ?? null);
   const [reporting, setReporting] = useState(false);
   const isAuthor = Boolean(viewer && reply.author_id === viewer.id);
-  // Authors edit within the rules of 0051 (#181); the DB enforces them too.
-  const editLock = isAuthor ? replyEditLockReason(reply, post) : null;
+  // Authors edit within the rules of 0051 (#181) and 0053 (official replies only while
+  // still on the team; unknown until the team check answers); the DB enforces them too.
+  const editLock = isAuthor
+    ? replyEditLockReason(reply, post, undefined, team.isSuccess ? Boolean(team.data) : undefined)
+    : null;
   const lockId = useId();
   const closed = post.status === 'merged' || Boolean(post.hidden_at);
   const canHide = Boolean(team.data || staff.data);
