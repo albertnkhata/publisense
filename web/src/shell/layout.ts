@@ -15,36 +15,50 @@ import { useMatches } from 'react-router';
  *     in the space the rail used to share, for forms, lists and long text
  *     (Settings, Notifications, the legal pages).
  *   With the rail on the column is always `max-w-content`; `width` is ignored.
+ * - `chrome` picks the frame around the page:
+ *   - `'app'` (the default): nav rail, top bar, tab bar at sm.
+ *   - `'site'`: a plain website header (brand, Terms · Privacy, Sign in or
+ *     back to Publisense) and no nav rail or tab bar, for standalone pages
+ *     people land on from a link (the legal pages). Implies no right rail
+ *     and the narrow reading column.
  */
 export type ShellWidth = 'narrow' | 'wide';
+export type ShellChrome = 'app' | 'site';
 
 export interface ShellHandle {
   rail?: boolean;
   width?: ShellWidth;
+  chrome?: ShellChrome;
 }
 
 export interface ShellLayout {
   rail: boolean;
   /** The content column: `narrow` is max-w-content, `wide` is max-w-wide. Always `narrow` with the rail. */
   width: ShellWidth;
+  chrome: ShellChrome;
 }
 
 /** No rail, wide column: dense staff and owner screens (/admin, Manage). */
 export const NO_RAIL_WIDE = { rail: false, width: 'wide' } as const satisfies ShellHandle;
 /** No rail, reading-width column: forms, lists and long text. */
 export const NO_RAIL_NARROW = { rail: false, width: 'narrow' } as const satisfies ShellHandle;
+/** Website header instead of the app's nav rail, reading-width column: the legal pages. */
+export const SITE_PAGE = { chrome: 'site', rail: false, width: 'narrow' } as const satisfies ShellHandle;
 
 export function shellLayoutFor(handles: unknown[]): ShellLayout {
   let rail = true;
   let width: ShellWidth | undefined;
+  let chrome: ShellChrome = 'app';
   for (const h of handles) {
     if (!h || typeof h !== 'object') continue;
     const s = h as ShellHandle;
     if (typeof s.rail === 'boolean') rail = s.rail;
     if (s.width === 'narrow' || s.width === 'wide') width = s.width;
+    if (s.chrome === 'app' || s.chrome === 'site') chrome = s.chrome;
   }
-  if (rail) return { rail, width: 'narrow' };
-  return { rail, width: width ?? 'wide' };
+  if (chrome === 'site') return { rail: false, width: 'narrow', chrome };
+  if (rail) return { rail, width: 'narrow', chrome };
+  return { rail, width: width ?? 'wide', chrome };
 }
 
 export function useShellLayout(): ShellLayout {
