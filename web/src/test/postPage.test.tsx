@@ -331,7 +331,8 @@ describe('reply edit rules (0051, #181)', () => {
     expect(within(item).getByRole('button', { name: 'Delete' })).toBeTruthy();
   });
 
-  it('keeps Edit on an old official reply while the post is open', async () => {
+  it('keeps Edit on an old official reply while the post is open and the author is on the team', async () => {
+    boardsApi.fetchIsBoardTeam.mockResolvedValue(true);
     const post = makePost({ reply_count: 1 });
     const mine = makeReply(post, { author: ME, author_id: ME.id, body: 'Team answer', is_official: true, created_at: iso(72) });
     renderPost(post, { replies: [mine] });
@@ -340,6 +341,21 @@ describe('reply edit rules (0051, #181)', () => {
     expect(edit.getAttribute('aria-disabled')).toBeNull();
     fireEvent.click(edit);
     expect(within(item).getByRole('textbox', { name: 'Edit reply' })).toBeTruthy();
+  });
+
+  it('disables Edit on an official reply once its author is no longer on the team (0053)', async () => {
+    boardsApi.fetchIsBoardTeam.mockResolvedValue(false);
+    const post = makePost({ reply_count: 1 });
+    const mine = makeReply(post, { author: ME, author_id: ME.id, body: 'Old team answer', is_official: true, created_at: iso(0.1) });
+    renderPost(post, { replies: [mine] });
+    const item = (await screen.findByText('Old team answer')).closest('article')!;
+    await waitFor(() => expect(within(item).getByRole('button', { name: 'Edit' }).getAttribute('aria-disabled')).toBe('true'));
+    const edit = within(item).getByRole('button', { name: 'Edit' });
+    expect(edit.getAttribute('title')).toBe('Only current team members can edit team replies');
+    expect(document.getElementById(edit.getAttribute('aria-describedby')!)?.textContent).toBe('Only current team members can edit team replies');
+    fireEvent.click(edit);
+    expect(within(item).queryByRole('textbox', { name: 'Edit reply' })).toBeNull();
+    expect(within(item).getByRole('button', { name: 'Delete' })).toBeTruthy();
   });
 
   it('locks every reply, official included, once the post is Shipped', async () => {
