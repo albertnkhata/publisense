@@ -15,7 +15,8 @@ import { Icon, ScrollRow, SkeletonBlock } from '../ui';
  * New on Publisense and All products (sections with nothing to show are left
  * out; Trending needs a board with new posts this week, and Most wanted reads
  * "Latest requests" until something has an upvote, #156). Typing or picking a category filters boards and hubs instead. Both live
- * in the URL (`?q=`, `?cat=`).
+ * in the URL (`?q=`, `?cat=`). Search itself is the shell's site search; `?q=` only
+ * survives for old links.
  */
 type Cat = 'all' | BoardCategory;
 
@@ -41,19 +42,20 @@ export function ExplorePage() {
       <h1 id="page-title" className="sr-only">
         Explore
       </h1>
-      <label className="flex h-9 items-center gap-3 rounded-lg border border-line-strong bg-card px-4 text-ink-muted transition-colors duration-120 focus-within:border-brand">
-        <Icon name="search" size={16} />
-        <input
-          type="search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search products"
-          aria-label="Search products"
-          autoComplete="off"
-          className="w-full min-w-0 appearance-none border-0 bg-transparent text-md text-ink outline-none focus-visible:outline-none"
-        />
-      </label>
-      <ScrollRow label="Categories" className="mt-2 mb-6">
+      {/* No search field of its own: the site search in the shell finds products. An old
+          /explore?q= link still filters, shown as a chip you can clear. */}
+      <ScrollRow label="Categories" className="mb-6">
+        {q.trim() ? (
+          <button
+            type="button"
+            onClick={() => setQ('')}
+            aria-label={`Clear search “${q.trim()}”`}
+            className="inline-flex h-7 shrink-0 items-center gap-1 rounded-pill border border-ink bg-ink px-3 text-sm font-medium text-card"
+          >
+            “{q.trim()}”
+            <Icon name="close" size={14} />
+          </button>
+        ) : null}
         {chips.map((c) => (
           <button
             key={c.value}
