@@ -23,8 +23,17 @@ export async function copyText(text: string): Promise<boolean> {
  * sheet handled it (or was dismissed).
  */
 export async function sharePost(id: string, title: string): Promise<string | null> {
-  recordEvent('share_click', { path: `/post/${id}` });
-  const url = postUrl(id);
+  return shareLink(`/post/${id}`, title);
+}
+
+/**
+ * Share any page on the site (a post, a board, a person): the system share sheet
+ * where there is one, otherwise copy the link. Same contract as sharePost.
+ */
+export async function shareLink(path: string, title: string, copied = 'Link copied'): Promise<string | null> {
+  recordEvent('share_click', { path });
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const url = `${origin}${path}`;
   if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
     try {
       await navigator.share({ title, url });
@@ -33,5 +42,5 @@ export async function sharePost(id: string, title: string): Promise<string | nul
     }
     return null;
   }
-  return (await copyText(url)) ? 'Link copied' : 'Copy failed';
+  return (await copyText(url)) ? copied : 'Copy failed';
 }

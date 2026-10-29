@@ -1,11 +1,11 @@
 /**
  * Link previews for crawlers (X, WhatsApp, Slack, LinkedIn, search engines).
  * vercel.json routes ONLY crawler user agents on /b/:slug, /h/:slug and
- * /post/:id here; people never hit this function, so a failure here can't
+ * /post/:id and /u/:handle here; people never hit this function, so a failure here can't
  * break the app. Any error still answers with the plain index.html.
  */
 import { randomUUID } from 'node:crypto';
-import { applyMeta, boardMeta, hubMeta, postMeta, SITE, type PostMetaRow, type ShareMeta } from './_lib/shareMeta.js';
+import { applyMeta, boardMeta, hubMeta, postMeta, userMeta, SITE, type PostMetaRow, type ShareMeta } from './_lib/shareMeta.js';
 
 interface Req { query: Record<string, string | string[] | undefined>; headers: Record<string, string | string[] | undefined> }
 interface Res { status(code: number): Res; setHeader(k: string, v: string): void; send(body: string): void }
@@ -27,7 +27,9 @@ export async function lookup(kind: string, key: string): Promise<Lookup> {
         ? `hub?select=slug,name,description&slug=eq.${k}&limit=1`
         : kind === 'post' && /^[0-9a-f-]{36}$/i.test(key)
           ? `post?select=id,title,body,status,merged_into,board(name),merged:merged_into(id,title)&id=eq.${k}&hidden_at=is.null&limit=1`
-          : null;
+          : kind === 'user' && /^@?[a-z0-9_]{3,30}$/i.test(key)
+            ? `profile?select=handle,name,bio&handle=eq.${encodeURIComponent(key.replace(/^@/, '').toLowerCase())}&limit=1`
+            : null;
   // A key that can't name a board, hub or post is a definite miss.
   if (!q) return 'missing';
   const r = await fetch(`${base}/rest/v1/${q}`, { headers: { apikey: anon, authorization: `Bearer ${anon}` }, signal: AbortSignal.timeout(2000) });
@@ -38,6 +40,7 @@ export async function lookup(kind: string, key: string): Promise<Lookup> {
   // hidden or deleted (a merged post is visible, and gets a page). Crawlers get a real 404 so these aren't indexed as soft 404s.
   if (!row) return 'missing';
   if (kind === 'board') return boardMeta(row as { slug: string; name: string; tagline: string | null });
+  if (kind === 'user') return userMeta(row as { handle: string; name: string | null; bio: string | null });
   if (kind === 'hub') return hubMeta(row as { slug: string; name: string; description: string | null });
   // A merged post (readable since 0043) answers 200 with its canonical set to the post it was merged into.
   return postMeta(row as unknown as PostMetaRow);
@@ -78,8 +81,8 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       const anon = (process.env.VITE_SUPABASE_ANON_KEY ?? '').trim();
       const kind = one(req.query.kind);
       const key = one(req.query.key);
-      if (base && anon && (kind === 'board' || kind === 'hub' || kind === 'post')) {
-        await recordUnfurl(base, anon, `/${kind === 'board' ? 'b' : kind === 'hub' ? 'h' : 'post'}/${key}`);
+      if (base && anon && (kind === 'board' || kind === 'hub' || kind === 'post' || kind === 'user')) {
+        await recordUnfurl(base, anon, `/${kind === 'board' ? 'b' : kind === 'hub' ? 'h' : kind === 'user' ? 'u' : 'post'}/${key}`);
       }
     }
   } catch {
