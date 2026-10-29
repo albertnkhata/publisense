@@ -383,4 +383,26 @@ select pg_temp.expect('0054: rollup of the orphaned raw row deletes 1 row',
 select pg_temp.expect('0054: rollup merges it into the existing null-board bucket',
   (select events = 2 from private.analytics_daily where day = current_date - 33 and kind = 'page_view' and board_id is null));
 
+-- ------------------------------------------------------------ 0056: visits leave out link-preview bots
+
+delete from private.analytics_event;
+delete from private.analytics_daily;
+insert into private.analytics_event (visit_id, kind, path, at)
+select visit1, 'page_view', '/', now() from f
+union all select visit2, 'share_unfurl', '/b/cc54live', now() from f
+union all select visit3, 'share_unfurl', '/b/cc54live', now() from f
+union all select visit1, 'page_view', '/old', now() - interval '35 days' from f
+union all select visit2, 'share_unfurl', '/old', now() - interval '35 days' from f;
+select pg_temp.expect('0056: raw visit total counts the page view, not the two unfurls',
+  (select visits = 1 from private.analytics_buckets(now() - interval '1 day')
+    where kind = 'visit' and day = (now() at time zone 'UTC')::date));
+select pg_temp.expect('0056: unfurls are still counted under their own kind',
+  (select events = 2 from private.analytics_buckets(now() - interval '1 day')
+    where kind = 'share_unfurl' and day = (now() at time zone 'UTC')::date));
+select pg_temp.expect('0056: rollup moves the 2 old rows',
+  private.rollup_analytics_events() = 2);
+select pg_temp.expect('0056: rolled-up visit total leaves out the unfurl',
+  (select visits = 1 from private.analytics_daily
+    where kind = 'visit' and day = ((now() - interval '35 days') at time zone 'UTC')::date));
+
 rollback;
