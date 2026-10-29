@@ -130,6 +130,8 @@ describe('user page', () => {
     const menu = await screen.findByRole('menu');
     await waitFor(() => expect(mod.fetchAdminScopes).toHaveBeenCalled());
     expect(within(menu).queryByRole('menuitem', { name: /Block/ })).toBeNull();
+    // Share lives in the ⋯ menu, not as its own button.
+    expect(within(menu).getByRole('menuitem', { name: /Share profile/ })).toBeTruthy();
   });
 
   it('your own page: Edit profile, what you manage, and a private Upvoted tab', async () => {
@@ -141,6 +143,9 @@ describe('user page', () => {
     renderAt(`/u/${ME.handle}`);
     expect(await screen.findByRole('button', { name: 'Edit profile' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Follow' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Profile options' }));
+    expect(within(await screen.findByRole('menu')).getByRole('menuitem', { name: /Share profile/ })).toBeTruthy();
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
     expect(await screen.findByText(/3 posts waiting for a status/)).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Manage' }).getAttribute('href')).toBe('/b/cursor/manage');
     expect(await screen.findByText('following')).toBeTruthy();

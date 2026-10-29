@@ -41,7 +41,7 @@ import { useSetUrlParams } from '../lib/useUrlParam';
 /**
  * A person's page (FOUNDATION §9 `/u/:handle`, mockup #user/<handle>): who they
  * are, their posts and replies, and for yourself the boards you manage and what
- * you upvoted (private). Follow, Share, and in the ⋯ menu Report and, for the
+ * you upvoted (private). Follow, and in the ⋯ menu Share, Report and, for the
  * owners and admins of a board or hub, Block from it (FOUNDATION §6).
  *
  * Left out because nothing backs them (FOUNDATION §10): "Follows you" and other
@@ -167,23 +167,22 @@ function ProfileActions({ person, self }: { person: PublicProfile; self: boolean
   };
   if (self) {
     return (
-      <div className="flex shrink-0 gap-2 max-md:order-3 max-md:w-full">
+      <div className="flex shrink-0 items-center gap-2 max-md:order-3 max-md:w-full">
         <Button variant="secondary" onClick={() => void navigate('/settings')} className="max-md:flex-1">
           Edit profile
         </Button>
-        <Button variant="secondary" onClick={share} className="max-md:flex-1">
-          Share
-        </Button>
+        <Menu label="Profile options" align="end" trigger={(p) => <IconButton {...p} icon="more" label="Profile options" />}>
+          <MenuItem icon="share" description="Copy or send your profile link" onSelect={share}>
+            Share profile
+          </MenuItem>
+        </Menu>
       </div>
     );
   }
   return (
     <div className="flex shrink-0 items-center gap-2 max-md:order-3 max-md:w-full">
       <FollowPersonButton person={person} />
-      <Button variant="secondary" onClick={share} className="max-md:flex-1">
-        Share
-      </Button>
-      <PersonMenu person={person} />
+      <PersonMenu person={person} onShare={share} />
     </div>
   );
 }
@@ -217,8 +216,8 @@ export function FollowPersonButton({ person, size = 'md' }: { person: { id: stri
   );
 }
 
-/** Report the account, and Block/Unblock from each board or hub the viewer runs. */
-function PersonMenu({ person }: { person: PublicProfile }) {
+/** Share the profile, report the account, and Block/Unblock from each board or hub the viewer runs. */
+function PersonMenu({ person, onShare }: { person: PublicProfile; onShare: () => void }) {
   const { viewer } = useViewer();
   const requireAuth = useRequireAuth();
   const { toast } = useToast();
@@ -250,6 +249,10 @@ function PersonMenu({ person }: { person: PublicProfile }) {
   return (
     <>
       <Menu label={`Options for ${name}`} align="end" trigger={(p) => <IconButton {...p} icon="more" label="Profile options" />}>
+        <MenuItem icon="share" description="Copy or send their profile link" onSelect={onShare}>
+          Share profile
+        </MenuItem>
+        <MenuSeparator />
         <MenuItem
           icon="flag"
           danger
