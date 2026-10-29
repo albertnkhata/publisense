@@ -3,7 +3,7 @@ import { Link, NavLink } from 'react-router';
 import { cx } from '../lib/cx';
 import { MQ, useMediaQuery } from '../lib/useMediaQuery';
 import { useShortcut } from '../lib/useShortcut';
-import { useUnreadCount } from '../api';
+import { useIsPlatformAdmin, useUnreadCount } from '../api';
 import { useViewer } from '../lib/viewer';
 import { Button, Icon, Tooltip, type IconName } from '../ui';
 import { BrandSymbol } from './BrandMark';
@@ -38,6 +38,7 @@ export function NavRail() {
   const [manual, setManual] = useState<boolean>(readCollapsed);
   const collapsed = manual || belowXl;
   const unread = useUnreadCount(viewer?.id ?? null).data ?? 0;
+  const staff = useIsPlatformAdmin(viewer?.id ?? null).data ?? false;
 
   const toggle = useCallback(() => {
     setManual((c) => {
@@ -95,6 +96,8 @@ export function NavRail() {
         <NavRow to="/explore" icon="explore" label="Explore" collapsed={collapsed} />
         {viewer ? <NavRow to="/notifications" icon="bell" label="Notifications" collapsed={collapsed} count={unread} /> : null}
       </nav>
+
+      {staff ? <AdminSections collapsed={collapsed} /> : null}
 
       {/* Sits beside the logo but comes AFTER the primary links in the DOM, so a keyboard
           user's first stop in the nav is Home, not a control that only appears on hover
@@ -160,6 +163,30 @@ export function NavRail() {
       {/* Terms · Privacy on every page above sm, whether or not the route has the right rail. */}
       <div className="mt-3">{collapsed ? <LegalMenu /> : <LegalLinks inline />}</div>
     </aside>
+  );
+}
+
+/**
+ * Staff only: the /admin sections as rows under the primary links, so they are one
+ * click from anywhere. On phones (no rail) the pills at the top of /admin stay.
+ */
+const ADMIN_SECTIONS: Array<{ to: string; icon: IconName; label: string; end?: boolean }> = [
+  { to: '/admin', icon: 'gauge', label: 'Overview', end: true },
+  { to: '/admin/products', icon: 'box', label: 'New products' },
+  { to: '/admin/companies', icon: 'building', label: 'Companies' },
+  { to: '/admin/reports', icon: 'flag', label: 'Reports' },
+  { to: '/admin/disputes', icon: 'scale', label: 'Ownership disputes' },
+  { to: '/admin/team', icon: 'users', label: 'Admin team' },
+];
+
+function AdminSections({ collapsed }: { collapsed: boolean }) {
+  return (
+    <nav aria-label="Admin" className="mb-4 flex flex-col gap-1 border-t border-line pt-3">
+      {collapsed ? null : <div className="px-3 pb-1 text-xs font-semibold text-ink-muted uppercase">Admin</div>}
+      {ADMIN_SECTIONS.map((s) => (
+        <NavRow key={s.to} to={s.to} icon={s.icon} label={s.label} collapsed={collapsed} end={s.end} />
+      ))}
+    </nav>
   );
 }
 
