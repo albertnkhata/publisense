@@ -116,6 +116,20 @@ export async function setNewPassword(password: string): Promise<AuthResult> {
 }
 
 /**
+ * Finish a forgot-password reset from the emailed link: set the new password, then
+ * sign out every other session. A reset is often how someone takes an account back,
+ * so a device that held the old password must not stay signed in. This browser
+ * stays signed in: opening the link already proved the mailbox.
+ */
+export async function completePasswordReset(password: string): Promise<AuthResult> {
+  const sb = getSupabase();
+  const { error } = await sb.auth.updateUser({ password });
+  if (error) return { error: explainAuthError(error) };
+  await sb.auth.signOut({ scope: 'others' });
+  return { error: null };
+}
+
+/**
  * Change password from Settings: prove the current one first, then set the new
  * one and sign out every other session (mockup: "You'll stay signed in here and be
  * signed out everywhere else").

@@ -18,7 +18,7 @@ vi.mock('../api/supabase', () => ({
   publicStorageUrl: () => null,
 }));
 
-const { AUTH_COPY, changePassword, explainAuthError, requestPasswordReset, signInWithPassword, signUp } = await import('../api/auth');
+const { AUTH_COPY, changePassword, completePasswordReset, explainAuthError, requestPasswordReset, signInWithPassword, signUp } = await import('../api/auth');
 
 const authError = (code: string, message = code) => Object.assign(new Error(message), { code });
 
@@ -69,5 +69,18 @@ describe('auth api', () => {
     expect(await changePassword('a@b.co', 'right', 'Newer-pass-1')).toEqual({ error: null });
     expect(auth.updateUser).toHaveBeenCalledWith({ password: 'Newer-pass-1' });
     expect(auth.signOut).toHaveBeenCalledWith({ scope: 'others' });
+  });
+
+  it('finishes a reset by setting the password and signing out other sessions', async () => {
+    auth.updateUser.mockResolvedValue({ error: null });
+    expect(await completePasswordReset('Newer-pass-1')).toEqual({ error: null });
+    expect(auth.updateUser).toHaveBeenCalledWith({ password: 'Newer-pass-1' });
+    expect(auth.signOut).toHaveBeenCalledWith({ scope: 'others' });
+  });
+
+  it('keeps other sessions when the reset itself fails', async () => {
+    auth.updateUser.mockResolvedValue({ error: authError('same_password') });
+    expect((await completePasswordReset('Same-pass-1')).error).toBeTruthy();
+    expect(auth.signOut).not.toHaveBeenCalled();
   });
 });

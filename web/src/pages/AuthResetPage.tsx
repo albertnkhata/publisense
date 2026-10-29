@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router';
-import { AUTH_COPY, MIN_PASSWORD, recoverySignal, setNewPassword } from '../api';
+import { AUTH_COPY, MIN_PASSWORD, completePasswordReset, recoverySignal } from '../api';
 import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { useAuthDialog } from '../shell/auth';
@@ -17,7 +17,7 @@ function linkError(): boolean {
 /**
  * /auth/reset (FOUNDATION §7: forgot → sent → reset). The emailed link signs the
  * user in with a recovery session (PASSWORD_RECOVERY); this page sets the new
- * password. Without a session the link is spent or expired, and the page offers a
+ * password and signs out every other session. Without a session the link is spent or expired, and the page offers a
  * fresh one without saying anything about the account.
  */
 export function AuthResetPage() {
@@ -35,11 +35,11 @@ export function AuthResetPage() {
     e.preventDefault();
     if (password.length < MIN_PASSWORD) return setError(AUTH_COPY.shortPassword);
     setBusy(true);
-    const r = await setNewPassword(password);
+    const r = await completePasswordReset(password);
     setBusy(false);
     if (r.error) return setError(r.error);
     recoverySignal.clear();
-    toast('Password updated · you’re signed in');
+    toast('Password updated · other devices were signed out');
     navigate('/', { replace: true });
   }
 
