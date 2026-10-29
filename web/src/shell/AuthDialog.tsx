@@ -78,9 +78,9 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
   const [sentTo, setSentTo] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  // Confirm-email screen: when the last email went out, and the resend state.
+  // Confirm-email and reset-sent screens: when the last email went out, and the resend state.
   const [sentAt, setSentAt] = useState(0);
-  const [canResend, setCanResend] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
   const [resending, setResending] = useState(false);
   const [resent, setResent] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
@@ -97,19 +97,20 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
     setError('');
   };
 
-  // Resend unlocks a minute after the last confirmation email. No ticking counter
-  // on screen (clean design); the line just changes when it is ready.
+  // Resend unlocks a minute after the last email, with a visible countdown.
+  const waiting = mode === 'confirm' || mode === 'sent';
+  const secondsLeft = waiting && sentAt ? Math.max(0, Math.ceil((sentAt + RESEND_COOLDOWN_S * 1000 - now) / 1000)) : 0;
+  const canResend = secondsLeft === 0;
   useEffect(() => {
-    if (mode !== 'confirm' || !sentAt) return;
-    const left = sentAt + RESEND_COOLDOWN_S * 1000 - Date.now();
-    if (left <= 0) {
-      setCanResend(true);
-      return;
-    }
-    setCanResend(false);
-    const t = setTimeout(() => setCanResend(true), left);
-    return () => clearTimeout(t);
-  }, [mode, sentAt]);
+    if (!waiting || !sentAt) return;
+    setNow(Date.now());
+    const t = setInterval(() => {
+      const t2 = Date.now();
+      setNow(t2);
+      if (t2 >= sentAt + RESEND_COOLDOWN_S * 1000) clearInterval(t);
+    }, 1000);
+    return () => clearInterval(t);
+  }, [waiting, sentAt]);
 
   // Mockup: switching mode moves focus to the first visible field.
   useEffect(() => {
@@ -141,6 +142,7 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
         const r = await requestPasswordReset(email);
         if (r.error) return fail(r.error);
         setSentTo(email.trim());
+        setSentAt(Date.now());
         setMode('sent');
         return;
       }
@@ -197,9 +199,21 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
   }
 
   async function resend() {
-    const r = await requestPasswordReset(sentTo);
-    if (r.error) setError(r.error);
-    else toast('Sent another link');
+    if (resending || !canResend) return;
+    setResending(true);
+    setError('');
+    try {
+      const r = await requestPasswordReset(sentTo);
+      if (r.error) {
+        setError(r.error);
+        if (r.error === AUTH_COPY.rateLimited) setSentAt(Date.now());
+        return;
+      }
+      setSentAt(Date.now());
+      toast('Sent another link');
+    } finally {
+      setResending(false);
+    }
   }
 
   async function google() {
@@ -329,7 +343,13 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
           ) : mode === 'signin' ? (
             <SwitchLine text="New to Publisense?" action="Create an account" onClick={() => setMode('signup')} />
           ) : mode === 'sent' ? (
-            <SwitchLine text="Didn’t get it?" action="Resend" onClick={resend} />
+            canResend ? (
+              <SwitchLine text="Didn’t get it?" action={resending ? 'Sending…' : 'Resend'} onClick={resend} />
+            ) : (
+              <>
+                Didn’t get it? You can resend in <Countdown seconds={secondsLeft} />
+              </>
+            )
           ) : mode === 'expired' ? (
             <SwitchLine text="Already confirmed your email?" action="Sign in" onClick={() => setMode('signin')} />
           ) : mode === 'confirm' ? (
@@ -337,10 +357,11 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
               <span>
                 {canResend ? (
                   <SwitchLine text={resent ? 'Still nothing?' : 'Didn’t get it?'} action={resending ? 'Sending…' : 'Resend email'} onClick={resendConfirmation} />
-                ) : resent ? (
-                  'Sent again. Check your spam folder too. You can resend in a minute.'
                 ) : (
-                  'Didn’t get it? You can resend it in a minute.'
+                  <>
+                    {resent ? 'Sent again. Check your spam folder too. You can resend in ' : 'Didn’t get it? You can resend in '}
+                    <Countdown seconds={secondsLeft} />
+                  </>
                 )}
               </span>
               <SwitchLine text="Wrong address?" action="Use a different email" onClick={editEmail} />
@@ -385,5 +406,16 @@ function GoogleMark() {
       <path fill="var(--google-yellow)" d="M6.4 14c-.2-.6-.3-1.3-.3-2s.1-1.4.3-2V7.4H3.1a10 10 0 0 0 0 9.2z" />
       <path fill="var(--google-red)" d="M12 6c1.5 0 2.8.5 3.8 1.5l2.9-2.9A10 10 0 0 0 3.1 7.4L6.4 10C7.2 7.7 9.4 6 12 6z" />
     </svg>
+  );
+}
+
+/** m:ss, steady width so the line doesn't jitter; screen readers skip the per-second ticks. */
+function Countdown({ seconds }: { seconds: number }) {
+  const m = Math.floor(seconds / 60);
+  const ss = String(seconds % 60).padStart(2, '0');
+  return (
+    <span className="tabular-nums text-ink" aria-live="off">
+      {m}:{ss}
+    </span>
   );
 }

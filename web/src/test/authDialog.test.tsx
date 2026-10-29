@@ -151,20 +151,26 @@ describe('AuthDialog: confirm your email', () => {
     expect(screen.getByRole('dialog', { name: 'Confirm your email' })).toBeTruthy();
   }
 
-  it('offers Resend email a minute after sending, then waits another minute', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: false, toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+  it('counts down to Resend email, then counts down again after a resend', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: false, toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
     try {
       api.resendSignupConfirmation.mockResolvedValue({ error: null });
       await signUpNia();
-      expect(screen.getByText('Didn’t get it? You can resend it in a minute.')).toBeTruthy();
+      expect(screen.getByText(/Didn’t get it\? You can resend in/)).toBeTruthy();
+      expect(screen.getByText('1:00')).toBeTruthy();
       expect(screen.queryByRole('button', { name: 'Resend email' })).toBeNull();
       await act(async () => {
-        vi.advanceTimersByTime(60_000);
+        vi.advanceTimersByTime(18_000);
+      });
+      expect(screen.getByText('0:42')).toBeTruthy();
+      await act(async () => {
+        vi.advanceTimersByTime(42_000);
       });
       await act(async () => submit('Resend email'));
       expect(api.resendSignupConfirmation).toHaveBeenCalledWith('new@b.co');
       expect(screen.getByText('Confirmation email sent')).toBeTruthy();
-      expect(screen.getByText(/Sent again\. Check your spam folder too\. You can resend in a minute\./)).toBeTruthy();
+      expect(screen.getByText(/Sent again\. Check your spam folder too\. You can resend in/)).toBeTruthy();
+      expect(screen.getByText('1:00')).toBeTruthy();
       expect(screen.queryByRole('button', { name: 'Resend email' })).toBeNull();
       await act(async () => {
         vi.advanceTimersByTime(60_000);
@@ -176,7 +182,7 @@ describe('AuthDialog: confirm your email', () => {
   });
 
   it('shows friendly copy when the resend is throttled', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: false, toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    vi.useFakeTimers({ shouldAdvanceTime: false, toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
     try {
       api.resendSignupConfirmation.mockResolvedValue({ error: 'We just sent one. Wait a minute, then try again.' });
       await signUpNia();
@@ -215,17 +221,28 @@ describe('AuthDialog: forgot → sent', () => {
     expect(screen.getByText('If who@b.co has an account, a reset link is on its way. It expires in 1 hour.')).toBeTruthy();
   });
 
-  it('resends from the sent step and goes back to sign in', async () => {
-    api.requestPasswordReset.mockResolvedValue({ error: null });
-    open('forgot');
-    fireEvent.change(email(), { target: { value: 'who@b.co' } });
-    submit('Send reset link');
-    await screen.findByRole('dialog', { name: 'Check your email' });
-    await act(async () => submit('Resend'));
-    expect(api.requestPasswordReset).toHaveBeenLastCalledWith('who@b.co');
-    expect(await screen.findByText('Sent another link')).toBeTruthy();
-    submit('Back to sign in');
-    expect(screen.getByRole('dialog', { name: 'Sign in to Publisense' })).toBeTruthy();
+  it('counts down before Resend on the sent step, then goes back to sign in', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: false, toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
+    try {
+      api.requestPasswordReset.mockResolvedValue({ error: null });
+      open('forgot');
+      fireEvent.change(email(), { target: { value: 'who@b.co' } });
+      await act(async () => submit('Send reset link'));
+      expect(screen.getByRole('dialog', { name: 'Check your email' })).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Resend' })).toBeNull();
+      expect(screen.getByText('1:00')).toBeTruthy();
+      await act(async () => {
+        vi.advanceTimersByTime(60_000);
+      });
+      await act(async () => submit('Resend'));
+      expect(api.requestPasswordReset).toHaveBeenLastCalledWith('who@b.co');
+      expect(screen.getByText('Sent another link')).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Resend' })).toBeNull();
+      submit('Back to sign in');
+      expect(screen.getByRole('dialog', { name: 'Sign in to Publisense' })).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('only stops on a throttle or a network failure', async () => {
