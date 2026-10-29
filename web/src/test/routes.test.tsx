@@ -65,17 +65,22 @@ describe('routes', () => {
     expect([...WIDE, ...NARROW, ...SITE, ...RAIL.filter((p) => p !== '/no/such/page')].sort()).toEqual([...paths].sort());
   });
 
-  function expectNoRail() {
+  function expectNoRail(topBarOnDesktop = true) {
     expect(screen.queryByRole('complementary', { name: 'Sidebar' })).toBeNull();
     const header = screen.getAllByRole('banner')[0]!;
-    expect(header.className.split(/\s+/)).toContain('flex');
-    expect(header.className).not.toContain('max-lg:flex');
+    if (topBarOnDesktop) {
+      expect(header.className.split(/\s+/)).toContain('flex');
+      expect(header.className).not.toContain('max-lg:flex');
+    } else {
+      // Staff pages: the top bar is gone from lg up and kept below it.
+      expect(header.className.split(/\s+/)).toEqual(expect.arrayContaining(['hidden', 'max-lg:flex']));
+    }
     expect(screen.getAllByRole('button', { name: /search/i }).length).toBeGreaterThan(0);
   }
 
-  it.each(WIDE)('%s has no right rail, a wide column and a top bar with search at every width', (path) => {
+  it.each(WIDE)('%s has no right rail and a wide column; the top bar is desktop-free only on /admin', (path) => {
     renderAt(path);
-    expectNoRail();
+    expectNoRail(!path.startsWith('/admin'));
     const main = document.getElementById('main')!;
     expect(main.className).toContain('max-w-wide');
     expect(main.className).not.toContain('max-w-content');
@@ -134,25 +139,30 @@ describe('routes', () => {
 
 describe('shellLayoutFor', () => {
   it('defaults to the rail and lets the deepest route that says something win', () => {
-    expect(shellLayoutFor([])).toEqual({ rail: true, width: 'narrow', chrome: 'app' });
-    expect(shellLayoutFor([undefined, null, 'x', {}])).toEqual({ rail: true, width: 'narrow', chrome: 'app' });
-    expect(shellLayoutFor([undefined, { rail: false }, undefined])).toEqual({ rail: false, width: 'wide', chrome: 'app' });
-    expect(shellLayoutFor([{ rail: false }, { rail: true }])).toEqual({ rail: true, width: 'narrow', chrome: 'app' });
+    expect(shellLayoutFor([])).toEqual({ rail: true, width: 'narrow', chrome: 'app', topBar: true });
+    expect(shellLayoutFor([undefined, null, 'x', {}])).toEqual({ rail: true, width: 'narrow', chrome: 'app', topBar: true });
+    expect(shellLayoutFor([undefined, { rail: false }, undefined])).toEqual({ rail: false, width: 'wide', chrome: 'app', topBar: true });
+    expect(shellLayoutFor([{ rail: false }, { rail: true }])).toEqual({ rail: true, width: 'narrow', chrome: 'app', topBar: true });
   });
 
   it('sizes the column without the rail: wide by default, narrow on request, ignored with the rail', () => {
-    expect(shellLayoutFor([{ rail: false, width: 'narrow' }])).toEqual({ rail: false, width: 'narrow', chrome: 'app' });
-    expect(shellLayoutFor([{ rail: false, width: 'wide' }])).toEqual({ rail: false, width: 'wide', chrome: 'app' });
-    expect(shellLayoutFor([{ rail: false, width: 'narrow' }, { width: 'wide' }])).toEqual({ rail: false, width: 'wide', chrome: 'app' });
-    expect(shellLayoutFor([{ rail: false }, { width: 'narrow' }])).toEqual({ rail: false, width: 'narrow', chrome: 'app' });
-    expect(shellLayoutFor([{ rail: true, width: 'wide' }])).toEqual({ rail: true, width: 'narrow', chrome: 'app' });
-    expect(shellLayoutFor([{ rail: false, width: 'huge' }])).toEqual({ rail: false, width: 'wide', chrome: 'app' });
+    expect(shellLayoutFor([{ rail: false, width: 'narrow' }])).toEqual({ rail: false, width: 'narrow', chrome: 'app', topBar: true });
+    expect(shellLayoutFor([{ rail: false, width: 'wide' }])).toEqual({ rail: false, width: 'wide', chrome: 'app', topBar: true });
+    expect(shellLayoutFor([{ rail: false, width: 'narrow' }, { width: 'wide' }])).toEqual({ rail: false, width: 'wide', chrome: 'app', topBar: true });
+    expect(shellLayoutFor([{ rail: false }, { width: 'narrow' }])).toEqual({ rail: false, width: 'narrow', chrome: 'app', topBar: true });
+    expect(shellLayoutFor([{ rail: true, width: 'wide' }])).toEqual({ rail: true, width: 'narrow', chrome: 'app', topBar: true });
+    expect(shellLayoutFor([{ rail: false, width: 'huge' }])).toEqual({ rail: false, width: 'wide', chrome: 'app', topBar: true });
+  });
+
+  it('topBar: false drops the desktop top bar, deepest route wins', () => {
+    expect(shellLayoutFor([{ rail: false, topBar: false }])).toEqual({ rail: false, width: 'wide', chrome: 'app', topBar: false });
+    expect(shellLayoutFor([{ topBar: false }, { topBar: true }]).topBar).toBe(true);
   });
 
   it('site chrome always means no rail and the narrow column', () => {
-    expect(shellLayoutFor([{ chrome: 'site' }])).toEqual({ rail: false, width: 'narrow', chrome: 'site' });
-    expect(shellLayoutFor([{ chrome: 'site', rail: true, width: 'wide' }])).toEqual({ rail: false, width: 'narrow', chrome: 'site' });
-    expect(shellLayoutFor([{ chrome: 'site' }, { chrome: 'app', rail: false }])).toEqual({ rail: false, width: 'wide', chrome: 'app' });
-    expect(shellLayoutFor([{ chrome: 'web' }])).toEqual({ rail: true, width: 'narrow', chrome: 'app' });
+    expect(shellLayoutFor([{ chrome: 'site' }])).toEqual({ rail: false, width: 'narrow', chrome: 'site', topBar: true });
+    expect(shellLayoutFor([{ chrome: 'site', rail: true, width: 'wide' }])).toEqual({ rail: false, width: 'narrow', chrome: 'site', topBar: true });
+    expect(shellLayoutFor([{ chrome: 'site' }, { chrome: 'app', rail: false }])).toEqual({ rail: false, width: 'wide', chrome: 'app', topBar: true });
+    expect(shellLayoutFor([{ chrome: 'web' }])).toEqual({ rail: true, width: 'narrow', chrome: 'app', topBar: true });
   });
 });

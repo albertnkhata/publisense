@@ -36,7 +36,7 @@ export function AppShell() {
   const onTheme = useCallback(() => toggle(), [toggle]);
   useShortcut('d', onTheme, { ctrl: true });
   const { pathname } = useLocation();
-  const { rail, width, chrome } = useShellLayout();
+  const { rail, width, chrome, topBar } = useShellLayout();
 
   useEffect(() => {
     // Board pages (/b/:slug) log their own page_view with boardId once the board loads;
@@ -75,7 +75,7 @@ export function AppShell() {
         <div className="flex min-h-dvh bg-page text-ink">
           <NavRail />
           <div className="flex min-w-0 flex-1 flex-col">
-            <TopBar always={!rail} />
+            <TopBar always={!rail && topBar} />
             <div className="mx-auto flex w-full justify-center gap-6 px-7 pt-6 pb-10 max-sm:px-3 max-sm:pt-4 max-sm:pb-10">
               <main id="main" tabIndex={-1} className={cx('w-full min-w-0 flex-1 outline-none max-sm:pb-10', width === 'narrow' ? 'max-w-content' : 'max-w-wide')}>
                 <Outlet />
