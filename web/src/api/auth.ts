@@ -24,6 +24,8 @@ export const AUTH_COPY = {
   signupFailed: 'We couldn’t create that account. If you already have one, sign in or reset your password.',
   resendRateLimited: 'We just sent one. Wait a minute, then try again.',
   resendFailed: 'We couldn’t resend the email. Try again in a moment.',
+  needHandle: 'Choose a handle.',
+  badHandle: 'Handles are 3 to 24 characters: lowercase letters, numbers and underscores.',
 } as const;
 
 /** Seconds between confirmation-email resends (Supabase's own limit is 60s per address). */
@@ -32,6 +34,19 @@ export const RESEND_COOLDOWN_S = 60;
 export const MIN_PASSWORD = 8;
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 export const isEmail = (v: string) => EMAIL_RE.test(v.trim());
+
+/**
+ * Handles chosen at sign-up. The sign-up trigger (v2_handle_base) keeps
+ * [a-z0-9_] and cuts at 24, so the form holds to the same rule rather than let
+ * the server quietly change what was typed.
+ */
+export const SIGNUP_HANDLE_RE = /^[a-z0-9_]{3,24}$/;
+
+/** Keep only what a handle allows, lowercased; used as you type and to suggest one. */
+export const cleanHandle = (v: string) => v.toLowerCase().replace(/^@+/, '').replace(/[^a-z0-9_]+/g, '').slice(0, 24);
+
+/** The handle sign-up suggests from an email address, the same way the server would. */
+export const suggestHandle = (email: string) => cleanHandle(email.trim().split('@')[0] ?? '');
 
 function code(err: AuthError | Error | null | undefined): string {
   if (!err) return '';
@@ -62,11 +77,19 @@ export async function signInWithPassword(email: string, password: string): Promi
 }
 
 /** `needsConfirmation` is true when the project mails a confirm link (no session yet). */
-export async function signUp(name: string, email: string, password: string): Promise<AuthResult & { needsConfirmation: boolean }> {
+export async function signUp(
+  name: string,
+  email: string,
+  password: string,
+  handle: string,
+): Promise<AuthResult & { needsConfirmation: boolean }> {
+  // user_name is what the sign-up trigger builds the handle from. requested_handle
+  // remembers what was asked for: if someone takes it before this account is
+  // created, the trigger adds a number and the app offers a change (HandleTakenNotice).
   const { data, error } = await getSupabase().auth.signUp({
     email: email.trim(),
     password,
-    options: { data: { full_name: name.trim() }, emailRedirectTo: origin() },
+    options: { data: { full_name: name.trim(), user_name: handle, requested_handle: handle }, emailRedirectTo: origin() },
   });
   if (error) return { error: explainAuthError(error, 'signup'), needsConfirmation: false };
   return { error: null, needsConfirmation: !data.session };
@@ -212,4 +235,9 @@ export async function fetchAuthCapabilities(): Promise<AuthCapabilities> {
 export function useAuthCapabilities(enabled = true): AuthCapabilities {
   const q = useQuery({ queryKey: ['auth', 'capabilities'], queryFn: fetchAuthCapabilities, staleTime: Infinity, enabled });
   return q.data ?? FALLBACK_CAPABILITIES;
+}
+
+/** Forget the handle asked for at sign-up, once the user has kept or changed what they got. */
+export async function clearRequestedHandle(): Promise<void> {
+  await getSupabase().auth.updateUser({ data: { requested_handle: null } });
 }

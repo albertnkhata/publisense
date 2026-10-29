@@ -124,7 +124,7 @@ describe('AuthDialog: sign up', () => {
     submit('Create account');
     expect(await screen.findByRole('dialog', { name: 'Confirm your email' })).toBeTruthy();
     expect(screen.getByText(/Open the link we sent to new@b.co/)).toBeTruthy();
-    expect(api.signUp).toHaveBeenCalledWith('Nia', 'new@b.co', 'Long-enough-1');
+    expect(api.signUp).toHaveBeenCalledWith('Nia', 'new@b.co', 'Long-enough-1', 'new');
     expect(onClose).not.toHaveBeenCalled();
   });
 
@@ -137,6 +137,39 @@ describe('AuthDialog: sign up', () => {
     submit('Create account');
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(await screen.findByText('Account created')).toBeTruthy();
+  });
+});
+
+describe('AuthDialog: handle at sign-up', () => {
+  const handle = () => screen.getByRole('textbox', { name: 'Handle' }) as HTMLInputElement;
+
+  it('suggests a handle from the email until the user edits it', () => {
+    open('signup');
+    fireEvent.change(email(), { target: { value: 'Albert.Nkhata+2@b.co' } });
+    expect(handle().value).toBe('albertnkhata2');
+    fireEvent.change(handle(), { target: { value: '@Al_Bert!' } });
+    expect(handle().value).toBe('al_bert');
+    fireEvent.change(email(), { target: { value: 'other@b.co' } });
+    expect(handle().value).toBe('al_bert');
+  });
+
+  it('sends the chosen handle and refuses one that is too short', async () => {
+    api.signUp.mockResolvedValue({ error: null, needsConfirmation: true });
+    open('signup');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), { target: { value: 'Nia' } });
+    fireEvent.change(email(), { target: { value: 'nia@b.co' } });
+    fireEvent.change(password(), { target: { value: 'Long-enough-1' } });
+    fireEvent.change(handle(), { target: { value: 'ab' } });
+    submit('Create account');
+    expect(alert()).toBe('Handles are 3 to 24 characters: lowercase letters, numbers and underscores.');
+    fireEvent.change(handle(), { target: { value: '' } });
+    submit('Create account');
+    expect(alert()).toBe('Choose a handle.');
+    expect(api.signUp).not.toHaveBeenCalled();
+    fireEvent.change(handle(), { target: { value: 'nia_builds' } });
+    submit('Create account');
+    await screen.findByRole('dialog', { name: 'Confirm your email' });
+    expect(api.signUp).toHaveBeenCalledWith('Nia', 'nia@b.co', 'Long-enough-1', 'nia_builds');
   });
 });
 

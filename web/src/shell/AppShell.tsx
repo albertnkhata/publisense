@@ -5,6 +5,7 @@ import { cx } from '../lib/cx';
 import { AuthProvider } from './auth';
 import { AuthLinkErrorWatcher } from './AuthLinkErrorWatcher';
 import { RecoveryWatcher } from './RecoveryWatcher';
+import { HandleTakenNotice } from './HandleTakenNotice';
 import { useTheme } from '../lib/ThemeProvider';
 import { useShortcut } from '../lib/useShortcut';
 import { ClaimProvider } from '../claim/ClaimDialog';
@@ -50,6 +51,7 @@ export function AppShell() {
     <ClaimProvider>
       <RecoveryWatcher />
       <AuthLinkErrorWatcher />
+      <HandleTakenNotice />
       <AddProductHost />
       <a
         href="#main"

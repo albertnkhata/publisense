@@ -22,6 +22,8 @@ export interface Viewer {
   hasPassword?: boolean;
   /** OAuth identities, e.g. [{ provider: 'google', email }]. */
   connected?: Array<{ provider: string; email: string | null }>;
+  /** The handle asked for at sign-up, until the user keeps or changes the one they got. */
+  requestedHandle?: string | null;
 }
 
 interface ViewerContextValue {
@@ -65,6 +67,7 @@ export function viewerFrom(user: User, profile: ProfileRow | null | undefined): 
     connected: identities
       .filter((i) => i.provider !== 'email')
       .map((i) => ({ provider: i.provider, email: (i.identity_data?.email as string | undefined) ?? null })),
+    requestedHandle: typeof meta.requested_handle === 'string' && meta.requested_handle ? meta.requested_handle : null,
   };
 }
 

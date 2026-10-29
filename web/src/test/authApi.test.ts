@@ -43,9 +43,12 @@ describe('explainAuthError', () => {
 describe('auth api', () => {
   it('signs up with the name in metadata and reports when confirmation is needed', async () => {
     auth.signUp.mockResolvedValue({ data: { session: null, user: {} }, error: null });
-    const r = await signUp(' Nia ', ' nia@b.co ', 'Long-enough-1');
+    const r = await signUp(' Nia ', ' nia@b.co ', 'Long-enough-1', 'nia_builds');
     expect(r).toEqual({ error: null, needsConfirmation: true });
-    expect(auth.signUp.mock.calls[0]?.[0]).toMatchObject({ email: 'nia@b.co', options: { data: { full_name: 'Nia' } } });
+    expect(auth.signUp.mock.calls[0]?.[0]).toMatchObject({
+      email: 'nia@b.co',
+      options: { data: { full_name: 'Nia', user_name: 'nia_builds', requested_handle: 'nia_builds' } },
+    });
   });
 
   it('asks for the reset link to land on /auth/reset and hides provider errors', async () => {

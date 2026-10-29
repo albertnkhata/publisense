@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'rea
 import { Link } from 'react-router';
 import {
   AUTH_COPY,
+  cleanHandle,
   isEmail,
   MIN_PASSWORD,
   requestPasswordReset,
@@ -9,7 +10,9 @@ import {
   resendSignupConfirmation,
   signInWithGoogle,
   signInWithPassword,
+  SIGNUP_HANDLE_RE,
   signUp,
+  suggestHandle,
   useAuthCapabilities,
 } from '../api';
 import { BrandGlyph, Button, Dialog, Icon, Input, PasswordInput, useToast } from '../ui';
@@ -73,6 +76,9 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
   const [mode, setModeState] = useState<AuthMode>(initialMode);
   const [keepReason, setKeepReason] = useState(Boolean(reason));
   const [name, setName] = useState('');
+  const [handle, setHandle] = useState('');
+  // Until the user edits it, the handle follows the email address.
+  const [handleEdited, setHandleEdited] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [sentTo, setSentTo] = useState('');
@@ -85,6 +91,7 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
   const [resent, setResent] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
+  const handleRef = useRef<HTMLInputElement>(null);
   const pwRef = useRef<HTMLInputElement>(null);
   const submitRef = useRef<HTMLButtonElement>(null);
 
@@ -132,6 +139,8 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
     // Validation order follows the mockup.
     if (!isEmail(email)) return fail(AUTH_COPY.invalidEmail, emailRef.current);
     if (mode === 'signup' && !name.trim()) return fail(AUTH_COPY.needName, nameRef.current);
+    if (mode === 'signup' && !handle) return fail(AUTH_COPY.needHandle, handleRef.current);
+    if (mode === 'signup' && !SIGNUP_HANDLE_RE.test(handle)) return fail(AUTH_COPY.badHandle, handleRef.current);
     if (mode === 'signup' && password.length < MIN_PASSWORD) return fail(AUTH_COPY.shortPassword, pwRef.current);
     if (mode === 'signin' && !password) return fail(AUTH_COPY.needPassword, pwRef.current);
 
@@ -153,7 +162,7 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
         toast('Signed in');
         return;
       }
-      const r = await signUp(name, email, password);
+      const r = await signUp(name, email, password, handle);
       if (r.error) return fail(r.error);
       if (r.needsConfirmation) {
         setSentTo(email.trim());
@@ -297,9 +306,40 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);
+                if (mode === 'signup' && !handleEdited) setHandle(suggestHandle(e.target.value));
                 setError('');
               }}
             />
+          ) : null}
+          {mode === 'signup' ? (
+            <div>
+              <div className="relative">
+                <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-base text-ink-muted">
+                  @
+                </span>
+                <Input
+                  ref={handleRef}
+                  type="text"
+                  aria-label="Handle"
+                  aria-describedby="signup-handle-hint"
+                  placeholder="handle"
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  maxLength={24}
+                  className="pl-7"
+                  value={handle}
+                  onChange={(e) => {
+                    setHandle(cleanHandle(e.target.value));
+                    setHandleEdited(true);
+                    setError('');
+                  }}
+                />
+              </div>
+              <p id="signup-handle-hint" className="mt-1 mb-0 text-sm text-ink-muted">
+                Your public name on Publisense. You can change it later.
+              </p>
+            </div>
           ) : null}
           {mode === 'signin' || mode === 'signup' ? (
             <PasswordInput
