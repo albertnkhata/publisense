@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { AppShell } from './shell/AppShell';
-import { NO_RAIL_NARROW, NO_RAIL_WIDE, SITE_PAGE } from './shell/layout';
+import { NO_RAIL_NARROW, NO_RAIL_WIDE, SITE_PAGE, STAFF_PAGE } from './shell/layout';
 import { NotFound } from './pages/NotFound';
 import {
   AdminDisputesPage,
@@ -57,10 +57,10 @@ export const routes = [
       { path: 'terms', handle: SITE_PAGE, element: <TermsPage /> },
       { path: 'auth/reset', handle: SITE_PAGE, element: <AuthResetPage /> },
       { path: 'unsubscribe', handle: SITE_PAGE, element: <UnsubscribePage /> },
-      // Staff Command Centre: no right rail, full-width content (shell/layout.ts).
+      // Staff Command Centre: no right rail, full-width content, no top bar on desktop (shell/layout.ts).
       {
         path: 'admin',
-        handle: NO_RAIL_WIDE,
+        handle: STAFF_PAGE,
         children: [
           { index: true, element: <AdminOverviewPage /> },
           { path: 'products', element: <AdminProductsPage /> },
