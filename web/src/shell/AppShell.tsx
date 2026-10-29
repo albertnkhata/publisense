@@ -6,6 +6,7 @@ import { AuthProvider } from './auth';
 import { AuthLinkErrorWatcher } from './AuthLinkErrorWatcher';
 import { RecoveryWatcher } from './RecoveryWatcher';
 import { HandleTakenNotice } from './HandleTakenNotice';
+import { ChooseHandleDialog } from './ChooseHandleDialog';
 import { useTheme } from '../lib/ThemeProvider';
 import { useShortcut } from '../lib/useShortcut';
 import { ClaimProvider } from '../claim/ClaimDialog';
@@ -52,6 +53,7 @@ export function AppShell() {
       <RecoveryWatcher />
       <AuthLinkErrorWatcher />
       <HandleTakenNotice />
+      <ChooseHandleDialog />
       <AddProductHost />
       <a
         href="#main"
