@@ -275,6 +275,14 @@ describe('hub page', () => {
     expect(postsApi.fetchPostList).toHaveBeenCalledWith(expect.objectContaining({ boardIds: [FIGJAM.id, FIGMA.id], excludeClosed: true }));
   });
 
+  it('shares the hub from the ⋯ menu, like boards and profiles', async () => {
+    renderAt('/h/figma');
+    await screen.findByRole('heading', { level: 1, name: /Figma/ });
+    expect(screen.queryByRole('button', { name: /^Share / })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'More' }));
+    expect(await screen.findByRole('menuitem', { name: /Share hub/ })).toBeTruthy();
+  });
+
   it('lists its boards with Follow buttons', async () => {
     renderAt('/h/figma?tab=boards', true);
     const list = await screen.findByRole('list', { name: 'Figma boards' });

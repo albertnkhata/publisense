@@ -21,7 +21,8 @@ import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { LoadError, PostList, PostListSkeleton } from '../posts/PostList';
 import { useComposer } from '../shell/composer';
-import { BoardAvatar, Button, EmptyState, HubAvatar, Icon, TabPanel, Tabs, useToast } from '../ui';
+import { BoardAvatar, Button, EmptyState, HubAvatar, Icon, IconButton, Menu, MenuItem, TabPanel, Tabs, useToast } from '../ui';
+import { shareLink } from '../lib/share';
 import { useClaim } from '../claim/ClaimDialog';
 import { actionLink, ClaimLink, HeaderSkeleton, RoadmapTab, ScopeNotFound, SORT_CHOICES } from './BoardPage';
 import { useSetUrlParams } from '../lib/useUrlParam';
@@ -62,6 +63,7 @@ function HubView({ hub }: { hub: Hub }) {
   const { viewer } = useViewer();
   const role = useScopeRole('hub', hub.id, viewer?.id ?? null);
   const { openComposer } = useComposer();
+  const { toast } = useToast();
   const [params] = useSearchParams();
   const setUrl = useSetUrlParams();
   const tabParam = params.get('tab');
@@ -74,7 +76,7 @@ function HubView({ hub }: { hub: Hub }) {
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
-      <div className="mb-4">
+      <div className="mb-4 flex items-center justify-between gap-2">
         <button
           type="button"
           onClick={() => (window.history.length > 1 ? void navigate(-1) : void navigate('/'))}
@@ -83,6 +85,15 @@ function HubView({ hub }: { hub: Hub }) {
           <Icon name="arrow-left" size={14} />
           Back
         </button>
+        <Menu label={`More from ${hub.name}`} align="end" trigger={(p) => <IconButton {...p} icon="more" label="More" />}>
+          <MenuItem
+            icon="share"
+            description="Copy or send the company link"
+            onSelect={() => void shareLink(`/h/${hub.slug}`, `${hub.name} feedback`, 'Hub link copied').then((msg) => msg && toast(msg))}
+          >
+            Share hub
+          </MenuItem>
+        </Menu>
       </div>
       <ScopeHeader
         logo={<BoardAvatar name={hub.name} color={first?.color} logoSrc={logoSrc(first)} size="xl" decorative />}
