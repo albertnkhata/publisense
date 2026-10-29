@@ -2,8 +2,11 @@
 # Opens the sign-in dialog, has the live auth server refuse a wrong password
 # (an address on the reserved .invalid domain, so no account and no email), and
 # follows Continue with Google to Google's page with our OAuth client.
-# A full password sign-in runs too once the E2E_EMAIL and E2E_PASSWORD secrets
-# hold a dedicated test account; without them that one test is skipped.
+# It also signs in for real with a throwaway account made for this run only:
+# created straight in the database (confirmed, on the reserved .invalid domain,
+# so no email goes out) and deleted again when the run ends, pass or fail.
+# Needs the SUPABASE_DB_URL repository secret (the same one the backup uses);
+# without it the full sign-in test is skipped.
 # A failed scheduled run emails the repo owner.
 name: Browser sign-in smoke
 
@@ -15,6 +18,7 @@ on:
     paths:
       - 'e2e/**'
       - '.github/workflows/e2e.yml'
+      - 'supabase/tests/e2e_account_*.sql'
 
 permissions:
   contents: read
@@ -44,11 +48,31 @@ jobs:
 
       - run: npx playwright install --with-deps chromium
 
-      - name: Sign-in flow against publisense.app
+      - name: Create a throwaway test account
         env:
-          E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
-          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          DB: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          [ -n "$DB" ] || { echo "::warning::SUPABASE_DB_URL not set; full sign-in test will be skipped"; exit 0; }
+          DB=$(printf '%s' "$DB" | tr -d '\r\n')
+          email="e2e-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}@smoke.invalid"
+          pw="$(openssl rand -hex 24)"
+          echo "::add-mask::$pw"
+          psql "$DB" -v ON_ERROR_STOP=1 -qtA -v email="$email" -v pw="$pw" -f ../supabase/tests/e2e_account_create.sql
+          { echo "E2E_EMAIL=$email"; echo "E2E_PASSWORD=$pw"; } >> "$GITHUB_ENV"
+
+      - name: Sign-in flow against publisense.app
         run: npx playwright test
+
+      - name: Delete throwaway test accounts
+        if: always()
+        env:
+          DB: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          [ -n "$DB" ] || exit 0
+          DB=$(printf '%s' "$DB" | tr -d '\r\n')
+          psql "$DB" -v ON_ERROR_STOP=1 -qtA -f ../supabase/tests/e2e_account_delete.sql
 
       - uses: actions/upload-artifact@v4
         if: failure()
