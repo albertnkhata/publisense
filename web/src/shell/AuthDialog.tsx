@@ -4,6 +4,7 @@ import {
   AUTH_COPY,
   cleanHandle,
   isEmail,
+  isHandleTaken,
   MIN_PASSWORD,
   requestPasswordReset,
   RESEND_COOLDOWN_S,
@@ -79,6 +80,8 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
   const [handle, setHandle] = useState('');
   // Until the user edits it, the handle follows the email address.
   const [handleEdited, setHandleEdited] = useState(false);
+  // Live availability: 'checking' while a lookup is pending, 'unknown' if it failed.
+  const [handleStatus, setHandleStatus] = useState<'idle' | 'checking' | 'free' | 'taken' | 'unknown'>('idle');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [sentTo, setSentTo] = useState('');
@@ -119,6 +122,37 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
     return () => clearInterval(t);
   }, [waiting, sentAt]);
 
+  // Check the handle a moment after typing stops. A suggested handle (not typed by
+  // the user) that is taken moves on to the first free numbered one, as the server would.
+  useEffect(() => {
+    if (mode !== 'signup' || !SIGNUP_HANDLE_RE.test(handle)) {
+      setHandleStatus('idle');
+      return;
+    }
+    let live = true;
+    setHandleStatus('checking');
+    const t = setTimeout(async () => {
+      const taken = await isHandleTaken(handle);
+      if (!live) return;
+      if (taken && !handleEdited) {
+        for (let n = 2; n <= 9; n++) {
+          const next = `${handle.slice(0, 24 - String(n).length)}${n}`;
+          const nextTaken = await isHandleTaken(next);
+          if (!live) return;
+          if (nextTaken === false) {
+            setHandle(next);
+            return;
+          }
+        }
+      }
+      setHandleStatus(taken === null ? 'unknown' : taken ? 'taken' : 'free');
+    }, 400);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+  }, [mode, handle, handleEdited]);
+
   // Mockup: switching mode moves focus to the first visible field.
   useEffect(() => {
     if (open) focusTarget.current?.focus();
@@ -141,6 +175,7 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
     if (mode === 'signup' && !name.trim()) return fail(AUTH_COPY.needName, nameRef.current);
     if (mode === 'signup' && !handle) return fail(AUTH_COPY.needHandle, handleRef.current);
     if (mode === 'signup' && !SIGNUP_HANDLE_RE.test(handle)) return fail(AUTH_COPY.badHandle, handleRef.current);
+    if (mode === 'signup' && handleStatus === 'taken') return fail(AUTH_COPY.handleTaken, handleRef.current);
     if (mode === 'signup' && password.length < MIN_PASSWORD) return fail(AUTH_COPY.shortPassword, pwRef.current);
     if (mode === 'signin' && !password) return fail(AUTH_COPY.needPassword, pwRef.current);
 
@@ -322,6 +357,7 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
                   type="text"
                   aria-label="Handle"
                   aria-describedby="signup-handle-hint"
+                  aria-invalid={handleStatus === 'taken' || undefined}
                   placeholder="handle"
                   autoComplete="username"
                   autoCapitalize="none"
@@ -336,8 +372,16 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
                   }}
                 />
               </div>
-              <p id="signup-handle-hint" className="mt-1 mb-0 text-sm text-ink-muted">
-                Your public name on Publisense. You can change it later.
+              <p
+                id="signup-handle-hint"
+                aria-live="polite"
+                className={`mt-1 mb-0 text-sm ${handleStatus === 'taken' ? 'text-danger' : handleStatus === 'free' ? 'text-success' : 'text-ink-muted'}`}
+              >
+                {handleStatus === 'taken'
+                  ? `@${handle} is taken.`
+                  : handleStatus === 'free'
+                    ? `@${handle} is available.`
+                    : 'Your public name on Publisense. You can change it later.'}
               </p>
             </div>
           ) : null}

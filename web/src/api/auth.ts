@@ -26,6 +26,7 @@ export const AUTH_COPY = {
   resendFailed: 'We couldn’t resend the email. Try again in a moment.',
   needHandle: 'Choose a handle.',
   badHandle: 'Handles are 3 to 24 characters: lowercase letters, numbers and underscores.',
+  handleTaken: 'That handle is taken. Try another.',
 } as const;
 
 /** Seconds between confirmation-email resends (Supabase's own limit is 60s per address). */
@@ -44,6 +45,18 @@ export const SIGNUP_HANDLE_RE = /^[a-z0-9_]{3,24}$/;
 
 /** Keep only what a handle allows, lowercased; used as you type and to suggest one. */
 export const cleanHandle = (v: string) => v.toLowerCase().replace(/^@+/, '').replace(/[^a-z0-9_]+/g, '').slice(0, 24);
+
+/**
+ * Is this handle already someone's? Profiles are public (handle, name and avatar
+ * are on /u/<handle>), so this reveals nothing new and needs no extra database
+ * function. Resolves null when the check itself fails, so the form never blocks
+ * sign-up on a network error; the server still picks a free handle.
+ */
+export async function isHandleTaken(handle: string): Promise<boolean | null> {
+  const { data, error } = await getSupabase().from('profile').select('id').eq('handle', handle).limit(1);
+  if (error) return null;
+  return (data ?? []).length > 0;
+}
 
 /** The handle sign-up suggests from an email address, the same way the server would. */
 export const suggestHandle = (email: string) => cleanHandle(email.trim().split('@')[0] ?? '');

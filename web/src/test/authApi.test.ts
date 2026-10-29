@@ -2,6 +2,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Exercise the real api functions against a stub client: what they send, and
 // that what they return never tells a visitor whether an account exists.
+const profileQuery = vi.hoisted(() => {
+  const q = { result: { data: [] as unknown[], error: null as unknown }, eq: vi.fn(), select: vi.fn(), limit: vi.fn(), from: vi.fn() };
+  q.from.mockImplementation(() => q);
+  q.select.mockImplementation(() => q);
+  q.eq.mockImplementation(() => q);
+  q.limit.mockImplementation(async () => q.result);
+  return q;
+});
+
 const auth = vi.hoisted(() => ({
   signInWithPassword: vi.fn(),
   signUp: vi.fn(),
@@ -14,11 +23,11 @@ vi.mock('../api/supabase', () => ({
   hasSupabaseConfig: true,
   SUPABASE_URL: 'https://example.supabase.co',
   SUPABASE_ANON_KEY: 'anon',
-  getSupabase: () => ({ auth }),
+  getSupabase: () => ({ auth, from: profileQuery.from }),
   publicStorageUrl: () => null,
 }));
 
-const { AUTH_COPY, changePassword, completePasswordReset, explainAuthError, requestPasswordReset, signInWithPassword, signUp } = await import('../api/auth');
+const { AUTH_COPY, changePassword, completePasswordReset, isHandleTaken, explainAuthError, requestPasswordReset, signInWithPassword, signUp } = await import('../api/auth');
 
 const authError = (code: string, message = code) => Object.assign(new Error(message), { code });
 
@@ -85,5 +94,16 @@ describe('auth api', () => {
     auth.updateUser.mockResolvedValue({ error: authError('same_password') });
     expect((await completePasswordReset('Same-pass-1')).error).toBeTruthy();
     expect(auth.signOut).not.toHaveBeenCalled();
+  });
+
+  it('checks a handle against public profiles, and answers null when the lookup fails', async () => {
+    profileQuery.result = { data: [{ id: 'u1' }], error: null };
+    expect(await isHandleTaken('nia')).toBe(true);
+    expect(profileQuery.from).toHaveBeenCalledWith('profile');
+    expect(profileQuery.eq).toHaveBeenCalledWith('handle', 'nia');
+    profileQuery.result = { data: [], error: null };
+    expect(await isHandleTaken('nia_b')).toBe(false);
+    profileQuery.result = { data: null as unknown as unknown[], error: new Error('offline') };
+    expect(await isHandleTaken('nia')).toBeNull();
   });
 });

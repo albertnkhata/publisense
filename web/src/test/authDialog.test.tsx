@@ -11,6 +11,7 @@ const api = vi.hoisted(() => ({
   resendSignupConfirmation: vi.fn(),
   signInWithGoogle: vi.fn(),
   fetchAuthCapabilities: vi.fn(),
+  isHandleTaken: vi.fn(),
 }));
 
 vi.mock('../api/auth', async (importOriginal) => {
@@ -22,6 +23,7 @@ vi.mock('../api/auth', async (importOriginal) => {
     requestPasswordReset: api.requestPasswordReset,
     resendSignupConfirmation: api.resendSignupConfirmation,
     signInWithGoogle: api.signInWithGoogle,
+    isHandleTaken: api.isHandleTaken,
     useAuthCapabilities: () => api.fetchAuthCapabilities(),
   };
 });
@@ -38,6 +40,7 @@ const submit = (name: string) => fireEvent.click(screen.getByRole('button', { na
 const alert = () => screen.getByRole('alert').textContent;
 
 beforeEach(() => {
+  api.isHandleTaken.mockResolvedValue(false);
   Object.values(api).forEach((f) => f.mockReset());
   api.fetchAuthCapabilities.mockReturnValue({ google: false, confirmEmail: true });
 });
@@ -170,6 +173,46 @@ describe('AuthDialog: handle at sign-up', () => {
     submit('Create account');
     await screen.findByRole('dialog', { name: 'Confirm your email' });
     expect(api.signUp).toHaveBeenCalledWith('Nia', 'nia@b.co', 'Long-enough-1', 'nia_builds');
+  });
+});
+
+describe('AuthDialog: handle availability', () => {
+  const handle = () => screen.getByRole('textbox', { name: 'Handle' }) as HTMLInputElement;
+
+  it('says when a typed handle is free or taken, and will not submit a taken one', async () => {
+    api.isHandleTaken.mockImplementation(async (h: string) => h === 'nia');
+    open('signup');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), { target: { value: 'Nia' } });
+    fireEvent.change(email(), { target: { value: 'x@b.co' } });
+    fireEvent.change(password(), { target: { value: 'Long-enough-1' } });
+    fireEvent.change(handle(), { target: { value: 'nia_b' } });
+    expect(await screen.findByText('@nia_b is available.', {}, { timeout: 2000 })).toBeTruthy();
+    fireEvent.change(handle(), { target: { value: 'nia' } });
+    expect(await screen.findByText('@nia is taken.', {}, { timeout: 2000 })).toBeTruthy();
+    submit('Create account');
+    expect(alert()).toBe('That handle is taken. Try another.');
+    expect(api.signUp).not.toHaveBeenCalled();
+  });
+
+  it('moves a suggested handle that is taken to the first free numbered one', async () => {
+    api.isHandleTaken.mockImplementation(async (h: string) => h === 'albert' || h === 'albert2');
+    open('signup');
+    fireEvent.change(email(), { target: { value: 'albert@b.co' } });
+    await waitFor(() => expect(handle().value).toBe('albert3'), { timeout: 2000 });
+    expect(await screen.findByText('@albert3 is available.', {}, { timeout: 2000 })).toBeTruthy();
+  });
+
+  it('never blocks sign-up when the check itself fails', async () => {
+    api.isHandleTaken.mockResolvedValue(null);
+    api.signUp.mockResolvedValue({ error: null, needsConfirmation: true });
+    open('signup');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), { target: { value: 'Nia' } });
+    fireEvent.change(email(), { target: { value: 'nia@b.co' } });
+    fireEvent.change(password(), { target: { value: 'Long-enough-1' } });
+    await waitFor(() => expect(api.isHandleTaken).toHaveBeenCalled(), { timeout: 2000 });
+    submit('Create account');
+    await screen.findByRole('dialog', { name: 'Confirm your email' });
+    expect(api.signUp).toHaveBeenCalledWith('Nia', 'nia@b.co', 'Long-enough-1', 'nia');
   });
 });
 
