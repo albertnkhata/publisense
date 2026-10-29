@@ -52,3 +52,9 @@ export async function GET(request: Request): Promise<Response> {
     return fallback(e instanceof Error ? `${e.name}: ${e.message}` : 'error');
   }
 }
+
+/** Some link unfurlers check the image with HEAD before fetching it. */
+export async function HEAD(request: Request): Promise<Response> {
+  const res = await GET(request);
+  return new Response(null, { status: res.status, headers: res.headers });
+}
