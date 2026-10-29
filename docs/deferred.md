@@ -21,9 +21,53 @@
 
 ## Open
 
+Nothing open.
+
+---
+
+## Resolved
+
+### D-003 · Test coverage is narrow — no automatic user-flow test in CI
+
+**Status:** ✅ RESOLVED 2026-10-29 · browser sign-in smoke added nightly · **Deferred:** 2026-10-20 · **Partly addressed:** #23, #32, #33, #62 and the v2 page suites · **Last corrected:** 2026-10-25
+
+**Covered now.**
+
+- `npm test` runs in CI on every PR. The count lives in the
+  repo-derived block of [`STATUS.md`](../STATUS.md), so it cannot rot in this entry. The suites cover
+  page-level behaviour (discovery and search, the admin console, the composer, teams, routing), not only
+  library functions.
+- CI rebuilds a database from scratch out of `schema.sql` plus every migration, then asserts RLS is on for
+  every public table, that no write policy is world-open, and runs the permission and company name-history
+  SQL suites as the real API roles.
+- The client bundle is grepped for `service_role` on every build.
+
+**Live smoke test (added 2026-10-25).** `supabase/tests/v2_live_smoke.sql` runs every night at 01:07 UTC
+against production from `.github/workflows/smoke.yml`, and on every PR against the seeded CI database. It
+creates two throwaway users (`.invalid` addresses, so no email is sent) and checks, as the real API roles:
+signup provisions a profile and unsubscribe token and no admin rights; anon can read boards and posts but
+not tokens, notifications, settings or the email log, and cannot post; a user can post and vote as
+themselves but not as someone else, cannot vote twice, cannot set a status or promote themselves, cannot
+edit another profile or reply officially; a reply notifies the post author in-app and runs the email path;
+counters move. Everything is rolled back. The same job checks the live pages, sitemap, 404 and link preview.
+
+**Browser sign-in smoke (added 2026-10-29).** `e2e/tests/signin.spec.ts` runs nightly at 01:17 UTC from
+`.github/workflows/e2e.yml` (and on PRs touching `e2e/`), in headless Chromium against publisense.app. It opens the
+sign-in dialog, has the live auth server refuse a wrong password (a `.invalid` address, so no account or email), and
+follows Continue with Google to Google's page with our OAuth client, failing on a Google OAuth error. A full password
+sign-in also runs once the `E2E_EMAIL` and `E2E_PASSWORD` repo secrets hold a dedicated test account; until then it
+is skipped.
+
+**Not automated, by choice.** Completing Google's consent and clicking an emailed link need a real Google account and
+inbox; those stay manual.
+
+---
+
 ### D-007 · Background rows for other users have no email in the client
 
-**Status:** 🟢 cosmetic/minor · **Deferred:** 2026-10-20 · **PR:** #16
+**Status:** ✅ RESOLVED 2026-10-29 · no longer applies since the v2 rebuild · **Deferred:** 2026-10-20 · **PR:** #16
+
+**Outcome.** v2 has no client-readable email for anyone but the signed-in user, by design: the `profile` table (`0016_v2_schema.sql`) has no email column, `public_profiles` and the v1 `profiles` table were dropped in `0023_drop_v1.sql`, and the client's only email is the viewer's own, from the auth session. No code reads another user's email. The guidance below still holds: a feature that needs one gets a `service_role` path or an admin-only view. The v1 history is kept for reference.
 
 `profiles` is no longer publicly readable, because `email` was world-readable.
 The feed now reads the **`public_profiles`** view, which omits `email`. The client
@@ -45,37 +89,6 @@ an admin-only view, not a loosening of `profiles` RLS.
 other users. Guarded at every current call site.
 
 ---
-
-### D-003 · Test coverage is narrow — no automatic user-flow test in CI
-
-**Status:** 🟢 mostly addressed (live smoke test nightly since 2026-10-25) · **Deferred:** 2026-10-20 · **Partly addressed:** #23, #32, #33, #62 and the v2 page suites · **Last corrected:** 2026-10-25
-
-**Covered now.**
-
-- `npm test` — **28 files, 333 declared cases**, run in CI on every PR. The count lives in the
-  repo-derived block of [`STATUS.md`](../STATUS.md), so it cannot rot in this entry. The suites cover
-  page-level behaviour (discovery and search, the admin console, the composer, teams, routing), not only
-  library functions.
-- CI rebuilds a database from scratch out of `schema.sql` plus every migration, then asserts RLS is on for
-  every public table, that no write policy is world-open, and runs the permission and company name-history
-  SQL suites as the real API roles.
-- The client bundle is grepped for `service_role` on every build.
-
-**Live smoke test (added 2026-10-25).** `supabase/tests/v2_live_smoke.sql` runs every night at 01:07 UTC
-against production from `.github/workflows/smoke.yml`, and on every PR against the seeded CI database. It
-creates two throwaway users (`.invalid` addresses, so no email is sent) and checks, as the real API roles:
-signup provisions a profile and unsubscribe token and no admin rights; anon can read boards and posts but
-not tokens, notifications, settings or the email log, and cannot post; a user can post and vote as
-themselves but not as someone else, cannot vote twice, cannot set a status or promote themselves, cannot
-edit another profile or reply officially; a reply notifies the post author in-app and runs the email path;
-counters move. Everything is rolled back. The same job checks the live pages, sitemap, 404 and link preview.
-
-**Still missing.** No browser-level test of the real sign-in flow (Google OAuth, magic link) — those
-depend on third-party pages and are checked by hand.
-
----
-
-## Resolved
 
 ### D-012 · The Google consent screen shows no app logo
 
