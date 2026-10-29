@@ -370,56 +370,25 @@ describe('explore', () => {
     expect(within(all).getAllByRole('article').map((a) => within(a).getAllByRole('link')[0]?.textContent)).toEqual(['Cursor', 'FigJam', 'Figma', 'Supabase']);
   });
 
-  it('filters by search and by category', async () => {
-    const { router } = renderAt('/explore');
-    const input = await screen.findByRole('searchbox', { name: 'Search products' });
-    fireEvent.change(input, { target: { value: 'fig' } });
-    expect(await screen.findByRole('heading', { name: 'Results' })).toBeTruthy();
-    expect(screen.getByText('2 products')).toBeTruthy();
-    await waitFor(() => expect(router.state.location.search).toBe('?q=fig'));
-    fireEvent.change(input, { target: { value: '' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Dev platforms' }));
+  it('has no search field of its own: the site search covers products', async () => {
+    renderAt('/explore');
+    await screen.findByRole('list', { name: 'All products' });
+    expect(screen.queryByRole('searchbox', { name: 'Search products' })).toBeNull();
+  });
+
+  it('filters by category', async () => {
+    renderAt('/explore');
+    fireEvent.click(await screen.findByRole('button', { name: 'Dev platforms' }));
     expect(await screen.findByText('1 product')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Dev platforms' }).getAttribute('aria-pressed')).toBe('true');
   });
 
-  it('keeps every character when typing fast, then puts the query in the URL once', async () => {
-    const { router } = renderAt('/explore?cat=prod');
-    const input = (await screen.findByRole('searchbox', { name: 'Search products' })) as HTMLInputElement;
-    const before = router.state.historyAction;
-    let typed = '';
-    for (const ch of 'figjam') {
-      typed += ch;
-      fireEvent.change(input, { target: { value: typed } });
-      expect(input.value).toBe(typed); // no keystroke reverted by a URL update
-    }
-    await waitFor(() => expect(router.state.location.search).toBe('?cat=prod&q=figjam'));
-    expect(input.value).toBe('figjam');
-    expect(before).toBe('POP');
-    expect(router.state.historyAction).toBe('REPLACE');
-  });
-
-  it('follows the URL when it changes from outside (Back, links)', async () => {
+  it('an old /explore?q= link still filters, as a chip you can clear', async () => {
     const { router } = renderAt('/explore?q=fig');
-    const input = (await screen.findByRole('searchbox', { name: 'Search products' })) as HTMLInputElement;
-    expect(input.value).toBe('fig');
-    await act(async () => {
-      await router.navigate('/explore?q=cur');
-    });
-    expect(input.value).toBe('cur');
-    await act(async () => {
-      await router.navigate(-1);
-    });
-    await waitFor(() => expect(input.value).toBe('fig'));
-  });
-
-  it('a category click while typing keeps both', async () => {
-    const { router } = renderAt('/explore');
-    const input = (await screen.findByRole('searchbox', { name: 'Search products' })) as HTMLInputElement;
-    fireEvent.change(input, { target: { value: 'sup' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Dev platforms' }));
-    await waitFor(() => expect(router.state.location.search).toBe('?cat=dev&q=sup'));
-    expect(input.value).toBe('sup');
+    expect(await screen.findByText('2 products')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search “fig”' }));
+    await waitFor(() => expect(router.state.location.search).toBe(''));
+    expect(screen.queryByRole('button', { name: /Clear search/ })).toBeNull();
   });
 
   it('shows only category chips that have products, plus the one in the URL', async () => {
