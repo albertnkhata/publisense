@@ -321,6 +321,27 @@ describe('claim a board', () => {
     expect(analyticsApi.recordEvent).not.toHaveBeenCalledWith('claim_verify_failed', expect.anything());
   });
 
+  it('counts down a minute before a new code can be sent', async () => {
+    localStorage.clear();
+    renderAt('/b/cursor');
+    fireEvent.click(await screen.findByRole('button', { name: 'Work at Cursor?' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Claim Cursor' });
+    fireEvent.change(within(dialog).getByLabelText('Your work email'), { target: { value: 'carol@cursor.com' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Send code' }));
+    await within(dialog).findByLabelText('Enter the 6-digit code');
+    expect(within(dialog).getByText(/Resend code in/)).toBeTruthy();
+    expect(within(dialog).getByText(/^(1:00|0:59)$/)).toBeTruthy();
+    expect(within(dialog).queryByRole('button', { name: 'Resend code' })).toBeNull();
+    const real = Date.now;
+    const later = real() + 61_000;
+    const spy = vi.spyOn(Date, 'now').mockImplementation(() => later);
+    try {
+      expect(await within(dialog).findByRole('button', { name: 'Resend code' }, { timeout: 2500 })).toBeTruthy();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it('a sent code can still be entered after the dialog is closed and reopened (#183)', async () => {
     localStorage.clear();
     renderAt('/b/cursor');
@@ -337,7 +358,9 @@ describe('claim a board', () => {
     dialog = await screen.findByRole('dialog', { name: 'Claim Cursor' });
     const code = await within(dialog).findByLabelText('Enter the 6-digit code');
     expect(within(dialog).getByText(/We already sent a code to/)).toBeTruthy();
-    expect(within(dialog).getByRole('button', { name: 'Send a new code' })).toBeTruthy();
+    // Still inside the minute: a countdown instead of the resend button.
+    expect(within(dialog).getByText(/Resend code in/)).toBeTruthy();
+    expect(within(dialog).queryByRole('button', { name: 'Send a new code' })).toBeNull();
     // Reopening neither sends nor voids a code.
     expect(teamsApi.startEmailCode).toHaveBeenCalledTimes(1);
     fireEvent.change(code, { target: { value: '123456' } });

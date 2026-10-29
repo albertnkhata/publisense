@@ -37,6 +37,8 @@ import { useViewer } from '../lib/viewer';
 import { useAuthDialog } from '../shell/auth';
 import { BoardAvatar, Button, Dialog, Field, HubAvatar, Icon, Input, Textarea, useToast } from '../ui';
 
+const RESEND_CODE_COOLDOWN_MS = 60_000;
+
 const CLAIM_AUTH_REASON = 'claim your product’s board';
 
 /**
@@ -250,6 +252,21 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
   // When the code on screen was sent, and whether it was sent before the dialog was reopened.
   const [sentAt, setSentAt] = useState<number | null>(null);
   const [resumed, setResumed] = useState(false);
+  // A new code can be requested a minute after the last one, with a visible countdown.
+  const [now, setNow] = useState(() => Date.now());
+  const resendAt = sentAt ? sentAt + RESEND_CODE_COOLDOWN_MS : 0;
+  const resendLeft = step === 'code' && resendAt > now ? Math.min(RESEND_CODE_COOLDOWN_MS / 1000, Math.ceil((resendAt - now) / 1000)) : 0;
+  useEffect(() => {
+    if (step !== 'code' || !resendAt) return;
+    setNow(Date.now());
+    if (Date.now() >= resendAt) return;
+    const t = setInterval(() => {
+      const t2 = Date.now();
+      setNow(t2);
+      if (t2 >= resendAt) clearInterval(t);
+    }, 1000);
+    return () => clearInterval(t);
+  }, [step, resendAt]);
   const initialised = useRef(false);
   const pendingStep = useRef<Step | null>(null);
   const stepHeading = useRef<HTMLElement>(null);
@@ -715,7 +732,13 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
         <Button type="submit" form="claim-form" loading={busy}>
           Verify
         </Button>
-        <Alt onClick={() => void resend()}>{resumed ? 'Send a new code' : 'Resend code'}</Alt>
+        {resendLeft > 0 ? (
+          <span className="px-2 py-1 text-sm text-ink-muted">
+            Resend code in <Countdown seconds={resendLeft} />
+          </span>
+        ) : (
+          <Alt onClick={() => void resend()}>{resumed ? 'Send a new code' : 'Resend code'}</Alt>
+        )}
         <Alt
           onClick={() => {
             clearPendingCode();
@@ -1010,6 +1033,15 @@ function Perk({ children }: { children: ReactNode }) {
 
 function Actions({ children }: { children: ReactNode }) {
   return <div className="flex w-full flex-wrap items-center justify-start gap-2">{children}</div>;
+}
+
+/** m:ss, steady width; screen readers skip the per-second ticks. */
+function Countdown({ seconds }: { seconds: number }) {
+  return (
+    <span className="tabular-nums text-ink" aria-live="off">
+      {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')}
+    </span>
+  );
 }
 
 function Alt({ children, onClick }: { children: ReactNode; onClick: () => void }) {
