@@ -33,13 +33,12 @@ _derived from `docs/v2/BUILD.md` checkbox state · one PR per step, see `docs/v2
 
 _derived from `docs/deferred.md` · the ids link to the entry, which is canonical_
 
-- **D-012** · The Google consent screen shows no app logo — revisit: when a distinctive brand mark exists, or if a sensitive scope forces a review anyway
 - **D-007** · Background rows for other users have no email in the client
 - **D-003** · Test coverage is narrow — no automatic user-flow test in CI
 
-### Resolved (12)
+### Resolved (13)
 
-**D-015** · **D-011** · **D-002** · **D-014** · **D-013** · **D-010** · **D-005** · **D-009** · **D-008** · **D-006** · **D-004** · **D-001**
+**D-012** · **D-015** · **D-011** · **D-002** · **D-014** · **D-013** · **D-010** · **D-005** · **D-009** · **D-008** · **D-006** · **D-004** · **D-001**
 
 ### Roadmap phases (v1, frozen)
 
