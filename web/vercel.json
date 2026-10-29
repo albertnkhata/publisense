@@ -139,5 +139,10 @@
         }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/og.ts": {
+      "includeFiles": "api/_fonts/**"
+    }
+  }
 }

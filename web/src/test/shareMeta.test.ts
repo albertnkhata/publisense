@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { applyMeta, boardMeta, isCrawler, postMeta, shareTarget } from '../../api/_lib/shareMeta';
+import { applyMeta, boardMeta, hubMeta, isCrawler, postMeta, shareTarget } from '../../api/_lib/shareMeta';
 import { slowDown } from '../api/posts';
 
 const html = readFileSync(resolve(__dirname, '../../index.html'), 'utf8');
@@ -33,6 +33,22 @@ describe('link previews', () => {
     expect(out).toContain('<meta property="og:url" content="https://publisense.app/b/cursor" />');
     expect(out).toContain('<link rel="canonical" href="https://publisense.app/b/cursor" />');
     expect(out).toMatch(/og:description" content="The AI code editor\. See what people/);
+    expect(out).toMatch(/<meta property="og:image" content="https:\/\/publisense\.app\/api\/og\?kind=board&amp;key=cursor&amp;v=[a-z0-9]+" \/>/);
+    expect(out).toMatch(/<meta name="twitter:image" content="https:\/\/publisense\.app\/api\/og\?kind=board/);
+    expect(out).toContain('og:image:alt" content="Cursor &quot;AI&quot; on Publisense"');
+  });
+
+  it('gives each post its own preview image, versioned by title and status', () => {
+    const a = postMeta({ id: 'p1', title: 'Dark mode', status: 'open', board: { name: 'Linear' } });
+    const b = postMeta({ id: 'p1', title: 'Dark mode', status: 'planned', board: { name: 'Linear' } });
+    expect(a.image?.path).toMatch(/^\/api\/og\?kind=post&key=p1&v=[a-z0-9]+$/);
+    expect(a.image?.alt).toBe('Dark mode · Linear');
+    expect(a.image?.path).not.toBe(b.image?.path);
+    expect(applyMeta(html, a)).toContain('og:image" content="https://publisense.app/api/og?kind=post&amp;key=p1');
+  });
+
+  it('keeps the site image for hubs', () => {
+    const out = applyMeta(html, hubMeta({ slug: 'figma', name: 'Figma' }));
     expect(out).toContain('og:image" content="https://publisense.app/og.png"');
   });
 

@@ -21,6 +21,18 @@ export interface ShareMeta {
    * itself: a merged post points at the post it was merged into (0043).
    */
   canonicalPath?: string;
+  /** The page's own preview image (api/og.ts); without one the site-wide /og.png stays. */
+  image?: { path: string; alt: string };
+}
+
+/**
+ * Short, stable version tag for a preview image URL. Chat apps cache images by URL,
+ * so a renamed post or board gets a fresh image instead of the old picture.
+ */
+export function imageVersion(...parts: Array<string | null | undefined>): string {
+  let h = 5381;
+  for (const ch of parts.map((p) => p ?? '').join('|')) h = ((h * 33) ^ ch.charCodeAt(0)) >>> 0;
+  return h.toString(36);
 }
 
 const CRAWLER =
@@ -44,6 +56,10 @@ export function boardMeta(b: { slug: string; name: string; tagline?: string | nu
     title: `${b.name} feedback · Publisense`,
     description: clip(b.tagline ? `${b.tagline}. See what people are asking ${b.name} for, upvote it, and follow along.` : `See what people are asking ${b.name} for, upvote it, and follow along on Publisense.`),
     path: `/b/${b.slug}`,
+    image: {
+      path: `/api/og?kind=board&key=${encodeURIComponent(b.slug)}&v=${imageVersion(b.name, b.tagline)}`,
+      alt: `${b.name} on Publisense`,
+    },
   };
 }
 
@@ -76,12 +92,21 @@ export function postMeta(p: PostMetaRow): ShareMeta {
       description: clip(into ? `Merged into “${into}”. Votes and followers moved there.` : 'Merged into another post. Votes and followers moved there.'),
       path: `/post/${p.id}`,
       canonicalPath: `/post/${p.merged_into}`,
+      image: postImage(p),
     };
   }
   return {
     title: clip(`${p.title}${p.board ? ` · ${p.board.name}` : ''} · Publisense`, 110),
     description: clip(p.body?.trim() || (p.board ? `Feedback for ${p.board.name} on Publisense.` : DEFAULT_DESCRIPTION)),
     path: `/post/${p.id}`,
+    image: postImage(p),
+  };
+}
+
+function postImage(p: PostMetaRow): ShareMeta['image'] {
+  return {
+    path: `/api/og?kind=post&key=${p.id}&v=${imageVersion(p.title, p.status, p.board?.name)}`,
+    alt: clip(`${p.title}${p.board ? ` · ${p.board.name}` : ''}`, 110),
   };
 }
 
@@ -99,6 +124,8 @@ export function applyMeta(html: string, meta: ShareMeta): string {
   const title = escapeAttr(meta.title);
   const desc = escapeAttr(meta.description);
   const url = escapeAttr(`${SITE}${meta.canonicalPath ?? meta.path}`);
+  const img = meta.image ? escapeAttr(`${SITE}${meta.image.path}`) : '';
+  const alt = meta.image ? escapeAttr(meta.image.alt) : '';
   return html
     .replace(/<title>[^<]*<\/title>/, `<title>${title}</title>`)
     .replace(/(<meta name="description" content=")[^"]*(")/, `$1${desc}$2`)
@@ -107,5 +134,8 @@ export function applyMeta(html: string, meta: ShareMeta): string {
     .replace(/(<meta property="og:url" content=")[^"]*(")/, `$1${url}$2`)
     .replace(/(<meta name="twitter:title" content=")[^"]*(")/, `$1${title}$2`)
     .replace(/(<meta name="twitter:description" content=")[^"]*(")/, `$1${desc}$2`)
-    .replace(/(<link rel="canonical" href=")[^"]*(")/, `$1${url}$2`);
+    .replace(/(<link rel="canonical" href=")[^"]*(")/, `$1${url}$2`)
+    .replace(/(<meta property="og:image" content=")[^"]*(")/, (m, a: string, b: string) => (img ? `${a}${img}${b}` : m))
+    .replace(/(<meta name="twitter:image" content=")[^"]*(")/, (m, a: string, b: string) => (img ? `${a}${img}${b}` : m))
+    .replace(/(<meta property="og:image:alt" content=")[^"]*(")/, (m, a: string, b: string) => (alt ? `${a}${alt}${b}` : m));
 }
