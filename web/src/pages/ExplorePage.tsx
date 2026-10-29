@@ -37,12 +37,10 @@ export function ExplorePage() {
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
-      <header>
-        <h1 id="page-title" className="mt-0 mb-1 text-xl font-bold text-ink">
-          Explore
-        </h1>
-        <p className="mt-0 mb-4 text-base text-ink-secondary">Find the products you use and follow their boards.</p>
-      </header>
+      {/* The nav rail already says where you are; the heading stays for screen readers. */}
+      <h1 id="page-title" className="sr-only">
+        Explore
+      </h1>
       <label className="flex h-9 items-center gap-3 rounded-lg border border-line-strong bg-card px-4 text-ink-muted transition-colors duration-120 focus-within:border-brand">
         <Icon name="search" size={16} />
         <input
