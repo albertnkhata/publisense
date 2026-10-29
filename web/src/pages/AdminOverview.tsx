@@ -162,7 +162,7 @@ function VisitsHero({ days, total, points }: { days: number; total: number; poin
   const lastDay = points[points.length - 1]?.day ?? '';
 
   return (
-    <section aria-label="Site visits" className="flex items-center gap-6 rounded-md border border-line bg-card px-5 py-4 max-md:flex-col max-md:items-stretch max-md:gap-3 max-sm:p-4">
+    <section aria-label="Site visits" className="flex gap-6 rounded-md border border-line bg-card px-5 py-4 max-md:flex-col max-md:gap-3 max-sm:p-4">
       <div className="flex shrink-0 flex-col gap-1">
         <span className="text-xs font-medium text-ink-muted">Site visits · last {days} days</span>
         <strong className="font-mono text-2xl font-bold text-ink tabular-nums">{total.toLocaleString()}</strong>
@@ -179,10 +179,10 @@ function VisitsHero({ days, total, points }: { days: number; total: number; poin
         </span>
         <span className="text-xs text-ink-muted">About {perDay.toLocaleString()} a day</span>
       </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label={`Daily site visits, ${firstDay} to ${lastDay}`} className="h-10 w-full overflow-visible">
-          {area ? <path d={area} className="fill-brand-soft" /> : null}
-          {line ? <path d={line} fill="none" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" className="stroke-brand" /> : null}
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
+        <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label={`Daily site visits, ${firstDay} to ${lastDay}`} className="h-9 w-full overflow-visible">
+          {area ? <path d={area} fill="var(--color-brand-soft)" /> : null}
+          {line ? <path d={line} fill="none" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" stroke="var(--color-brand)" /> : null}
         </svg>
         {firstDay && lastDay ? (
           <div className="flex justify-between font-mono text-xs text-ink-muted tabular-nums">
