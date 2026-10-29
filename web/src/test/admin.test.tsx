@@ -292,6 +292,13 @@ describe('command centre (/admin)', () => {
     renderAt('/admin');
     expect(await screen.findByRole('heading', { level: 1, name: 'Command centre' })).toBeTruthy();
 
+    // Site visits headline: window total, change between the window's halves, trend line
+    const visits = await screen.findByRole('region', { name: 'Site visits' });
+    expect(within(visits).getByText('210')).toBeTruthy();
+    expect(within(visits).getByText(/\+10%/)).toBeTruthy(); // 110 vs 100
+    expect(within(visits).getByText('last 1 day vs the 1 day before')).toBeTruthy();
+    expect(within(visits).getByRole('img', { name: 'Daily site visits, 2026-10-27 to 2026-10-28' })).toBeTruthy();
+
     const queues = await screen.findByRole('region', { name: 'Action queues' });
     expect(within(queues).getByText('New products')).toBeTruthy();
     expect(within(queues).getByText('3')).toBeTruthy();

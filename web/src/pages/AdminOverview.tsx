@@ -139,6 +139,62 @@ function SeriesChart({
   );
 }
 
+/**
+ * The headline growth number: visits in the window, the change between the window's two halves,
+ * and a trend line of daily visits. The same data also feeds "Daily visits" under Traffic.
+ */
+function VisitsHero({ days, total, points }: { days: number; total: number; points: CommandCentreDayPoint[] }) {
+  const values = points.map((p) => p.visits);
+  const half = Math.floor(values.length / 2);
+  const recent = values.slice(values.length - half).reduce((a, v) => a + v, 0);
+  const before = values.slice(0, half).reduce((a, v) => a + v, 0);
+  const change = half > 0 && before > 0 ? Math.round(((recent - before) / before) * 100) : null;
+  const perDay = values.length > 0 ? Math.round(total / values.length) : 0;
+
+  const width = 600;
+  const height = 80;
+  const max = Math.max(1, ...values);
+  const xAt = (i: number) => (values.length > 1 ? (i / (values.length - 1)) * width : width / 2);
+  const yAt = (v: number) => height - 2 - (v / max) * (height - 6);
+  const line = values.map((v, i) => `${i === 0 ? 'M' : 'L'}${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`).join(' ');
+  const area = values.length > 0 ? `${line} L${xAt(values.length - 1).toFixed(1)},${height} L${xAt(0).toFixed(1)},${height} Z` : '';
+  const firstDay = points[0]?.day ?? '';
+  const lastDay = points[points.length - 1]?.day ?? '';
+
+  return (
+    <section aria-label="Site visits" className="flex gap-6 rounded-md border border-line bg-card px-5 py-4 max-md:flex-col max-md:gap-3 max-sm:p-4">
+      <div className="flex shrink-0 flex-col gap-1">
+        <span className="text-xs font-medium text-ink-muted">Site visits · last {days} days</span>
+        <strong className="font-mono text-2xl font-bold text-ink tabular-nums">{total.toLocaleString()}</strong>
+        <span className="flex flex-wrap items-baseline gap-2 text-xs text-ink-secondary">
+          {change === null ? (
+            <span className="text-ink-muted">No earlier visits to compare</span>
+          ) : (
+            <span className={cx('font-mono font-semibold tabular-nums', change > 0 ? 'text-success' : change < 0 ? 'text-danger' : 'text-ink-secondary')}>
+              {change > 0 ? '▲ +' : change < 0 ? '▼ ' : ''}
+              {change}%
+            </span>
+          )}
+          {change === null ? null : <span>last {plural(half, 'day')} vs the {plural(half, 'day')} before</span>}
+        </span>
+        <span className="text-xs text-ink-muted">About {perDay.toLocaleString()} a day</span>
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
+        <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label={`Daily site visits, ${firstDay} to ${lastDay}`} className="h-9 w-full overflow-visible">
+          {area ? <path d={area} fill="var(--color-brand-soft)" /> : null}
+          {line ? <path d={line} fill="none" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" stroke="var(--color-brand)" /> : null}
+        </svg>
+        {firstDay && lastDay ? (
+          <div className="flex justify-between font-mono text-xs text-ink-muted tabular-nums">
+            <span>{firstDay.slice(5)}</span>
+            <span>{lastDay.slice(5)}</span>
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 function FunnelList({ title, rows }: { title: string; rows: Array<{ label: string; value: number; muted?: boolean }> }) {
   const top = Math.max(1, rows[0]?.value ?? 0);
   return (
@@ -229,6 +285,8 @@ export function AdminOverview() {
           </Button>
         </div>
       </div>
+
+      <VisitsHero days={days} total={traffic.visits} points={series} />
 
       <section aria-label="Action queues" className="grid grid-cols-4 gap-3 max-md:grid-cols-2">
         {queueCards.map((q) => (
