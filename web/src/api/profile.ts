@@ -68,6 +68,15 @@ export async function updateProfile(id: string, d: ProfileDraft): Promise<{ erro
   return { error: { name: 'We couldn’t save your profile. Try again.' } };
 }
 
+/** Change only the handle (the first-sign-in picker); same errors as the Settings form. */
+export async function updateHandle(id: string, handle: string): Promise<{ error: string | null }> {
+  const { error } = await getSupabase().from('profile').update({ handle }).eq('id', id);
+  if (!error) return { error: null };
+  if (error.code === '23505') return { error: 'That handle is taken. Try another.' };
+  if (error.code === '23514') return { error: 'That handle isn’t allowed.' };
+  return { error: 'We couldn’t save your handle. Try again.' };
+}
+
 // ------------------------------------------------------------------ avatar
 
 /** The bucket's limit, enforced on what we upload (the cropped image). */

@@ -254,3 +254,8 @@ export function useAuthCapabilities(enabled = true): AuthCapabilities {
 export async function clearRequestedHandle(): Promise<void> {
   await getSupabase().auth.updateUser({ data: { requested_handle: null } });
 }
+
+/** Remember that a Google account has picked (or kept) its handle, so it is asked once. */
+export async function markHandleChosen(): Promise<void> {
+  await getSupabase().auth.updateUser({ data: { handle_chosen: true } });
+}

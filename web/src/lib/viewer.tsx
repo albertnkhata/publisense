@@ -24,6 +24,11 @@ export interface Viewer {
   connected?: Array<{ provider: string; email: string | null }>;
   /** The handle asked for at sign-up, until the user keeps or changes the one they got. */
   requestedHandle?: string | null;
+  /**
+   * A new Google-only account that hasn't picked its handle yet: Google sign-up has
+   * no form, so the handle came from the email and the app offers a pick once.
+   */
+  chooseHandle?: boolean;
 }
 
 interface ViewerContextValue {
@@ -52,6 +57,13 @@ const PREVIEW_ENABLED = import.meta.env.DEV && !hasSupabaseConfig && import.meta
 
 const ViewerContext = createContext<ViewerContextValue | null>(null);
 
+/** Created in the last day: older Google accounts settled their handle long ago and aren't asked. */
+const NEW_ACCOUNT_MS = 24 * 60 * 60 * 1000;
+function isNewAccount(createdAt: string | undefined): boolean {
+  const t = createdAt ? Date.parse(createdAt) : NaN;
+  return Number.isFinite(t) && Date.now() - t < NEW_ACCOUNT_MS;
+}
+
 export function viewerFrom(user: User, profile: ProfileRow | null | undefined): Viewer {
   const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
   const identities = user.identities ?? [];
@@ -68,6 +80,11 @@ export function viewerFrom(user: User, profile: ProfileRow | null | undefined): 
       .filter((i) => i.provider !== 'email')
       .map((i) => ({ provider: i.provider, email: (i.identity_data?.email as string | undefined) ?? null })),
     requestedHandle: typeof meta.requested_handle === 'string' && meta.requested_handle ? meta.requested_handle : null,
+    chooseHandle:
+      identities.length > 0 &&
+      !identities.some((i) => i.provider === 'email') &&
+      meta.handle_chosen !== true &&
+      isNewAccount(user.created_at),
   };
 }
 
