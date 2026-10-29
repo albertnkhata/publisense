@@ -54,9 +54,9 @@ counters move. Everything is rolled back. The same job checks the live pages, si
 **Browser sign-in smoke (added 2026-10-29).** `e2e/tests/signin.spec.ts` runs nightly at 01:17 UTC from
 `.github/workflows/e2e.yml` (and on PRs touching `e2e/`), in headless Chromium against publisense.app. It opens the
 sign-in dialog, has the live auth server refuse a wrong password (a `.invalid` address, so no account or email), and
-follows Continue with Google to Google's page with our OAuth client, failing on a Google OAuth error. A full password
-sign-in also runs once the `E2E_EMAIL` and `E2E_PASSWORD` repo secrets hold a dedicated test account; until then it
-is skipped.
+follows Continue with Google to Google's page with our OAuth client, failing on a Google OAuth error. It then signs
+in for real with a throwaway account made for that run only, directly in the database (confirmed, `.invalid`
+address, no email) and deleted when the run ends (`supabase/tests/e2e_account_*.sql`).
 
 **Not automated, by choice.** Completing Google's consent and clicking an emailed link need a real Google account and
 inbox; those stay manual.

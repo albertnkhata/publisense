@@ -54,7 +54,7 @@ test('Continue with Google reaches Google with our OAuth client', async ({ page 
 test('a real account can sign in with its password', async ({ page }) => {
   const email = process.env.E2E_EMAIL;
   const password = process.env.E2E_PASSWORD;
-  test.skip(!email || !password, 'E2E_EMAIL and E2E_PASSWORD are not set');
+  test.skip(!email || !password, 'no throwaway account (SUPABASE_DB_URL not set)');
   const dialog = await openSignIn(page);
   await dialog.getByLabel('Email address').fill(email!);
   await dialog.getByLabel('Password', { exact: true }).fill(password!);
