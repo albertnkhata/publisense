@@ -73,10 +73,10 @@ function AdminGate({ title, children }: { title: string; children: ReactNode }) 
   if (!admin.data) return <NotFound />;
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
-      <h1 id="page-title" className="mt-0 mb-1 text-2xl font-bold text-ink">
+      {/* The nav rail already says where you are; the heading stays for screen readers. */}
+      <h1 id="page-title" className="sr-only">
         {title}
       </h1>
-      <p className="mt-0 mb-4 text-sm text-ink-muted">Publisense staff only.</p>
       <AdminNav />
       {children}
     </section>
