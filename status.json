@@ -3,11 +3,6 @@
   "repo": {
     "openDecisions": [
       {
-        "id": "D-012",
-        "title": "The Google consent screen shows no app logo",
-        "revisit": "when a distinctive brand mark exists, or if a sensitive scope forces a review anyway"
-      },
-      {
         "id": "D-007",
         "title": "Background rows for other users have no email in the client",
         "revisit": ""
@@ -19,6 +14,7 @@
       }
     ],
     "resolved": [
+      "D-012",
       "D-015",
       "D-011",
       "D-002",
