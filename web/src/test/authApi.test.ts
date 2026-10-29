@@ -2,6 +2,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Exercise the real api functions against a stub client: what they send, and
 // that what they return never tells a visitor whether an account exists.
+const profileQuery = vi.hoisted(() => {
+  const q = { result: { data: [] as unknown[], error: null as unknown }, eq: vi.fn(), select: vi.fn(), limit: vi.fn(), from: vi.fn() };
+  q.from.mockImplementation(() => q);
+  q.select.mockImplementation(() => q);
+  q.eq.mockImplementation(() => q);
+  q.limit.mockImplementation(async () => q.result);
+  return q;
+});
+
 const auth = vi.hoisted(() => ({
   signInWithPassword: vi.fn(),
   signUp: vi.fn(),
@@ -14,11 +23,11 @@ vi.mock('../api/supabase', () => ({
   hasSupabaseConfig: true,
   SUPABASE_URL: 'https://example.supabase.co',
   SUPABASE_ANON_KEY: 'anon',
-  getSupabase: () => ({ auth }),
+  getSupabase: () => ({ auth, from: profileQuery.from }),
   publicStorageUrl: () => null,
 }));
 
-const { AUTH_COPY, changePassword, completePasswordReset, explainAuthError, requestPasswordReset, signInWithPassword, signUp } = await import('../api/auth');
+const { AUTH_COPY, changePassword, completePasswordReset, isHandleTaken, explainAuthError, requestPasswordReset, signInWithPassword, signUp } = await import('../api/auth');
 
 const authError = (code: string, message = code) => Object.assign(new Error(message), { code });
 
@@ -43,9 +52,12 @@ describe('explainAuthError', () => {
 describe('auth api', () => {
   it('signs up with the name in metadata and reports when confirmation is needed', async () => {
     auth.signUp.mockResolvedValue({ data: { session: null, user: {} }, error: null });
-    const r = await signUp(' Nia ', ' nia@b.co ', 'Long-enough-1');
+    const r = await signUp(' Nia ', ' nia@b.co ', 'Long-enough-1', 'nia_builds');
     expect(r).toEqual({ error: null, needsConfirmation: true });
-    expect(auth.signUp.mock.calls[0]?.[0]).toMatchObject({ email: 'nia@b.co', options: { data: { full_name: 'Nia' } } });
+    expect(auth.signUp.mock.calls[0]?.[0]).toMatchObject({
+      email: 'nia@b.co',
+      options: { data: { full_name: 'Nia', user_name: 'nia_builds', requested_handle: 'nia_builds' } },
+    });
   });
 
   it('asks for the reset link to land on /auth/reset and hides provider errors', async () => {
@@ -82,5 +94,16 @@ describe('auth api', () => {
     auth.updateUser.mockResolvedValue({ error: authError('same_password') });
     expect((await completePasswordReset('Same-pass-1')).error).toBeTruthy();
     expect(auth.signOut).not.toHaveBeenCalled();
+  });
+
+  it('checks a handle against public profiles, and answers null when the lookup fails', async () => {
+    profileQuery.result = { data: [{ id: 'u1' }], error: null };
+    expect(await isHandleTaken('nia')).toBe(true);
+    expect(profileQuery.from).toHaveBeenCalledWith('profile');
+    expect(profileQuery.eq).toHaveBeenCalledWith('handle', 'nia');
+    profileQuery.result = { data: [], error: null };
+    expect(await isHandleTaken('nia_b')).toBe(false);
+    profileQuery.result = { data: null as unknown as unknown[], error: new Error('offline') };
+    expect(await isHandleTaken('nia')).toBeNull();
   });
 });
