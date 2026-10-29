@@ -134,6 +134,27 @@ const PATHS = {
       <rect x="14" y="14" width="7" height="7" rx="1.5" />
     </>
   ),
+  // Admin sections in the nav rail; same grid and stroke.
+  gauge: <path d="M12 14l4-4M3.3 19a10 10 0 1 1 17.4 0" />,
+  box: (
+    <>
+      <path d="M21 8 12 3 3 8v8l9 5 9-5z" />
+      <path d="m3 8 9 5 9-5M12 13v8" />
+    </>
+  ),
+  building: (
+    <>
+      <rect x="4" y="2" width="16" height="20" rx="1.5" />
+      <path d="M9 22v-4h6v4M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01" />
+    </>
+  ),
+  scale: <path d="M12 3v18M5 21h14M3 7h18M6 7l-3 7a3 3 0 0 0 6 0zM18 7l-3 7a3 3 0 0 0 6 0z" />,
+  users: (
+    <>
+      <circle cx="9" cy="8" r="4" />
+      <path d="M2 21a7 7 0 0 1 14 0M16 3.1a4 4 0 0 1 0 7.8M22 21a7 7 0 0 0-4-6.3" />
+    </>
+  ),
   // Not in the mockup (it has no author edit/delete); same grid and stroke.
   edit: <path d="M17 3a2.85 2.85 0 0 1 4 4L7.5 20.5 3 21l.5-4.5zM15 5l4 4" />,
   trash: <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6M10 11v6M14 11v6" />,

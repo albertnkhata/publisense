@@ -90,7 +90,8 @@ function AdminNav() {
       isActive ? 'border-ink bg-ink text-card' : 'border-line bg-card text-ink-secondary hover:border-line-strong hover:text-ink',
     );
   return (
-    <nav aria-label="Admin" className="mb-4 flex flex-wrap gap-2">
+    // Above sm the nav rail lists these sections (NavRail ADMIN_SECTIONS); phones have no rail, so they keep the pills.
+    <nav aria-label="Admin sections" className="mb-4 hidden flex-wrap gap-2 max-sm:flex">
       <NavLink to="/admin" end className={item}>
         Overview
       </NavLink>
