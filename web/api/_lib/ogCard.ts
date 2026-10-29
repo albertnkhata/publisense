@@ -25,6 +25,8 @@ export interface OgCardData {
   color: string;
   /** Small line under the board name: "Open · 12 upvotes", or "Feedback board". */
   meta: string;
+  /** The post's body, shown under the title in up to two lines. */
+  detail?: string | null;
 }
 
 /** A satori element: the shape @vercel/og accepts without JSX. */
@@ -53,7 +55,10 @@ export function clipTitle(title: string, max = 140): string {
 }
 
 export function ogCard(d: OgCardData): El {
-  const title = clipTitle(d.title);
+  const detail = d.detail ? clipTitle(d.detail, 180) : '';
+  // With a body under it the title gets two lines and a step smaller type, so both fit.
+  const title = clipTitle(d.title, detail ? 100 : 140);
+  const size = detail ? Math.min(titleSize(title), 54) : titleSize(title);
   const tile = d.logoUrl
     ? el('img', { width: 120, height: 120, borderRadius: 28, border: `2px solid ${LINE}`, objectFit: 'cover' }, undefined, {
         src: d.logoUrl,
@@ -80,9 +85,12 @@ export function ogCard(d: OgCardData): El {
         ]),
         el(
           'div',
-          { display: 'block', marginTop: 56, fontSize: titleSize(title), fontWeight: 700, color: INK, lineHeight: 1.22, lineClamp: 3, paddingBottom: 8, overflow: 'hidden' },
+          { display: 'block', marginTop: detail ? 44 : 56, fontSize: size, fontWeight: 700, color: INK, lineHeight: 1.22, lineClamp: detail ? 2 : 3, paddingBottom: 8, overflow: 'hidden' },
           title,
         ),
+        ...(detail
+          ? [el('div', { display: 'block', marginTop: 12, fontSize: 30, fontWeight: 500, color: INK_SECONDARY, lineHeight: 1.4, lineClamp: 2, overflow: 'hidden' }, detail)]
+          : []),
       ]),
       el('div', { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 96px 28px 96px' }, [
         el('div', { fontSize: 26, fontWeight: 700, color: BRAND }, 'Publisense'),

@@ -8,7 +8,7 @@ export async function cardData(kind: string, key: string): Promise<OgCardData | 
   const k = encodeURIComponent(key);
   const q =
     kind === 'post' && /^[0-9a-f-]{36}$/i.test(key)
-      ? `post?select=title,status,vote_count,board(name,color,logo_path)&id=eq.${k}&hidden_at=is.null&limit=1`
+      ? `post?select=title,body,status,vote_count,board(name,color,logo_path)&id=eq.${k}&hidden_at=is.null&limit=1`
       : kind === 'board' && /^[a-z0-9-]{1,80}$/i.test(key)
         ? `board?select=name,tagline,color,logo_path,post_count&slug=eq.${k}&status=eq.live&limit=1`
         : null;
@@ -28,6 +28,7 @@ export async function cardData(kind: string, key: string): Promise<OgCardData | 
       logoUrl: logo(board?.logo_path),
       color: board?.color ?? '#0047AB',
       meta: postMetaLine(String(row.status ?? 'open'), Number(row.vote_count ?? 0)),
+      detail: typeof row.body === 'string' && row.body.trim() ? row.body.replace(/\s+/g, ' ').trim() : null,
     };
   }
   const posts = Number(row.post_count ?? 0);

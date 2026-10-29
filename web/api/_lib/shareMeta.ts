@@ -105,7 +105,7 @@ export function postMeta(p: PostMetaRow): ShareMeta {
 
 function postImage(p: PostMetaRow): ShareMeta['image'] {
   return {
-    path: `/api/og?kind=post&key=${p.id}&v=${imageVersion(p.title, p.status, p.board?.name)}`,
+    path: `/api/og?kind=post&key=${p.id}&v=${imageVersion(p.title, p.status, p.board?.name, p.body)}`,
     alt: clip(`${p.title}${p.board ? ` · ${p.board.name}` : ''}`, 110),
   };
 }

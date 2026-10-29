@@ -26,6 +26,12 @@ describe('ogCard', () => {
     expect(text(card)).toContain('Dark mode');
   });
 
+  it('shows the post body under the title', () => {
+    const card = ogCard({ ...data, detail: 'Linear is too bright at night.\n\nPlease add a dark theme.' });
+    expect(text(card)).toContain('Linear is too bright at night. Please add a dark theme.');
+    expect(text(ogCard(data))).not.toContain('bright');
+  });
+
   it('falls back to a coloured initial when the board has no logo', () => {
     const card = ogCard({ ...data, logoUrl: null });
     expect(find(card, 'img')).toBeNull();
@@ -59,6 +65,7 @@ describe('cardData', () => {
       logoUrl: 'https://example.supabase.co/storage/v1/object/public/board-logos/a/b.png',
       color: '#43B02A',
       meta: 'Open · 3 upvotes',
+      detail: null,
     });
   });
 
