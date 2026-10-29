@@ -43,10 +43,14 @@ export function isCrawler(userAgent: string | null | undefined): boolean {
 }
 
 /** Which record a path previews, or null for pages that keep the site defaults. */
-export function shareTarget(pathname: string): { kind: 'board' | 'hub' | 'post'; key: string } | null {
-  const m = /^\/(b|h|post)\/([^/?#]+)\/?$/.exec(pathname);
+export function shareTarget(pathname: string): { kind: 'board' | 'hub' | 'post' | 'user'; key: string } | null {
+  const m = /^\/(b|h|post|u)\/([^/?#]+)\/?$/.exec(pathname);
   if (!m || !m[1] || !m[2]) return null;
   const key = decodeURIComponent(m[2]);
+  if (m[1] === 'u') {
+    const h = key.replace(/^@/, '').toLowerCase();
+    return /^[a-z0-9_]{3,30}$/.test(h) ? { kind: 'user', key: h } : null;
+  }
   if (m[1] === 'post') return /^[0-9a-f-]{36}$/i.test(key) ? { kind: 'post', key } : null;
   return /^[a-z0-9-]{1,80}$/i.test(key) ? { kind: m[1] === 'b' ? 'board' : 'hub', key } : null;
 }
@@ -59,6 +63,19 @@ export function boardMeta(b: { slug: string; name: string; tagline?: string | nu
     image: {
       path: `/api/og?kind=board&key=${encodeURIComponent(b.slug)}&v=${imageVersion(b.name, b.tagline)}`,
       alt: `${b.name} on Publisense`,
+    },
+  };
+}
+
+export function userMeta(u: { handle: string; name?: string | null; bio?: string | null }): ShareMeta {
+  const name = u.name?.trim() || `@${u.handle}`;
+  return {
+    title: clip(`${name}${u.name?.trim() ? ` (@${u.handle})` : ''} · Publisense`, 110),
+    description: clip(u.bio?.trim() || `See what ${name} has asked product teams for on Publisense.`),
+    path: `/u/${u.handle}`,
+    image: {
+      path: `/api/og?kind=user&key=${encodeURIComponent(u.handle)}&v=${imageVersion(u.name, u.bio)}`,
+      alt: `${name} on Publisense`,
     },
   };
 }

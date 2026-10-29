@@ -26,7 +26,7 @@ import {
 } from '../api';
 import { BackLink } from '../boards/parts';
 import { useClaim } from '../claim/ClaimDialog';
-import { copyText } from '../lib/share';
+import { shareLink } from '../lib/share';
 import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { ConfirmDialog } from '../posts/dialogs';
@@ -163,8 +163,7 @@ function ProfileActions({ person, self }: { person: PublicProfile; self: boolean
   const { toast } = useToast();
   const navigate = useNavigate();
   const share = () => {
-    const url = `${window.location.origin}/u/${person.handle}`;
-    void copyText(url).then((ok) => toast(ok ? 'Profile link copied' : 'Copy failed'));
+    void shareLink(`/u/${person.handle}`, person.name || `@${person.handle}`, 'Profile link copied').then((msg) => msg && toast(msg));
   };
   if (self) {
     return (

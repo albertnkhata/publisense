@@ -29,7 +29,8 @@ import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { LoadError, PostList, PostListSkeleton } from '../posts/PostList';
 import { useComposer } from '../shell/composer';
-import { BoardAvatar, Button, EmptyState, Icon, IconButton, Menu, MenuItem, Skeleton, SkeletonBlock } from '../ui';
+import { BoardAvatar, Button, EmptyState, Icon, IconButton, Menu, MenuItem, Skeleton, SkeletonBlock, useToast } from '../ui';
+import { shareLink } from '../lib/share';
 import { useSetUrlParams } from '../lib/useUrlParam';
 
 /**
@@ -110,6 +111,7 @@ function Board({ board }: { board: BoardWithHub }) {
   const ids = useMemo(() => [board.id], [board.id]);
   const counts = usePostCounts(ids);
   const team = useIsBoardTeam(board.id, viewer?.id ?? null);
+  const { toast } = useToast();
 
   /** Set URL params; a value equal to its default is removed. Tab changes add a history entry. */
   const update = (changes: Array<[key: string, value: string, fallback: string]>) =>
@@ -120,18 +122,27 @@ function Board({ board }: { board: BoardWithHub }) {
     <section aria-labelledby="page-title" className="flex flex-col">
       <div className="mb-4 flex items-center justify-between gap-2">
         <BackLink to="/">Home</BackLink>
-        <Menu label={`More from ${board.name}`} align="end" trigger={(p) => <IconButton {...p} icon="more" label="More" />}>
-          <MenuItem
-            icon="status-planned"
-            description={counts.data ? `${counts.data.roadmap} planned or in progress` : 'What’s planned and in progress'}
-            onSelect={() => setParam('tab', 'roadmap', 'feedback')}
-          >
-            Roadmap
-          </MenuItem>
-          <MenuItem icon="check-circle" description="What’s shipped" onSelect={() => setParam('tab', 'changelog', 'feedback')}>
-            Changelog
-          </MenuItem>
-        </Menu>
+        <div className="flex items-center gap-1">
+          {board.status === 'live' ? (
+            <IconButton
+              icon="share"
+              label={`Share ${board.name}`}
+              onClick={() => void shareLink(`/b/${board.slug}`, `${board.name} feedback`).then((msg) => msg && toast(msg))}
+            />
+          ) : null}
+          <Menu label={`More from ${board.name}`} align="end" trigger={(p) => <IconButton {...p} icon="more" label="More" />}>
+            <MenuItem
+              icon="status-planned"
+              description={counts.data ? `${counts.data.roadmap} planned or in progress` : 'What’s planned and in progress'}
+              onSelect={() => setParam('tab', 'roadmap', 'feedback')}
+            >
+              Roadmap
+            </MenuItem>
+            <MenuItem icon="check-circle" description="What’s shipped" onSelect={() => setParam('tab', 'changelog', 'feedback')}>
+              Changelog
+            </MenuItem>
+          </Menu>
+        </div>
       </div>
       <ScopeHeader
         logo={<BoardAvatar name={board.name} color={board.color} logoSrc={logoSrc(board)} size="xl" decorative />}

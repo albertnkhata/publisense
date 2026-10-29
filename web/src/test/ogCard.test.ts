@@ -69,6 +69,20 @@ describe('cardData', () => {
     });
   });
 
+  it('builds a person card from their profile and avatar', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify([
+      { handle: 'albert_n', name: 'Albert N', bio: '', avatar_path: 'u/a.png', follower_count: 1 },
+    ]))));
+    expect(await cardData('user', '@Albert_N')).toMatchObject({
+      board: 'Albert N',
+      logoUrl: 'https://example.supabase.co/storage/v1/object/public/avatars/u/a.png',
+      meta: '@albert_n · 1 follower',
+      round: true,
+      quiet: false,
+      title: 'Feedback from Albert N on Publisense',
+    });
+  });
+
   it('answers null for keys that cannot name a page, and for pages the public cannot see', async () => {
     const f = vi.fn(async () => new Response('[]'));
     vi.stubGlobal('fetch', f);

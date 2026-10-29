@@ -11,7 +11,9 @@ export async function cardData(kind: string, key: string): Promise<OgCardData | 
       ? `post?select=title,body,status,vote_count,board(name,color,logo_path)&id=eq.${k}&hidden_at=is.null&limit=1`
       : kind === 'board' && /^[a-z0-9-]{1,80}$/i.test(key)
         ? `board?select=name,tagline,color,logo_path,post_count&slug=eq.${k}&status=eq.live&limit=1`
-        : null;
+        : kind === 'user' && /^@?[a-z0-9_]{3,30}$/i.test(key)
+          ? `profile?select=handle,name,bio,avatar_path,follower_count&handle=eq.${encodeURIComponent(key.replace(/^@/, '').toLowerCase())}&limit=1`
+          : null;
   if (!q) return null;
   const r = await fetch(`${base}/rest/v1/${q}`, { headers: { apikey: anon, authorization: `Bearer ${anon}` }, signal: AbortSignal.timeout(2000) });
   if (!r.ok) return null;
@@ -29,6 +31,24 @@ export async function cardData(kind: string, key: string): Promise<OgCardData | 
       color: board?.color ?? '#0047AB',
       meta: postMetaLine(String(row.status ?? 'open'), Number(row.vote_count ?? 0)),
       detail: typeof row.body === 'string' && row.body.trim() ? row.body.replace(/\s+/g, ' ').trim() : null,
+    };
+  }
+  if (kind === 'user') {
+    const handle = String(row.handle ?? '');
+    const name = String(row.name ?? '').trim();
+    const followers = Number(row.follower_count ?? 0);
+    const avatar = typeof row.avatar_path === 'string' && row.avatar_path
+      ? `${base}/storage/v1/object/public/avatars/${row.avatar_path.split('/').map(encodeURIComponent).join('/')}`
+      : null;
+    const bio = String(row.bio ?? '').replace(/\s+/g, ' ').trim();
+    return {
+      title: bio || `Feedback from ${name || '@' + handle} on Publisense`,
+      board: name || `@${handle}`,
+      logoUrl: avatar,
+      color: '#0047AB',
+      meta: `@${handle} · ${followers} ${followers === 1 ? 'follower' : 'followers'}`,
+      round: true,
+      quiet: Boolean(bio),
     };
   }
   const posts = Number(row.post_count ?? 0);

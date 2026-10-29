@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { applyMeta, boardMeta, hubMeta, isCrawler, postMeta, shareTarget } from '../../api/_lib/shareMeta';
+import { applyMeta, boardMeta, hubMeta, isCrawler, postMeta, shareTarget, userMeta } from '../../api/_lib/shareMeta';
 import { slowDown } from '../api/posts';
 
 const html = readFileSync(resolve(__dirname, '../../index.html'), 'utf8');
@@ -45,6 +45,17 @@ describe('link previews', () => {
     expect(a.image?.alt).toBe('Dark mode · Linear');
     expect(a.image?.path).not.toBe(b.image?.path);
     expect(applyMeta(html, a)).toContain('og:image" content="https://publisense.app/api/og?kind=post&amp;key=p1');
+  });
+
+  it('previews a person with their name, bio and own image', () => {
+    expect(shareTarget('/u/@Albert_N')).toEqual({ kind: 'user', key: 'albert_n' });
+    expect(shareTarget('/u/no')).toBeNull();
+    const out = applyMeta(html, userMeta({ handle: 'albert_n', name: 'Albert N', bio: 'Builds things.' }));
+    expect(out).toContain('<title>Albert N (@albert_n) · Publisense</title>');
+    expect(out).toContain('og:description" content="Builds things."');
+    expect(out).toContain('og:url" content="https://publisense.app/u/albert_n"');
+    expect(out).toContain('og:image" content="https://publisense.app/api/og?kind=user&amp;key=albert_n');
+    expect(userMeta({ handle: 'bob_1', name: '', bio: '' }).title).toBe('@bob_1 · Publisense');
   });
 
   it('keeps the site image for hubs', () => {

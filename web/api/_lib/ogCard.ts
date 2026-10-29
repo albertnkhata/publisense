@@ -25,6 +25,10 @@ export interface OgCardData {
   color: string;
   /** Small line under the board name: "Open · 12 upvotes", or "Feedback board". */
   meta: string;
+  /** A person: round avatar instead of a rounded-square logo. */
+  round?: boolean;
+  /** The big line is a bio, not a headline: smaller, regular-weight type. */
+  quiet?: boolean;
   /** The post's body, shown under the title in up to two lines. */
   detail?: string | null;
 }
@@ -58,16 +62,17 @@ export function ogCard(d: OgCardData): El {
   const detail = d.detail ? clipTitle(d.detail, 180) : '';
   // With a body under it the title gets two lines and a step smaller type, so both fit.
   const title = clipTitle(d.title, detail ? 100 : 140);
-  const size = detail ? Math.min(titleSize(title), 54) : titleSize(title);
+  const size = d.quiet ? 44 : detail ? Math.min(titleSize(title), 54) : titleSize(title);
+  const radius = d.round ? 60 : 28;
   const tile = d.logoUrl
-    ? el('img', { width: 120, height: 120, borderRadius: 28, border: `2px solid ${LINE}`, objectFit: 'cover' }, undefined, {
+    ? el('img', { width: 120, height: 120, borderRadius: radius, border: `2px solid ${LINE}`, objectFit: 'cover' }, undefined, {
         src: d.logoUrl,
         width: 120,
         height: 120,
       })
     : el(
         'div',
-        { width: 120, height: 120, borderRadius: 28, background: d.color, color: '#FFFFFF', fontSize: 60, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+        { width: 120, height: 120, borderRadius: radius, background: d.color, color: '#FFFFFF', fontSize: 60, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' },
         (d.board.trim()[0] ?? 'P').toUpperCase(),
       );
 
@@ -85,7 +90,7 @@ export function ogCard(d: OgCardData): El {
         ]),
         el(
           'div',
-          { display: 'block', marginTop: detail ? 44 : 56, fontSize: size, fontWeight: 700, color: INK, lineHeight: 1.22, lineClamp: detail ? 2 : 3, paddingBottom: 8, overflow: 'hidden' },
+          { display: 'block', marginTop: detail ? 44 : 56, fontSize: size, fontWeight: d.quiet ? 500 : 700, color: d.quiet ? INK_SECONDARY : INK, lineHeight: 1.22, lineClamp: detail ? 2 : 3, paddingBottom: 8, overflow: 'hidden' },
           title,
         ),
         ...(detail
