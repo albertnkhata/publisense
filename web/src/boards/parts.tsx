@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import {
   compactCount,
   logoSrc,
@@ -308,12 +308,33 @@ export function CardGrid({ children, label }: { children: ReactNode; label?: str
   );
 }
 
-export function BackLink({ to, children = 'Home', onClick }: { to: string; children?: ReactNode; onClick?: () => void }) {
+export function BackLink({
+  to = '/',
+  children = 'Back',
+  smart = to === '/',
+  onClick,
+  className,
+}: {
+  to?: string;
+  children?: ReactNode;
+  /** When true (default when `to` is '/'), uses browser history if available; otherwise falls back to `to`. */
+  smart?: boolean;
+  onClick?: () => void;
+  className?: string;
+}) {
+  const navigate = useNavigate();
+  const canGoBack = smart && typeof window !== 'undefined' && Number((window.history.state as { idx?: number } | null)?.idx ?? 0) > 0;
   return (
     <Link
       to={to}
-      onClick={onClick}
-      className="inline-flex items-center gap-2 self-start text-sm font-medium text-ink-muted no-underline hover:text-ink"
+      onClick={(e) => {
+        onClick?.();
+        if (canGoBack) {
+          e.preventDefault();
+          void navigate(-1);
+        }
+      }}
+      className={cx('inline-flex items-center gap-2 self-start text-sm font-medium text-ink-muted no-underline hover:text-ink', className)}
     >
       <Icon name="arrow-left" size={14} />
       {children}

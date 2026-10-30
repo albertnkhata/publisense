@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
+import { Link, Navigate, useParams, useSearchParams } from 'react-router';
 import {
   covered,
   dedupePosts,
@@ -15,7 +15,7 @@ import {
   useVerifiedDomains,
   type Hub,
 } from '../api';
-import { BoardRow, ChoiceMenu, FollowScopeButton, RowItem, RowList } from '../boards/parts';
+import { BackLink, BoardRow, ChoiceMenu, FollowScopeButton, RowItem, RowList } from '../boards/parts';
 import { FollowerStat, ScopeHeader, Stat } from '../boards/ScopeHeader';
 import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
@@ -59,7 +59,6 @@ export function HubPage() {
 }
 
 function HubView({ hub }: { hub: Hub }) {
-  const navigate = useNavigate();
   const { viewer } = useViewer();
   const role = useScopeRole('hub', hub.id, viewer?.id ?? null);
   const { openComposer } = useComposer();
@@ -77,14 +76,7 @@ function HubView({ hub }: { hub: Hub }) {
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
       <div className="mb-4 flex items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={() => (window.history.length > 1 ? void navigate(-1) : void navigate('/'))}
-          className="inline-flex items-center gap-2 border-0 bg-transparent p-0 text-sm font-medium text-ink-muted hover:text-ink"
-        >
-          <Icon name="arrow-left" size={14} />
-          Back
-        </button>
+        <BackLink />
         <Menu label={`More from ${hub.name}`} align="end" trigger={(p) => <IconButton {...p} icon="more" label="More" />}>
           <MenuItem
             icon="share"

@@ -83,6 +83,36 @@ beforeEach(() => {
 });
 
 describe('board page', () => {
+  it('renders smart Back navigation falling back to home', async () => {
+    postsApi.fetchPostList.mockResolvedValue(page([]));
+    const { router } = renderAt('/b/cursor');
+    const back = await screen.findByRole('link', { name: 'Back' });
+    expect(back).toBeTruthy();
+    expect(back.getAttribute('href')).toBe('/');
+    fireEvent.click(back);
+    await waitFor(() => expect(router.state.location.pathname).toBe('/'));
+  });
+
+  it('navigates back in history when history entries exist', async () => {
+    const originalState = window.history.state;
+    Object.defineProperty(window.history, 'state', {
+      value: { idx: 2 },
+      configurable: true,
+    });
+    try {
+      const { router } = renderAt('/b/cursor');
+      const back = await screen.findByRole('link', { name: 'Back' });
+      const navSpy = vi.spyOn(router, 'navigate');
+      fireEvent.click(back);
+      expect(navSpy).toHaveBeenCalledWith(-1);
+    } finally {
+      Object.defineProperty(window.history, 'state', {
+        value: originalState,
+        configurable: true,
+      });
+    }
+  });
+
   it('sets the tab title to the board name (#159)', async () => {
     renderAt('/b/cursor');
     await waitFor(() => expect(document.title).toBe(`${CURSOR.name} · Publisense`));
@@ -261,6 +291,15 @@ describe('board header meta line', () => {
 });
 
 describe('hub page', () => {
+  it('renders smart Back navigation', async () => {
+    const { router } = renderAt('/h/figma');
+    const back = await screen.findByRole('link', { name: 'Back' });
+    expect(back).toBeTruthy();
+    expect(back.getAttribute('href')).toBe('/');
+    fireEvent.click(back);
+    await waitFor(() => expect(router.state.location.pathname).toBe('/'));
+  });
+
   it('sets the tab title to the hub name (#159)', async () => {
     renderAt('/h/figma');
     await waitFor(() => expect(document.title).toBe(`${FIGMA_HUB.name} hub · Publisense`));
