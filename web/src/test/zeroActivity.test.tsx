@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes } from 'react-router';
 import { BoardCard } from '../boards/parts';
 import { ExplorePage } from '../pages/ExplorePage';
 import { PostCard } from '../posts/PostCard';
-import { RailBoards } from '../shell/RightRail';
+import { ClaimLine, RailBoards } from '../shell/RightRail';
+import { ClaimProvider } from '../claim/ClaimDialog';
 import { CURSOR, FIGMA, makeBoard, makeSummary, SUPABASE } from './boardFixtures';
 import { makePost } from './postFixtures';
 import { renderWith } from './renderApp';
@@ -87,6 +88,29 @@ describe('explore while quiet', () => {
     renderExplore();
     expect(await screen.findByRole('heading', { name: 'Most wanted' })).toBeTruthy();
     expect(screen.getByLabelText('4 upvotes')).toBeTruthy();
+  });
+});
+
+describe('claim line', () => {
+  it('offers "Claim its board" on generic pages or boards', async () => {
+    renderWith(<ClaimProvider><ClaimLine /></ClaimProvider>);
+    expect(screen.getByText('Maintain a product?')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Claim its board' })).toBeTruthy();
+  });
+
+  it('offers "Claim this hub" on hub pages', async () => {
+    boardsApi.fetchHubs.mockResolvedValue([{ id: 'h1', slug: 'figma', name: 'Figma', claimed_at: null }]);
+    renderWith(<ClaimProvider><ClaimLine /></ClaimProvider>, { path: '/h/figma' });
+    expect(await screen.findByText('Maintain these products?')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Claim this hub' })).toBeTruthy();
+  });
+
+  it('a hub that is already claimed gets the generic line', async () => {
+    boardsApi.fetchHubs.mockResolvedValue([{ id: 'h1', slug: 'figma', name: 'Figma', claimed_at: '2026-10-01T00:00:00Z' }]);
+    renderWith(<ClaimProvider><ClaimLine /></ClaimProvider>, { path: '/h/figma' });
+    await waitFor(() => expect(boardsApi.fetchHubs).toHaveBeenCalled());
+    expect(await screen.findByText('Maintain a product?')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Claim this hub' })).toBeNull();
   });
 });
 

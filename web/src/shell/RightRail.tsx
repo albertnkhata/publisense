@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router';
-import { compactCount, hasSupabaseConfig, isLive, logoSrc, shortAge, useBoards, useTrending, type Board } from '../api';
+import { compactCount, hasSupabaseConfig, isLive, logoSrc, shortAge, useBoards, useHubs, useTrending, type Board } from '../api';
 import { BoardAvatar, Card, SkeletonBlock } from '../ui';
 import { useClaim } from '../claim/ClaimDialog';
 import { SearchWell } from './SearchWell';
@@ -21,22 +21,41 @@ export function RightRail() {
   );
 }
 
-/** Mockup .claim-line: opens the claim flow on the board being viewed, else the product picker. */
-function ClaimLine() {
+/** Mockup .claim-line: opens the claim flow on the board or hub being viewed, else the product picker. */
+export function ClaimLine() {
   const { openClaim } = useClaim();
   const location = useLocation();
   const boards = useBoards();
-  const slug = /^\/b\/([a-z0-9-]+)\/?$/.exec(location.pathname)?.[1];
-  const here = slug ? boards.data?.find((b) => b.slug === slug) : undefined;
+  const hubs = useHubs();
+  const boardSlug = /^\/b\/([a-z0-9-]+)\/?$/.exec(location.pathname)?.[1];
+  const hubSlug = /^\/h\/([a-z0-9-]+)\/?$/.exec(location.pathname)?.[1];
+  const hereBoard = boardSlug ? boards.data?.find((b) => b.slug === boardSlug) : undefined;
+  const hereHub = hubSlug ? hubs.data?.find((h) => h.slug === hubSlug) : undefined;
+
+  const handleClaim = () => {
+    if (hereBoard && !hereBoard.claimed_at) {
+      openClaim({ board: hereBoard.slug });
+    } else if (hereHub && !hereHub.claimed_at) {
+      openClaim({ hub: hereHub.slug });
+    } else {
+      openClaim();
+    }
+  };
+
+  // Hub copy only while the hub can still be claimed; otherwise the generic picker line.
+  const hubOpen = Boolean(hereHub && !hereHub.claimed_at);
+  const actionText = hubOpen ? 'Claim this hub' : 'Claim its board';
+  const promptText = hubOpen ? 'Maintain these products?' : 'Maintain a product?';
+
   return (
     <p className="m-0 px-2 text-sm text-ink-muted">
-      Maintain a product?{' '}
+      {promptText}{' '}
       <button
         type="button"
-        onClick={() => openClaim(here && !here.claimed_at ? { board: here.slug } : undefined)}
+        onClick={handleClaim}
         className="border-0 bg-transparent p-0 font-semibold text-ink-secondary underline decoration-line-strong underline-offset-3 hover:text-brand hover:decoration-current"
       >
-        Claim its board
+        {actionText}
       </button>
     </p>
   );

@@ -70,6 +70,14 @@ const openMenu = async () => {
 };
 
 describe('post menu', () => {
+  it('offers Share post in the menu with its description', async () => {
+    renderCard(makePost({ title: 'Feature request' }));
+    const menu = await openMenu();
+    const shareItem = within(menu).getByRole('menuitem', { name: /Share post/ });
+    expect(shareItem).toBeTruthy();
+    expect(within(shareItem).getByText('Copy or send the post link')).toBeTruthy();
+  });
+
   it('shows Report to everyone but the author, and no team tools', async () => {
     renderCard(makePost());
     const menu = await openMenu();

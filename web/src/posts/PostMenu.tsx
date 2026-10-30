@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { editLockReason, postKind, useDeletePost, useFollowPost, useHidePost, useIsBoardTeam, useIsPlatformAdmin, type Post } from '../api';
-import { copyText, postUrl } from '../lib/share';
+import { sharePost } from '../lib/share';
 import { useViewer } from '../lib/viewer';
 import { useRequireAuth } from '../shell/auth';
 import { IconButton, Menu, MenuItem, MenuSeparator, useToast } from '../ui';
@@ -99,12 +99,13 @@ export function PostMenu({ post, onDeleted }: { post: Post; onDeleted?: () => vo
           </MenuItem>
         ) : null}
         <MenuItem
-          icon="link"
+          icon="share"
+          description="Copy or send the post link"
           onSelect={() => {
-            void copyText(postUrl(post.id)).then((ok) => toast(ok ? 'Link copied' : 'Copy failed'));
+            void sharePost(post.id, post.title).then((msg) => msg && toast(msg));
           }}
         >
-          Copy link
+          Share post
         </MenuItem>
         {canHide ? (
           <>
