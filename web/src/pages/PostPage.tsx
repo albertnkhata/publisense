@@ -143,7 +143,7 @@ function Related({ post }: { post: Post }) {
       <ul className="m-0 flex list-none flex-col p-0">
         {items.map((r) => (
           <li key={r.id} className="border-t border-line first:border-t-0">
-            <Link to={`/post/${r.id}`} className="flex items-start gap-3 rounded-sm py-3 text-ink no-underline hover:bg-subtle">
+            <Link to={`/post/${r.id}`} className="-mx-2 flex items-start gap-3 rounded-sm px-2 py-3 text-ink no-underline transition-colors duration-120 hover:bg-subtle">
               <span
                 aria-label={`${r.vote_count} upvotes`}
                 className="inline-flex min-w-8 shrink-0 flex-col items-center rounded-sm border border-line px-1 py-1 font-mono text-xs font-semibold text-ink-secondary"

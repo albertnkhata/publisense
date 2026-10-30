@@ -221,7 +221,7 @@ function Discover({ boards, hubs }: { boards: Board[]; hubs: Hub[] }) {
 /** Bottom of the boards list: the way to add a product that isn't here yet. */
 function MissingProduct({ q }: { q: string }) {
   return (
-    <p className="m-0 rounded-md border border-dashed border-line-strong px-4 py-4 text-center text-base text-ink-secondary">
+    <p className="m-0 rounded-md border border-dashed border-line-strong bg-card px-4 py-4 text-center text-base text-ink-secondary">
       Can’t find a product you use? <AddProductLink prefill={q || undefined}>Add it</AddProductLink>
     </p>
   );

@@ -77,7 +77,7 @@ export function Tabs<T extends string>({ items, value, onChange, label, idBase, 
             )}
           >
             {t.label}
-            {t.count !== undefined ? <span className="text-sm font-medium text-ink-muted">{t.count}</span> : null}
+            {t.count !== undefined ? <span className="font-mono text-xs text-ink-muted tabular-nums">{t.count}</span> : null}
           </button>
         );
       })}
