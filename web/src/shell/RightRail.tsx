@@ -42,8 +42,10 @@ export function ClaimLine() {
     }
   };
 
-  const actionText = hereHub ? 'Claim this hub' : 'Claim its board';
-  const promptText = hereHub ? 'Maintain these products?' : 'Maintain a product?';
+  // Hub copy only while the hub can still be claimed; otherwise the generic picker line.
+  const hubOpen = Boolean(hereHub && !hereHub.claimed_at);
+  const actionText = hubOpen ? 'Claim this hub' : 'Claim its board';
+  const promptText = hubOpen ? 'Maintain these products?' : 'Maintain a product?';
 
   return (
     <p className="m-0 px-2 text-sm text-ink-muted">
