@@ -351,7 +351,7 @@ function NotificationList({ viewerId }: { viewerId: string }) {
           Mark all as read
         </Button>
         <Link
-          to="/settings"
+          to="/settings#notifications"
           aria-label="Notification settings"
           title="Notification settings"
           className="grid size-7 place-items-center rounded-md text-ink-secondary no-underline hover:bg-subtle hover:text-ink"

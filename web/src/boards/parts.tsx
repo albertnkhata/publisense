@@ -73,9 +73,9 @@ export function FollowScopeButton({
         );
       }}
       className={cx(
-        'inline-flex shrink-0 items-center justify-center rounded-md border bg-transparent font-semibold whitespace-nowrap transition-colors duration-120 hover:bg-subtle',
+        'inline-flex shrink-0 items-center justify-center rounded-md border font-semibold whitespace-nowrap transition-colors duration-120 hover:bg-subtle',
         size === 'sm' ? 'h-7 px-3 text-sm' : 'h-8 px-4 text-base',
-        on ? 'border-line font-medium text-ink-secondary' : 'border-line-strong text-ink',
+        on ? 'border-line bg-subtle font-medium text-ink-secondary' : 'border-line-strong bg-card text-ink',
         className,
       )}
     >

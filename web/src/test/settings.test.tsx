@@ -84,6 +84,13 @@ describe('notification preferences', () => {
 });
 
 describe('settings', () => {
+  it('renders sections with explicit anchor ids for deep linking', () => {
+    renderWith(<SettingsPage />, { viewer: TEST_VIEWER, path: '/settings' });
+    expect(document.getElementById('profile')).toBeTruthy();
+    expect(document.getElementById('notifications')).toBeTruthy();
+    expect(document.getElementById('account')).toBeTruthy();
+  });
+
   it('asks a signed-out visitor to sign in', async () => {
     renderWith(<SettingsPage />, { path: '/settings' });
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
