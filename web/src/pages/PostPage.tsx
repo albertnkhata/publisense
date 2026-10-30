@@ -5,6 +5,7 @@ import { useViewer } from '../lib/viewer';
 import { PostCard } from '../posts/PostCard';
 import { ReplySection } from '../posts/Replies';
 import { StatusTimeline } from '../posts/StatusTimeline';
+import { BackLink } from '../boards/parts';
 import { Button, EmptyState, Icon, Skeleton, STATUS_META, TYPE_META, useToast } from '../ui';
 
 /**
@@ -87,25 +88,6 @@ function PendingBoardNotice({ post, own }: { post: Post; own: boolean }) {
           : `${name} is waiting for review. Until it’s approved, only the person who added it and the Publisense team can see it.`}
       </p>
     </div>
-  );
-}
-
-function BackLink() {
-  const navigate = useNavigate();
-  const canGoBack = typeof window !== 'undefined' && Number((window.history.state as { idx?: number } | null)?.idx ?? 0) > 0;
-  return (
-    <Link
-      to="/"
-      onClick={(e) => {
-        if (!canGoBack) return;
-        e.preventDefault();
-        void navigate(-1);
-      }}
-      className="inline-flex items-center gap-1 self-start rounded-sm text-sm font-medium text-ink-muted no-underline hover:text-ink"
-    >
-      <Icon name="arrow-left" size={16} />
-      Back
-    </Link>
   );
 }
 

@@ -62,7 +62,7 @@ export function UserPage() {
     return (
       <div className="flex flex-col gap-4">
         <h1 className="sr-only">@{handle}</h1>
-        <BackLink to="/">Back</BackLink>
+        <BackLink />
         <Skeleton />
       </div>
     );
@@ -71,7 +71,7 @@ export function UserPage() {
     return (
       <div className="flex flex-col gap-4">
         <h1 className="sr-only">@{handle}</h1>
-        <BackLink to="/">Back</BackLink>
+        <BackLink />
         <LoadError title="We couldn’t load this profile" onRetry={() => void person.refetch()} retrying={person.isRefetching} />
       </div>
     );
@@ -95,7 +95,7 @@ function Profile({ person }: { person: PublicProfile }) {
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
       <div className="mb-4">
-        <BackLink to="/">Back</BackLink>
+        <BackLink />
       </div>
       <header className="mb-4 flex flex-wrap items-center gap-4 max-md:gap-3">
         <UserAvatar src={avatarSrc(person)} size="2xl" />
@@ -449,7 +449,7 @@ function Empty({ children }: { children: string }) {
 function PersonNotFound() {
   return (
     <section aria-labelledby="page-title" className="flex flex-col gap-4">
-      <BackLink to="/">Back</BackLink>
+      <BackLink />
       <div className="rounded-md border border-line bg-card">
         <h1 id="page-title" className="sr-only">
           Person not found

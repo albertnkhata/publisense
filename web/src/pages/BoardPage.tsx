@@ -121,7 +121,7 @@ function Board({ board }: { board: BoardWithHub }) {
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
       <div className="mb-4 flex items-center justify-between gap-2">
-        <BackLink to="/">Home</BackLink>
+        <BackLink />
         <div className="flex items-center gap-1">
           <Menu label={`More from ${board.name}`} align="end" trigger={(p) => <IconButton {...p} icon="more" label="More" />}>
             {board.status === 'live' ? (
@@ -436,7 +436,7 @@ export function HeaderSkeleton({ label }: { label: string }) {
 export function ScopeNotFound({ kind }: { kind: 'board' | 'hub' }) {
   return (
     <section aria-labelledby="page-title" className="flex flex-col gap-4">
-      <BackLink to="/">Home</BackLink>
+      <BackLink />
       <div className="rounded-md border border-line bg-card">
         <h1 id="page-title" className="sr-only">
           {kind === 'board' ? 'Board not found' : 'Hub not found'}
