@@ -348,7 +348,7 @@ function ManagedRow({ m }: { m: Managed }) {
   const home = hub ? `/h/${m.slug}` : `/b/${m.slug}`;
   const logo = logoSrc({ logo_path: m.logo_path });
   return (
-    <div className="flex items-center gap-3 rounded-md border border-line px-3 py-2">
+    <div className="flex items-center gap-3 rounded-md border border-line bg-card px-3 py-2">
       {hub ? <HubAvatar name={m.name} boards={m.boards.map((b) => ({ name: b.name, color: b.color, logoSrc: logoSrc(b) }))} size="md" /> : <BoardAvatar name={m.name} color={m.color} logoSrc={logo} size="lg" decorative />}
       <Link to={home} className="flex min-w-0 flex-1 flex-col text-ink no-underline hover:text-brand">
         <b className="flex items-center gap-2 truncate text-base font-semibold">

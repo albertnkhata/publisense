@@ -411,11 +411,11 @@ function NotificationItem({ n, viewerId, onOpen }: { n: AppNotification; viewerI
   const d = describeNotification(n, viewerId);
   const unread = !n.read_at;
   return (
-    <div className={cx('relative flex items-start gap-3 py-3 pr-4 pl-5 transition-colors duration-120 hover:bg-subtle', unread && 'bg-brand-soft')}>
+    <div className={cx('relative flex cursor-pointer items-start gap-3 py-3 pr-4 pl-5 transition-colors duration-120 hover:bg-subtle', unread && 'bg-brand-soft')}>
       {unread ? (
         <span aria-hidden="true" className="absolute top-6 left-2 size-2 rounded-pill bg-brand" />
       ) : null}
-      <Link to={d.href} onClick={onOpen} className="flex min-w-0 flex-1 items-start gap-3 text-ink no-underline">
+      <Link to={d.href} onClick={onOpen} className="flex min-w-0 flex-1 items-start gap-3 text-ink no-underline after:absolute after:inset-0">
         <span className="relative shrink-0">
           {d.boardAvatar ? (
             <BoardAvatar name={d.boardAvatar.name} color={d.boardAvatar.color} logoSrc={d.boardAvatar.logo} size="lg" decorative />
@@ -444,7 +444,7 @@ function NotificationItem({ n, viewerId, onOpen }: { n: AppNotification; viewerI
         </span>
       </Link>
       {d.followBack && n.actor ? (
-        <span className="shrink-0 self-center">
+        <span className="relative z-1 shrink-0 self-center">
           <FollowPersonButton person={n.actor} size="sm" />
         </span>
       ) : null}
