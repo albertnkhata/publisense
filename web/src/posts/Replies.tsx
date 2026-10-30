@@ -57,12 +57,12 @@ const REPLY_SORTS: Array<{ value: FeedSort; label: string; hint: string }> = [
 ];
 
 const actClass =
-  'inline-flex h-6 items-center gap-1 rounded-sm border-0 bg-transparent px-2 text-sm font-medium text-ink-secondary ' +
+  'inline-flex h-6 max-sm:h-7 items-center gap-1 rounded-sm border-0 bg-transparent px-2 max-sm:px-3 text-sm font-medium text-ink-secondary ' +
   'transition-colors duration-120 ease-out hover:bg-subtle hover:text-ink';
 /** An action the rules don't allow right now (reply Edit after the window, 0051): it
  *  stays focusable and says why, but looks and acts disabled. */
 const lockedActClass =
-  'inline-flex h-6 items-center gap-1 rounded-sm border-0 bg-transparent px-2 text-sm font-medium text-ink-secondary ' +
+  'inline-flex h-6 max-sm:h-7 items-center gap-1 rounded-sm border-0 bg-transparent px-2 max-sm:px-3 text-sm font-medium text-ink-secondary ' +
   'cursor-default opacity-45';
 
 export function ReplySection({ post }: { post: Post }) {

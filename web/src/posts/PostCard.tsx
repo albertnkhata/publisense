@@ -166,7 +166,7 @@ function PostHead({ post, hideBoard }: { post: Post; hideBoard: boolean }) {
         </Dot>
         {edited}
       </div>
-      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-muted">
         {hideBoard ? (
           <TypePill type={post.type} />
         ) : (
@@ -213,7 +213,7 @@ function OfficialQuote({ post }: { post: Post }) {
 }
 
 const actClass =
-  'inline-flex h-7 shrink-0 items-center gap-1 rounded-sm border-0 bg-transparent px-2 text-sm font-medium text-ink-secondary no-underline ' +
+  'inline-flex h-7 max-sm:h-8 shrink-0 items-center gap-1 rounded-sm border-0 bg-transparent px-2 max-sm:px-3 text-sm font-medium text-ink-secondary no-underline ' +
   'transition-colors duration-120 ease-out hover:bg-subtle hover:text-ink aria-pressed:text-brand';
 
 function PostFooter({ post, page }: { post: Post; page: boolean }) {
