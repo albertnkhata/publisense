@@ -153,21 +153,23 @@ function ComposerTrigger() {
   const requireAuth = useRequireAuth();
   const { openComposer } = useComposer();
   return (
-    <div className="rounded-md border border-line bg-card">
+    <Card padding="none" interactive>
       <button
         type="button"
         onClick={() => {
           if (requireAuth('post feedback')) openComposer();
         }}
-        className="flex w-full items-center gap-3 rounded-md border-0 bg-transparent py-2 pr-2 pl-3 text-left"
+        className="group flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent py-2 pr-2 pl-3 text-left"
       >
         <UserAvatar src={viewer?.avatarUrl ?? null} size="md" />
-        <span className="min-w-0 flex-1 truncate text-base text-ink-muted">What’s slowing you down, or what do you wish existed?</span>
-        <span className="inline-flex h-7 shrink-0 items-center rounded-md bg-brand px-4 text-sm font-semibold text-on-brand max-sm:hidden">
+        <span className="min-w-0 flex-1 truncate text-base text-ink-muted transition-colors duration-120 group-hover:text-ink-secondary">
+          What’s slowing you down, or what do you wish existed?
+        </span>
+        <span className="inline-flex h-7 shrink-0 items-center rounded-md bg-brand px-4 text-sm font-semibold text-on-brand transition-colors duration-120 group-hover:bg-brand-hover max-sm:hidden">
           Post
         </span>
       </button>
-    </div>
+    </Card>
   );
 }
 
