@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T06:01:05Z",
+  "generatedAt": "2026-10-29T06:01:04Z",
   "repo": {
     "openDecisions": [],
     "resolved": [
@@ -322,40 +322,40 @@
     ]
   },
   "live": {
-    "generatedAt": "2026-10-26T06:01:05Z",
+    "generatedAt": "2026-10-29T06:01:04Z",
     "site": {
       "status": 200,
-      "bundle": "/assets/index-XgZvbE8E.js",
+      "bundle": "/assets/index-C-wQC2Fo.js",
       "wwwRedirect": "308 → https://publisense.app/",
-      "checkedAt": "2026-10-26T06:01:05Z"
+      "checkedAt": "2026-10-29T06:01:04Z"
     },
     "data": {
       "counts": {
-        "board": 29,
+        "board": 31,
         "hub": 6,
         "post": 11,
         "reply": 0,
         "vote": 0,
         "follow": "restricted",
-        "profile": 3,
+        "profile": 8,
         "status_event": 0
       },
       "trueCounts": {
-        "board": 30,
+        "board": 31,
         "hub": 6,
-        "post": 11,
-        "reply": 0,
+        "post": 12,
+        "reply": 1,
         "vote": 0,
-        "follow": 3,
-        "profile": 3,
-        "status_event": 0
+        "follow": 7,
+        "profile": 8,
+        "status_event": 4
       },
       "fixtures": {
-        "posts": 11,
+        "posts": 12,
         "imports": 11,
-        "fromMembers": 0
+        "fromMembers": 1
       },
-      "authUsers": 3
+      "authUsers": 8
     },
     "auth": {
       "providers": [
@@ -366,29 +366,20 @@
       "smtpSender": "auth@publisense.app",
       "consentScreen": {
         "appName": "Publisense",
-        "supportEmail": "albertnkhata.s@gmail.com",
+        "supportEmail": "support@publisense.app",
         "termsLinked": true,
         "privacyLinked": true,
         "unverifiedBanner": false
       }
     },
     "github": {
-      "issues": [
-        {
-          "number": 160,
-          "title": "Make the feedback-to-response loop visible, and prove it end-to-end on one board"
-        },
-        {
-          "number": 157,
-          "title": "Explain how board claiming works before the sign-up wall"
-        }
-      ],
+      "issues": [],
       "prs": []
     },
     "deployedCommit": {
-      "sha": "3e1f314",
+      "sha": "1e89427",
       "state": "READY",
-      "createdAt": "2026-10-26T05:35:26.206Z"
+      "createdAt": "2026-10-29T05:19:34.576Z"
     },
     "unitTests": "unknown"
   }

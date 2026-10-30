@@ -90,20 +90,20 @@ _CI steps read from `.github/workflows/ci.yml`; v2 test counts are under v2 buil
 
 <!-- status:live:start — refreshed by `node scripts/status.mjs --live`; may lag until the next scheduled refresh -->
 
-_probed 2026-10-26T06:01:05Z · anything that could not be read says `unknown` rather than guessing_
+_probed 2026-10-29T06:01:04Z · anything that could not be read says `unknown` rather than guessing_
 
 ### Production
 
-- https://publisense.app → **200** · served entry bundle `/assets/index-XgZvbE8E.js`
+- https://publisense.app → **200** · served entry bundle `/assets/index-C-wQC2Fo.js`
 - www → 308 → https://publisense.app/
-- production deployment: `3e1f314` (READY, 2026-10-26T05:35:26.206Z)
+- production deployment: `1e89427` (READY, 2026-10-29T05:19:34.576Z)
 
 ### Data
 
-- board **30** · hub **6** · post **11** · reply **0** · vote **0** · follow **3** · profile **3** · status_event **0**
+- board **31** · hub **6** · post **12** · reply **1** · vote **0** · follow **7** · profile **8** · status_event **4**
 - counted with an authenticated probe; as an anonymous visitor these read: follow = restricted
-- post: **11** total = **11 imported** (no author, sourced elsewhere) + **0 from members**
-- auth users: **3**
+- post: **12** total = **11 imported** (no author, sourced elsewhere) + **1 from members**
+- auth users: **8**
 
 > ⚠️ Imported posts carry no author — each one links to the source it came from (`D-011`). Printed so traction is never claimed without the split.
 
@@ -111,11 +111,11 @@ _probed 2026-10-26T06:01:05Z · anything that could not be read says `unknown` r
 
 - enabled providers: **google, email**
 - email confirmation: **required** (mailer_autoconfirm=false) · SMTP sender: `auth@publisense.app`
-- Google consent screen: "to continue to **Publisense**" · terms ✓ · privacy ✓ · support `albertnkhata.s@gmail.com` · unverified banner: no
+- Google consent screen: "to continue to **Publisense**" · terms ✓ · privacy ✓ · support `support@publisense.app` · unverified banner: no
 
 ### Work queue
 
-- open issues: #160 Make the feedback-to-response loop visible, and prove it end-to-end on one board · #157 Explain how board claiming works before the sign-up wall
+- open issues: none
 - open PRs: none
 
 <!-- status:live:end -->
