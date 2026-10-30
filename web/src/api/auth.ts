@@ -95,14 +95,18 @@ export async function signUp(
   email: string,
   password: string,
   handle: string,
+  { chosen = true }: { chosen?: boolean } = {},
 ): Promise<AuthResult & { needsConfirmation: boolean }> {
   // user_name is what the sign-up trigger builds the handle from. requested_handle
-  // remembers what was asked for: if someone takes it before this account is
+  // remembers a handle the user chose: if someone takes it before this account is
   // created, the trigger adds a number and the app offers a change (HandleTakenNotice).
+  // A handle derived from the email was never chosen, so a number added to it needs no notice.
+  const meta: Record<string, string> = { full_name: name.trim(), user_name: handle };
+  if (chosen) meta.requested_handle = handle;
   const { data, error } = await getSupabase().auth.signUp({
     email: email.trim(),
     password,
-    options: { data: { full_name: name.trim(), user_name: handle, requested_handle: handle }, emailRedirectTo: origin() },
+    options: { data: meta, emailRedirectTo: origin() },
   });
   if (error) return { error: explainAuthError(error, 'signup'), needsConfirmation: false };
   return { error: null, needsConfirmation: !data.session };
