@@ -153,6 +153,12 @@ describe('status change with a note (0044)', () => {
 });
 
 describe('notifications page', () => {
+  it('links the notification settings gear to /settings#notifications', () => {
+    renderPage([]);
+    const link = screen.getByRole('link', { name: 'Notification settings' });
+    expect(link.getAttribute('href')).toBe('/settings#notifications');
+  });
+
   it('groups by day, marks unread, and opening one marks it read', async () => {
     renderPage([REPLY, FOLLOW, SHIPPED]);
     expect(await screen.findByRole('list', { name: 'Today' })).toBeTruthy();

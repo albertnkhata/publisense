@@ -120,6 +120,8 @@ function toggleSearchModal(): void {
 export function SearchWell({ className, onSubmitted }: { className?: string; onSubmitted?: () => void }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const locationRef = useRef(location.pathname);
+  locationRef.current = location.pathname;
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
@@ -181,6 +183,16 @@ export function SearchWell({ className, onSubmitted }: { className?: string; onS
       if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey && !isEditable(e.target)) {
         const el = e.target instanceof Element ? e.target : document.activeElement;
         if (el?.closest('[role="dialog"], [role="alertdialog"], [role="menu"]')) return;
+        if (locationRef.current === '/search' || (typeof window !== 'undefined' && window.location.pathname === '/search')) {
+          const pageInput = document.querySelector<HTMLInputElement>('form[role="search"] input[type="search"]');
+          if (pageInput) {
+            e.preventDefault();
+            pageInput.focus();
+            pageInput.select?.();
+            return;
+          }
+          return;
+        }
         e.preventDefault();
         openSearchModal();
       }

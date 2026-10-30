@@ -219,6 +219,27 @@ describe('search modal without the composer', () => {
     expect(router.state.location.pathname).toBe('/b/figma');
   });
 
+  it('does not open the search modal when pressing / on /search', async () => {
+    renderWith(
+      <Routes>
+        <Route
+          path="/search"
+          element={
+            <div>
+              <SearchWell />
+              <form role="search">
+                <input type="search" placeholder="Search page input" />
+              </form>
+            </div>
+          }
+        />
+      </Routes>,
+      { path: '/search' },
+    );
+    fireEvent.keyDown(window, { key: '/' });
+    expect(screen.queryByRole('dialog', { name: 'Search' })).toBeNull();
+  });
+
   it('submits the typed query to /search', async () => {
     boardsApi.searchAll.mockResolvedValue({ boards: [], hubs: [], posts: [] });
     const { router } = renderWith(

@@ -32,6 +32,7 @@ import {
 } from '../api';
 import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer, type Viewer } from '../lib/viewer';
+import { useLocation } from 'react-router';
 import { useAuthDialog } from '../shell/auth';
 import { Button, Card, Dialog, EmptyState, Field, Input, PasswordInput, Skeleton, Spinner, Textarea, UserAvatar, useToast } from '../ui';
 
@@ -45,6 +46,13 @@ export function SettingsPage() {
   usePageTitle('Settings');
   const { viewer, ready } = useViewer();
   const { openAuth } = useAuthDialog();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (!ready || !location.hash) return;
+    const target = document.getElementById(location.hash.slice(1));
+    target?.scrollIntoView({ behavior: 'smooth' });
+  }, [ready, location.hash]);
   return (
     <div className="flex flex-col gap-7">
       <h1 id="page-title" className="m-0 text-2xl font-bold text-ink">
@@ -73,10 +81,21 @@ export function SettingsPage() {
   );
 }
 
-function Section({ title, description, children }: { title: string; description?: ReactNode; children: ReactNode }) {
+function Section({
+  title,
+  description,
+  children,
+  id: explicitId,
+}: {
+  title: string;
+  description?: ReactNode;
+  children: ReactNode;
+  id?: string;
+}) {
+  // The section takes the anchor id (#notifications); the heading keeps its own, so ids stay unique.
   const id = useId();
   return (
-    <section aria-labelledby={id} className="flex flex-col gap-3">
+    <section id={explicitId} aria-labelledby={id} className="flex flex-col gap-3">
       <div>
         <h2 id={id} className="m-0 text-lg font-semibold text-ink">
           {title}
@@ -156,7 +175,7 @@ function ProfileSection({ viewer }: { viewer: Viewer }) {
   }
 
   return (
-    <Section title="Profile" description="Shown next to everything you post.">
+    <Section id="profile" title="Profile" description="Shown next to everything you post.">
       <Card>
         <form noValidate onSubmit={save} className="flex flex-col gap-5">
           <div className="flex items-center gap-4">
@@ -247,7 +266,7 @@ function NotificationsSection({ viewer }: { viewer: Viewer }) {
     setPref.mutate({ kind, channel, enabled }, { onError: () => toast('Couldn’t save that change. Try again.') });
 
   return (
-    <Section title="Notifications" description="Choose what reaches you, in the app and by email. Every email also has a one-click unsubscribe.">
+    <Section id="notifications" title="Notifications" description="Choose what reaches you, in the app and by email. Every email also has a one-click unsubscribe.">
       <Card padding="none">
         {prefs.isPending ? (
           <div className="px-5 py-4">
@@ -337,7 +356,7 @@ function AccountSection({ viewer }: { viewer: Viewer }) {
   }
 
   return (
-    <Section title="Account">
+    <Section id="account" title="Account">
       <Card>
         <AccountRow
           title="Email"
