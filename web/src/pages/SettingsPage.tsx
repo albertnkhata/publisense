@@ -92,8 +92,8 @@ function Section({
   children: ReactNode;
   id?: string;
 }) {
-  const generatedId = useId();
-  const id = explicitId ?? generatedId;
+  // The section takes the anchor id (#notifications); the heading keeps its own, so ids stay unique.
+  const id = useId();
   return (
     <section id={explicitId} aria-labelledby={id} className="flex flex-col gap-3">
       <div>

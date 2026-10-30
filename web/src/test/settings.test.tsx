@@ -89,6 +89,10 @@ describe('settings', () => {
     expect(document.getElementById('profile')).toBeTruthy();
     expect(document.getElementById('notifications')).toBeTruthy();
     expect(document.getElementById('account')).toBeTruthy();
+    // The anchor is on the section; it is still labelled by its own heading.
+    const section = document.getElementById('notifications')!;
+    expect(section.tagName).toBe('SECTION');
+    expect(screen.getByRole('region', { name: 'Notifications' })).toBe(section);
   });
 
   it('asks a signed-out visitor to sign in', async () => {
