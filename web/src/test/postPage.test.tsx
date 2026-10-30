@@ -264,9 +264,13 @@ describe('replies', () => {
     Element.prototype.scrollIntoView = scroll;
     renderPost(post, { replies: [r0, r1, r2, r3, r4, r5], at: `#reply-${id(5)}` });
     // Level five is deeper than the page indents, so its branch opens on its own.
-    const target = (await screen.findByText('Level five')).closest('article')!;
+    // Opening five levels, scrolling and highlighting is all async; the default 1s
+    // wait budget for findByText/waitFor is not enough on a slow single-core runner,
+    // where this failed at 5.6s while passing on CI hardware. Wait longer rather than
+    // weaken the assertion: the behaviour under test is unchanged.
+    const target = (await screen.findByText('Level five', {}, { timeout: 15000 })).closest('article')!;
     expect(screen.getByRole('link', { name: /All replies/ })).toBeTruthy();
-    await waitFor(() => expect(target.getAttribute('aria-current')).toBe('true'));
+    await waitFor(() => expect(target.getAttribute('aria-current')).toBe('true'), { timeout: 15000 });
     expect(target.id).toBe(`reply-${id(5)}`);
     expect(scroll).toHaveBeenCalled();
   });
