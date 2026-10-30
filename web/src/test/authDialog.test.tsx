@@ -127,7 +127,7 @@ describe('AuthDialog: sign up', () => {
     submit('Create account');
     expect(await screen.findByRole('dialog', { name: 'Confirm your email' })).toBeTruthy();
     expect(screen.getByText(/Open the link we sent to new@b.co/)).toBeTruthy();
-    expect(api.signUp).toHaveBeenCalledWith('Nia', 'new@b.co', 'Long-enough-1', 'new');
+    expect(api.signUp).toHaveBeenCalledWith('Nia', 'new@b.co', 'Long-enough-1', 'new', { chosen: false });
     expect(onClose).not.toHaveBeenCalled();
   });
 
@@ -159,7 +159,7 @@ describe('AuthDialog: sign up', () => {
     fireEvent.change(password(), { target: { value: 'Long-enough-1' } });
     submit('Create account');
     await screen.findByRole('dialog', { name: 'Confirm your email' });
-    expect(api.signUp).toHaveBeenCalledWith('Nia', 'nia_builds@b.co', 'Long-enough-1', 'nia_builds');
+    expect(api.signUp).toHaveBeenCalledWith('Nia', 'nia_builds@b.co', 'Long-enough-1', 'nia_builds', { chosen: false });
   });
 
   it('pads handles shorter than 3 characters when deriving from email', async () => {
@@ -170,7 +170,7 @@ describe('AuthDialog: sign up', () => {
     fireEvent.change(password(), { target: { value: 'Long-enough-1' } });
     submit('Create account');
     await screen.findByRole('dialog', { name: 'Confirm your email' });
-    expect(api.signUp).toHaveBeenCalledWith('Al', 'al@b.co', 'Long-enough-1', 'al_user');
+    expect(api.signUp).toHaveBeenCalledWith('Al', 'al@b.co', 'Long-enough-1', 'al_user', { chosen: false });
   });
 });
 

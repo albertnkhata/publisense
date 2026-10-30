@@ -60,6 +60,13 @@ describe('auth api', () => {
     });
   });
 
+  it('does not record a requested handle when the handle was derived, not chosen', async () => {
+    auth.signUp.mockResolvedValue({ data: { session: null, user: {} }, error: null });
+    await signUp('Nia', 'nia@b.co', 'Long-enough-1', 'nia', { chosen: false });
+    const data = auth.signUp.mock.calls[0]?.[0]?.options?.data;
+    expect(data).toEqual({ full_name: 'Nia', user_name: 'nia' });
+  });
+
   it('asks for the reset link to land on /auth/reset and hides provider errors', async () => {
     auth.resetPasswordForEmail.mockResolvedValue({ error: authError('unexpected_failure', 'User not found') });
     expect(await requestPasswordReset('who@b.co')).toEqual({ error: null });

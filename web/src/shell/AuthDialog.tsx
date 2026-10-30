@@ -156,7 +156,7 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
       }
       const baseHandle = suggestHandle(email);
       const handle = baseHandle.length >= 3 ? baseHandle : `${baseHandle}_user`.slice(0, 24);
-      const r = await signUp(name, email, password, handle);
+      const r = await signUp(name, email, password, handle, { chosen: false });
       if (r.error) return fail(r.error);
       if (r.needsConfirmation) {
         setSentTo(email.trim());
