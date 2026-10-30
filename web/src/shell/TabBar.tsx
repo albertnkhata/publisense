@@ -15,7 +15,7 @@ export function TabBar() {
   const { openAuth } = useAuthDialog();
   const { toast } = useToast();
   const { openComposer } = useComposer();
-  const { theme, toggle } = useTheme();
+  const { theme, pref, toggle, setPref } = useTheme();
   const [sheet, setSheet] = useState(false);
   const unread = useUnreadCount(viewer?.id ?? null).data ?? 0;
   const staff = useIsPlatformAdmin(viewer?.id ?? null).data ?? false;
@@ -88,6 +88,20 @@ export function TabBar() {
               <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={20} strokeWidth={1.75} />
               {theme === 'dark' ? 'Light mode' : 'Dark mode'}
             </button>
+            {pref !== 'system' ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setPref('system');
+                  setSheet(false);
+                  toast('Theme set to system');
+                }}
+                className={sheetItem}
+              >
+                <Icon name="settings" size={20} strokeWidth={1.75} />
+                Use system theme
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={async () => {

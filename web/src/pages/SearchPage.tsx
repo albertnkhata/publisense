@@ -173,15 +173,17 @@ function Results({ q, tab, setTab }: { q: string; tab: SearchTab; setTab: (t: Se
   const { boards, hubs, posts } = search.data;
   if (boards.length === 0 && hubs.length === 0 && posts.length === 0 && people.length === 0) {
     return (
-      <div className="px-4 py-9 text-center text-base text-ink-muted">
-        <b className="mb-1 block text-md text-ink">No results for “{q}”</b>
-        Nobody has posted about this yet. If it’s bugging you, be the first.
-        <div className="mt-4">
-          <Button onClick={() => openComposer({ title: q.charAt(0).toUpperCase() + q.slice(1) })}>Post about it</Button>
+      <div className="rounded-md border border-line bg-card">
+        <div className="px-4 py-9 text-center text-base text-ink-muted">
+          <b className="mb-1 block text-md text-ink">No results for “{q}”</b>
+          Nobody has posted about this yet. If it’s bugging you, be the first.
+          <div className="mt-4">
+            <Button onClick={() => openComposer({ title: q.charAt(0).toUpperCase() + q.slice(1) })}>Post about it</Button>
+          </div>
+          <p className="mt-4 mb-0 text-sm">
+            Can’t find the product? <AddProductLink prefill={q}>Add it</AddProductLink>
+          </p>
         </div>
-        <p className="mt-4 mb-0 text-sm">
-          Can’t find the product? <AddProductLink prefill={q}>Add it</AddProductLink>
-        </p>
       </div>
     );
   }

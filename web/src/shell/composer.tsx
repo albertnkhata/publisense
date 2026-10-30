@@ -234,21 +234,23 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
       initialFocus={initialFocus}
       dismissable={!create.isPending}
       footer={
-        <>
+        <div className="flex w-full items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch max-sm:gap-2">
           {blocker ? (
-            <span id={blockerId} role="status" className="mr-auto text-sm text-ink-muted">
+            <span id={blockerId} role="status" className="mr-auto text-sm text-ink-muted max-sm:mr-0 max-sm:text-center">
               {blocker}
             </span>
           ) : (
             <span className="mr-auto text-sm text-ink-muted max-sm:hidden">{footNote}</span>
           )}
-          <Button variant="secondary" onClick={onClose} disabled={create.isPending}>
-            Cancel
-          </Button>
-          <Button type="submit" form={formId} disabled={!valid} aria-describedby={blocker ? blockerId : undefined} loading={create.isPending}>
-            {seeding ? 'Add post' : 'Post'}
-          </Button>
-        </>
+          <div className="flex shrink-0 items-center gap-2 max-sm:w-full max-sm:*:flex-1">
+            <Button variant="secondary" onClick={onClose} disabled={create.isPending}>
+              Cancel
+            </Button>
+            <Button type="submit" form={formId} disabled={!valid} aria-describedby={blocker ? blockerId : undefined} loading={create.isPending}>
+              {seeding ? 'Add post' : 'Post'}
+            </Button>
+          </div>
+        </div>
       }
     >
       <form id={formId} noValidate onSubmit={submit} onKeyDown={onSubmitKey} className="flex flex-col gap-5">
