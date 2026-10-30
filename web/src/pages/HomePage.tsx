@@ -8,7 +8,7 @@ import { useViewer } from '../lib/viewer';
 import { LoadError, PostList, PostListSkeleton } from '../posts/PostList';
 import { useAuthDialog, useRequireAuth } from '../shell/auth';
 import { useComposer } from '../shell/composer';
-import { Button, Card, EmptyState, Icon, Menu, MenuItemRadio, MenuLabel, Tabs, UserAvatar } from '../ui';
+import { Button, Card, EmptyState, Icon, Menu, MenuItemRadio, MenuLabel, Tabs } from '../ui';
 import { useSetUrlParams } from '../lib/useUrlParam';
 
 /**
@@ -147,29 +147,30 @@ function SortMenu({ sort, onChange }: { sort: FeedSort; onChange: (s: FeedSort) 
   );
 }
 
-/** The mockup's minimal composer bar; it opens the Composer. */
+/** The collapsed composer: a field, not a card — one rule, one line, one quiet action. */
 function ComposerTrigger() {
-  const { viewer } = useViewer();
   const requireAuth = useRequireAuth();
   const { openComposer } = useComposer();
   return (
-    <Card padding="none" interactive>
-      <button
-        type="button"
-        onClick={() => {
-          if (requireAuth('post feedback')) openComposer();
-        }}
-        className="group flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent py-2 pr-2 pl-3 text-left"
-      >
-        <UserAvatar src={viewer?.avatarUrl ?? null} size="md" />
-        <span className="min-w-0 flex-1 truncate text-base text-ink-muted transition-colors duration-120 group-hover:text-ink-secondary">
-          What’s slowing you down, or what do you wish existed?
-        </span>
-        <span className="inline-flex h-7 shrink-0 items-center rounded-md bg-brand px-4 text-sm font-semibold text-on-brand transition-colors duration-120 group-hover:bg-brand-hover max-sm:hidden">
-          Post
-        </span>
-      </button>
-    </Card>
+    <button
+      type="button"
+      onClick={() => {
+        if (requireAuth('post feedback')) openComposer();
+      }}
+      className="group flex w-full cursor-pointer items-center gap-3 border-b border-ink bg-transparent px-5 py-3 text-left max-sm:px-4"
+    >
+      <span className="flex size-6 shrink-0 items-center justify-center rounded-pill border border-line-strong text-ink-muted transition-colors duration-120 group-hover:border-ink-muted group-hover:text-ink-secondary">
+        <Icon name="plus" size={11} strokeWidth={2} />
+      </span>
+      <span className="min-w-0 flex-1 truncate text-base text-ink-muted transition-colors duration-120 group-hover:text-ink-secondary">
+        What’s slowing you down, or what do you wish existed?
+      </span>
+      {/* Held quiet at rest, full-strength on hover. Kept at every width: the old
+          filled button was hidden under 640px, which left phones with no action. */}
+      <span className="shrink-0 text-sm font-semibold text-brand opacity-60 transition-opacity duration-120 group-hover:opacity-100">
+        Post
+      </span>
+    </button>
   );
 }
 
