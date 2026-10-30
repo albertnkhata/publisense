@@ -2,16 +2,13 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'rea
 import { Link } from 'react-router';
 import {
   AUTH_COPY,
-  cleanHandle,
   isEmail,
-  isHandleTaken,
   MIN_PASSWORD,
   requestPasswordReset,
   RESEND_COOLDOWN_S,
   resendSignupConfirmation,
   signInWithGoogle,
   signInWithPassword,
-  SIGNUP_HANDLE_RE,
   signUp,
   suggestHandle,
   useAuthCapabilities,
@@ -31,12 +28,12 @@ export type AuthMode = 'signin' | 'signup' | 'forgot' | 'sent' | 'confirm' | 'ex
 const COPY: Record<AuthMode, { title: string; sub: string; submit: string }> = {
   signin: {
     title: 'Sign in to Publisense',
-    sub: 'Upvote, follow and share feedback with the teams who build your tools.',
+    sub: '',
     submit: 'Sign in',
   },
   signup: {
     title: 'Create your account',
-    sub: 'Upvote, follow and share feedback with the teams who build your tools.',
+    sub: '',
     submit: 'Create account',
   },
   forgot: {
@@ -77,11 +74,6 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
   const [mode, setModeState] = useState<AuthMode>(initialMode);
   const [keepReason, setKeepReason] = useState(Boolean(reason));
   const [name, setName] = useState('');
-  const [handle, setHandle] = useState('');
-  // Until the user edits it, the handle follows the email address.
-  const [handleEdited, setHandleEdited] = useState(false);
-  // Live availability: 'checking' while a lookup is pending, 'unknown' if it failed.
-  const [handleStatus, setHandleStatus] = useState<'idle' | 'checking' | 'free' | 'taken' | 'unknown'>('idle');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [sentTo, setSentTo] = useState('');
@@ -94,7 +86,6 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
   const [resent, setResent] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
-  const handleRef = useRef<HTMLInputElement>(null);
   const pwRef = useRef<HTMLInputElement>(null);
   const submitRef = useRef<HTMLButtonElement>(null);
 
@@ -122,37 +113,6 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
     return () => clearInterval(t);
   }, [waiting, sentAt]);
 
-  // Check the handle a moment after typing stops. A suggested handle (not typed by
-  // the user) that is taken moves on to the first free numbered one, as the server would.
-  useEffect(() => {
-    if (mode !== 'signup' || !SIGNUP_HANDLE_RE.test(handle)) {
-      setHandleStatus('idle');
-      return;
-    }
-    let live = true;
-    setHandleStatus('checking');
-    const t = setTimeout(async () => {
-      const taken = await isHandleTaken(handle);
-      if (!live) return;
-      if (taken && !handleEdited) {
-        for (let n = 2; n <= 9; n++) {
-          const next = `${handle.slice(0, 24 - String(n).length)}${n}`;
-          const nextTaken = await isHandleTaken(next);
-          if (!live) return;
-          if (nextTaken === false) {
-            setHandle(next);
-            return;
-          }
-        }
-      }
-      setHandleStatus(taken === null ? 'unknown' : taken ? 'taken' : 'free');
-    }, 400);
-    return () => {
-      live = false;
-      clearTimeout(t);
-    };
-  }, [mode, handle, handleEdited]);
-
   // Mockup: switching mode moves focus to the first visible field.
   useEffect(() => {
     if (open) focusTarget.current?.focus();
@@ -173,9 +133,6 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
     // Validation order follows the mockup.
     if (!isEmail(email)) return fail(AUTH_COPY.invalidEmail, emailRef.current);
     if (mode === 'signup' && !name.trim()) return fail(AUTH_COPY.needName, nameRef.current);
-    if (mode === 'signup' && !handle) return fail(AUTH_COPY.needHandle, handleRef.current);
-    if (mode === 'signup' && !SIGNUP_HANDLE_RE.test(handle)) return fail(AUTH_COPY.badHandle, handleRef.current);
-    if (mode === 'signup' && handleStatus === 'taken') return fail(AUTH_COPY.handleTaken, handleRef.current);
     if (mode === 'signup' && password.length < MIN_PASSWORD) return fail(AUTH_COPY.shortPassword, pwRef.current);
     if (mode === 'signin' && !password) return fail(AUTH_COPY.needPassword, pwRef.current);
 
@@ -197,6 +154,8 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
         toast('Signed in');
         return;
       }
+      const baseHandle = suggestHandle(email);
+      const handle = baseHandle.length >= 3 ? baseHandle : `${baseHandle}_user`.slice(0, 24);
       const r = await signUp(name, email, password, handle);
       if (r.error) return fail(r.error);
       if (r.needsConfirmation) {
@@ -278,7 +237,7 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
       : mode === 'sent'
         ? `If ${sentTo || 'that email'} has an account, a reset link is on its way. It expires in 1 hour.`
         : mode === 'confirm'
-          ? `Open the link we sent to ${sentTo || 'your email'} to finish creating your account. Already have one? Sign in instead.`
+          ? `Open the link we sent to ${sentTo || 'your email'} to finish creating your account.`
           : c.sub;
   const oauth = (mode === 'signin' || mode === 'signup') && caps.google;
   const linkClass = 'border-0 bg-transparent p-0 font-semibold text-ink no-underline hover:underline cursor-pointer';
@@ -292,7 +251,7 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
         <p aria-hidden="true" className="m-0 text-lg font-bold text-ink">
           {c.title}
         </p>
-        <p className="mt-2 mb-5 text-sm text-ink-secondary">{sub}</p>
+        {sub ? <p className="mt-2 mb-5 text-sm text-ink-secondary">{sub}</p> : <div className="mb-5" />}
 
         {oauth ? (
           <>
@@ -341,49 +300,9 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);
-                if (mode === 'signup' && !handleEdited) setHandle(suggestHandle(e.target.value));
                 setError('');
               }}
             />
-          ) : null}
-          {mode === 'signup' ? (
-            <div>
-              <div className="relative">
-                <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-base text-ink-muted">
-                  @
-                </span>
-                <Input
-                  ref={handleRef}
-                  type="text"
-                  aria-label="Handle"
-                  aria-describedby="signup-handle-hint"
-                  aria-invalid={handleStatus === 'taken' || undefined}
-                  placeholder="handle"
-                  autoComplete="username"
-                  autoCapitalize="none"
-                  spellCheck={false}
-                  maxLength={24}
-                  className="pl-7"
-                  value={handle}
-                  onChange={(e) => {
-                    setHandle(cleanHandle(e.target.value));
-                    setHandleEdited(true);
-                    setError('');
-                  }}
-                />
-              </div>
-              <p
-                id="signup-handle-hint"
-                aria-live="polite"
-                className={`mt-1 mb-0 text-sm ${handleStatus === 'taken' ? 'text-danger' : handleStatus === 'free' ? 'text-success' : 'text-ink-muted'}`}
-              >
-                {handleStatus === 'taken'
-                  ? `@${handle} is taken.`
-                  : handleStatus === 'free'
-                    ? `@${handle} is available.`
-                    : 'Your public name on Publisense. You can change it later.'}
-              </p>
-            </div>
           ) : null}
           {mode === 'signin' || mode === 'signup' ? (
             <PasswordInput
@@ -392,7 +311,6 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
               aria-label="Password"
               placeholder="Password"
               autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-              showStrength={mode === 'signup'}
               value={password}
               onChange={(e) => {
                 setPassword(e.target.value);

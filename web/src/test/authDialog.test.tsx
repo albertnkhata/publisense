@@ -114,7 +114,7 @@ describe('AuthDialog: sign up', () => {
     fireEvent.change(password(), { target: { value: 'short' } });
     submit('Create account');
     expect(alert()).toBe('Use at least 8 characters.');
-    expect(screen.getByText('Too weak')).toBeTruthy(); // the existing strength meter
+    expect(screen.getByText('At least 8 characters')).toBeTruthy();
     expect(api.signUp).not.toHaveBeenCalled();
   });
 
@@ -141,78 +141,36 @@ describe('AuthDialog: sign up', () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(await screen.findByText('Account created')).toBeTruthy();
   });
-});
 
-describe('AuthDialog: handle at sign-up', () => {
-  const handle = () => screen.getByRole('textbox', { name: 'Handle' }) as HTMLInputElement;
-
-  it('suggests a handle from the email until the user edits it', () => {
+  it('does not display a handle input or password strength bars', () => {
     open('signup');
-    fireEvent.change(email(), { target: { value: 'Albert.Nkhata+2@b.co' } });
-    expect(handle().value).toBe('albertnkhata2');
-    fireEvent.change(handle(), { target: { value: '@Al_Bert!' } });
-    expect(handle().value).toBe('al_bert');
-    fireEvent.change(email(), { target: { value: 'other@b.co' } });
-    expect(handle().value).toBe('al_bert');
+    expect(screen.queryByRole('textbox', { name: 'Handle' })).toBeNull();
+    expect(screen.getByRole('textbox', { name: 'Name' })).toBeTruthy();
+    expect(screen.getByRole('textbox', { name: 'Email address' })).toBeTruthy();
+    expect(screen.getByLabelText('Password')).toBeTruthy();
+    expect(screen.getByText('At least 8 characters')).toBeTruthy();
   });
 
-  it('sends the chosen handle and refuses one that is too short', async () => {
+  it('automatically derives the handle from the email on sign up', async () => {
     api.signUp.mockResolvedValue({ error: null, needsConfirmation: true });
     open('signup');
     fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), { target: { value: 'Nia' } });
-    fireEvent.change(email(), { target: { value: 'nia@b.co' } });
+    fireEvent.change(email(), { target: { value: 'nia_builds@b.co' } });
     fireEvent.change(password(), { target: { value: 'Long-enough-1' } });
-    fireEvent.change(handle(), { target: { value: 'ab' } });
-    submit('Create account');
-    expect(alert()).toBe('Handles are 3 to 24 characters: lowercase letters, numbers and underscores.');
-    fireEvent.change(handle(), { target: { value: '' } });
-    submit('Create account');
-    expect(alert()).toBe('Choose a handle.');
-    expect(api.signUp).not.toHaveBeenCalled();
-    fireEvent.change(handle(), { target: { value: 'nia_builds' } });
     submit('Create account');
     await screen.findByRole('dialog', { name: 'Confirm your email' });
-    expect(api.signUp).toHaveBeenCalledWith('Nia', 'nia@b.co', 'Long-enough-1', 'nia_builds');
-  });
-});
-
-describe('AuthDialog: handle availability', () => {
-  const handle = () => screen.getByRole('textbox', { name: 'Handle' }) as HTMLInputElement;
-
-  it('says when a typed handle is free or taken, and will not submit a taken one', async () => {
-    api.isHandleTaken.mockImplementation(async (h: string) => h === 'nia');
-    open('signup');
-    fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), { target: { value: 'Nia' } });
-    fireEvent.change(email(), { target: { value: 'x@b.co' } });
-    fireEvent.change(password(), { target: { value: 'Long-enough-1' } });
-    fireEvent.change(handle(), { target: { value: 'nia_b' } });
-    expect(await screen.findByText('@nia_b is available.', {}, { timeout: 2000 })).toBeTruthy();
-    fireEvent.change(handle(), { target: { value: 'nia' } });
-    expect(await screen.findByText('@nia is taken.', {}, { timeout: 2000 })).toBeTruthy();
-    submit('Create account');
-    expect(alert()).toBe('That handle is taken. Try another.');
-    expect(api.signUp).not.toHaveBeenCalled();
+    expect(api.signUp).toHaveBeenCalledWith('Nia', 'nia_builds@b.co', 'Long-enough-1', 'nia_builds');
   });
 
-  it('moves a suggested handle that is taken to the first free numbered one', async () => {
-    api.isHandleTaken.mockImplementation(async (h: string) => h === 'albert' || h === 'albert2');
-    open('signup');
-    fireEvent.change(email(), { target: { value: 'albert@b.co' } });
-    await waitFor(() => expect(handle().value).toBe('albert3'), { timeout: 2000 });
-    expect(await screen.findByText('@albert3 is available.', {}, { timeout: 2000 })).toBeTruthy();
-  });
-
-  it('never blocks sign-up when the check itself fails', async () => {
-    api.isHandleTaken.mockResolvedValue(null);
+  it('pads handles shorter than 3 characters when deriving from email', async () => {
     api.signUp.mockResolvedValue({ error: null, needsConfirmation: true });
     open('signup');
-    fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), { target: { value: 'Nia' } });
-    fireEvent.change(email(), { target: { value: 'nia@b.co' } });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), { target: { value: 'Al' } });
+    fireEvent.change(email(), { target: { value: 'al@b.co' } });
     fireEvent.change(password(), { target: { value: 'Long-enough-1' } });
-    await waitFor(() => expect(api.isHandleTaken).toHaveBeenCalled(), { timeout: 2000 });
     submit('Create account');
     await screen.findByRole('dialog', { name: 'Confirm your email' });
-    expect(api.signUp).toHaveBeenCalledWith('Nia', 'nia@b.co', 'Long-enough-1', 'nia');
+    expect(api.signUp).toHaveBeenCalledWith('Al', 'al@b.co', 'Long-enough-1', 'al_user');
   });
 });
 
