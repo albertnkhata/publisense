@@ -59,6 +59,9 @@ export function UserMenu({ viewer, collapsed }: { viewer: Viewer; collapsed: boo
         </MenuItem>
       ) : null}
       <MenuSeparator />
+      <MenuItem to="/terms">Terms</MenuItem>
+      <MenuItem to="/privacy">Privacy</MenuItem>
+      <MenuSeparator />
       <MenuItem
         icon="sign-out"
         danger

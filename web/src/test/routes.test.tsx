@@ -123,17 +123,16 @@ describe('routes', () => {
     expect(screen.getAllByRole('banner')[0]!.className).toContain('max-lg:flex');
   });
 
-  // Terms · Privacy live at the foot of the nav rail on desktop, on every page, once.
-  it.each([...WIDE.slice(0, 1), ...NARROW, ...RAIL])('%s has Terms and Privacy in the nav rail, once', (path) => {
+  // Terms · Privacy live at the foot of the right rail on desktop, and are omitted from the left nav.
+  it.each(RAIL)('%s has Terms and Privacy in the right rail', (path) => {
     renderAt(path);
     const nav = screen.getByRole('complementary', { name: 'Main navigation' });
-    const legal = within(nav).getByRole('navigation', { name: 'Legal links' });
+    expect(within(nav).queryByRole('navigation', { name: 'Legal links' })).toBeNull();
+    const rail = screen.getByRole('complementary', { name: 'Sidebar' });
+    const legal = within(rail).getByRole('navigation', { name: 'Legal links' });
     expect(within(legal).getByRole('link', { name: 'Terms' }).getAttribute('href')).toBe('/terms');
     expect(within(legal).getByRole('link', { name: 'Privacy' }).getAttribute('href')).toBe('/privacy');
-    expect(within(nav).getByText('© 2026 Publisense')).toBeTruthy();
-    expect(screen.getAllByRole('navigation', { name: 'Legal links' })).toHaveLength(1);
-    const rail = screen.queryByRole('complementary', { name: 'Sidebar' });
-    if (rail) expect(within(rail).queryByRole('link', { name: 'Terms' })).toBeNull();
+    expect(within(rail).getByText('© 2026 Publisense')).toBeTruthy();
   });
 });
 
