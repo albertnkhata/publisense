@@ -356,6 +356,12 @@ describe('hub page', () => {
     expect(boardsApi.setScopeFollow).toHaveBeenCalledWith('hub', FIGMA_HUB.id, TEST_VIEWER.id, true);
   });
 
+  it('hides the hub Roadmap tab while Roadmap is deferred', async () => {
+    renderAt('/h/figma');
+    expect(await screen.findByRole('tab', { name: /Boards/ })).toBeTruthy();
+    expect(screen.queryByRole('tab', { name: /Roadmap/ })).toBeNull();
+  });
+
   it('names each item’s board on the hub roadmap', async () => {
     postsApi.fetchRoadmap.mockResolvedValue({ ...emptyRoadmap, planned: [makeSummary({ title: 'Sticky notes', board: { id: FIGJAM.id, slug: 'figjam', name: 'FigJam', color: FIGJAM.color, logo_path: null } })] });
     renderAt('/h/figma?tab=roadmap');
