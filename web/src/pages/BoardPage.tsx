@@ -123,20 +123,22 @@ function Board({ board }: { board: BoardWithHub }) {
     <section aria-labelledby="page-title" className="flex flex-col">
       <div className="mb-4 flex items-center justify-between gap-2">
         <BackLink />
-        <div className="flex items-center gap-1">
-          <Menu label={`More from ${board.name}`} align="end" trigger={(p) => <IconButton {...p} icon="more" label="More" />}>
-            <MenuItem
-              icon="status-planned"
-              description={counts.data ? `${counts.data.roadmap} planned or in progress` : 'What’s planned and in progress'}
-              onSelect={() => setParam('tab', 'roadmap', 'feedback')}
-            >
-              Roadmap
-            </MenuItem>
-            <MenuItem icon="check-circle" description="What’s shipped" onSelect={() => setParam('tab', 'changelog', 'feedback')}>
-              Changelog
-            </MenuItem>
-          </Menu>
-        </div>
+        {SHOW_MORE_MENU ? (
+          <div className="flex items-center gap-1">
+            <Menu label={`More from ${board.name}`} align="end" trigger={(p) => <IconButton {...p} icon="more" label="More" />}>
+              <MenuItem
+                icon="status-planned"
+                description={counts.data ? `${counts.data.roadmap} planned or in progress` : 'What’s planned and in progress'}
+                onSelect={() => setParam('tab', 'roadmap', 'feedback')}
+              >
+                Roadmap
+              </MenuItem>
+              <MenuItem icon="check-circle" description="What’s shipped" onSelect={() => setParam('tab', 'changelog', 'feedback')}>
+                Changelog
+              </MenuItem>
+            </Menu>
+          </div>
+        ) : null}
       </div>
       <ScopeHeader
         logo={<BoardAvatar name={board.name} color={board.color} logoSrc={logoSrc(board)} size="xl" decorative />}
@@ -313,6 +315,13 @@ function Feedback({
 
 /** "Added by @handle" is hidden for now (Oct 2026); created_by is still stored. Flip to bring it back. */
 const SHOW_ADDED_BY = false;
+
+/**
+ * The board's ⋯ menu only holds Roadmap and Changelog, which are deferred, so it is
+ * hidden for now (Oct 31, 2026). The ?tab=roadmap and ?tab=changelog views still render
+ * when linked directly. Flip this back on when those features ship.
+ */
+const SHOW_MORE_MENU = false;
 
 /**
  * The line under the tagline: the product's own site (new tab), the company that makes

@@ -125,13 +125,10 @@ describe('board page', () => {
     expect(screen.queryByText('92')).toBeNull(); // no post count, followers only
     expect(screen.getByText('4.1k')).toBeTruthy();
     expect(await screen.findByText('Composer drops edits')).toBeTruthy();
-    // No tab bar: Roadmap and Changelog sit in the ⋯ menu.
+    // No tab bar, and no ⋯ menu while Roadmap and Changelog are deferred.
     expect(screen.queryByRole('tab', { name: /Feedback/ })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'More' }));
-    expect(await screen.findByRole('menuitem', { name: /Roadmap/ })).toBeTruthy();
-    expect(screen.getByRole('menuitem', { name: /Changelog/ })).toBeTruthy();
-    // Share is its own button beside Follow, not in the menu.
-    expect(screen.queryByRole('menuitem', { name: /Share board/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'More' })).toBeNull();
+    // Share is its own button beside Follow.
     expect(within(document.querySelector('header')!).getByRole('button', { name: 'Share' })).toBeTruthy();
     expect(postsApi.fetchPostList).toHaveBeenCalledWith(expect.objectContaining({ boardIds: [CURSOR.id], type: 'all', status: 'all', sort: 'top' }));
     // No Manage for people outside the team; the claim way in instead.
