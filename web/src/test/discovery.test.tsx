@@ -83,34 +83,10 @@ beforeEach(() => {
 });
 
 describe('board page', () => {
-  it('renders smart Back navigation falling back to home', async () => {
-    postsApi.fetchPostList.mockResolvedValue(page([]));
-    const { router } = renderAt('/b/cursor');
-    const back = await screen.findByRole('link', { name: 'Back' });
-    expect(back).toBeTruthy();
-    expect(back.getAttribute('href')).toBe('/');
-    fireEvent.click(back);
-    await waitFor(() => expect(router.state.location.pathname).toBe('/'));
-  });
-
-  it('navigates back in history when history entries exist', async () => {
-    const originalState = window.history.state;
-    Object.defineProperty(window.history, 'state', {
-      value: { idx: 2 },
-      configurable: true,
-    });
-    try {
-      const { router } = renderAt('/b/cursor');
-      const back = await screen.findByRole('link', { name: 'Back' });
-      const navSpy = vi.spyOn(router, 'navigate');
-      fireEvent.click(back);
-      expect(navSpy).toHaveBeenCalledWith(-1);
-    } finally {
-      Object.defineProperty(window.history, 'state', {
-        value: originalState,
-        configurable: true,
-      });
-    }
+  it('has no Back link: the rail and the phone tab bar cover it', async () => {
+    renderAt('/b/cursor');
+    await screen.findByRole('heading', { level: 1, name: 'Cursor' });
+    expect(screen.queryByRole('link', { name: 'Back' })).toBeNull();
   });
 
   it('sets the tab title to the board name (#159)', async () => {
@@ -310,13 +286,10 @@ describe('board header meta line', () => {
 });
 
 describe('hub page', () => {
-  it('renders smart Back navigation', async () => {
-    const { router } = renderAt('/h/figma');
-    const back = await screen.findByRole('link', { name: 'Back' });
-    expect(back).toBeTruthy();
-    expect(back.getAttribute('href')).toBe('/');
-    fireEvent.click(back);
-    await waitFor(() => expect(router.state.location.pathname).toBe('/'));
+  it('has no Back link', async () => {
+    renderAt('/h/figma');
+    await screen.findByRole('heading', { level: 1, name: /Figma/ });
+    expect(screen.queryByRole('link', { name: 'Back' })).toBeNull();
   });
 
   it('sets the tab title to the hub name (#159)', async () => {
