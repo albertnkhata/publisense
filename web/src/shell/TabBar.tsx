@@ -9,7 +9,7 @@ import { useAuthDialog } from './auth';
 import { useComposer } from './composer';
 import { LegalLinks } from './LegalLinks';
 
-/** Icon-only tab bar at sm (≤520px), replacing the nav rail. */
+/** Icon-only tab bar at sm (≤520px), replacing the nav rail, plus the floating Post button. */
 export function TabBar() {
   const { viewer, signOut } = useViewer();
   const { openAuth } = useAuthDialog();
@@ -35,13 +35,6 @@ export function TabBar() {
         <NavLink to="/explore" aria-label="Explore" className={tabClass}>
           {({ isActive }) => <TabIcon name="search" active={isActive} />}
         </NavLink>
-        {viewer ? (
-          <button type="button" aria-label="Post feedback" onClick={() => openComposer()} className="flex h-8 items-center justify-center border-0 bg-transparent">
-            <span className="grid h-7 w-8 place-items-center rounded-md bg-brand text-on-brand">
-              <Icon name="plus" size={20} strokeWidth={2.2} />
-            </span>
-          </button>
-        ) : null}
         {viewer ? (
           <NavLink to="/notifications" aria-label={unread > 0 ? `Notifications, ${unread} new` : 'Notifications'} className={tabClass}>
             {({ isActive }) => (
@@ -69,6 +62,19 @@ export function TabBar() {
           </button>
         )}
       </nav>
+
+      {/* Floating Post button at sm, bottom right above the tab bar (as on X and
+          Substack). It replaces the composer row above the feed on phones. */}
+      {viewer ? (
+        <button
+          type="button"
+          aria-label="Post feedback"
+          onClick={() => openComposer()}
+          className="fixed right-4 bottom-fab z-30 hidden size-9 cursor-pointer place-items-center rounded-pill border-0 bg-brand text-on-brand shadow-overlay transition-colors duration-120 active:bg-brand-hover max-sm:grid"
+        >
+          <Icon name="plus" size={22} strokeWidth={2.2} />
+        </button>
+      ) : null}
 
       {viewer ? (
         <Dialog open={sheet} onClose={() => setSheet(false)} title={viewer.name}>
