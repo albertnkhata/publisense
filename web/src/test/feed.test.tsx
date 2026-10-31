@@ -171,7 +171,7 @@ describe('signed-out pitch', () => {
     expect(within(pitch).getByText(PITCH.body)).toBeTruthy();
     expect(screen.getAllByRole('region', { name: PITCH.title })).toHaveLength(1);
     // Very top of Home: before the composer bar.
-    const composer = screen.getByRole('button', { name: /What’s slowing you down/ });
+    const composer = screen.getByRole('button', { name: /Share feedback on a product/ });
     expect(pitch.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     // Not dismissible.
     expect(within(pitch).getAllByRole('button')).toHaveLength(2);

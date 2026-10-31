@@ -171,7 +171,7 @@ function ComposerTrigger() {
       </span>
       <span className="flex min-w-0 flex-1 items-center gap-3 border-b border-ink py-3">
         <span className="min-w-0 flex-1 truncate text-base text-ink-muted transition-colors duration-120 group-hover:text-ink-secondary">
-          What’s slowing you down, or what do you wish existed?
+          Share feedback on a product
         </span>
         {/* Held quiet at rest, full-strength on hover. Kept at every width: the old
             filled button was hidden under 640px, which left phones with no action. */}
