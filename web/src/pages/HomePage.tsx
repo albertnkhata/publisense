@@ -4,7 +4,6 @@ import { useSearchParams } from 'react-router';
 import { dedupePosts, useFeed, type FeedScope, type FeedSort } from '../api';
 import { useClaim } from '../claim/ClaimDialog';
 import { usePageTitle } from '../lib/usePageTitle';
-import { cx } from '../lib/cx';
 import { useViewer } from '../lib/viewer';
 import { LoadError, PostList, PostListSkeleton } from '../posts/PostList';
 import { useAuthDialog, useRequireAuth } from '../shell/auth';
@@ -38,8 +37,8 @@ export function HomePage() {
         Home
       </h1>
       {viewer ? null : <HomePitch />}
-      {/* Signed in, phones post from the floating button (TabBar) instead. */}
-      <ComposerTrigger hideOnPhones={!!viewer} />
+      {/* Phones post from the floating button (TabBar) instead. */}
+      <ComposerTrigger />
       <div className={viewer ? 'flex items-center justify-between gap-3 border-b border-line' : 'flex items-center justify-end gap-3'}>
         {viewer ? (
           <Tabs
@@ -155,7 +154,7 @@ function SortMenu({ sort, onChange }: { sort: FeedSort; onChange: (s: FeedSort) 
  * hangs in the gutter where avatars sit, and the prompt and its rule span exactly
  * the post content's width, so the rule reads as the field's underline.
  */
-function ComposerTrigger({ hideOnPhones }: { hideOnPhones: boolean }) {
+function ComposerTrigger() {
   const requireAuth = useRequireAuth();
   const { openComposer } = useComposer();
   return (
@@ -164,7 +163,7 @@ function ComposerTrigger({ hideOnPhones }: { hideOnPhones: boolean }) {
       onClick={() => {
         if (requireAuth('post feedback')) openComposer();
       }}
-      className={cx('group flex w-full cursor-pointer items-center border-0 bg-transparent px-5 text-left max-sm:px-4', hideOnPhones && 'max-sm:hidden')}
+      className="group flex w-full cursor-pointer items-center border-0 bg-transparent px-5 text-left max-sm:hidden"
     >
       <span className="flex w-gutter shrink-0 items-center">
         <span className="flex size-6 items-center justify-center rounded-pill border border-line-strong text-ink-muted transition-colors duration-120 group-hover:border-ink-muted group-hover:text-ink-secondary">
