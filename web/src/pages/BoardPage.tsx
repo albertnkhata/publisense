@@ -159,13 +159,13 @@ function Board({ board }: { board: BoardWithHub }) {
             <FollowScopeButton target="board" id={board.id} name={board.name} size="sm" />
             {/* One tap to share, out of the ⋯ menu (Gemini board review 1C). */}
             {board.status === 'live' ? (
-              <IconButton
-                icon="share"
-                label="Share board"
+              <Button
+                size="sm"
                 variant="secondary"
                 onClick={() => void shareLink(`/b/${board.slug}`, `${board.name} feedback`).then((msg) => msg && toast(msg))}
-                className="max-md:flex-none"
-              />
+              >
+                Share
+              </Button>
             ) : null}
             {board.status === 'rejected' ? null : (
               <Button size="sm" onClick={() => openComposer({ board: board.slug })}>

@@ -132,7 +132,7 @@ describe('board page', () => {
     expect(screen.getByRole('menuitem', { name: /Changelog/ })).toBeTruthy();
     // Share is its own button beside Follow, not in the menu.
     expect(screen.queryByRole('menuitem', { name: /Share board/ })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Share board' })).toBeTruthy();
+    expect(within(document.querySelector('header')!).getByRole('button', { name: 'Share' })).toBeTruthy();
     expect(postsApi.fetchPostList).toHaveBeenCalledWith(expect.objectContaining({ boardIds: [CURSOR.id], type: 'all', status: 'all', sort: 'top' }));
     // No Manage for people outside the team; the claim way in instead.
     expect(screen.queryByRole('link', { name: 'Manage' })).toBeNull();
