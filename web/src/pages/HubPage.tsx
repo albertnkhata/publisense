@@ -15,7 +15,7 @@ import {
   useVerifiedDomains,
   type Hub,
 } from '../api';
-import { BoardRow, ChoiceMenu, FollowScopeButton, RowItem, RowList } from '../boards/parts';
+import { BackLink, BoardRow, ChoiceMenu, FollowScopeButton, RowItem, RowList } from '../boards/parts';
 import { FollowerStat, ScopeHeader, Stat } from '../boards/ScopeHeader';
 import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
@@ -81,7 +81,8 @@ function HubView({ hub }: { hub: Hub }) {
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
-      <div className="mb-4 flex items-center justify-end gap-2">
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <BackLink />
         <Menu label={`More from ${hub.name}`} align="end" trigger={(p) => <IconButton {...p} icon="more" label="More" />}>
           <MenuItem
             icon="share"
