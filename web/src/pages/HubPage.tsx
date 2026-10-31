@@ -34,6 +34,12 @@ import { useSetUrlParams } from '../lib/useUrlParam';
  */
 export type HubTab = 'feedback' | 'boards' | 'roadmap';
 
+/**
+ * Roadmap is deferred (Oct 31, 2026), so the hub hides its tab, as the board hides its
+ * ⋯ menu. A direct ?tab=roadmap link still opens it. Flip this back on when it ships.
+ */
+const SHOW_ROADMAP_TAB = false;
+
 export function HubPage() {
   const { hub: slug } = useParams();
   const query = useHub(slug);
@@ -137,7 +143,9 @@ function HubView({ hub }: { hub: Hub }) {
         items={[
           { value: 'feedback', label: 'Feedback', ...(counts.data ? { count: counts.data.posts } : {}) },
           { value: 'boards', label: 'Boards', count: hub.boards.length },
-          { value: 'roadmap', label: 'Roadmap', ...(counts.data ? { count: counts.data.roadmap } : {}) },
+          ...(SHOW_ROADMAP_TAB || tab === 'roadmap'
+            ? [{ value: 'roadmap' as const, label: 'Roadmap', ...(counts.data ? { count: counts.data.roadmap } : {}) }]
+            : []),
         ]}
       />
       <TabPanel idBase="hub" value={tab}>
