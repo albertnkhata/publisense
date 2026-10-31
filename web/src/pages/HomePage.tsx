@@ -147,7 +147,11 @@ function SortMenu({ sort, onChange }: { sort: FeedSort; onChange: (s: FeedSort) 
   );
 }
 
-/** The collapsed composer: a field, not a card — one rule, one line, one quiet action. */
+/**
+ * The collapsed composer: a field, not a card — one rule, one line, one quiet action.
+ * The rule is inset to the row's padding so it reads as the field's underline,
+ * not a second divider stacked on the feed tabs' hairline.
+ */
 function ComposerTrigger() {
   const requireAuth = useRequireAuth();
   const { openComposer } = useComposer();
@@ -157,7 +161,7 @@ function ComposerTrigger() {
       onClick={() => {
         if (requireAuth('post feedback')) openComposer();
       }}
-      className="group flex w-full cursor-pointer items-center gap-3 border-b border-ink bg-transparent px-5 py-3 text-left max-sm:px-4"
+      className="group relative flex w-full cursor-pointer items-center gap-3 border-0 bg-transparent px-5 py-3 text-left after:absolute after:inset-x-5 after:bottom-0 after:h-px after:bg-ink max-sm:px-4 max-sm:after:inset-x-4"
     >
       <span className="flex size-6 shrink-0 items-center justify-center rounded-pill border border-line-strong text-ink-muted transition-colors duration-120 group-hover:border-ink-muted group-hover:text-ink-secondary">
         <Icon name="plus" size={11} strokeWidth={2} />
