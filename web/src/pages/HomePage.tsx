@@ -169,13 +169,14 @@ function ComposerTrigger() {
           <Icon name="plus" size={11} strokeWidth={2} />
         </span>
       </span>
-      <span className="flex min-w-0 flex-1 items-center gap-3 border-b border-line-strong py-3">
+      <span className="flex min-w-0 flex-1 items-center gap-3 border-b border-line-strong py-2">
         <span className="min-w-0 flex-1 truncate text-base text-ink-muted transition-colors duration-120 group-hover:text-ink-secondary">
           Share feedback on a product
         </span>
-        {/* Held quiet at rest, full-strength on hover. Kept at every width: the old
-            filled button was hidden under 640px, which left phones with no action. */}
-        <span className="shrink-0 text-sm font-semibold text-brand opacity-60 transition-opacity duration-120 group-hover:opacity-100">
+        {/* Looks like the primary sm Button, but is a span: the whole row is already
+            the button, and a button can't nest inside another. Kept at every width:
+            the old filled button was hidden under 640px, which left phones with no action. */}
+        <span className="inline-flex h-7 shrink-0 items-center justify-center rounded-md bg-brand px-3 text-sm font-semibold whitespace-nowrap text-on-brand transition-colors duration-120 ease-out group-hover:bg-brand-hover">
           Post
         </span>
       </span>
