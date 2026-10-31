@@ -28,7 +28,7 @@ export function ScopeHeader({
     <header className="flex items-start gap-4 pb-4 max-md:flex-wrap max-md:gap-3">
       {logo}
       <div className="min-w-0 flex-1">
-        <h1 id="page-title" className="mt-0 mb-1 flex flex-wrap items-center gap-2 text-xl font-bold text-ink">
+        <h1 id="page-title" className="mt-0 mb-1 flex flex-wrap items-center gap-2 text-2xl font-bold text-ink">
           {title}
           {tag}
         </h1>

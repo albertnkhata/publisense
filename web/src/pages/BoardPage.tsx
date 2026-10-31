@@ -29,7 +29,7 @@ import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { LoadError, PostList, PostListSkeleton } from '../posts/PostList';
 import { useComposer } from '../shell/composer';
-import { BoardAvatar, Button, EmptyState, Icon, IconButton, Input, Menu, MenuItem, MenuSeparator, Skeleton, SkeletonBlock, useToast } from '../ui';
+import { BoardAvatar, Button, EmptyState, Icon, IconButton, Input, Menu, MenuItem, Skeleton, SkeletonBlock, useToast } from '../ui';
 import { shareLink } from '../lib/share';
 import { useDebounced } from '../lib/useDebounced';
 import { useSetUrlParams } from '../lib/useUrlParam';
@@ -125,18 +125,6 @@ function Board({ board }: { board: BoardWithHub }) {
         <BackLink />
         <div className="flex items-center gap-1">
           <Menu label={`More from ${board.name}`} align="end" trigger={(p) => <IconButton {...p} icon="more" label="More" />}>
-            {board.status === 'live' ? (
-              <>
-                <MenuItem
-                  icon="share"
-                  description="Copy or send the board link"
-                  onSelect={() => void shareLink(`/b/${board.slug}`, `${board.name} feedback`).then((msg) => msg && toast(msg))}
-                >
-                  Share board
-                </MenuItem>
-                <MenuSeparator />
-              </>
-            ) : null}
             <MenuItem
               icon="status-planned"
               description={counts.data ? `${counts.data.roadmap} planned or in progress` : 'What’s planned and in progress'}
@@ -170,6 +158,16 @@ function Board({ board }: { board: BoardWithHub }) {
               </Link>
             ) : null}
             <FollowScopeButton target="board" id={board.id} name={board.name} size="sm" />
+            {/* One tap to share, out of the ⋯ menu (Gemini board review 1C). */}
+            {board.status === 'live' ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => void shareLink(`/b/${board.slug}`, `${board.name} feedback`).then((msg) => msg && toast(msg))}
+              >
+                Share
+              </Button>
+            ) : null}
             {board.status === 'rejected' ? null : (
               <Button size="sm" onClick={() => openComposer({ board: board.slug })}>
                 Post feedback
