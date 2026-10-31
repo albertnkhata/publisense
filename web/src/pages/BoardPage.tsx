@@ -29,7 +29,7 @@ import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { LoadError, PostList, PostListSkeleton } from '../posts/PostList';
 import { useComposer } from '../shell/composer';
-import { BoardAvatar, Button, EmptyState, Icon, IconButton, Menu, MenuItem, MenuSeparator, Skeleton, SkeletonBlock, useToast } from '../ui';
+import { BoardAvatar, Button, EmptyState, Icon, IconButton, Menu, MenuItem, Skeleton, SkeletonBlock, useToast } from '../ui';
 import { shareLink } from '../lib/share';
 import { useSetUrlParams } from '../lib/useUrlParam';
 
@@ -124,18 +124,6 @@ function Board({ board }: { board: BoardWithHub }) {
         <BackLink />
         <div className="flex items-center gap-1">
           <Menu label={`More from ${board.name}`} align="end" trigger={(p) => <IconButton {...p} icon="more" label="More" />}>
-            {board.status === 'live' ? (
-              <>
-                <MenuItem
-                  icon="share"
-                  description="Copy or send the board link"
-                  onSelect={() => void shareLink(`/b/${board.slug}`, `${board.name} feedback`).then((msg) => msg && toast(msg))}
-                >
-                  Share board
-                </MenuItem>
-                <MenuSeparator />
-              </>
-            ) : null}
             <MenuItem
               icon="status-planned"
               description={counts.data ? `${counts.data.roadmap} planned or in progress` : 'What’s planned and in progress'}
@@ -154,7 +142,10 @@ function Board({ board }: { board: BoardWithHub }) {
         title={board.name}
         tag={<ReviewPill board={board} />}
         description={board.tagline || null}
-        meta={boardMeta(board)}
+        meta={boardMeta(
+          board,
+          board.status === 'live' ? () => void shareLink(`/b/${board.slug}`, `${board.name} feedback`).then((msg) => msg && toast(msg)) : null,
+        )}
         stats={
           <>
             <FollowerStat count={board.follower_count} />
@@ -283,10 +274,10 @@ const SHOW_ADDED_BY = false;
  * while unclaimed. Each item is a whole flex unit, so on a phone the line
  * wraps between items rather than inside them. Null when there is nothing to show.
  */
-function boardMeta(board: BoardWithHub): ReactNode {
+function boardMeta(board: BoardWithHub, onShare: (() => void) | null): ReactNode {
   const site = siteLink(board.site);
   const addedBy = SHOW_ADDED_BY && !board.claimed_at && board.creator ? board.creator : null;
-  if (!site && !board.hub && !addedBy) return null;
+  if (!site && !board.hub && !addedBy && !onShare) return null;
   return (
     <>
       {site ? (
@@ -308,6 +299,13 @@ function boardMeta(board: BoardWithHub): ReactNode {
             @{addedBy.handle}
           </Link>
         </span>
+      ) : null}
+      {/* Share sits on the meta line as a quiet link, out of the ⋯ menu (Gemini board review 1C). */}
+      {onShare ? (
+        <button type="button" onClick={onShare} aria-label="Share board" className={cx(metaLink, 'cursor-pointer border-0 bg-transparent p-0 text-sm')}>
+          <Icon name="share" size={13} />
+          Share
+        </button>
       ) : null}
     </>
   );
