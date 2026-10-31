@@ -22,6 +22,7 @@ import { useAuthDialog } from '../shell/auth';
 import { useComposer } from '../shell/composer';
 import { BoardAvatar, Button, Dialog, Field, Icon, Input, useToast } from '../ui';
 import { CompanyPicker } from './CompanyPicker';
+import { useDebounced } from '../lib/useDebounced';
 
 /**
  * Add a product (0024). Paste a link (a product website or a GitHub repo); the name,
@@ -90,15 +91,6 @@ export function AddProductHost() {
 
 // ------------------------------------------------------------------ the dialog
 
-/** The value after it stops changing for `ms`. */
-function useDebounced<T>(value: T, ms: number): T {
-  const [v, setV] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setV(value), ms);
-    return () => clearTimeout(t);
-  }, [value, ms]);
-  return v;
-}
 
 /** The URL once the browser has loaded it as an image, else null (no broken tiles). */
 function useLoadedImage(src: string | null | undefined): string | null {

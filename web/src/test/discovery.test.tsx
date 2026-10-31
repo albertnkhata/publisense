@@ -156,6 +156,27 @@ describe('board page', () => {
     expect(await screen.findByText('No posts match these filters.')).toBeTruthy();
   });
 
+  it('offers Clear filters when filters match nothing', async () => {
+    postsApi.fetchPostList.mockResolvedValue(page([]));
+    const { router } = renderAt('/b/cursor?status=shipped', true);
+    fireEvent.click(await screen.findByRole('button', { name: 'Clear filters' }));
+    await waitFor(() => expect(router.state.location.search).toBe(''));
+  });
+
+  it('searches the board, and offers to post what nobody has yet', async () => {
+    const { router } = renderAt('/b/cursor');
+    await screen.findByText('Composer drops edits');
+    postsApi.fetchPostList.mockResolvedValue(page([]));
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search Cursor posts' }), { target: { value: 'dark mode' } });
+    await waitFor(() => expect(postsApi.fetchPostList).toHaveBeenLastCalledWith(expect.objectContaining({ boardIds: [CURSOR.id], q: 'dark mode' })));
+    expect(router.state.location.search).toBe('?q=dark+mode');
+    expect(await screen.findByText('No posts match “dark mode”.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Post about it' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+    await waitFor(() => expect(router.state.location.search).toBe(''));
+    expect((screen.getByRole('searchbox', { name: 'Search Cursor posts' }) as HTMLInputElement).value).toBe('');
+  });
+
   it('opens the composer with the board chosen', async () => {
     postsApi.fetchPostList.mockResolvedValue(page([]));
     renderAt('/b/cursor', true);

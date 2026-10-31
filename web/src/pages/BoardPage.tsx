@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import {
   dedupePosts,
@@ -29,8 +29,9 @@ import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { LoadError, PostList, PostListSkeleton } from '../posts/PostList';
 import { useComposer } from '../shell/composer';
-import { BoardAvatar, Button, EmptyState, Icon, IconButton, Menu, MenuItem, Skeleton, SkeletonBlock, useToast } from '../ui';
+import { BoardAvatar, Button, EmptyState, Icon, IconButton, Input, Menu, MenuItem, Skeleton, SkeletonBlock, useToast } from '../ui';
 import { shareLink } from '../lib/share';
+import { useDebounced } from '../lib/useDebounced';
 import { useSetUrlParams } from '../lib/useUrlParam';
 
 /**
@@ -181,7 +182,7 @@ function Board({ board }: { board: BoardWithHub }) {
         </p>
       ) : null}
       {tab === 'feedback' ? (
-        <Feedback board={board} params={params} setParam={setParam} clear={() => update([['type', 'all', 'all'], ['status', 'all', 'all'], ['device', 'all', 'all']])} />
+        <Feedback board={board} params={params} setParam={setParam} clear={() => update([['q', '', ''], ['type', 'all', 'all'], ['status', 'all', 'all'], ['device', 'all', 'all']])} />
       ) : (
         <div className="flex flex-col">
           <div className="mb-4 flex items-center justify-between gap-3 border-b border-line pb-3">
@@ -219,13 +220,40 @@ function Feedback({
   const status = pick(params.get('status'), STATUS_CHOICES, 'all');
   const platform = pick(params.get('device'), PLATFORM_CHOICES, 'all');
   const sort = pick(params.get('sort'), SORT_CHOICES, 'top');
-  const list = usePostList({ boardIds: [board.id], type, status, platform, sort, viewerId: viewer?.id ?? null });
+  // The box follows the typing; the URL (?q=) and the query follow it once it settles.
+  const urlQ = params.get('q') ?? '';
+  const [text, setText] = useState(urlQ);
+  const settled = useDebounced(text.trim(), 300);
+  useEffect(() => {
+    if (settled !== urlQ.trim()) setParam('q', settled, '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the typing settles
+  }, [settled]);
+  // Clear (or Back) changes the URL from outside the box: follow it.
+  useEffect(() => {
+    if (urlQ.trim() !== text.trim()) setText(urlQ);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the URL changes
+  }, [urlQ]);
+  const q = urlQ.trim().length >= 2 ? urlQ.trim() : '';
+  const list = usePostList({ boardIds: [board.id], type, status, platform, sort, viewerId: viewer?.id ?? null, q });
   const posts = useMemo(() => dedupePosts(list.data?.pages ?? []), [list.data]);
-  const filtered = type !== 'all' || status !== 'all' || platform !== 'all';
+  const filtered = Boolean(q) || type !== 'all' || status !== 'all' || platform !== 'all';
 
   return (
     <>
-      <div className="mt-2 mb-4 flex flex-wrap items-center gap-1">
+      {/* Search this board before posting, so people find and upvote what is already here. */}
+      <div role="search" className="mt-2">
+        <Input
+          type="search"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder={`Search ${board.name} posts`}
+          aria-label={`Search ${board.name} posts`}
+          autoComplete="off"
+          enterKeyHint="search"
+          className="w-full"
+        />
+      </div>
+      <div className="mt-3 mb-4 flex flex-wrap items-center gap-1">
         <ChoiceMenu label="Type" value={type} choices={TYPE_CHOICES} onChange={(v) => setParam('type', v, 'all')} set={type !== 'all'} />
         <ChoiceMenu label="Status" value={status} choices={STATUS_CHOICES} onChange={(v) => setParam('status', v, 'all')} set={status !== 'all'} />
         <ChoiceMenu label="Device" value={platform} choices={PLATFORM_CHOICES} onChange={(v) => setParam('device', v, 'all')} set={platform !== 'all'} />
@@ -248,7 +276,19 @@ function Feedback({
         <LoadError title="We couldn’t load this board’s posts" onRetry={() => void list.refetch()} retrying={list.isRefetching} />
       ) : posts.length === 0 ? (
         filtered ? (
-          <p className="m-0 px-3 py-9 text-center text-base text-ink-muted">No posts match these filters.</p>
+          <div className="flex flex-col items-center gap-3 px-3 py-9 text-center">
+            <p className="m-0 text-base text-ink-muted">{q ? `No posts match “${q}”${type !== 'all' || status !== 'all' || platform !== 'all' ? ' with these filters' : ''}.` : 'No posts match these filters.'}</p>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button size="sm" variant="secondary" onClick={clear}>
+                Clear filters
+              </Button>
+              {q && board.status !== 'rejected' ? (
+                <Button size="sm" onClick={() => openComposer({ board: board.slug, title: q })}>
+                  Post about it
+                </Button>
+              ) : null}
+            </div>
+          </div>
         ) : (
           <div className="rounded-md border border-line bg-card">
             <EmptyState icon="reply" title="No posts yet" action={<Button onClick={() => openComposer({ board: board.slug })}>Post feedback</Button>}>
