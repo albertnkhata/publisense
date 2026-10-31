@@ -169,7 +169,7 @@ function ComposerTrigger() {
           <Icon name="plus" size={11} strokeWidth={2} />
         </span>
       </span>
-      <span className="flex min-w-0 flex-1 items-center gap-3 border-b border-ink py-3">
+      <span className="flex min-w-0 flex-1 items-center gap-3 border-b border-line-strong py-3">
         <span className="min-w-0 flex-1 truncate text-base text-ink-muted transition-colors duration-120 group-hover:text-ink-secondary">
           Share feedback on a product
         </span>
