@@ -8,7 +8,7 @@ import { useViewer } from '../lib/viewer';
 import { LoadError, PostList, PostListSkeleton } from '../posts/PostList';
 import { useAuthDialog, useRequireAuth } from '../shell/auth';
 import { useComposer } from '../shell/composer';
-import { Button, Card, EmptyState, Icon, Menu, MenuItemRadio, MenuLabel, Tabs, UserAvatar } from '../ui';
+import { Button, Card, EmptyState, Icon, Menu, MenuItemRadio, MenuLabel, Tabs } from '../ui';
 import { useSetUrlParams } from '../lib/useUrlParam';
 
 /**
@@ -37,6 +37,7 @@ export function HomePage() {
         Home
       </h1>
       {viewer ? null : <HomePitch />}
+      {/* Phones post from the floating button (TabBar) instead. */}
       <ComposerTrigger />
       <div className={viewer ? 'flex items-center justify-between gap-3 border-b border-line' : 'flex items-center justify-end gap-3'}>
         {viewer ? (
@@ -147,29 +148,40 @@ function SortMenu({ sort, onChange }: { sort: FeedSort; onChange: (s: FeedSort) 
   );
 }
 
-/** The mockup's minimal composer bar; it opens the Composer. */
+/**
+ * The collapsed composer: a field, not a card — one rule, one line, one quiet action.
+ * It shares the feed's grid (PostCard: px-5, then a pl-gutter column): the plus
+ * hangs in the gutter where avatars sit, and the prompt and its rule span exactly
+ * the post content's width, so the rule reads as the field's underline.
+ */
 function ComposerTrigger() {
-  const { viewer } = useViewer();
   const requireAuth = useRequireAuth();
   const { openComposer } = useComposer();
   return (
-    <Card padding="none" interactive>
-      <button
-        type="button"
-        onClick={() => {
-          if (requireAuth('post feedback')) openComposer();
-        }}
-        className="group flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent py-2 pr-2 pl-3 text-left"
-      >
-        <UserAvatar src={viewer?.avatarUrl ?? null} size="md" />
-        <span className="min-w-0 flex-1 truncate text-base text-ink-muted transition-colors duration-120 group-hover:text-ink-secondary">
-          What’s slowing you down, or what do you wish existed?
+    <button
+      type="button"
+      onClick={() => {
+        if (requireAuth('post feedback')) openComposer();
+      }}
+      className="group flex w-full cursor-pointer items-center border-0 bg-transparent px-5 text-left max-sm:hidden"
+    >
+      <span className="flex w-gutter shrink-0 items-center">
+        <span className="flex size-6 items-center justify-center rounded-pill border border-line-strong text-ink-muted transition-colors duration-120 group-hover:border-ink-muted group-hover:text-ink-secondary">
+          <Icon name="plus" size={11} strokeWidth={2} />
         </span>
-        <span className="inline-flex h-7 shrink-0 items-center rounded-md bg-brand px-4 text-sm font-semibold text-on-brand transition-colors duration-120 group-hover:bg-brand-hover max-sm:hidden">
+      </span>
+      <span className="flex min-w-0 flex-1 items-center gap-3 border-b border-line-strong py-2">
+        <span className="min-w-0 flex-1 truncate text-base text-ink-muted transition-colors duration-120 group-hover:text-ink-secondary">
+          Share feedback on a product
+        </span>
+        {/* Looks like the primary sm Button, but is a span: the whole row is already
+            the button, and a button can't nest inside another. Kept at every width:
+            the old filled button was hidden under 640px, which left phones with no action. */}
+        <span className="inline-flex h-7 shrink-0 items-center justify-center rounded-md bg-brand px-3 text-sm font-semibold whitespace-nowrap text-on-brand transition-colors duration-120 ease-out group-hover:bg-brand-hover">
           Post
         </span>
-      </button>
-    </Card>
+      </span>
+    </button>
   );
 }
 
