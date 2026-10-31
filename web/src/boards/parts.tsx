@@ -312,6 +312,7 @@ export function BackLink({
   to = '/',
   children = 'Back',
   smart = to === '/',
+  fallbackLabel = to === '/' ? 'Home' : undefined,
   onClick,
   className,
 }: {
@@ -319,14 +320,21 @@ export function BackLink({
   children?: ReactNode;
   /** When true (default when `to` is '/'), uses browser history if available; otherwise falls back to `to`. */
   smart?: boolean;
+  /**
+   * What a smart link says when there is no history to go back to, so it names where it
+   * actually goes (Home, or the board's company) instead of "Back". Defaults to Home for '/'.
+   */
+  fallbackLabel?: string;
   onClick?: () => void;
   className?: string;
 }) {
   const navigate = useNavigate();
   const canGoBack = smart && typeof window !== 'undefined' && Number((window.history.state as { idx?: number } | null)?.idx ?? 0) > 0;
+  const named = smart && !canGoBack && fallbackLabel ? fallbackLabel : null;
   return (
     <Link
       to={to}
+      aria-label={named ? `Back to ${named}` : undefined}
       onClick={(e) => {
         onClick?.();
         if (canGoBack) {
@@ -337,7 +345,7 @@ export function BackLink({
       className={cx('inline-flex items-center gap-2 self-start text-sm font-medium text-ink-muted no-underline hover:text-ink', className)}
     >
       <Icon name="arrow-left" size={14} />
-      {children}
+      {named ?? children}
     </Link>
   );
 }

@@ -122,7 +122,7 @@ function Board({ board }: { board: BoardWithHub }) {
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
       <div className="mb-4 flex items-center justify-between gap-2">
-        <BackLink />
+        <BackLink {...(board.hub ? { to: `/h/${board.hub.slug}`, smart: true, fallbackLabel: board.hub.name } : {})} />
         {SHOW_MORE_MENU ? (
           <div className="flex items-center gap-1">
             <Menu label={`More from ${board.name}`} align="end" trigger={(p) => <IconButton {...p} icon="more" label="More" />}>
