@@ -627,10 +627,12 @@ export interface PostListParams {
   viewerId: string | null;
   /** The hub feed leaves closed posts out (mockup). */
   excludeClosed?: boolean;
+  /** Full-text search over title and body (`websearch` syntax), as global search. Ignored under 2 characters. */
+  q?: string;
 }
 
 /** A page of a board's (or hub's) feed, with the board page's filters. */
-export async function fetchPostList({ boardIds, type = 'all', status = 'all', platform = 'all', sort, offset, viewerId, excludeClosed }: PostListParams): Promise<FeedPage> {
+export async function fetchPostList({ boardIds, type = 'all', status = 'all', platform = 'all', sort, offset, viewerId, excludeClosed, q: query }: PostListParams): Promise<FeedPage> {
   if (boardIds.length === 0) return { items: [], next: null };
   let q = getSupabase().from('post').select(POST_SELECT).is('hidden_at', null).neq('status', 'merged');
   q = boardIds.length === 1 ? q.eq('board_id', boardIds[0] ?? '') : q.in('board_id', boardIds);
@@ -638,6 +640,8 @@ export async function fetchPostList({ boardIds, type = 'all', status = 'all', pl
   if (platform !== 'all') q = q.eq('platform', platform);
   if (status !== 'all') q = q.eq('status', status);
   else if (excludeClosed) q = q.neq('status', 'closed');
+  const term = query?.trim() ?? '';
+  if (term.length >= 2) q = q.textSearch('search', term, { type: 'websearch', config: 'english' });
   q =
     sort === 'new'
       ? q.order('created_at', { ascending: false }).order('id', { ascending: false })

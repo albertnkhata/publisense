@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   fetchBoard,
   fetchBoards,
@@ -92,9 +92,11 @@ export function useIsBoardTeam(boardId: string | undefined, viewerId: string | n
 /** A board's or hub's feed; keyed under ['posts'] so optimistic votes reach it. */
 export function usePostList(params: Omit<PostListParams, 'offset'>, enabled = true) {
   const { boardIds, type = 'all', status = 'all', platform = 'all', sort, viewerId, excludeClosed = false } = params;
+  const q = params.q?.trim() ?? '';
   return useInfiniteQuery({
-    queryKey: ['posts', 'list', boardIds.join(','), type, status, platform, sort, excludeClosed, viewerId ?? 'anon'],
-    queryFn: ({ pageParam }) => fetchPostList({ boardIds, type, status, platform, sort, offset: pageParam, viewerId, excludeClosed }),
+    queryKey: ['posts', 'list', boardIds.join(','), type, status, platform, sort, excludeClosed, viewerId ?? 'anon', q],
+    queryFn: ({ pageParam }) => fetchPostList({ boardIds, type, status, platform, sort, offset: pageParam, viewerId, excludeClosed, ...(q ? { q } : {}) }),
+    placeholderData: q ? keepPreviousData : undefined,
     initialPageParam: 0,
     getNextPageParam: (last) => last.next ?? undefined,
     enabled: enabled && boardIds.length > 0,
