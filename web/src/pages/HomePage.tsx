@@ -149,8 +149,9 @@ function SortMenu({ sort, onChange }: { sort: FeedSort; onChange: (s: FeedSort) 
 
 /**
  * The collapsed composer: a field, not a card — one rule, one line, one quiet action.
- * The rule is inset 48px (40px at sm), close to where the prompt starts, so it
- * reads as the field's underline, not a second divider on the feed tabs' hairline.
+ * It shares the feed's grid (PostCard: px-5, then a pl-gutter column): the plus
+ * hangs in the gutter where avatars sit, and the prompt and its rule span exactly
+ * the post content's width, so the rule reads as the field's underline.
  */
 function ComposerTrigger() {
   const requireAuth = useRequireAuth();
@@ -161,18 +162,22 @@ function ComposerTrigger() {
       onClick={() => {
         if (requireAuth('post feedback')) openComposer();
       }}
-      className="group relative flex w-full cursor-pointer items-center gap-3 border-0 bg-transparent px-5 py-3 text-left after:absolute after:inset-x-9 after:bottom-0 after:h-px after:bg-ink max-sm:px-4 max-sm:after:inset-x-8"
+      className="group flex w-full cursor-pointer items-center border-0 bg-transparent px-5 text-left max-sm:px-4"
     >
-      <span className="flex size-6 shrink-0 items-center justify-center rounded-pill border border-line-strong text-ink-muted transition-colors duration-120 group-hover:border-ink-muted group-hover:text-ink-secondary">
-        <Icon name="plus" size={11} strokeWidth={2} />
+      <span className="flex w-gutter shrink-0 items-center">
+        <span className="flex size-6 items-center justify-center rounded-pill border border-line-strong text-ink-muted transition-colors duration-120 group-hover:border-ink-muted group-hover:text-ink-secondary">
+          <Icon name="plus" size={11} strokeWidth={2} />
+        </span>
       </span>
-      <span className="min-w-0 flex-1 truncate text-base text-ink-muted transition-colors duration-120 group-hover:text-ink-secondary">
-        What’s slowing you down, or what do you wish existed?
-      </span>
-      {/* Held quiet at rest, full-strength on hover. Kept at every width: the old
-          filled button was hidden under 640px, which left phones with no action. */}
-      <span className="shrink-0 text-sm font-semibold text-brand opacity-60 transition-opacity duration-120 group-hover:opacity-100">
-        Post
+      <span className="flex min-w-0 flex-1 items-center gap-3 border-b border-ink py-3">
+        <span className="min-w-0 flex-1 truncate text-base text-ink-muted transition-colors duration-120 group-hover:text-ink-secondary">
+          What’s slowing you down, or what do you wish existed?
+        </span>
+        {/* Held quiet at rest, full-strength on hover. Kept at every width: the old
+            filled button was hidden under 640px, which left phones with no action. */}
+        <span className="shrink-0 text-sm font-semibold text-brand opacity-60 transition-opacity duration-120 group-hover:opacity-100">
+          Post
+        </span>
       </span>
     </button>
   );
