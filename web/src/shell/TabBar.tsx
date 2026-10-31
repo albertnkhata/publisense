@@ -33,7 +33,7 @@ export function TabBar() {
           {({ isActive }) => <TabIcon name="home" active={isActive} />}
         </NavLink>
         <NavLink to="/explore" aria-label="Explore" className={tabClass}>
-          {({ isActive }) => <TabIcon name="explore" active={isActive} />}
+          {({ isActive }) => <TabIcon name="search" active={isActive} />}
         </NavLink>
         {viewer ? (
           <button type="button" aria-label="Post feedback" onClick={() => openComposer()} className="flex h-8 items-center justify-center border-0 bg-transparent">

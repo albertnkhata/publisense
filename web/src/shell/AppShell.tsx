@@ -27,7 +27,7 @@ import { useShellLayout } from './layout';
  * shell/layout.ts). Without it the top bar stays on at every width, so search
  * keeps a visible way in, and the column is `max-w-wide` or, with
  * `width: 'narrow'`, stays `max-w-content` and centres. Terms · Privacy live
- * at the foot of the nav rail (TabBar sheet at sm), not in the right rail.
+ * at the foot of the right rail (TabBar sheet at sm, and the UserMenu).
  * `chrome: 'site'` (the legal pages) swaps all of that for a website header
  * and footer around the reading column.
  */
