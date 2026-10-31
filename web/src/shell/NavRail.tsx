@@ -1,15 +1,14 @@
 import { useCallback, useState, type ReactNode } from 'react';
-import { Link, NavLink } from 'react-router';
+import { Link, NavLink, useLocation } from 'react-router';
 import { cx } from '../lib/cx';
 import { MQ, useMediaQuery } from '../lib/useMediaQuery';
 import { useShortcut } from '../lib/useShortcut';
 import { useIsPlatformAdmin, useUnreadCount } from '../api';
 import { useViewer } from '../lib/viewer';
-import { Button, Icon, Tooltip, type IconName } from '../ui';
+import { Icon, Tooltip, type IconName } from '../ui';
 import { BrandSymbol } from './BrandMark';
 import { useAuthDialog } from './auth';
 import { useComposer } from './composer';
-import { LegalLinks, LegalMenu } from './LegalLinks';
 import { UserMenu } from './UserMenu';
 
 const NAV_KEY = 'publisense:nav-collapsed';
@@ -34,11 +33,15 @@ export function NavRail() {
   const { viewer, ready } = useViewer();
   const { openComposer } = useComposer();
   const { openAuth } = useAuthDialog();
+  const location = useLocation();
   const belowXl = useMediaQuery(MQ.xl);
   const [manual, setManual] = useState<boolean>(readCollapsed);
   const collapsed = manual || belowXl;
   const unread = useUnreadCount(viewer?.id ?? null).data ?? 0;
   const staff = useIsPlatformAdmin(viewer?.id ?? null).data ?? false;
+
+  const isFollowing = location.pathname === '/' && location.search.includes('scope=following');
+  const isHome = location.pathname === '/' && !isFollowing;
 
   const toggle = useCallback(() => {
     setManual((c) => {
@@ -92,8 +95,9 @@ export function NavRail() {
       </div>
 
       <nav aria-label="Primary" className="mb-4 flex flex-col gap-1">
-        <NavRow to="/" icon="home" label="Home" collapsed={collapsed} end />
-        <NavRow to="/explore" icon="explore" label="Explore" collapsed={collapsed} />
+        <NavRow to="/" icon="home" label="Home" collapsed={collapsed} active={isHome} end />
+        <NavRow to="/explore" icon="search" label="Explore" collapsed={collapsed} />
+        {viewer ? <NavRow to="/?scope=following" icon="users" label="Following" collapsed={collapsed} active={isFollowing} /> : null}
         {viewer ? <NavRow to="/notifications" icon="bell" label="Notifications" collapsed={collapsed} count={unread} /> : null}
       </nav>
 
@@ -139,7 +143,7 @@ export function NavRail() {
       {viewer ? (
         <UserMenu viewer={viewer} collapsed={collapsed} />
       ) : !ready ? null : (
-        <div className="flex flex-col gap-2 border-t border-line pt-3">
+        <div className="border-t border-line pt-3">
           <Tooltip content="Sign in" side="right" disabled={!collapsed}>
             <button
               type="button"
@@ -152,16 +156,8 @@ export function NavRail() {
               <Label collapsed={collapsed}>Sign in</Label>
             </button>
           </Tooltip>
-          {!collapsed ? (
-            <Button block onClick={() => openAuth('signup')}>
-              Create account
-            </Button>
-          ) : null}
         </div>
       )}
-
-      {/* Terms · Privacy on every page above sm, whether or not the route has the right rail. */}
-      <div className="mt-3">{collapsed ? <LegalMenu /> : <LegalLinks inline />}</div>
     </aside>
   );
 }
@@ -198,7 +194,23 @@ function Label({ collapsed, children }: { collapsed: boolean; children: ReactNod
   );
 }
 
-function NavRow({ to, icon, label, collapsed, end, count = 0 }: { to: string; icon: IconName; label: string; collapsed: boolean; end?: boolean; count?: number }) {
+function NavRow({
+  to,
+  icon,
+  label,
+  collapsed,
+  end,
+  count = 0,
+  active,
+}: {
+  to: string;
+  icon: IconName;
+  label: string;
+  collapsed: boolean;
+  end?: boolean;
+  count?: number;
+  active?: boolean;
+}) {
   const tip = count > 0 ? `${label} · ${count} new` : label;
   return (
     <Tooltip content={tip} side="right" disabled={!collapsed}>
@@ -206,14 +218,13 @@ function NavRow({ to, icon, label, collapsed, end, count = 0 }: { to: string; ic
         to={to}
         end={end}
         aria-label={count > 0 ? `${label}, ${count} new` : undefined}
-        className={({ isActive }) =>
-          cx(
+        className={({ isActive }) => {
+          const isRowActive = active !== undefined ? active : isActive;
+          return cx(
             'relative flex h-row w-full items-center overflow-hidden rounded-md text-sm font-medium whitespace-nowrap no-underline transition-colors duration-120',
-            isActive
-              ? 'bg-brand-soft font-semibold text-brand before:absolute before:top-2 before:bottom-2 before:left-0 before:w-1 before:rounded-r-sm before:bg-brand'
-              : 'text-ink-secondary hover:bg-subtle hover:text-ink',
-          )
-        }
+            isRowActive ? 'bg-brand-soft font-semibold text-brand' : 'text-ink-secondary hover:bg-subtle hover:text-ink',
+          );
+        }}
       >
         <span className="relative grid h-row w-gutter shrink-0 place-items-center">
           <Icon name={icon} size={18} strokeWidth={1.75} />

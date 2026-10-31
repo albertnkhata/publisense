@@ -74,3 +74,28 @@ describe('NavRail admin sections', () => {
     expect(screen.queryByRole('navigation', { name: 'Admin' })).toBeNull();
   });
 });
+
+describe('NavRail links and layout', () => {
+  it('shows Following link when signed in and hides it when signed out', () => {
+    const { unmount } = renderWith(
+      <ComposerProvider>
+        <NavRail />
+      </ComposerProvider>,
+      { viewer: TEST_VIEWER },
+    );
+    expect(screen.getByRole('link', { name: 'Following' }).getAttribute('href')).toBe('/?scope=following');
+    unmount();
+
+    renderWith(
+      <ComposerProvider>
+        <NavRail />
+      </ComposerProvider>,
+      { viewer: null },
+    );
+    expect(screen.queryByRole('link', { name: 'Following' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Create account' })).toBeNull();
+    // Legal links are moved out of the nav rail
+    expect(screen.queryByRole('navigation', { name: 'Legal links' })).toBeNull();
+  });
+});
