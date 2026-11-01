@@ -255,9 +255,10 @@ function Feedback({
   return (
     <>
       {/* Board search stays out of the way: a search button in the filter row opens the field
-          (it starts open when the link already carries ?q=), and an empty field closes again on blur. */}
+          (it starts open when the link already carries ?q=). Close clears the query and tucks it away;
+          an empty field also closes on blur. */}
       {searchOpen ? (
-        <div role="search" className="mt-2">
+        <div role="search" className="mt-2 flex items-center gap-1">
           <Input
             ref={searchRef}
             type="search"
@@ -273,7 +274,19 @@ function Feedback({
             aria-label={`Search ${board.name} posts`}
             autoComplete="off"
             enterKeyHint="search"
-            className="w-full"
+            className="w-full min-w-0 flex-1"
+          />
+          <IconButton
+            icon="close"
+            size="sm"
+            label="Close search"
+            // Keep focus off the field so its blur doesn't race this click.
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              setText('');
+              setParam('q', '', '');
+              setSearchOpen(false);
+            }}
           />
         </div>
       ) : null}

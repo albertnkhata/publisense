@@ -199,6 +199,15 @@ describe('board page', () => {
     expect(screen.getByRole('button', { name: 'Search Cursor posts' })).toBeTruthy();
   });
 
+  it('collapses the board search with its query cleared', async () => {
+    const { router } = renderAt('/b/cursor?q=composer');
+    await screen.findByRole('searchbox', { name: 'Search Cursor posts' });
+    fireEvent.click(screen.getByRole('button', { name: 'Close search' }));
+    await waitFor(() => expect(router.state.location.search).toBe(''));
+    expect(screen.queryByRole('searchbox', { name: 'Search Cursor posts' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Search Cursor posts' })).toBeTruthy();
+  });
+
   it('opens the composer with the board chosen', async () => {
     postsApi.fetchPostList.mockResolvedValue(page([]));
     renderAt('/b/cursor', true);
