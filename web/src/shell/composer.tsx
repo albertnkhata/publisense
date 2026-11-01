@@ -421,9 +421,9 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
 
 function SelectedBoard({ board, onChange }: { board: Board; onChange: () => void }) {
   return (
-    <div className="flex h-9 items-center justify-between gap-3 rounded-md border border-line bg-subtle pr-1.5 pl-3">
+    <div className="flex h-8 items-center justify-between gap-3 rounded-md border border-line bg-subtle pr-1 pl-3">
       <div className="flex min-w-0 items-center gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Product</span>
+        <span className="text-xs font-semibold uppercase text-ink-muted">Product</span>
         <BoardAvatar name={board.name} color={board.color} logoSrc={logoSrc(board)} size="xs" decorative />
         <span className="truncate text-sm font-semibold text-ink">{board.name}</span>
       </div>
@@ -612,7 +612,7 @@ function TypeField({
               className={cx(
                 'inline-flex h-8 items-center gap-2 rounded-pill border px-3 text-sm font-medium transition-colors duration-120 cursor-pointer',
                 selected
-                  ? 'border-ink bg-subtle text-ink font-semibold ring-1 ring-ink'
+                  ? 'border-ink bg-subtle text-ink font-semibold'
                   : 'border-line bg-card text-ink-secondary hover:border-line-strong hover:text-ink hover:bg-subtle',
               )}
             >
@@ -643,11 +643,11 @@ function TypeDot({ type }: { type: PostType }) {
 function Similar({ posts, onOpen }: { posts: Post[]; onOpen: () => void }) {
   if (posts.length === 0) return null;
   return (
-    <section aria-live="polite" aria-label="Similar posts" className="-mt-2 animate-fade-in rounded-md border border-line bg-elevated/70 px-3.5 py-2.5">
-      <p className="mt-0 mb-1.5 text-sm font-semibold text-ink">
+    <section aria-live="polite" aria-label="Similar posts" className="-mt-3 animate-fade-in rounded-md border border-line bg-elevated px-3 py-2">
+      <p className="mt-0 mb-1 text-sm font-semibold text-ink">
         Already posted? <span className="font-normal text-ink-muted">Upvote to add your voice, it counts the same.</span>
       </p>
-      <ul className="m-0 max-h-56 list-none overflow-y-auto p-0">
+      <ul className="m-0 max-h-list list-none overflow-y-auto p-0">
         {posts.map((p) => (
           <li key={p.id} className="flex items-center gap-3 border-t border-line py-2 first:border-t-0">
             <Link to={`/post/${p.id}`} onClick={() => { recordEvent('similar_post_click', { boardId: p.board_id }); onOpen(); }} className="flex min-w-0 flex-1 flex-col text-ink no-underline hover:underline">
