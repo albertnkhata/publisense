@@ -2,14 +2,15 @@ import { Link, NavLink } from 'react-router';
 import { useUnreadCount } from '../api';
 import { cx } from '../lib/cx';
 import { useViewer } from '../lib/viewer';
-import { Button, Icon, IconButton } from '../ui';
+import { Button, Icon } from '../ui';
 import { BrandSymbol } from './BrandMark';
-import { openSearchModal, SearchWell } from './SearchWell';
+import { SearchWell } from './SearchWell';
 import { useAuthDialog } from './auth';
 
 /**
  * Top bar below lg, where the right rail (and its search) is hidden.
- * At sm the search trigger is an icon button that opens the search modal.
+ * At sm there is no search in the top bar: the tab bar's Explore tab is the way in,
+ * and Explore shows the search field at the top.
  *
  * `always` keeps it on above lg too, for routes that drop the right rail
  * (shell/layout.ts), so search is still visible there. Above lg the nav rail
@@ -37,9 +38,6 @@ export function TopBar({ always = false }: { always?: boolean }) {
       </Link>
       <SearchWell className="max-w-dialog flex-1 max-sm:hidden" />
       <span className="ml-auto flex items-center gap-2">
-        <span className="hidden max-sm:contents">
-          <IconButton icon="search" label="Search" onClick={() => openSearchModal()} />
-        </span>
         {viewer ? <NotificationBell count={unread} /> : null}
         {!viewer && ready ? (
           <span className="contents lg:hidden">
