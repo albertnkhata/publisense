@@ -208,6 +208,12 @@ describe('board page', () => {
     expect(screen.getByRole('button', { name: 'Search Cursor posts' })).toBeTruthy();
   });
 
+  it('filters a board by platform, and still reads older ?device= links', async () => {
+    renderAt('/b/cursor?device=ios');
+    expect(await screen.findByRole('button', { name: 'Platform: iOS' })).toBeTruthy();
+    await waitFor(() => expect(postsApi.fetchPostList).toHaveBeenLastCalledWith(expect.objectContaining({ platform: 'ios' })));
+  });
+
   it('opens the composer with the board chosen', async () => {
     postsApi.fetchPostList.mockResolvedValue(page([]));
     renderAt('/b/cursor', true);

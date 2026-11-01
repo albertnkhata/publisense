@@ -601,8 +601,8 @@ describe('staff and seeded posts (0031)', () => {
   });
 });
 
-describe('device on a post (0033)', () => {
-  it('shows the device on the post', async () => {
+describe('platform on a post (0033)', () => {
+  it('shows the platform on the post', async () => {
     renderPost(makePost({ platform: 'android' }));
     expect(await screen.findByText('Android')).toBeTruthy();
   });
