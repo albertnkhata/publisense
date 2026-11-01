@@ -462,139 +462,81 @@ describe('pending boards', () => {
   });
 });
 
-// ------------------------------------------------------------------ company (0026)
+// ------------------------------------------------------------------ company (inferred from the link)
 
 describe('add a product: company', () => {
   async function fillLink(dialog: HTMLElement, link: string) {
     fireEvent.change(within(dialog).getByLabelText('Link'), { target: { value: link } });
     await waitFor(() => expect(productsApi.checkProductLink).toHaveBeenCalled());
   }
+  const nameIs = (dialog: HTMLElement, v: string) =>
+    waitFor(() => expect((within(dialog).getByLabelText(/^Name/) as HTMLInputElement).value).toBe(v));
   const submit = (dialog: HTMLElement) => {
     fireEvent.click(within(dialog).getByRole('radio', { name: 'AI' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add product' }));
   };
+  const sent = async () => {
+    await waitFor(() => expect(productsApi.createBoard).toHaveBeenCalled());
+    return productsApi.createBoard.mock.calls[0]![0] as Record<string, unknown>;
+  };
 
-  it('sits right after Name, and is optional', async () => {
+  it('is never asked for', async () => {
     renderApp();
     const dialog = await openForm();
-    const labels = [...dialog.querySelectorAll('label')].map((l) => l.textContent);
-    expect(labels.indexOf('CompanyOptional')).toBe(labels.findIndex((t) => t?.startsWith('Name')) + 1);
-    expect(within(dialog).getByRole('combobox', { name: /Company/ })).toBeTruthy();
+    expect(within(dialog).queryByRole('combobox', { name: /Company/ })).toBeNull();
+    expect([...dialog.querySelectorAll('label')].some((l) => /Company/.test(l.textContent ?? ''))).toBe(false);
   });
 
-  it('prefills the company that owns the link’s domain, as a chip that can be changed', async () => {
+  it('leaves a link on a company’s domain to the server, which files it under that company', async () => {
     productsApi.checkProductLink.mockResolvedValue({ kind: 'site', canonical: 'claude.com', match: null, hub: { id: ANTHROPIC.id, slug: 'anthropic', name: 'Anthropic' } });
-    productsApi.fetchLinkPreview.mockResolvedValue({ kind: 'site', canonical: 'claude.com', name: 'Claude Code', description: 'Agentic coding', icon_url: null, company: 'Anthropic' });
+    productsApi.fetchLinkPreview.mockResolvedValue({ kind: 'site', canonical: 'claude.com', name: 'Claude Code', description: '', icon_url: null, company: 'Anthropic', company_basis: 'jsonld', company_confidence: 'high' });
     renderApp();
     const dialog = await openForm();
     await fillLink(dialog, 'https://claude.com/product/claude-code');
-    const chip = await within(dialog).findByRole('group', { name: /Company/ });
-    expect(within(chip).getByText('Anthropic')).toBeTruthy();
-    expect(within(dialog).getByText('claude.com belongs to Anthropic.')).toBeTruthy();
-    expect(within(chip).queryByRole('button', { name: /Remove/ })).toBeNull(); // changeable, not removable
-    await waitFor(() => expect((within(dialog).getByLabelText(/^Name/) as HTMLInputElement).value).toBe('Claude Code'));
+    await nameIs(dialog, 'Claude Code');
     submit(dialog);
-    await waitFor(() =>
-      expect(productsApi.createBoard).toHaveBeenCalledWith(
-        expect.objectContaining({ name: 'Claude Code', company: { kind: 'hub', id: ANTHROPIC.id, slug: 'anthropic', name: 'Anthropic', status: 'live' } }),
-      ),
-    );
+    expect(await sent()).not.toHaveProperty('company');
   });
 
-  it('changes the prefilled company through the typeahead', async () => {
-    productsApi.checkProductLink.mockResolvedValue({ kind: 'site', canonical: 'claude.com', match: null, hub: { id: ANTHROPIC.id, slug: 'anthropic', name: 'Anthropic' } });
-    renderApp();
-    const dialog = await openForm();
-    await fillLink(dialog, 'claude.com');
-    fireEvent.click(await within(dialog).findByRole('button', { name: 'Change company (Anthropic)' }));
-    const input = within(dialog).getByRole('combobox', { name: /Company/ });
-    await waitFor(() => expect(document.activeElement).toBe(input));
-    expect(within(dialog).getByText('Left empty, it joins Anthropic, which owns claude.com.')).toBeTruthy();
-    fireEvent.change(input, { target: { value: 'acme' } });
-    fireEvent.click(await within(dialog).findByRole('option', { name: /Acme Corp/ }));
-    expect(within(within(dialog).getByRole('group', { name: /Company/ })).getByText('Acme Corp')).toBeTruthy();
-    submit(dialog);
-    await waitFor(() => expect(productsApi.createBoard).toHaveBeenCalledWith(expect.objectContaining({ company: expect.objectContaining({ kind: 'hub', id: ACME_CORP.id }) })));
-  });
-
-  it('is a typeahead over companies when the domain has none, with a “New company” option', async () => {
-    renderApp();
-    const dialog = await openForm();
-    await fillLink(dialog, 'https://acme-notes.dev');
-    expect(within(dialog).queryByRole('group', { name: /Company/ })).toBeNull();
-    const input = within(dialog).getByRole('combobox', { name: /Company/ });
-    fireEvent.change(input, { target: { value: 'Acme' } });
-    const list = await within(dialog).findByRole('listbox', { name: 'Companies' });
-    await waitFor(() => expect(within(list).getAllByRole('option').map((o) => o.textContent)).toEqual(['Acme Corpacme.com', 'New company: Acme']));
-    expect(productsApi.searchCompanies).toHaveBeenCalledWith('Acme');
-    // Arrow keys and Enter pick an option.
-    fireEvent.keyDown(input, { key: 'ArrowDown' });
-    fireEvent.keyDown(input, { key: 'Enter' });
-    const chip = within(dialog).getByRole('group', { name: /Company/ });
-    expect(within(chip).getByText('Acme')).toBeTruthy();
-    expect(within(chip).getByText('New')).toBeTruthy();
-    submit(dialog);
-    await waitFor(() => expect(productsApi.createBoard).toHaveBeenCalledWith(expect.objectContaining({ company: { kind: 'new', name: 'Acme' } })));
-  });
-
-  it('offers no “New company” when the typed name is already a company', async () => {
-    renderApp();
-    const dialog = await openForm();
-    fireEvent.change(within(dialog).getByRole('combobox', { name: /Company/ }), { target: { value: 'acme corp' } });
-    const list = await within(dialog).findByRole('listbox', { name: 'Companies' });
-    await waitFor(() => expect(within(list).getAllByRole('option')).toHaveLength(1));
-    expect(within(list).queryByText(/New company/)).toBeNull();
-  });
-
-  it('sends a typed but unpicked name as a new company', async () => {
+  it('sends the company the page names as a new company for review', async () => {
+    productsApi.fetchLinkPreview.mockResolvedValue({ kind: 'site', canonical: 'acme-notes.dev', name: 'Acme Notes', description: '', icon_url: null, company: 'Acme  Corp', company_basis: 'copyright', company_confidence: 'high' });
     renderApp();
     const dialog = await openForm();
     await fillLink(dialog, 'acme-notes.dev');
-    fireEvent.change(within(dialog).getByRole('combobox', { name: /Company/ }), { target: { value: '  Acme   Labs ' } });
+    await nameIs(dialog, 'Acme Notes');
     submit(dialog);
-    await waitFor(() => expect(productsApi.createBoard).toHaveBeenCalledWith(expect.objectContaining({ company: { kind: 'new', name: 'Acme Labs' } })));
+    expect((await sent()).company).toEqual({ kind: 'new', name: 'Acme Corp' });
   });
 
-  it('may be left empty', async () => {
+  it('sends a GitHub organisation as the company', async () => {
+    productsApi.checkProductLink.mockResolvedValue({ kind: 'github', canonical: 'github.com/vercel/next.js', match: null, hub: null });
+    productsApi.fetchLinkPreview.mockResolvedValue({ kind: 'github', canonical: 'github.com/vercel/next.js', name: 'next.js', description: '', icon_url: null, company: 'Vercel', company_basis: 'github_org', company_confidence: 'high' });
     renderApp();
     const dialog = await openForm();
-    await fillLink(dialog, 'acme-notes.dev');
-    await waitFor(() => expect((within(dialog).getByLabelText(/^Name/) as HTMLInputElement).value).toBe('Acme Notes'));
+    await fillLink(dialog, 'https://github.com/vercel/next.js');
+    await nameIs(dialog, 'next.js');
     submit(dialog);
-    await waitFor(() => expect(productsApi.createBoard).toHaveBeenCalled());
-    expect(productsApi.createBoard.mock.calls[0]![0]).not.toHaveProperty('company');
+    expect((await sent()).company).toEqual({ kind: 'new', name: 'Vercel' });
   });
 
-  it('a GitHub repo gets no prefill and no suggestion', async () => {
-    productsApi.checkProductLink.mockResolvedValue({ kind: 'github', canonical: 'github.com/acme/notes', match: null, hub: null });
-    productsApi.fetchLinkPreview.mockResolvedValue({ kind: 'github', canonical: 'github.com/acme/notes', name: 'notes', description: 'Notes', icon_url: null, company: null });
+  it('sends none when the product is its own company, or nobody can tell', async () => {
+    productsApi.fetchLinkPreview.mockResolvedValue({ kind: 'site', canonical: 'linear.app', name: 'Linear', description: '', icon_url: null, company: 'linear', company_basis: 'jsonld', company_confidence: 'high' });
     renderApp();
     const dialog = await openForm();
-    await fillLink(dialog, 'https://github.com/acme/notes');
-    await waitFor(() => expect((within(dialog).getByLabelText(/^Name/) as HTMLInputElement).value).toBe('notes'));
-    expect(within(dialog).queryByRole('group', { name: /Company/ })).toBeNull();
-    expect((within(dialog).getByRole('combobox', { name: /Company/ }) as HTMLInputElement).value).toBe('');
-    expect(within(dialog).queryByText(/Its site says/)).toBeNull();
+    await fillLink(dialog, 'linear.app');
+    await nameIs(dialog, 'Linear');
+    submit(dialog);
+    expect(await sent()).not.toHaveProperty('company');
   });
 
-  it('suggests the company the site names (og:site_name) when no company owns the domain', async () => {
+  it('ignores an older link-preview’s og:site_name guess', async () => {
     productsApi.fetchLinkPreview.mockResolvedValue({ kind: 'site', canonical: 'acme-notes.dev', name: 'Acme Notes', description: '', icon_url: null, company: 'Acme Corp' });
     renderApp();
     const dialog = await openForm();
     await fillLink(dialog, 'acme-notes.dev');
-    fireEvent.click(await within(dialog).findByRole('button', { name: 'Acme Corp' }));
-    expect((within(dialog).getByRole('combobox', { name: /Company/ }) as HTMLInputElement).value).toBe('Acme Corp');
-    const list = await within(dialog).findByRole('listbox', { name: 'Companies' });
-    expect(await within(list).findByRole('option', { name: /Acme Corp/ })).toBeTruthy();
-  });
-
-  it('does not suggest a company that is just the product’s own name', async () => {
-    productsApi.fetchLinkPreview.mockResolvedValue({ kind: 'site', canonical: 'linear.app', name: 'Linear', description: '', icon_url: null, company: 'Linear' });
-    renderApp();
-    const dialog = await openForm();
-    await fillLink(dialog, 'linear.app');
-    await waitFor(() => expect((within(dialog).getByLabelText(/^Name/) as HTMLInputElement).value).toBe('Linear'));
-    expect(within(dialog).queryByText(/Its site says/)).toBeNull();
+    await nameIs(dialog, 'Acme Notes');
+    submit(dialog);
+    expect(await sent()).not.toHaveProperty('company');
   });
 });
 

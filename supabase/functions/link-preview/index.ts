@@ -8,8 +8,11 @@
 //                         from the public GitHub API (name, description, owner avatar);
 //                         any other link from its site's home page (<title>, og: and
 //                         description meta, apple-touch-icon / icon links / og:image).
-//                         `company` (0026) is og:site_name, else application-name, or
-//                         null; a GitHub repo never suggests one.
+//                         `company` is who makes it, worked out by company.ts: the
+//                         page's JSON-LD Organization / publisher or footer © line, a
+//                         GitHub repo's owning organisation, and an optional LLM
+//                         tie-break; null when it is the product itself or unknown.
+//                         `company_basis` and `company_confidence` say how sure.
 //   POST { board_id }  -> { ok, logo_path }
 //                         After create_board: fetch the product's logo once and store it
 //                         in the board-logos bucket at {board_id}/{uuid}.{png|jpg|webp}
@@ -35,8 +38,13 @@
 // Keep JWT verification on (the default; do NOT pass --no-verify-jwt).
 // Optional secret: GITHUB_TOKEN (any read-only token) lifts GitHub's 60 requests/hour
 // per IP limit for unauthenticated API calls, which Edge Function IPs share.
+// Optional secrets for the company tie-break (company.ts): COMPANY_LLM_API_KEY turns it
+// on; COMPANY_LLM_BASE_URL (any OpenAI-compatible endpoint, default OpenAI),
+// COMPANY_LLM_MODEL (default gpt-4o-mini) and COMPANY_LLM_TIMEOUT_MS (default 2500).
+// Unset, the company comes from the page's own signals only.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { llmConfig, NO_GUESS, normalizeCompany, pageSignals, resolveCompany, type CompanyGuess } from './company.ts';
 import {
   CORS_HEADERS,
   extractMeta,
@@ -54,6 +62,7 @@ import {
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? '';
 const GITHUB_TOKEN = Deno.env.get('GITHUB_TOKEN') ?? '';
+const LLM = llmConfig((k) => Deno.env.get(k));
 const UA = 'PublisenseBot/1.0 (+https://publisense.app)';
 
 class FetchRefused extends Error {}
@@ -160,16 +169,41 @@ interface Preview {
   name: string;
   description: string;
   icon_url: string | null;
-  /** og:site_name / application-name (0026); a suggestion for the form's Company field. */
+  /** Who makes it (company.ts); null when it is the product itself or unknown. */
   company: string | null;
+  company_basis: CompanyGuess['basis'];
+  company_confidence: CompanyGuess['confidence'];
   /** Every logo candidate, best first (used by the store step, not returned). */
   icons: string[];
 }
 
-async function previewGithub(link: ParsedLink, deadline: number): Promise<Preview | null> {
+const ghHeaders = (): Record<string, string> => {
+  const h: Record<string, string> = { accept: 'application/vnd.github+json', 'user-agent': UA, 'x-github-api-version': '2022-11-28' };
+  if (GITHUB_TOKEN) h.authorization = `Bearer ${GITHUB_TOKEN}`;
+  return h;
+};
+
+/** An organisation's display name ("vercel" -> "Vercel"), else its login. Best effort. */
+async function githubOrgName(login: string, deadline: number): Promise<string> {
+  try {
+    const res = await fetch(`https://api.github.com/orgs/${encodeURIComponent(login)}`, {
+      headers: ghHeaders(),
+      signal: AbortSignal.timeout(Math.max(1, Math.min(1500, deadline - Date.now()))),
+    });
+    if (!res.ok) {
+      await res.body?.cancel();
+      return login;
+    }
+    const org = JSON.parse(new TextDecoder().decode(await readCapped(res, 64 * 1024, true))) as { name?: string | null };
+    return org.name?.trim() || login;
+  } catch {
+    return login;
+  }
+}
+
+async function previewGithub(link: ParsedLink, deadline: number, withCompany: boolean): Promise<Preview | null> {
   const [, owner, repo] = link.canonical.split('/');
-  const headers: Record<string, string> = { accept: 'application/vnd.github+json', 'user-agent': UA, 'x-github-api-version': '2022-11-28' };
-  if (GITHUB_TOKEN) headers.authorization = `Bearer ${GITHUB_TOKEN}`;
+  const headers = ghHeaders();
   const res = await fetch(`https://api.github.com/repos/${encodeURIComponent(owner!)}/${encodeURIComponent(repo!)}`, {
     headers,
     signal: AbortSignal.timeout(Math.max(1, deadline - Date.now())),
@@ -187,7 +221,7 @@ async function previewGithub(link: ParsedLink, deadline: number): Promise<Previe
     full_name?: string;
     description?: string | null;
     private?: boolean;
-    owner?: { avatar_url?: string };
+    owner?: { avatar_url?: string; login?: string; type?: string };
   };
   if (data.private) return null;
   const canonical = data.full_name ? `github.com/${data.full_name.toLowerCase()}` : link.canonical;
@@ -197,18 +231,27 @@ async function previewGithub(link: ParsedLink, deadline: number): Promise<Previe
     a.searchParams.set('s', '256');
     avatar = a.toString();
   }
+  const name = oneLine(data.name ?? repo, 60);
+  // A repo an organisation owns is that organisation's; a person's repo has no company.
+  let guess: CompanyGuess = NO_GUESS;
+  if (withCompany && data.owner?.type === 'Organization' && data.owner.login) {
+    const org = normalizeCompany(await githubOrgName(data.owner.login, deadline));
+    if (org) guess = { company: org.toLowerCase() === name.toLowerCase() ? null : org, basis: 'github_org', confidence: 'high' };
+  }
   return {
     kind: 'github',
     canonical,
-    name: oneLine(data.name ?? repo, 60),
+    name,
     description: oneLine(data.description ?? '', 120),
     icon_url: avatar,
-    company: null,
+    company: guess.company,
+    company_basis: guess.basis,
+    company_confidence: guess.confidence,
     icons: avatar ? [avatar] : [],
   };
 }
 
-async function previewSite(link: ParsedLink, deadline: number): Promise<Preview> {
+async function previewSite(link: ParsedLink, deadline: number, withCompany: boolean): Promise<Preview> {
   const page = await guardedFetch(`https://${link.canonical}/`, {
     accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.1',
     max: LIMITS.maxHtmlBytes,
@@ -217,20 +260,29 @@ async function previewSite(link: ParsedLink, deadline: number): Promise<Preview>
   });
   const html = page.type.includes('html') || page.type === '' ? new TextDecoder().decode(page.bytes) : '';
   const meta = extractMeta(html, page.url);
+  const guess = withCompany
+    ? await resolveCompany(
+        { link: link.canonical, productName: meta.name, description: meta.description, siteName: meta.company, signals: pageSignals(html) },
+        { llm: LLM, fetchImpl: fetch },
+      )
+    : NO_GUESS;
   return {
     kind: 'site',
     canonical: link.canonical,
     name: meta.name,
     description: meta.description,
     icon_url: meta.icons[0] ?? null,
-    company: meta.company,
+    company: guess.company,
+    company_basis: guess.basis,
+    company_confidence: guess.confidence,
     icons: meta.icons,
   };
 }
 
-async function preview(link: ParsedLink): Promise<Preview | null> {
+/** `withCompany` off for the logo step, which only needs icons (and no LLM call). */
+async function preview(link: ParsedLink, withCompany = true): Promise<Preview | null> {
   const deadline = Date.now() + LIMITS.timeoutMs;
-  return link.kind === 'github' ? previewGithub(link, deadline) : previewSite(link, deadline);
+  return link.kind === 'github' ? previewGithub(link, deadline, withCompany) : previewSite(link, deadline, withCompany);
 }
 
 // ------------------------------------------------------------------ rate limit (per instance)
@@ -298,7 +350,7 @@ async function storeLogo(admin: any, uid: string, boardId: string): Promise<Resp
   const link = parseLink(board.site);
   if (!link) return json(200, { ok: true, logo_path: null });
 
-  const p = await preview(link).catch(() => null);
+  const p = await preview(link, false).catch(() => null);
   const deadline = Date.now() + LIMITS.timeoutMs;
   for (const src of (p?.icons ?? []).slice(0, 4)) {
     try {
