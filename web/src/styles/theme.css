@@ -147,6 +147,7 @@
   --spacing-date: 120px;        /* not in §3: changelog date column (mockup .cl-entry) */
   --spacing-select: 160px;    /* not in §3: status and role selects in Manage rows (mockup .mg-select) */
   --spacing-list: 300px;
+  --spacing-label: 80px;       /* not in §3: label gutter for the composer's Product, Type and Platform rows */
   --spacing-fab: 72px;        /* not in §3: floating Post button's bottom offset at sm, clearing the 57px tab bar by 16px */      /* not in §3: scrolling picker list in the merge dialog (mockup .mgm-list) */
 
   /* Glass blur for the sticky top bar and tab bar (mockup: blur 12px). */
