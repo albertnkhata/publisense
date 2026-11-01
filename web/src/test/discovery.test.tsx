@@ -86,11 +86,20 @@ describe('board page', () => {
   it('renders smart Back navigation falling back to home', async () => {
     postsApi.fetchPostList.mockResolvedValue(page([]));
     const { router } = renderAt('/b/cursor');
-    const back = await screen.findByRole('link', { name: 'Back' });
+    // No history (a direct link): it names where it goes.
+    const back = await screen.findByRole('link', { name: 'Back to Home' });
     expect(back).toBeTruthy();
     expect(back.getAttribute('href')).toBe('/');
     fireEvent.click(back);
     await waitFor(() => expect(router.state.location.pathname).toBe('/'));
+  });
+
+  it('falls back to the company hub, by name, when the board has one', async () => {
+    boardsApi.fetchBoard.mockResolvedValue({ ...FIGJAM, hub: { id: FIGMA_HUB.id, slug: 'figma', name: 'Figma' } });
+    renderAt('/b/figjam');
+    const back = await screen.findByRole('link', { name: 'Back to Figma' });
+    expect(back.getAttribute('href')).toBe('/h/figma');
+    expect(back.textContent).toBe('Figma');
   });
 
   it('navigates back in history when history entries exist', async () => {
@@ -312,7 +321,7 @@ describe('board header meta line', () => {
 describe('hub page', () => {
   it('renders smart Back navigation', async () => {
     const { router } = renderAt('/h/figma');
-    const back = await screen.findByRole('link', { name: 'Back' });
+    const back = await screen.findByRole('link', { name: 'Back to Home' });
     expect(back).toBeTruthy();
     expect(back.getAttribute('href')).toBe('/');
     fireEvent.click(back);
