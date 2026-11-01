@@ -86,8 +86,6 @@ describe('composer', () => {
     await chooseSupabase(dialog);
     expect(within(dialog).getByText('Supabase')).toBeTruthy();
     expect(within(dialog).queryByText('Product')).toBeNull();
-    expect(within(dialog).getByText('Title:')).toBeTruthy();
-    expect(within(dialog).getByText('Details:')).toBeTruthy();
     chooseType(dialog, 'Friction');
     chooseType(dialog, 'Feature request');
     fireEvent.change(within(dialog).getByRole('textbox', { name: 'Title' }), { target: { value: 'Branching for preview databases' } });

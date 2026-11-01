@@ -378,33 +378,28 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
             titleError ? 'border-danger focus-within:border-danger' : 'border-line-strong',
           )}
         >
-          <div className="flex items-center justify-between pr-3 pl-3">
-            <div className="flex min-w-0 flex-1 items-center">
-              <label htmlFor={titleId} className="w-10 shrink-0 whitespace-nowrap text-sm font-semibold text-ink-muted select-none">
-                Title:
-              </label>
-              <input
-                id={titleId}
-                ref={titleRef}
-                value={title}
-                aria-label="Title"
-                aria-invalid={titleTooLong || Boolean(errors.title) || undefined}
-                aria-describedby={titleError ? titleErrorId : undefined}
-                placeholder="Sum it up in one line"
-                autoComplete="off"
-                onChange={(e) => {
-                  setTitle(e.target.value);
-                  setErrors((x) => ({ ...x, title: undefined }));
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !(e.metaKey || e.ctrlKey)) {
-                    e.preventDefault();
-                    bodyRef.current?.focus();
-                  }
-                }}
-                className="min-w-0 flex-1 border-0 bg-transparent py-2 text-base font-semibold text-ink placeholder:font-normal placeholder:text-ink-muted outline-none focus:outline-none"
-              />
-            </div>
+          <div className="flex items-center justify-between pr-3">
+            <input
+              id={titleId}
+              ref={titleRef}
+              value={title}
+              aria-label="Title"
+              aria-invalid={titleTooLong || Boolean(errors.title) || undefined}
+              aria-describedby={titleError ? titleErrorId : undefined}
+              placeholder="Sum it up in one line"
+              autoComplete="off"
+              onChange={(e) => {
+                setTitle(e.target.value);
+                setErrors((x) => ({ ...x, title: undefined }));
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !(e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  bodyRef.current?.focus();
+                }
+              }}
+              className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-base font-semibold text-ink placeholder:font-normal placeholder:text-ink-muted outline-none focus:outline-none"
+            />
             <span className="shrink-0 text-xs text-ink-muted tabular-nums">
               {titleLength}/{TITLE_MAX}
             </span>
@@ -417,22 +412,17 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
 
           <div className="h-px w-full bg-line" />
 
-          <div className="flex items-start pr-3 pl-3">
-            <label htmlFor={detailsId} className="w-10 shrink-0 pt-2 whitespace-nowrap text-sm font-semibold text-ink-muted select-none">
-              Details:
-            </label>
-            <textarea
-              id={detailsId}
-              ref={bodyRef}
-              rows={3}
-              value={body}
-              maxLength={BODY_MAX}
-              aria-label="Details"
-              placeholder="What happened, what you expected, and any workaround. Markdown works."
-              onChange={(e) => setBody(e.target.value)}
-              className="w-full min-w-0 resize-y border-0 bg-transparent py-2 text-base text-ink placeholder:text-ink-muted outline-none focus:outline-none"
-            />
-          </div>
+          <textarea
+            id={detailsId}
+            ref={bodyRef}
+            rows={3}
+            value={body}
+            maxLength={BODY_MAX}
+            aria-label="Details"
+            placeholder="What happened, what you expected, and any workaround. Markdown works."
+            onChange={(e) => setBody(e.target.value)}
+            className="w-full resize-y border-0 bg-transparent px-3 py-2 text-base text-ink placeholder:text-ink-muted outline-none focus:outline-none"
+          />
           {errors.body ? (
             <p role="alert" className="m-0 px-3 pb-2 text-sm text-danger">
               {errors.body}
