@@ -303,7 +303,7 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
         {board ? (
           <SelectedBoard board={board} onChange={() => setBoardSlug(null)} />
         ) : (
-          <div className="flex flex-col gap-1">
+          <Field label="Product" error={errors.board}>
             {boardSlug && boards.isPending ? (
               <div aria-busy="true" className="h-8 animate-pulse rounded-md border border-line-strong bg-subtle" />
             ) : (
@@ -332,12 +332,7 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
                 />
               </>
             )}
-            {errors.board ? (
-              <p role="alert" className="m-0 text-sm text-danger">
-                {errors.board}
-              </p>
-            ) : null}
-          </div>
+          </Field>
         )}
 
         {seeding ? (
@@ -372,62 +367,65 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
           </Field>
         ) : null}
 
-        <div
-          className={cx(
-            'overflow-hidden rounded-md border bg-card transition-colors duration-120 focus-within:border-ink-muted',
-            titleError ? 'border-danger focus-within:border-danger' : 'border-line-strong',
-          )}
-        >
-          <div className="flex items-center justify-between pr-3">
-            <input
-              id={titleId}
-              ref={titleRef}
-              value={title}
-              aria-label="Title"
-              aria-invalid={titleTooLong || Boolean(errors.title) || undefined}
-              aria-describedby={titleError ? titleErrorId : undefined}
-              placeholder="Sum it up in one line"
-              autoComplete="off"
-              onChange={(e) => {
-                setTitle(e.target.value);
-                setErrors((x) => ({ ...x, title: undefined }));
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !(e.metaKey || e.ctrlKey)) {
-                  e.preventDefault();
-                  bodyRef.current?.focus();
-                }
-              }}
-              className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-base font-semibold text-ink placeholder:font-normal placeholder:text-ink-muted outline-none focus:outline-none"
+        <div className="flex flex-col gap-1">
+          <span className="text-xs font-semibold uppercase text-ink-muted">Feedback</span>
+          <div
+            className={cx(
+              'overflow-hidden rounded-md border bg-card transition-colors duration-120 focus-within:border-ink-muted',
+              titleError ? 'border-danger focus-within:border-danger' : 'border-line-strong',
+            )}
+          >
+            <div className="flex items-center justify-between pr-3">
+              <input
+                id={titleId}
+                ref={titleRef}
+                value={title}
+                aria-label="Title"
+                aria-invalid={titleTooLong || Boolean(errors.title) || undefined}
+                aria-describedby={titleError ? titleErrorId : undefined}
+                placeholder="Sum it up in one line"
+                autoComplete="off"
+                onChange={(e) => {
+                  setTitle(e.target.value);
+                  setErrors((x) => ({ ...x, title: undefined }));
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !(e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    bodyRef.current?.focus();
+                  }
+                }}
+                className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-base font-semibold text-ink placeholder:font-normal placeholder:text-ink-muted outline-none focus:outline-none"
+              />
+              <span className="shrink-0 text-xs text-ink-muted tabular-nums">
+                {titleLength}/{TITLE_MAX}
+              </span>
+            </div>
+            {titleError ? (
+              <p id={titleErrorId} role="alert" className="m-0 px-3 pb-2 text-sm text-danger">
+                {titleError}
+              </p>
+            ) : null}
+
+            <div className="h-px w-full bg-line" />
+
+            <textarea
+              id={detailsId}
+              ref={bodyRef}
+              rows={3}
+              value={body}
+              maxLength={BODY_MAX}
+              aria-label="Details"
+              placeholder="What happened, what you expected, and any workaround. Markdown works."
+              onChange={(e) => setBody(e.target.value)}
+              className="w-full resize-y border-0 bg-transparent px-3 py-2 text-base text-ink placeholder:text-ink-muted outline-none focus:outline-none"
             />
-            <span className="shrink-0 text-xs text-ink-muted tabular-nums">
-              {titleLength}/{TITLE_MAX}
-            </span>
+            {errors.body ? (
+              <p role="alert" className="m-0 px-3 pb-2 text-sm text-danger">
+                {errors.body}
+              </p>
+            ) : null}
           </div>
-          {titleError ? (
-            <p id={titleErrorId} role="alert" className="m-0 px-3 pb-2 text-sm text-danger">
-              {titleError}
-            </p>
-          ) : null}
-
-          <div className="h-px w-full bg-line" />
-
-          <textarea
-            id={detailsId}
-            ref={bodyRef}
-            rows={3}
-            value={body}
-            maxLength={BODY_MAX}
-            aria-label="Details"
-            placeholder="What happened, what you expected, and any workaround. Markdown works."
-            onChange={(e) => setBody(e.target.value)}
-            className="w-full resize-y border-0 bg-transparent px-3 py-2 text-base text-ink placeholder:text-ink-muted outline-none focus:outline-none"
-          />
-          {errors.body ? (
-            <p role="alert" className="m-0 px-3 pb-2 text-sm text-danger">
-              {errors.body}
-            </p>
-          ) : null}
         </div>
 
         <Similar posts={debounced.trim().length >= 8 ? (similar.data ?? []) : []} onOpen={onClose} />
@@ -459,6 +457,7 @@ function SelectedBoard({ board, onChange }: { board: Board; onChange: () => void
   return (
     <div className="flex h-8 items-center justify-between gap-3 rounded-md border border-line bg-subtle pr-1 pl-3">
       <div className="flex min-w-0 items-center gap-2">
+        <span className="text-xs font-semibold uppercase text-ink-muted">Product</span>
         <BoardAvatar name={board.name} color={board.color} logoSrc={logoSrc(board)} size="xs" decorative />
         <span className="truncate text-sm font-semibold text-ink">{board.name}</span>
       </div>
