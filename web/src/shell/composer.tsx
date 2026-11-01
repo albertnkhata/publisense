@@ -42,7 +42,7 @@ import {
 } from '../api';
 import { cx } from '../lib/cx';
 import { useViewer } from '../lib/viewer';
-import { PlatformField } from '../posts/PlatformField';
+import { PlatformField, pillClass } from '../posts/PlatformField';
 import { VoteButton } from '../posts/VoteButton';
 import { BoardAvatar, Button, Dialog, Field, Icon, Input, STATUS_META, TYPE_META, useToast } from '../ui';
 import { useRequireAuth } from './auth';
@@ -148,6 +148,7 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
   const titleId = useId();
   const detailsId = useId();
   const titleErrorId = useId();
+  const platformLabelId = useId();
 
   const viewerId = viewer?.id ?? null;
   const postable = useMemo(
@@ -220,7 +221,15 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
     }
   };
 
-  const initialFocus = board ? titleRef : productRef;
+  const initialFocus = board ? (type ? titleRef : typeRef) : productRef;
+  // A draft is never lost by accident: Escape, the X, the backdrop and Cancel all ask first.
+  const dirty = title.trim().length > 0 || body.trim().length > 0;
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const requestClose = () => {
+    if (create.isPending) return;
+    if (dirty && !confirmDiscard) setConfirmDiscard(true);
+    else onClose();
+  };
   const footNote = seeding
     ? `Shows as the board’s post, from ${isSourceUrl(sourceUrl) ? sourceLabel(sourceUrl) : 'the source'}, with no author`
     : 'You’ll follow this post automatically';
@@ -228,15 +237,32 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
   return (
     <Dialog
       open
-      onClose={onClose}
+      onClose={requestClose}
       title={seeding ? 'Add feedback from a source' : opts.firstPost ? 'What do you want to tell them?' : 'Post feedback'}
       {...(pendingBoard && board
         ? { description: `${board.name} is waiting for review. Until it’s approved, only you can see it and what you post on it.` }
         : {})}
       size="lg"
       initialFocus={initialFocus}
-      dismissable={!create.isPending && !(title.trim().length > 0 || body.trim().length > 0)}
+      dismissable={!create.isPending}
       footer={
+        confirmDiscard ? (
+          <div
+            role="alertdialog"
+            aria-label="Discard this post?"
+            className="flex w-full items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch max-sm:gap-2"
+          >
+            <span className="mr-auto text-sm text-ink max-sm:mr-0 max-sm:text-center">Discard this post? What you wrote won’t be saved.</span>
+            <div className="flex shrink-0 items-center gap-2 max-sm:w-full max-sm:*:flex-1">
+              <Button variant="secondary" autoFocus onClick={() => setConfirmDiscard(false)}>
+                Keep editing
+              </Button>
+              <Button variant="danger" onClick={onClose}>
+                Discard
+              </Button>
+            </div>
+          </div>
+        ) : (
         <div className="flex w-full items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch max-sm:gap-2">
           {blocker ? (
             <span id={blockerId} role="status" className="mr-auto text-sm text-ink-muted max-sm:mr-0 max-sm:text-center">
@@ -246,7 +272,7 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
             <span className="mr-auto text-sm text-ink-muted max-sm:hidden">{footNote}</span>
           )}
           <div className="flex shrink-0 items-center gap-2 max-sm:w-full max-sm:*:flex-1">
-            <Button variant="secondary" onClick={onClose} disabled={create.isPending}>
+            <Button variant="secondary" onClick={requestClose} disabled={create.isPending}>
               Cancel
             </Button>
             <Button type="submit" form={formId} disabled={!valid} aria-describedby={blocker ? blockerId : undefined} loading={create.isPending}>
@@ -254,6 +280,7 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
             </Button>
           </div>
         </div>
+        )
       }
     >
       <form id={formId} noValidate onSubmit={submit} onKeyDown={onSubmitKey} className="flex flex-col gap-3">
@@ -300,40 +327,49 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
             ))}
           </div>
         ) : null}
-        {board ? (
-          <SelectedBoard board={board} onChange={() => setBoardSlug(null)} />
-        ) : (
-          <Field label="Product" error={errors.board}>
-            {boardSlug && boards.isPending ? (
-              <div aria-busy="true" className="h-8 animate-pulse rounded-md border border-line-strong bg-subtle" />
-            ) : (
-              <>
-                {hub ? (
-                  <HubPicks
-                    hubName={hub.name}
-                    boards={hub.boards}
-                    onPick={(b) => {
-                      setBoardSlug(b.slug);
-                      setErrors((x) => ({ ...x, board: undefined }));
-                      requestAnimationFrame(() => titleRef.current?.focus());
-                    }}
-                  />
-                ) : null}
-                <BoardCombobox
-                  ref={productRef}
-                  boards={postable}
-                  onAdd={onClose}
-                  loading={boards.isPending}
+        <Section label="Product" error={errors.board}>
+          {board ? (
+            <SelectedBoard board={board} onChange={() => setBoardSlug(null)} />
+          ) : boardSlug && boards.isPending ? (
+            <div aria-busy="true" className="h-8 animate-pulse rounded-md border border-line-strong bg-subtle" />
+          ) : (
+            <div className="flex flex-col gap-2">
+              {hub ? (
+                <HubPicks
+                  hubName={hub.name}
+                  boards={hub.boards}
                   onPick={(b) => {
                     setBoardSlug(b.slug);
                     setErrors((x) => ({ ...x, board: undefined }));
-                    requestAnimationFrame(() => titleRef.current?.focus());
+                    requestAnimationFrame(() => (type ? titleRef : typeRef).current?.focus());
                   }}
                 />
-              </>
-            )}
-          </Field>
-        )}
+              ) : null}
+              <BoardCombobox
+                ref={productRef}
+                boards={postable}
+                onAdd={onClose}
+                loading={boards.isPending}
+                onPick={(b) => {
+                  setBoardSlug(b.slug);
+                  setErrors((x) => ({ ...x, board: undefined }));
+                  requestAnimationFrame(() => (type ? titleRef : typeRef).current?.focus());
+                }}
+              />
+            </div>
+          )}
+        </Section>
+
+        <TypeField
+          triggerRef={typeRef}
+          value={type}
+          error={errors.type}
+          onChange={(t, how) => {
+            setType(t);
+            setErrors((x) => ({ ...x, type: undefined }));
+            if (how === 'click') requestAnimationFrame(() => titleRef.current?.focus());
+          }}
+        />
 
         {seeding ? (
           <div className="flex flex-col gap-5 sm:flex-row">
@@ -367,9 +403,7 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
           </Field>
         ) : null}
 
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-semibold uppercase text-ink-muted">Feedback</span>
-          <div
+        <div
             className={cx(
               'overflow-hidden rounded-md border bg-card transition-colors duration-120 focus-within:border-ink-muted',
               titleError ? 'border-danger focus-within:border-danger' : 'border-line-strong',
@@ -416,7 +450,7 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
               value={body}
               maxLength={BODY_MAX}
               aria-label="Details"
-              placeholder="What happened, what you expected, and any workaround. Markdown works."
+              placeholder="Details (optional): what happened, what you expected, any workaround. Markdown works."
               onChange={(e) => setBody(e.target.value)}
               className="w-full resize-y border-0 bg-transparent px-3 py-2 text-base text-ink placeholder:text-ink-muted outline-none focus:outline-none"
             />
@@ -425,22 +459,13 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
                 {errors.body}
               </p>
             ) : null}
-          </div>
         </div>
 
         <Similar posts={debounced.trim().length >= 8 ? (similar.data ?? []) : []} onOpen={onClose} />
 
-        <TypeField
-          triggerRef={typeRef}
-          value={type}
-          error={errors.type}
-          onChange={(t) => {
-            setType(t);
-            setErrors((x) => ({ ...x, type: undefined }));
-          }}
-        />
-
-        <PlatformField value={platform} onChange={setPlatform} inline />
+        <Section label="Platform" optional labelId={platformLabelId}>
+          <PlatformField value={platform} onChange={setPlatform} labelledBy={platformLabelId} />
+        </Section>
 
         <p className="m-0 hidden text-center text-sm text-ink-muted max-sm:block">{footNote}</p>
         {failure ? (
@@ -457,7 +482,6 @@ function SelectedBoard({ board, onChange }: { board: Board; onChange: () => void
   return (
     <div className="flex h-8 items-center justify-between gap-3 rounded-md border border-line bg-subtle pr-1 pl-3">
       <div className="flex min-w-0 items-center gap-2">
-        <span className="text-xs font-semibold uppercase text-ink-muted">Product</span>
         <BoardAvatar name={board.name} color={board.color} logoSrc={logoSrc(board)} size="xs" decorative />
         <span className="truncate text-sm font-semibold text-ink">{board.name}</span>
       </div>
@@ -623,47 +647,89 @@ function TypeField({
   triggerRef: RefObject<HTMLButtonElement | null>;
   value: PostType | null;
   error?: string | undefined;
-  onChange: (t: PostType) => void;
+  onChange: (t: PostType, how: 'click' | 'key') => void;
 }) {
   const labelId = useId();
+  const hintId = useId();
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  // One tab stop (the chosen type, else the first); arrows move and choose, as a radio group does.
+  const current = Math.max(0, TYPES.findIndex((t) => t.value === value));
+  const onKey = (e: KeyboardEvent<HTMLButtonElement>, i: number) => {
+    const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+    if (!step) return;
+    e.preventDefault();
+    const next = (i + step + TYPES.length) % TYPES.length;
+    refs.current[next]?.focus();
+    onChange(TYPES[next]!.value, 'key');
+  };
+  const hint = value ? TYPES.find((t) => t.value === value)?.desc : 'Pick the one that fits best.';
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex flex-wrap items-center gap-2">
-        <span id={labelId} className="shrink-0 mr-1 text-xs font-semibold uppercase text-ink-muted">
-          Type
-        </span>
-        <div role="radiogroup" aria-labelledby={labelId} className="flex flex-wrap gap-2">
+    <Section label="Type" labelId={labelId} error={error}>
+      <div className="flex flex-col gap-1">
+        <div role="radiogroup" aria-labelledby={labelId} aria-describedby={hintId} className="flex min-h-8 flex-wrap items-center gap-2">
           {TYPES.map((t, i) => {
             const selected = value === t.value;
             return (
               <button
                 key={t.value}
-                ref={i === 0 ? triggerRef : undefined}
+                ref={(el) => {
+                  refs.current[i] = el;
+                  if (i === current) triggerRef.current = el;
+                }}
                 type="button"
                 role="radio"
                 aria-checked={selected}
-                title={t.desc}
-                onClick={() => onChange(t.value)}
-                className={cx(
-                  'inline-flex h-7 items-center gap-2 rounded-pill border px-3 text-sm font-medium transition-colors duration-120 cursor-pointer',
-                  selected
-                    ? 'border-ink bg-subtle text-ink font-semibold'
-                    : 'border-line bg-card text-ink-secondary hover:border-line-strong hover:text-ink hover:bg-subtle',
-                )}
+                tabIndex={i === current ? 0 : -1}
+                onClick={() => onChange(t.value, 'click')}
+                onKeyDown={(e) => onKey(e, i)}
+                className={pillClass(selected, 'gap-2')}
               >
                 <TypeDot type={t.value} />
-                <span>{TYPE_META[t.value].label}</span>
+                {TYPE_META[t.value].label}
               </button>
             );
           })}
         </div>
-      </div>
-      {error ? (
-        <p role="alert" className="m-0 text-sm text-danger">
-          {error}
+        <p id={hintId} className="m-0 text-sm text-ink-muted">
+          {hint}
         </p>
-      ) : null}
-    </div>
+      </div>
+    </Section>
+  );
+}
+
+/**
+ * One row of the composer: a small label in a left gutter, the control beside it.
+ * On phones the label sits above. Every section (Product, Type, Platform) uses it, so they line up.
+ */
+function Section({
+  label,
+  labelId,
+  optional,
+  error,
+  children,
+}: {
+  label: string;
+  labelId?: string;
+  optional?: boolean;
+  error?: string | undefined;
+  children: ReactNode;
+}) {
+  return (
+      <div className="flex items-start gap-3 max-sm:flex-col max-sm:gap-1">
+        <span id={labelId} className="flex w-label shrink-0 flex-col justify-center max-sm:w-auto max-sm:flex-row max-sm:items-baseline max-sm:gap-1 sm:min-h-8">
+          <span className="text-xs font-semibold uppercase text-ink-muted">{label}</span>
+          {optional ? <span className="text-xs text-ink-muted">Optional</span> : null}
+        </span>
+        <div className="flex min-w-0 flex-1 flex-col gap-1 max-sm:w-full">
+          {children}
+          {error ? (
+            <p role="alert" className="m-0 text-sm text-danger">
+              {error}
+            </p>
+          ) : null}
+        </div>
+      </div>
   );
 }
 
@@ -679,7 +745,7 @@ function TypeDot({ type }: { type: PostType }) {
 function Similar({ posts, onOpen }: { posts: Post[]; onOpen: () => void }) {
   if (posts.length === 0) return null;
   return (
-    <section aria-live="polite" aria-label="Similar posts" className="-mt-3 animate-fade-in rounded-md border border-line bg-elevated px-3 py-2">
+    <section aria-live="polite" aria-label="Similar posts" className="-mt-1 animate-fade-in rounded-md border border-line bg-elevated px-3 py-2">
       <p className="mt-0 mb-1 text-sm font-semibold text-ink">
         Already posted? <span className="font-normal text-ink-muted">Upvote to add your voice, it counts the same.</span>
       </p>

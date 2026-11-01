@@ -86,7 +86,7 @@ describe('composer', () => {
     await chooseSupabase(dialog);
     expect(within(dialog).getByText('Supabase')).toBeTruthy();
     expect(within(dialog).getByText('Product')).toBeTruthy();
-    expect(within(dialog).getByText('Feedback')).toBeTruthy();
+    expect(within(dialog).getByText('Type')).toBeTruthy();
     chooseType(dialog, 'Friction');
     chooseType(dialog, 'Feature request');
     fireEvent.change(within(dialog).getByRole('textbox', { name: 'Title' }), { target: { value: 'Branching for preview databases' } });
@@ -111,6 +111,33 @@ describe('composer', () => {
     expect(router.state.location.pathname).toBe('/post/a0000000-0000-4000-8000-0000000000ff');
     expect(await screen.findByText('Posted to Supabase')).toBeTruthy();
     expect(screen.queryByRole('dialog', { name: 'Post feedback' })).toBeNull();
+  });
+
+  it('asks before throwing away a draft, from Escape, the X or Cancel', async () => {
+    renderComposer();
+    const dialog = await open();
+    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Title' }), { target: { value: 'Half a thought' } });
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(within(dialog).getByText(/Discard this post\?/)).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Keep editing' }));
+    expect(screen.getByRole('dialog', { name: 'Post feedback' })).toBeTruthy();
+    expect((within(dialog).getByRole('textbox', { name: 'Title' }) as HTMLInputElement).value).toBe('Half a thought');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Discard' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Post feedback' })).toBeNull());
+  });
+
+  it('moves through types with the arrow keys and says what the chosen one means', async () => {
+    renderComposer();
+    const dialog = await open();
+    await chooseSupabase(dialog);
+    const radios = within(dialog).getAllByRole('radio');
+    expect(radios.filter((r) => r.tabIndex === 0)).toHaveLength(1);
+    expect(within(dialog).getByText('Pick the one that fits best.')).toBeTruthy();
+    fireEvent.keyDown(radios[0]!, { key: 'ArrowRight' });
+    expect(radios[1]!.getAttribute('aria-checked')).toBe('true');
+    expect(radios[1]!.tabIndex).toBe(0);
+    expect(within(dialog).queryByText('Pick the one that fits best.')).toBeNull();
   });
 
   it('suggests similar posts to upvote instead', async () => {
