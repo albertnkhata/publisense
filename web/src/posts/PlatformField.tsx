@@ -6,12 +6,20 @@ import { cx } from '../lib/cx';
  * Optional device a post is about (0033): iOS, Android, Web or Desktop. One choice at
  * most; choosing it again clears it.
  */
-export function PlatformField({ value, onChange }: { value: Platform | null; onChange: (p: Platform | null) => void }) {
+export function PlatformField({
+  value,
+  onChange,
+  inline = false,
+}: {
+  value: Platform | null;
+  onChange: (p: Platform | null) => void;
+  inline?: boolean;
+}) {
   const labelId = useId();
   return (
-    <div className="flex flex-col gap-2">
-      <span id={labelId} className="text-sm font-semibold text-ink">
-        Device <span className="font-normal text-ink-muted">(optional)</span>
+    <div className={cx(inline ? 'flex flex-wrap items-center gap-2' : 'flex flex-col gap-2')}>
+      <span id={labelId} className={cx(inline ? 'shrink-0 mr-1 text-xs font-semibold uppercase text-ink-muted' : 'text-sm font-semibold text-ink')}>
+        Device <span className={cx('font-normal text-ink-muted', inline && 'hidden')}>(optional)</span>
       </span>
       <div role="group" aria-labelledby={labelId} className="flex flex-wrap gap-2">
         {PLATFORMS.map((p) => {

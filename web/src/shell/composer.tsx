@@ -256,7 +256,7 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
         </div>
       }
     >
-      <form id={formId} noValidate onSubmit={submit} onKeyDown={onSubmitKey} className="flex flex-col gap-5">
+      <form id={formId} noValidate onSubmit={submit} onKeyDown={onSubmitKey} className="flex flex-col gap-3">
         {opts.onClaim && board ? (
           <p className="m-0 flex flex-wrap items-center gap-x-2 rounded-md border border-line bg-elevated px-3 py-2 text-sm text-ink-secondary">
             Is this your product?
@@ -373,35 +373,32 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
             titleError ? 'border-danger focus-within:border-danger' : 'border-line-strong',
           )}
         >
-          <div className="flex items-center justify-between px-3 pt-2">
-            <label htmlFor={titleId} className="text-xs font-semibold uppercase text-ink-muted">
-              Title
-            </label>
-            <span className="text-xs text-ink-muted tabular-nums">
+          <div className="flex items-center justify-between pr-3">
+            <input
+              id={titleId}
+              ref={titleRef}
+              value={title}
+              aria-label="Title"
+              aria-invalid={titleTooLong || Boolean(errors.title) || undefined}
+              aria-describedby={titleError ? titleErrorId : undefined}
+              placeholder="Sum it up in one line"
+              autoComplete="off"
+              onChange={(e) => {
+                setTitle(e.target.value);
+                setErrors((x) => ({ ...x, title: undefined }));
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !(e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  bodyRef.current?.focus();
+                }
+              }}
+              className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-base font-semibold text-ink placeholder:font-normal placeholder:text-ink-muted outline-none focus:outline-none"
+            />
+            <span className="shrink-0 text-xs text-ink-muted tabular-nums">
               {titleLength}/{TITLE_MAX}
             </span>
           </div>
-          <input
-            id={titleId}
-            ref={titleRef}
-            value={title}
-            aria-label="Title"
-            aria-invalid={titleTooLong || Boolean(errors.title) || undefined}
-            aria-describedby={titleError ? titleErrorId : undefined}
-            placeholder="Sum it up in one line"
-            autoComplete="off"
-            onChange={(e) => {
-              setTitle(e.target.value);
-              setErrors((x) => ({ ...x, title: undefined }));
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !(e.metaKey || e.ctrlKey)) {
-                e.preventDefault();
-                bodyRef.current?.focus();
-              }
-            }}
-            className="w-full border-0 bg-transparent px-3 py-2 text-base font-semibold text-ink placeholder:font-normal placeholder:text-ink-muted outline-none focus:outline-none"
-          />
           {titleError ? (
             <p id={titleErrorId} role="alert" className="m-0 px-3 pb-2 text-sm text-danger">
               {titleError}
@@ -410,15 +407,10 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
 
           <div className="h-px w-full bg-line" />
 
-          <div className="flex items-center justify-between px-3 pt-2">
-            <label htmlFor={detailsId} className="text-xs font-semibold uppercase text-ink-muted">
-              Details <span className="font-normal text-ink-muted lowercase">(optional)</span>
-            </label>
-          </div>
           <textarea
             id={detailsId}
             ref={bodyRef}
-            rows={4}
+            rows={3}
             value={body}
             maxLength={BODY_MAX}
             aria-label="Details"
@@ -445,7 +437,7 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
           }}
         />
 
-        <PlatformField value={platform} onChange={setPlatform} />
+        <PlatformField value={platform} onChange={setPlatform} inline />
 
         <p className="m-0 hidden text-center text-sm text-ink-muted max-sm:block">{footNote}</p>
         {failure ? (
@@ -632,34 +624,36 @@ function TypeField({
 }) {
   const labelId = useId();
   return (
-    <div className="flex flex-col gap-2">
-      <span id={labelId} className="text-sm font-semibold text-ink">
-        Type
-      </span>
-      <div role="radiogroup" aria-labelledby={labelId} className="flex flex-wrap gap-2">
-        {TYPES.map((t, i) => {
-          const selected = value === t.value;
-          return (
-            <button
-              key={t.value}
-              ref={i === 0 ? triggerRef : undefined}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              title={t.desc}
-              onClick={() => onChange(t.value)}
-              className={cx(
-                'inline-flex h-7 items-center gap-2 rounded-pill border px-3 text-sm font-medium transition-colors duration-120 cursor-pointer',
-                selected
-                  ? 'border-ink bg-subtle text-ink font-semibold'
-                  : 'border-line bg-card text-ink-secondary hover:border-line-strong hover:text-ink hover:bg-subtle',
-              )}
-            >
-              <TypeDot type={t.value} />
-              <span>{TYPE_META[t.value].label}</span>
-            </button>
-          );
-        })}
+    <div className="flex flex-col gap-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <span id={labelId} className="shrink-0 mr-1 text-xs font-semibold uppercase text-ink-muted">
+          Type
+        </span>
+        <div role="radiogroup" aria-labelledby={labelId} className="flex flex-wrap gap-2">
+          {TYPES.map((t, i) => {
+            const selected = value === t.value;
+            return (
+              <button
+                key={t.value}
+                ref={i === 0 ? triggerRef : undefined}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                title={t.desc}
+                onClick={() => onChange(t.value)}
+                className={cx(
+                  'inline-flex h-7 items-center gap-2 rounded-pill border px-3 text-sm font-medium transition-colors duration-120 cursor-pointer',
+                  selected
+                    ? 'border-ink bg-subtle text-ink font-semibold'
+                    : 'border-line bg-card text-ink-secondary hover:border-line-strong hover:text-ink hover:bg-subtle',
+                )}
+              >
+                <TypeDot type={t.value} />
+                <span>{TYPE_META[t.value].label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
       {error ? (
         <p role="alert" className="m-0 text-sm text-danger">
