@@ -65,8 +65,11 @@ export interface LinkPreview {
   name: string;
   description: string;
   icon_url: string | null;
-  /** og:site_name / application-name when the page gives one (0026); a suggestion only. */
+  /** Who makes it, as link-preview worked it out (company.ts); null when it is the product itself or unknown. */
   company?: string | null;
+  /** How it decided; absent from older deployments of link-preview, whose `company` was only og:site_name. */
+  company_basis?: 'jsonld' | 'copyright' | 'github_org' | 'llm' | null;
+  company_confidence?: 'high' | 'low' | null;
 }
 
 /** A company as the form and the admin modal hold it. */

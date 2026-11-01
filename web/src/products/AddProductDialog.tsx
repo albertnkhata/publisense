@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
 import {
+  COMPANY_NAME_MAX,
   PRODUCT_NAME_MAX,
   PRODUCT_CATEGORIES,
   ProductError,
@@ -21,14 +22,14 @@ import { useViewer } from '../lib/viewer';
 import { useAuthDialog } from '../shell/auth';
 import { useComposer } from '../shell/composer';
 import { BoardAvatar, Button, Dialog, Field, Icon, Input, useToast } from '../ui';
-import { CompanyPicker } from './CompanyPicker';
 import { useDebounced } from '../lib/useDebounced';
 
 /**
  * Add a product (0024). Paste a link (a product website or a GitHub repo); the name,
- * one-line description and logo fill in from it; pick a category. Company (0026, optional)
- * is prefilled when the link is on a company's domain, else a typeahead over companies
- * with "New company: …"; empty is fine (indie products, GitHub repos). If the product is
+ * one-line description and logo fill in from it; pick a category. Nobody is asked for the
+ * company: a link on a company's domain joins it (create_board), else link-preview works
+ * it out from the page (company.ts) and it is sent as a new company for review; none is
+ * fine (indie products, a product that is its own company). If the product is
  * already here the form says so and links to it instead. New boards wait for review,
  * and the person who added one goes straight to posting on it.
  *
@@ -134,10 +135,6 @@ function AddProductDialog({ opts, onClose }: { opts: AddProductOptions; onClose:
   const [errors, setErrors] = useState<Partial<Record<keyof NewProduct, string>>>({});
   const [failure, setFailure] = useState<string | null>(null);
   const [lateMatch, setLateMatch] = useState<LinkMatch | null>(null);
-  const [company, setCompany] = useState<CompanyChoice | null>(null);
-  const [companyText, setCompanyText] = useState('');
-  /** The person picked, changed or cleared the company themselves; stop prefilling. */
-  const [companyTouched, setCompanyTouched] = useState(false);
 
   const debounced = useDebounced(link.trim(), 300);
   const parsed = parseLink(debounced);
@@ -148,19 +145,13 @@ function AddProductDialog({ opts, onClose }: { opts: AddProductOptions; onClose:
   const linkInvalid = debounced.length > 0 && !parsed;
   const domainHub = !match && check.data?.kind === 'site' ? (check.data.hub ?? null) : null;
 
-  // Prefill Company from the link's domain until the person touches the field, and drop
-  // the prefill again when the link moves off that domain.
-  useEffect(() => {
-    if (companyTouched || !check.data) return;
-    if (domainHub) {
-      if (company?.kind !== 'hub' || company.id !== domainHub.id) setCompany({ kind: 'hub', id: domainHub.id, slug: domainHub.slug, name: domainHub.name, status: 'live' });
-    } else if (company) {
-      setCompany(null);
-    }
-  }, [domainHub, company, companyTouched, check.data]);
-  const suggested = (() => {
-    const c = preview.data?.company?.trim();
-    if (!c || domainHub || c.toLowerCase() === name.trim().toLowerCase()) return null;
+  // Who makes it, inferred from the link. A domain a company already owns is matched in
+  // the database, so nothing is sent then; nor when it is the product itself. Only the
+  // current link-preview (which says how it decided) is trusted for this.
+  const inferredCompany = (() => {
+    if (domainHub || !preview.data?.company_basis) return null;
+    const c = preview.data.company?.replace(/\s+/g, ' ').trim();
+    if (!c || c.length > COMPANY_NAME_MAX || c.toLowerCase() === name.trim().toLowerCase()) return null;
     return c;
   })();
 
@@ -177,7 +168,7 @@ function AddProductDialog({ opts, onClose }: { opts: AddProductOptions; onClose:
   const submit = (e?: FormEvent) => {
     e?.preventDefault();
     if (create.isPending) return;
-    const chosen: CompanyChoice | null = company ?? (companyText.trim() ? { kind: 'new', name: companyText.replace(/\s+/g, ' ').trim() } : null);
+    const chosen: CompanyChoice | null = inferredCompany ? { kind: 'new', name: inferredCompany } : null;
     const v = { link, name, tagline, category: category ?? undefined, company: chosen };
     const found = validateProduct(v);
     setErrors(found);
@@ -278,32 +269,6 @@ function AddProductDialog({ opts, onClose }: { opts: AddProductOptions; onClose:
                 }}
               />
             </Field>
-
-            <CompanyPicker
-              value={company}
-              onChange={(c) => {
-                setCompany(c);
-                setCompanyTouched(true);
-                setErrors((x) => ({ ...x, company: undefined }));
-              }}
-              text={companyText}
-              onText={(t) => {
-                setCompanyText(t);
-                setErrors((x) => ({ ...x, company: undefined }));
-              }}
-              removable={!domainHub}
-              suggestion={suggested}
-              error={errors.company}
-              hint={
-                !domainHub
-                  ? undefined
-                  : company?.kind === 'hub' && company.id === domainHub.id
-                    ? `${check.data?.canonical ?? 'This domain'} belongs to ${domainHub.name}.`
-                    : !company && !companyText.trim()
-                      ? `Left empty, it joins ${domainHub.name}, which owns ${check.data?.canonical ?? 'this domain'}.`
-                      : undefined
-              }
-            />
 
             <Field label="Description" optional error={errors.tagline} aside={`${tagline.length}/${PRODUCT_TAGLINE_MAX}`}>
               <Input
