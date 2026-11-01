@@ -41,6 +41,9 @@ import { BoardAvatar, HubAvatar, Icon, IconButton, StatusPill, TYPE_META, UserAv
  * Typing shows scope filters and grouped results for product boards, company
  * hubs, feedback & bugs and people, then “See all results”.
  *
+ * On phones the modal fills the screen with the field pinned at the top, so it never
+ * shrinks or slides behind the keyboard while results change as you type.
+ *
  * Accessibility: the modal input is a combobox owning a listbox that holds only
  * options and labelled groups. Closing the modal returns focus to whatever
  * opened it (or this trigger). The search has no dependency on the composer, so
@@ -315,7 +318,7 @@ export function SearchWell({ className, onSubmitted }: { className?: string; onS
         ? createPortal(
             <div
               data-theme={theme}
-              className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-9 pb-4 max-sm:items-end max-sm:p-0"
+              className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-9 pb-4 max-sm:p-0"
             >
               <div aria-hidden="true" className="absolute inset-0 animate-fade-in bg-overlay" onClick={() => finish()} />
               <div
@@ -324,12 +327,11 @@ export function SearchWell({ className, onSubmitted }: { className?: string; onS
                 aria-modal="true"
                 aria-labelledby={titleId}
                 tabIndex={-1}
-                className="relative flex max-h-full w-full max-w-dialog-lg animate-rise-in flex-col overflow-hidden rounded-lg border border-line bg-card text-ink shadow-overlay outline-none max-sm:max-w-none max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0"
+                className="relative flex max-h-full w-full max-w-dialog-lg animate-rise-in flex-col overflow-hidden rounded-lg border border-line bg-card text-ink shadow-overlay outline-none max-sm:h-full max-sm:max-w-none max-sm:rounded-none max-sm:border-0"
               >
                 <h2 id={titleId} className="sr-only">
                   Search
                 </h2>
-                <div aria-hidden="true" className="mx-auto mt-2 hidden h-1 w-8 rounded-pill bg-line-strong max-sm:block" />
                 <form role="search" onSubmit={submit} className="flex items-center gap-3 border-b border-line px-4 py-3">
                   <span className="grid size-6 shrink-0 place-items-center text-brand">
                     <Icon name="search" size={18} />
