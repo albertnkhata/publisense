@@ -57,7 +57,8 @@ async function chooseSupabase(dialog: HTMLElement) {
 }
 
 function chooseType(dialog: HTMLElement, label: 'Bug' | 'Friction' | 'Feature request') {
-  fireEvent.click(within(dialog).getByRole('radio', { name: new RegExp(label) }));
+  fireEvent.click(within(dialog).getByRole('button', { name: /Type/ }));
+  fireEvent.click(screen.getByRole('menuitemradio', { name: new RegExp(label) }));
 }
 
 beforeEach(() => {
@@ -89,12 +90,13 @@ describe('composer', () => {
     chooseType(dialog, 'Feature request');
     fireEvent.change(within(dialog).getByRole('textbox', { name: 'Title' }), { target: { value: 'Branching for preview databases' } });
     fireEvent.change(within(dialog).getByRole('textbox', { name: /Details/ }), { target: { value: 'One per pull request.' } });
-    // Device is optional (0033): choosing it again clears it.
-    const ios = within(dialog).getByRole('button', { name: 'iOS' });
-    fireEvent.click(ios);
-    expect(ios.getAttribute('aria-pressed')).toBe('true');
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Web' }));
-    expect(ios.getAttribute('aria-pressed')).toBe('false');
+    // Device is optional (0033): choosing it sets platform, choosing another swaps it.
+    fireEvent.click(within(dialog).getByRole('button', { name: /Device/ }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'iOS' }));
+    expect(within(dialog).getByRole('button', { name: /Device/ }).textContent).toContain('iOS');
+    fireEvent.click(within(dialog).getByRole('button', { name: /Device/ }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Web' }));
+    expect(within(dialog).getByRole('button', { name: /Device/ }).textContent).toContain('Web');
     expect(within(dialog).getByText('31/140')).toBeTruthy();
     expect(post.disabled).toBe(false);
 

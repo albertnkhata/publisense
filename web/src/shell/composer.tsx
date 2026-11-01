@@ -35,6 +35,7 @@ import {
   type Board,
   type Post,
   type PostErrors,
+  PLATFORMS,
   type Platform,
   type PostType,
   sourceAuthorFromUrl,
@@ -42,9 +43,8 @@ import {
 } from '../api';
 import { cx } from '../lib/cx';
 import { useViewer } from '../lib/viewer';
-import { PlatformField } from '../posts/PlatformField';
 import { VoteButton } from '../posts/VoteButton';
-import { BoardAvatar, Button, Dialog, Field, Icon, Input, STATUS_META, Textarea, TYPE_META, useToast } from '../ui';
+import { BoardAvatar, Button, Dialog, Field, Icon, Input, Menu, MenuItemRadio, STATUS_META, Textarea, TYPE_META, useToast } from '../ui';
 import { useRequireAuth } from './auth';
 import { useAddProduct } from '../products/AddProductDialog';
 
@@ -217,7 +217,7 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
     }
   };
 
-  const initialFocus = board ? (type ? titleRef : typeRef) : productRef;
+  const initialFocus = board ? titleRef : productRef;
   const footNote = seeding
     ? `Shows as the board’s post, from ${isSourceUrl(sourceUrl) ? sourceLabel(sourceUrl) : 'the source'}, with no author`
     : 'You’ll follow this post automatically';
@@ -312,7 +312,7 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
                     onPick={(b) => {
                       setBoardSlug(b.slug);
                       setErrors((x) => ({ ...x, board: undefined }));
-                      requestAnimationFrame(() => (type ? titleRef : typeRef).current?.focus());
+                      requestAnimationFrame(() => titleRef.current?.focus());
                     }}
                   />
                 ) : null}
@@ -324,7 +324,7 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
                   onPick={(b) => {
                     setBoardSlug(b.slug);
                     setErrors((x) => ({ ...x, board: undefined }));
-                    requestAnimationFrame(() => (type ? titleRef : typeRef).current?.focus());
+                    requestAnimationFrame(() => titleRef.current?.focus());
                   }}
                 />
               </>
@@ -364,17 +364,6 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
           </Field>
         ) : null}
 
-        <TypeField
-          triggerRef={typeRef}
-          value={type}
-          error={errors.type}
-          onChange={(t) => {
-            setType(t);
-            setErrors((x) => ({ ...x, type: undefined }));
-            requestAnimationFrame(() => titleRef.current?.focus());
-          }}
-        />
-
         <Field label="Title" error={titleError} aside={`${titleLength}/${TITLE_MAX}`}>
           <Input
             ref={titleRef}
@@ -406,7 +395,22 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
           />
         </Field>
 
-        <PlatformField value={platform} onChange={setPlatform} />
+        <div className="flex flex-col gap-4 sm:flex-row">
+          <div className="min-w-0 flex-1">
+            <TypeField
+              triggerRef={typeRef}
+              value={type}
+              error={errors.type}
+              onChange={(t) => {
+                setType(t);
+                setErrors((x) => ({ ...x, type: undefined }));
+              }}
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <PlatformDropdown value={platform} onChange={setPlatform} />
+          </div>
+        </div>
 
         <p className="m-0 hidden text-center text-sm text-ink-muted max-sm:block">{footNote}</p>
         {failure ? (
@@ -597,36 +601,96 @@ function TypeField({
       <span id={labelId} className="text-sm font-semibold text-ink">
         Type
       </span>
-      <div role="radiogroup" aria-labelledby={labelId} className="flex flex-wrap gap-2">
-        {TYPES.map((t, i) => {
-          const selected = value === t.value;
-          return (
-            <button
-              key={t.value}
-              ref={i === 0 ? triggerRef : undefined}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              title={t.desc}
-              onClick={() => onChange(t.value)}
-              className={cx(
-                'inline-flex h-8 items-center gap-2 rounded-pill border px-3 text-sm font-medium transition-colors duration-120 cursor-pointer',
-                selected
-                  ? 'border-ink bg-subtle text-ink font-semibold'
-                  : 'border-line bg-card text-ink-secondary hover:border-line-strong hover:text-ink hover:bg-subtle',
-              )}
-            >
+      <Menu
+        label="Type"
+        fullWidth
+        trigger={(p) => (
+          <button
+            type="button"
+            {...p}
+            ref={(el) => {
+              triggerRef.current = el;
+              if (typeof p.ref === 'function') p.ref(el);
+              else if (p.ref && typeof p.ref === 'object') (p.ref as RefObject<HTMLButtonElement | null>).current = el;
+            }}
+            aria-labelledby={`${labelId} ${p.id}`}
+            aria-invalid={error ? true : undefined}
+            className="flex h-8 w-full items-center gap-2 rounded-md border border-line-strong bg-card px-3 text-left text-base text-ink transition-colors duration-120 aria-expanded:border-ink-muted aria-invalid:border-danger"
+          >
+            {value ? (
+              <span className="inline-flex min-w-0 flex-1 items-center gap-2 truncate">
+                <TypeDot type={value} />
+                <span className="truncate">{TYPE_META[value].label}</span>
+              </span>
+            ) : (
+              <span className="flex-1 truncate text-ink-muted">Choose a type</span>
+            )}
+            <span className="shrink-0 text-ink-muted">
+              <Icon name="chevron-down" size={16} />
+            </span>
+          </button>
+        )}
+      >
+        {TYPES.map((t) => (
+          <MenuItemRadio key={t.value} checked={value === t.value} description={t.desc} onSelect={() => onChange(t.value)}>
+            <span className="inline-flex items-center gap-2">
               <TypeDot type={t.value} />
-              <span>{TYPE_META[t.value].label}</span>
-            </button>
-          );
-        })}
-      </div>
+              {TYPE_META[t.value].label}
+            </span>
+          </MenuItemRadio>
+        ))}
+      </Menu>
       {error ? (
         <p role="alert" className="m-0 text-sm text-danger">
           {error}
         </p>
       ) : null}
+    </div>
+  );
+}
+
+function PlatformDropdown({
+  value,
+  onChange,
+}: {
+  value: Platform | null;
+  onChange: (p: Platform | null) => void;
+}) {
+  const labelId = useId();
+  const current = PLATFORMS.find((p) => p.value === value);
+  return (
+    <div className="flex flex-col gap-2">
+      <span id={labelId} className="text-sm font-semibold text-ink">
+        Device <span className="font-normal text-ink-muted">(optional)</span>
+      </span>
+      <Menu
+        label="Device"
+        fullWidth
+        trigger={(p) => (
+          <button
+            type="button"
+            {...p}
+            aria-labelledby={`${labelId} ${p.id}`}
+            className="flex h-8 w-full items-center gap-2 rounded-md border border-line-strong bg-card px-3 text-left text-base text-ink transition-colors duration-120 aria-expanded:border-ink-muted"
+          >
+            <span className={cx('flex-1 truncate', current ? 'text-ink' : 'text-ink-muted')}>
+              {current ? current.label : 'Any device'}
+            </span>
+            <span className="shrink-0 text-ink-muted">
+              <Icon name="chevron-down" size={16} />
+            </span>
+          </button>
+        )}
+      >
+        <MenuItemRadio checked={value === null} onSelect={() => onChange(null)}>
+          Any device
+        </MenuItemRadio>
+        {PLATFORMS.map((p) => (
+          <MenuItemRadio key={p.value} checked={value === p.value} onSelect={() => onChange(value === p.value ? null : p.value)}>
+            {p.label}
+          </MenuItemRadio>
+        ))}
+      </Menu>
     </div>
   );
 }
