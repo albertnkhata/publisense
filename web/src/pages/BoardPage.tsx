@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import {
   dedupePosts,
@@ -235,6 +235,18 @@ function Feedback({
     if (urlQ.trim() !== text.trim()) setText(urlQ);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the URL changes
   }, [urlQ]);
+  const [searchOpen, setSearchOpen] = useState(() => Boolean(urlQ.trim()));
+  const searchRef = useRef<HTMLInputElement>(null);
+  const opened = useRef(false);
+  useEffect(() => {
+    // Focus the field when the button opens it, not when a ?q= link opens the page with it.
+    if (searchOpen && opened.current) searchRef.current?.focus();
+    opened.current = true;
+  }, [searchOpen]);
+  // A ?q= arriving from outside (Back, a link) shows the field again.
+  useEffect(() => {
+    if (urlQ.trim()) setSearchOpen(true);
+  }, [urlQ]);
   const q = urlQ.trim().length >= 2 ? urlQ.trim() : '';
   const list = usePostList({ boardIds: [board.id], type, status, platform, sort, viewerId: viewer?.id ?? null, q });
   const posts = useMemo(() => dedupePosts(list.data?.pages ?? []), [list.data]);
@@ -242,19 +254,29 @@ function Feedback({
 
   return (
     <>
-      {/* Search this board before posting, so people find and upvote what is already here. */}
-      <div role="search" className="mt-2">
-        <Input
-          type="search"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder={`Search ${board.name} posts`}
-          aria-label={`Search ${board.name} posts`}
-          autoComplete="off"
-          enterKeyHint="search"
-          className="w-full"
-        />
-      </div>
+      {/* Board search stays out of the way: a search button in the filter row opens the field
+          (it starts open when the link already carries ?q=), and an empty field closes again on blur. */}
+      {searchOpen ? (
+        <div role="search" className="mt-2">
+          <Input
+            ref={searchRef}
+            type="search"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onBlur={() => {
+              if (!text.trim()) setSearchOpen(false);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape' && !text) setSearchOpen(false);
+            }}
+            placeholder={`Search ${board.name} posts`}
+            aria-label={`Search ${board.name} posts`}
+            autoComplete="off"
+            enterKeyHint="search"
+            className="w-full"
+          />
+        </div>
+      ) : null}
       <div className="mt-3 mb-4 flex flex-wrap items-center gap-1">
         <ChoiceMenu label="Type" value={type} choices={TYPE_CHOICES} onChange={(v) => setParam('type', v, 'all')} set={type !== 'all'} />
         <ChoiceMenu label="Status" value={status} choices={STATUS_CHOICES} onChange={(v) => setParam('status', v, 'all')} set={status !== 'all'} />
@@ -268,7 +290,10 @@ function Feedback({
             Clear
           </button>
         ) : null}
-        <span className="ml-auto">
+        <span className="ml-auto flex items-center gap-1">
+          {searchOpen ? null : (
+            <IconButton icon="search" size="sm" label={`Search ${board.name} posts`} onClick={() => setSearchOpen(true)} />
+          )}
           <ChoiceMenu label="Sort" heading="Sort by" align="end" value={sort} choices={SORT_CHOICES} onChange={(v) => setParam('sort', v, 'top')} />
         </span>
       </div>

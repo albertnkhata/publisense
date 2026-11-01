@@ -173,7 +173,12 @@ describe('board page', () => {
     const { router } = renderAt('/b/cursor');
     await screen.findByText('Composer drops edits');
     postsApi.fetchPostList.mockResolvedValue(page([]));
-    fireEvent.change(screen.getByRole('searchbox', { name: 'Search Cursor posts' }), { target: { value: 'dark mode' } });
+    // The field is tucked behind a search button until asked for.
+    expect(screen.queryByRole('searchbox', { name: 'Search Cursor posts' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Search Cursor posts' }));
+    const box = screen.getByRole('searchbox', { name: 'Search Cursor posts' });
+    expect(document.activeElement).toBe(box);
+    fireEvent.change(box, { target: { value: 'dark mode' } });
     await waitFor(() => expect(postsApi.fetchPostList).toHaveBeenLastCalledWith(expect.objectContaining({ boardIds: [CURSOR.id], q: 'dark mode' })));
     expect(router.state.location.search).toBe('?q=dark+mode');
     expect(await screen.findByText('No posts match “dark mode”.')).toBeTruthy();
@@ -181,6 +186,17 @@ describe('board page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
     await waitFor(() => expect(router.state.location.search).toBe(''));
     expect((screen.getByRole('searchbox', { name: 'Search Cursor posts' }) as HTMLInputElement).value).toBe('');
+  });
+
+  it('shows the board search open when the link carries a query, and tucks an empty one away', async () => {
+    renderAt('/b/cursor?q=composer');
+    const box = await screen.findByRole('searchbox', { name: 'Search Cursor posts' });
+    expect((box as HTMLInputElement).value).toBe('composer');
+    expect(screen.queryByRole('button', { name: 'Search Cursor posts' })).toBeNull();
+    fireEvent.change(box, { target: { value: '' } });
+    fireEvent.blur(box);
+    expect(screen.queryByRole('searchbox', { name: 'Search Cursor posts' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Search Cursor posts' })).toBeTruthy();
   });
 
   it('opens the composer with the board chosen', async () => {
