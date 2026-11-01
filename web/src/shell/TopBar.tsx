@@ -1,4 +1,4 @@
-import { Link, NavLink } from 'react-router';
+import { Link, NavLink, useLocation } from 'react-router';
 import { useUnreadCount } from '../api';
 import { cx } from '../lib/cx';
 import { useViewer } from '../lib/viewer';
@@ -19,6 +19,8 @@ export function TopBar({ always = false }: { always?: boolean }) {
   const { viewer, ready } = useViewer();
   const { openAuth } = useAuthDialog();
   const unread = useUnreadCount(viewer?.id ?? null).data ?? 0;
+  // Explore shows the full search field at sm itself, so the icon would repeat it.
+  const onExplore = useLocation().pathname === '/explore';
 
   return (
     <header
@@ -37,9 +39,11 @@ export function TopBar({ always = false }: { always?: boolean }) {
       </Link>
       <SearchWell className="max-w-dialog flex-1 max-sm:hidden" />
       <span className="ml-auto flex items-center gap-2">
-        <span className="hidden max-sm:contents">
-          <IconButton icon="search" label="Search" onClick={() => openSearchModal()} />
-        </span>
+        {onExplore ? null : (
+          <span className="hidden max-sm:contents">
+            <IconButton icon="search" label="Search" onClick={() => openSearchModal()} />
+          </span>
+        )}
         {viewer ? <NotificationBell count={unread} /> : null}
         {!viewer && ready ? (
           <span className="contents lg:hidden">

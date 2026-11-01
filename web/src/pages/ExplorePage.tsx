@@ -7,6 +7,7 @@ import { usePageTitle } from '../lib/usePageTitle';
 import { useSetUrlParams, useUrlTextParam } from '../lib/useUrlParam';
 import { LoadError } from '../posts/PostList';
 import { AddProductLink } from '../products/AddProductDialog';
+import { SearchWell } from '../shell/SearchWell';
 import { Icon, ScrollRow, SkeletonBlock } from '../ui';
 
 /**
@@ -15,7 +16,7 @@ import { Icon, ScrollRow, SkeletonBlock } from '../ui';
  * New on Publisense and All products (sections with nothing to show are left
  * out; Trending needs a board with new posts this week, and Most wanted reads
  * "Latest requests" until something has an upvote, #156). Typing or picking a category filters boards and hubs instead. Both live
- * in the URL (`?q=`, `?cat=`). Search itself is the shell's site search; `?q=` only
+ * in the URL (`?q=`, `?cat=`). Search itself is the shell's site search (shown as a field at the top on phones); `?q=` only
  * survives for old links.
  */
 type Cat = 'all' | BoardCategory;
@@ -42,8 +43,10 @@ export function ExplorePage() {
       <h1 id="page-title" className="sr-only">
         Explore
       </h1>
-      {/* No search field of its own: the site search in the shell finds products. An old
+      {/* Phones get the site search as a full field here (the top bar drops its icon on
+          Explore); larger screens already show it in the top bar or right rail. An old
           /explore?q= link still filters, shown as a chip you can clear. */}
+      <SearchWell className="mb-4 hidden max-sm:block" />
       <ScrollRow label="Categories" className="mb-6">
         {q.trim() ? (
           <button
