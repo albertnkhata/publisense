@@ -51,7 +51,7 @@ export const TYPE_CHOICES: Choice<TypeFilter>[] = [
 ];
 
 export const STATUS_CHOICES: Choice<StatusFilter>[] = [
-  { value: 'all', label: 'Any status' },
+  { value: 'all', label: 'Status', hint: 'Any status' },
   { value: 'open', label: 'Open' },
   { value: 'under_review', label: 'Under review' },
   { value: 'planned', label: 'Planned' },
@@ -60,7 +60,7 @@ export const STATUS_CHOICES: Choice<StatusFilter>[] = [
 ];
 
 export const PLATFORM_CHOICES: Choice<PlatformFilter>[] = [
-  { value: 'all', label: 'Any platform' },
+  { value: 'all', label: 'Platform', hint: 'Any platform' },
   { value: 'ios', label: 'iOS' },
   { value: 'android', label: 'Android' },
   { value: 'web', label: 'Web' },
