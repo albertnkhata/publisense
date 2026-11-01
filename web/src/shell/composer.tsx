@@ -44,7 +44,7 @@ import { cx } from '../lib/cx';
 import { useViewer } from '../lib/viewer';
 import { PlatformField } from '../posts/PlatformField';
 import { VoteButton } from '../posts/VoteButton';
-import { BoardAvatar, Button, Dialog, Field, Icon, Input, Menu, MenuItemRadio, STATUS_META, Textarea, TYPE_META, useToast } from '../ui';
+import { BoardAvatar, Button, Dialog, Field, Icon, Input, STATUS_META, Textarea, TYPE_META, useToast } from '../ui';
 import { useRequireAuth } from './auth';
 import { useAddProduct } from '../products/AddProductDialog';
 
@@ -232,7 +232,7 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
         : {})}
       size="lg"
       initialFocus={initialFocus}
-      dismissable={!create.isPending}
+      dismissable={!create.isPending && !(title.trim().length > 0 || body.trim().length > 0)}
       footer={
         <div className="flex w-full items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch max-sm:gap-2">
           {blocker ? (
@@ -297,38 +297,40 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
             ))}
           </div>
         ) : null}
-        <Field label="Product" error={errors.board}>
-          {board ? (
-            <SelectedBoard board={board} onChange={() => setBoardSlug(null)} />
-          ) : boardSlug && boards.isPending ? (
-            <div aria-busy="true" className="h-8 animate-pulse rounded-md border border-line-strong bg-subtle" />
-          ) : (
-            <>
-              {hub ? (
-                <HubPicks
-                  hubName={hub.name}
-                  boards={hub.boards}
+        {board ? (
+          <SelectedBoard board={board} onChange={() => setBoardSlug(null)} />
+        ) : (
+          <Field label="Product" error={errors.board}>
+            {boardSlug && boards.isPending ? (
+              <div aria-busy="true" className="h-8 animate-pulse rounded-md border border-line-strong bg-subtle" />
+            ) : (
+              <>
+                {hub ? (
+                  <HubPicks
+                    hubName={hub.name}
+                    boards={hub.boards}
+                    onPick={(b) => {
+                      setBoardSlug(b.slug);
+                      setErrors((x) => ({ ...x, board: undefined }));
+                      requestAnimationFrame(() => (type ? titleRef : typeRef).current?.focus());
+                    }}
+                  />
+                ) : null}
+                <BoardCombobox
+                  ref={productRef}
+                  boards={postable}
+                  onAdd={onClose}
+                  loading={boards.isPending}
                   onPick={(b) => {
                     setBoardSlug(b.slug);
                     setErrors((x) => ({ ...x, board: undefined }));
                     requestAnimationFrame(() => (type ? titleRef : typeRef).current?.focus());
                   }}
                 />
-              ) : null}
-              <BoardCombobox
-                ref={productRef}
-                boards={postable}
-                onAdd={onClose}
-                loading={boards.isPending}
-                onPick={(b) => {
-                  setBoardSlug(b.slug);
-                  setErrors((x) => ({ ...x, board: undefined }));
-                  requestAnimationFrame(() => (type ? titleRef : typeRef).current?.focus());
-                }}
-              />
-            </>
-          )}
-        </Field>
+              </>
+            )}
+          </Field>
+        )}
 
         {seeding ? (
           <div className="flex flex-col gap-5 sm:flex-row">
@@ -373,8 +375,6 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
           }}
         />
 
-        <PlatformField value={platform} onChange={setPlatform} />
-
         <Field label="Title" error={titleError} aside={`${titleLength}/${TITLE_MAX}`}>
           <Input
             ref={titleRef}
@@ -398,13 +398,15 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
         <Field label="Details" optional error={errors.body}>
           <Textarea
             ref={bodyRef}
-            rows={5}
+            rows={4}
             value={body}
             maxLength={BODY_MAX}
             placeholder="What happened, what you expected, and any workaround. Markdown works."
             onChange={(e) => setBody(e.target.value)}
           />
         </Field>
+
+        <PlatformField value={platform} onChange={setPlatform} />
 
         <p className="m-0 hidden text-center text-sm text-ink-muted max-sm:block">{footNote}</p>
         {failure ? (
@@ -419,9 +421,12 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
 
 function SelectedBoard({ board, onChange }: { board: Board; onChange: () => void }) {
   return (
-    <div className="flex h-8 items-center gap-3 rounded-md border border-line-strong bg-card pr-1 pl-2">
-      <BoardAvatar name={board.name} color={board.color} logoSrc={logoSrc(board)} size="sm" decorative />
-      <span className="min-w-0 flex-1 truncate text-base font-semibold text-ink">{board.name}</span>
+    <div className="flex h-9 items-center justify-between gap-3 rounded-md border border-line bg-subtle pr-1.5 pl-3">
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Product</span>
+        <BoardAvatar name={board.name} color={board.color} logoSrc={logoSrc(board)} size="xs" decorative />
+        <span className="truncate text-sm font-semibold text-ink">{board.name}</span>
+      </div>
       <Button variant="ghost" size="sm" onClick={onChange}>
         Change
       </Button>
@@ -592,45 +597,31 @@ function TypeField({
       <span id={labelId} className="text-sm font-semibold text-ink">
         Type
       </span>
-      <Menu
-        label="Type"
-        fullWidth
-        trigger={(p) => (
-          <button
-            type="button"
-            {...p}
-            ref={(el) => {
-              triggerRef.current = el;
-              if (typeof p.ref === 'function') p.ref(el);
-              else if (p.ref && typeof p.ref === 'object') (p.ref as RefObject<HTMLButtonElement | null>).current = el;
-            }}
-            aria-labelledby={`${labelId} ${p.id}`}
-            aria-invalid={error ? true : undefined}
-            className="flex h-8 w-full items-center gap-2 rounded-md border border-line-strong bg-card px-3 text-left text-base text-ink transition-colors duration-120 aria-expanded:border-ink-muted aria-invalid:border-danger"
-          >
-            {value ? (
-              <span className="inline-flex flex-1 items-center gap-2">
-                <TypeDot type={value} />
-                {TYPE_META[value].label}
-              </span>
-            ) : (
-              <span className="flex-1 text-ink-muted">Choose a type</span>
-            )}
-            <span className="text-ink-muted">
-              <Icon name="chevron-down" size={16} />
-            </span>
-          </button>
-        )}
-      >
-        {TYPES.map((t) => (
-          <MenuItemRadio key={t.value} checked={value === t.value} description={t.desc} onSelect={() => onChange(t.value)}>
-            <span className="inline-flex items-center gap-2">
+      <div role="radiogroup" aria-labelledby={labelId} className="flex flex-wrap gap-2">
+        {TYPES.map((t, i) => {
+          const selected = value === t.value;
+          return (
+            <button
+              key={t.value}
+              ref={i === 0 ? triggerRef : undefined}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              title={t.desc}
+              onClick={() => onChange(t.value)}
+              className={cx(
+                'inline-flex h-8 items-center gap-2 rounded-pill border px-3 text-sm font-medium transition-colors duration-120 cursor-pointer',
+                selected
+                  ? 'border-ink bg-subtle text-ink font-semibold ring-1 ring-ink'
+                  : 'border-line bg-card text-ink-secondary hover:border-line-strong hover:text-ink hover:bg-subtle',
+              )}
+            >
               <TypeDot type={t.value} />
-              {TYPE_META[t.value].label}
-            </span>
-          </MenuItemRadio>
-        ))}
-      </Menu>
+              <span>{TYPE_META[t.value].label}</span>
+            </button>
+          );
+        })}
+      </div>
       {error ? (
         <p role="alert" className="m-0 text-sm text-danger">
           {error}
@@ -652,11 +643,11 @@ function TypeDot({ type }: { type: PostType }) {
 function Similar({ posts, onOpen }: { posts: Post[]; onOpen: () => void }) {
   if (posts.length === 0) return null;
   return (
-    <section aria-live="polite" aria-label="Similar posts" className="-mt-3 rounded-md border border-line bg-elevated px-3 py-2">
-      <p className="mt-0 mb-1 text-sm font-semibold text-ink">
+    <section aria-live="polite" aria-label="Similar posts" className="-mt-2 animate-fade-in rounded-md border border-line bg-elevated/70 px-3.5 py-2.5">
+      <p className="mt-0 mb-1.5 text-sm font-semibold text-ink">
         Already posted? <span className="font-normal text-ink-muted">Upvote to add your voice, it counts the same.</span>
       </p>
-      <ul className="m-0 list-none p-0">
+      <ul className="m-0 max-h-56 list-none overflow-y-auto p-0">
         {posts.map((p) => (
           <li key={p.id} className="flex items-center gap-3 border-t border-line py-2 first:border-t-0">
             <Link to={`/post/${p.id}`} onClick={() => { recordEvent('similar_post_click', { boardId: p.board_id }); onOpen(); }} className="flex min-w-0 flex-1 flex-col text-ink no-underline hover:underline">

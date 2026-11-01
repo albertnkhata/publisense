@@ -57,8 +57,7 @@ async function chooseSupabase(dialog: HTMLElement) {
 }
 
 function chooseType(dialog: HTMLElement, label: 'Bug' | 'Friction' | 'Feature request') {
-  fireEvent.click(within(dialog).getByRole('button', { name: /Type/ }));
-  fireEvent.click(screen.getByRole('menuitemradio', { name: new RegExp(label) }));
+  fireEvent.click(within(dialog).getByRole('radio', { name: new RegExp(label) }));
 }
 
 beforeEach(() => {
