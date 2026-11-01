@@ -51,7 +51,7 @@ export const TYPE_CHOICES: Choice<TypeFilter>[] = [
 ];
 
 export const STATUS_CHOICES: Choice<StatusFilter>[] = [
-  { value: 'all', label: 'Any status' },
+  { value: 'all', label: 'Status', hint: 'Any status' },
   { value: 'open', label: 'Open' },
   { value: 'under_review', label: 'Under review' },
   { value: 'planned', label: 'Planned' },
@@ -60,7 +60,7 @@ export const STATUS_CHOICES: Choice<StatusFilter>[] = [
 ];
 
 export const PLATFORM_CHOICES: Choice<PlatformFilter>[] = [
-  { value: 'all', label: 'Any device' },
+  { value: 'all', label: 'Platform', hint: 'Any platform' },
   { value: 'ios', label: 'iOS' },
   { value: 'android', label: 'Android' },
   { value: 'web', label: 'Web' },
@@ -184,7 +184,7 @@ function Board({ board }: { board: BoardWithHub }) {
         </p>
       ) : null}
       {tab === 'feedback' ? (
-        <Feedback board={board} params={params} setParam={setParam} clear={() => update([['q', '', ''], ['type', 'all', 'all'], ['status', 'all', 'all'], ['device', 'all', 'all']])} />
+        <Feedback board={board} params={params} setParam={setParam} update={update} clear={() => update([['q', '', ''], ['type', 'all', 'all'], ['status', 'all', 'all'], ['platform', 'all', 'all'], ['device', 'all', 'all']])} />
       ) : (
         <div className="flex flex-col">
           <div className="mb-4 flex items-center justify-between gap-3 border-b border-line pb-3">
@@ -209,18 +209,21 @@ function Feedback({
   board,
   params,
   setParam,
+  update,
   clear,
 }: {
   board: BoardWithHub;
   params: URLSearchParams;
   setParam: (key: string, value: string, fallback: string) => void;
+  update: (changes: Array<[key: string, value: string, fallback: string]>) => void;
   clear: () => void;
 }) {
   const { viewer } = useViewer();
   const { openComposer } = useComposer();
   const type = pick(params.get('type'), TYPE_CHOICES, 'all');
   const status = pick(params.get('status'), STATUS_CHOICES, 'all');
-  const platform = pick(params.get('device'), PLATFORM_CHOICES, 'all');
+  // ?platform= (older links said ?device=, still honoured).
+  const platform = pick(params.get('platform') ?? params.get('device'), PLATFORM_CHOICES, 'all');
   const sort = pick(params.get('sort'), SORT_CHOICES, 'top');
   // The box follows the typing; the URL (?q=) and the query follow it once it settles.
   const urlQ = params.get('q') ?? '';
@@ -293,7 +296,7 @@ function Feedback({
       <div className="mt-3 mb-4 flex flex-wrap items-center gap-1">
         <ChoiceMenu label="Type" value={type} choices={TYPE_CHOICES} onChange={(v) => setParam('type', v, 'all')} set={type !== 'all'} />
         <ChoiceMenu label="Status" value={status} choices={STATUS_CHOICES} onChange={(v) => setParam('status', v, 'all')} set={status !== 'all'} />
-        <ChoiceMenu label="Device" value={platform} choices={PLATFORM_CHOICES} onChange={(v) => setParam('device', v, 'all')} set={platform !== 'all'} />
+        <ChoiceMenu label="Platform" value={platform} choices={PLATFORM_CHOICES} onChange={(v) => update([['platform', v, 'all'], ['device', 'all', 'all']])} set={platform !== 'all'} />
         {filtered ? (
           <button
             type="button"

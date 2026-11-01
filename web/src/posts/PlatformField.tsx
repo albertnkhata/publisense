@@ -3,7 +3,7 @@ import { PLATFORMS, type Platform } from '../api';
 import { cx } from '../lib/cx';
 
 /**
- * Optional device a post is about (0033): iOS, Android, Web or Desktop. One choice at
+ * Optional platform a post is about (0033): iOS, Android, Web or Desktop. One choice at
  * most; choosing it again clears it.
  */
 export function PlatformField({
@@ -19,7 +19,7 @@ export function PlatformField({
   return (
     <div className={cx(inline ? 'flex flex-wrap items-center gap-2' : 'flex flex-col gap-2')}>
       <span id={labelId} className={cx(inline ? 'shrink-0 mr-1 text-xs font-semibold uppercase text-ink-muted' : 'text-sm font-semibold text-ink')}>
-        Device <span className={cx('font-normal text-ink-muted', inline && 'hidden')}>(optional)</span>
+        Platform <span className={cx('font-normal text-ink-muted', inline && 'hidden')}>(optional)</span>
       </span>
       <div role="group" aria-labelledby={labelId} className="flex flex-wrap gap-2">
         {PLATFORMS.map((p) => {
