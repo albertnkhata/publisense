@@ -35,7 +35,6 @@ import {
   type Board,
   type Post,
   type PostErrors,
-  PLATFORMS,
   type Platform,
   type PostType,
   sourceAuthorFromUrl,
@@ -43,8 +42,9 @@ import {
 } from '../api';
 import { cx } from '../lib/cx';
 import { useViewer } from '../lib/viewer';
+import { PlatformField } from '../posts/PlatformField';
 import { VoteButton } from '../posts/VoteButton';
-import { BoardAvatar, Button, Dialog, Field, Icon, Input, Menu, MenuItemRadio, STATUS_META, Textarea, TYPE_META, useToast } from '../ui';
+import { BoardAvatar, Button, Dialog, Field, Icon, Input, STATUS_META, TYPE_META, useToast } from '../ui';
 import { useRequireAuth } from './auth';
 import { useAddProduct } from '../products/AddProductDialog';
 
@@ -145,6 +145,9 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const typeRef = useRef<HTMLButtonElement>(null);
   const formId = useId();
+  const titleId = useId();
+  const detailsId = useId();
+  const titleErrorId = useId();
 
   const viewerId = viewer?.id ?? null;
   const postable = useMemo(
@@ -364,10 +367,27 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
           </Field>
         ) : null}
 
-        <Field label="Title" error={titleError} aside={`${titleLength}/${TITLE_MAX}`}>
-          <Input
+        <div
+          className={cx(
+            'overflow-hidden rounded-md border bg-card transition-colors duration-120 focus-within:border-ink-muted',
+            titleError ? 'border-danger focus-within:border-danger' : 'border-line-strong',
+          )}
+        >
+          <div className="flex items-center justify-between px-3 pt-2">
+            <label htmlFor={titleId} className="text-xs font-semibold uppercase text-ink-muted">
+              Title
+            </label>
+            <span className="text-xs text-ink-muted tabular-nums">
+              {titleLength}/{TITLE_MAX}
+            </span>
+          </div>
+          <input
+            id={titleId}
             ref={titleRef}
             value={title}
+            aria-label="Title"
+            aria-invalid={titleTooLong || Boolean(errors.title) || undefined}
+            aria-describedby={titleError ? titleErrorId : undefined}
             placeholder="Sum it up in one line"
             autoComplete="off"
             onChange={(e) => {
@@ -380,37 +400,52 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
                 bodyRef.current?.focus();
               }
             }}
+            className="w-full border-0 bg-transparent px-3 py-2 text-base font-semibold text-ink placeholder:font-normal placeholder:text-ink-muted outline-none focus:outline-none"
           />
-        </Field>
-        <Similar posts={debounced.trim().length >= 8 ? (similar.data ?? []) : []} onOpen={onClose} />
+          {titleError ? (
+            <p id={titleErrorId} role="alert" className="m-0 px-3 pb-2 text-sm text-danger">
+              {titleError}
+            </p>
+          ) : null}
 
-        <Field label="Details" optional error={errors.body}>
-          <Textarea
+          <div className="h-px w-full bg-line" />
+
+          <div className="flex items-center justify-between px-3 pt-2">
+            <label htmlFor={detailsId} className="text-xs font-semibold uppercase text-ink-muted">
+              Details <span className="font-normal text-ink-muted lowercase">(optional)</span>
+            </label>
+          </div>
+          <textarea
+            id={detailsId}
             ref={bodyRef}
             rows={4}
             value={body}
             maxLength={BODY_MAX}
+            aria-label="Details"
             placeholder="What happened, what you expected, and any workaround. Markdown works."
             onChange={(e) => setBody(e.target.value)}
+            className="w-full resize-y border-0 bg-transparent px-3 py-2 text-base text-ink placeholder:text-ink-muted outline-none focus:outline-none"
           />
-        </Field>
-
-        <div className="flex flex-col gap-4 sm:flex-row">
-          <div className="min-w-0 flex-1">
-            <TypeField
-              triggerRef={typeRef}
-              value={type}
-              error={errors.type}
-              onChange={(t) => {
-                setType(t);
-                setErrors((x) => ({ ...x, type: undefined }));
-              }}
-            />
-          </div>
-          <div className="min-w-0 flex-1">
-            <PlatformDropdown value={platform} onChange={setPlatform} />
-          </div>
+          {errors.body ? (
+            <p role="alert" className="m-0 px-3 pb-2 text-sm text-danger">
+              {errors.body}
+            </p>
+          ) : null}
         </div>
+
+        <Similar posts={debounced.trim().length >= 8 ? (similar.data ?? []) : []} onOpen={onClose} />
+
+        <TypeField
+          triggerRef={typeRef}
+          value={type}
+          error={errors.type}
+          onChange={(t) => {
+            setType(t);
+            setErrors((x) => ({ ...x, type: undefined }));
+          }}
+        />
+
+        <PlatformField value={platform} onChange={setPlatform} />
 
         <p className="m-0 hidden text-center text-sm text-ink-muted max-sm:block">{footNote}</p>
         {failure ? (
@@ -601,96 +636,36 @@ function TypeField({
       <span id={labelId} className="text-sm font-semibold text-ink">
         Type
       </span>
-      <Menu
-        label="Type"
-        fullWidth
-        trigger={(p) => (
-          <button
-            type="button"
-            {...p}
-            ref={(el) => {
-              triggerRef.current = el;
-              if (typeof p.ref === 'function') p.ref(el);
-              else if (p.ref && typeof p.ref === 'object') (p.ref as RefObject<HTMLButtonElement | null>).current = el;
-            }}
-            aria-labelledby={`${labelId} ${p.id}`}
-            aria-invalid={error ? true : undefined}
-            className="flex h-8 w-full items-center gap-2 rounded-md border border-line-strong bg-card px-3 text-left text-base text-ink transition-colors duration-120 aria-expanded:border-ink-muted aria-invalid:border-danger"
-          >
-            {value ? (
-              <span className="inline-flex min-w-0 flex-1 items-center gap-2 truncate">
-                <TypeDot type={value} />
-                <span className="truncate">{TYPE_META[value].label}</span>
-              </span>
-            ) : (
-              <span className="flex-1 truncate text-ink-muted">Choose a type</span>
-            )}
-            <span className="shrink-0 text-ink-muted">
-              <Icon name="chevron-down" size={16} />
-            </span>
-          </button>
-        )}
-      >
-        {TYPES.map((t) => (
-          <MenuItemRadio key={t.value} checked={value === t.value} description={t.desc} onSelect={() => onChange(t.value)}>
-            <span className="inline-flex items-center gap-2">
+      <div role="radiogroup" aria-labelledby={labelId} className="flex flex-wrap gap-2">
+        {TYPES.map((t, i) => {
+          const selected = value === t.value;
+          return (
+            <button
+              key={t.value}
+              ref={i === 0 ? triggerRef : undefined}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              title={t.desc}
+              onClick={() => onChange(t.value)}
+              className={cx(
+                'inline-flex h-7 items-center gap-2 rounded-pill border px-3 text-sm font-medium transition-colors duration-120 cursor-pointer',
+                selected
+                  ? 'border-ink bg-subtle text-ink font-semibold'
+                  : 'border-line bg-card text-ink-secondary hover:border-line-strong hover:text-ink hover:bg-subtle',
+              )}
+            >
               <TypeDot type={t.value} />
-              {TYPE_META[t.value].label}
-            </span>
-          </MenuItemRadio>
-        ))}
-      </Menu>
+              <span>{TYPE_META[t.value].label}</span>
+            </button>
+          );
+        })}
+      </div>
       {error ? (
         <p role="alert" className="m-0 text-sm text-danger">
           {error}
         </p>
       ) : null}
-    </div>
-  );
-}
-
-function PlatformDropdown({
-  value,
-  onChange,
-}: {
-  value: Platform | null;
-  onChange: (p: Platform | null) => void;
-}) {
-  const labelId = useId();
-  const current = PLATFORMS.find((p) => p.value === value);
-  return (
-    <div className="flex flex-col gap-2">
-      <span id={labelId} className="text-sm font-semibold text-ink">
-        Device <span className="font-normal text-ink-muted">(optional)</span>
-      </span>
-      <Menu
-        label="Device"
-        fullWidth
-        trigger={(p) => (
-          <button
-            type="button"
-            {...p}
-            aria-labelledby={`${labelId} ${p.id}`}
-            className="flex h-8 w-full items-center gap-2 rounded-md border border-line-strong bg-card px-3 text-left text-base text-ink transition-colors duration-120 aria-expanded:border-ink-muted"
-          >
-            <span className={cx('flex-1 truncate', current ? 'text-ink' : 'text-ink-muted')}>
-              {current ? current.label : 'Any device'}
-            </span>
-            <span className="shrink-0 text-ink-muted">
-              <Icon name="chevron-down" size={16} />
-            </span>
-          </button>
-        )}
-      >
-        <MenuItemRadio checked={value === null} onSelect={() => onChange(null)}>
-          Any device
-        </MenuItemRadio>
-        {PLATFORMS.map((p) => (
-          <MenuItemRadio key={p.value} checked={value === p.value} onSelect={() => onChange(value === p.value ? null : p.value)}>
-            {p.label}
-          </MenuItemRadio>
-        ))}
-      </Menu>
     </div>
   );
 }
