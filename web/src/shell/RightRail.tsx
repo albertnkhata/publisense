@@ -6,17 +6,24 @@ import { LegalLinks } from './LegalLinks';
 import { SearchWell } from './SearchWell';
 
 /**
- * Right rail above lg: search, a boards card and the claim line.
+ * Right rail above lg: search, the boards cards and the claim line.
  * Terms · Privacy sit at the foot of the right rail.
- * The boards card says what its ordering is (#156): "Trending this
- * week" (boards with new posts this week, most first, with that count) when
- * there is activity, else "Recently added" (newest boards, with their age).
+ * Two boards cards, each saying what its ordering is (#156): "Trending this
+ * week" (boards with new posts this week, most first, with that count), shown
+ * only when there is activity, and "Recently added" (newest boards, with their
+ * age), leaving out any board already in Trending.
  */
 export function RightRail() {
   return (
     <aside aria-label="Sidebar" className="sticky top-6 flex w-rail shrink-0 flex-col gap-4 self-start max-lg:hidden">
       <SearchWell />
-      <Card padding="md">{hasSupabaseConfig ? <RailBoards /> : <RailEmpty />}</Card>
+      {hasSupabaseConfig ? (
+        <RailBoards />
+      ) : (
+        <Card padding="md">
+          <RailEmpty />
+        </Card>
+      )}
       <ClaimLine />
       <LegalLinks inline className="pt-2" />
     </aside>
@@ -83,38 +90,49 @@ export function RailBoards() {
   const trending = useTrending(boards.data, 5);
   if (boards.isPending || (boards.isSuccess && boards.data.length > 0 && trending.isPending)) {
     return (
-      <div className="flex flex-col gap-3" role="status" aria-label="Loading boards" aria-busy="true">
-        <SkeletonBlock className="h-4 w-1/2" />
-        <SkeletonBlock className="h-4 w-3/4" />
-        <SkeletonBlock className="h-4 w-2/3" />
-      </div>
+      <Card padding="md">
+        <div className="flex flex-col gap-3" role="status" aria-label="Loading boards" aria-busy="true">
+          <SkeletonBlock className="h-4 w-1/2" />
+          <SkeletonBlock className="h-4 w-3/4" />
+          <SkeletonBlock className="h-4 w-2/3" />
+        </div>
+      </Card>
     );
   }
   const hot = trending.data ?? [];
-  if (hot.length) {
-    return (
-      <>
-        <RailHeading>{RAIL.trending}</RailHeading>
-        <RailList
-          label="Trending boards"
-          boards={hot}
-          meta={(b) => {
-            const n = (b as Board & { recent: number }).recent;
-            return { text: `${compactCount(n)} new`, title: `${n} new ${n === 1 ? 'post' : 'posts'} this week` };
-          }}
-        />
-      </>
-    );
-  }
+  const hotIds = new Set(hot.map((b) => b.id));
   const newest = (boards.data ?? [])
-    .filter(isLive)
+    .filter((b) => isLive(b) && !hotIds.has(b.id))
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
     .slice(0, 5);
-  if (newest.length === 0) return <RailEmpty />;
+  if (hot.length === 0 && newest.length === 0) {
+    return (
+      <Card padding="md">
+        <RailEmpty />
+      </Card>
+    );
+  }
   return (
     <>
-      <RailHeading>{RAIL.recent}</RailHeading>
-      <RailList label="Recently added boards" boards={newest} meta={(b) => ({ text: shortAge(b.created_at), title: `Added ${new Date(b.created_at).toLocaleDateString()}` })} />
+      {hot.length ? (
+        <Card padding="md">
+          <RailHeading>{RAIL.trending}</RailHeading>
+          <RailList
+            label="Trending boards"
+            boards={hot}
+            meta={(b) => {
+              const n = (b as Board & { recent: number }).recent;
+              return { text: `${compactCount(n)} new`, title: `${n} new ${n === 1 ? 'post' : 'posts'} this week` };
+            }}
+          />
+        </Card>
+      ) : null}
+      {newest.length ? (
+        <Card padding="md">
+          <RailHeading>{RAIL.recent}</RailHeading>
+          <RailList label="Recently added boards" boards={newest} meta={(b) => ({ text: shortAge(b.created_at), title: `Added ${new Date(b.created_at).toLocaleDateString()}` })} />
+        </Card>
+      ) : null}
     </>
   );
 }
