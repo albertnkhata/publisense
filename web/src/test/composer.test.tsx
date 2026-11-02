@@ -57,7 +57,8 @@ async function chooseSupabase(dialog: HTMLElement) {
 }
 
 function chooseType(dialog: HTMLElement, label: 'Bug' | 'Friction' | 'Feature request') {
-  fireEvent.click(within(dialog).getByRole('radio', { name: new RegExp(label) }));
+  fireEvent.click(within(dialog).getByRole('button', { name: /Type/ }));
+  fireEvent.click(screen.getByRole('menuitemradio', { name: new RegExp(label) }));
 }
 
 beforeEach(() => {
@@ -125,17 +126,6 @@ describe('composer', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     fireEvent.click(within(dialog).getByRole('button', { name: 'Discard' }));
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Post feedback' })).toBeNull());
-  });
-
-  it('moves through types with the arrow keys', async () => {
-    renderComposer();
-    const dialog = await open();
-    await chooseSupabase(dialog);
-    const radios = within(dialog).getAllByRole('radio');
-    expect(radios.filter((r) => r.tabIndex === 0)).toHaveLength(1);
-    fireEvent.keyDown(radios[0]!, { key: 'ArrowRight' });
-    expect(radios[1]!.getAttribute('aria-checked')).toBe('true');
-    expect(radios[1]!.tabIndex).toBe(0);
   });
 
   it('suggests similar posts to upvote instead', async () => {

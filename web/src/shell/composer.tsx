@@ -42,9 +42,9 @@ import {
 } from '../api';
 import { cx } from '../lib/cx';
 import { useViewer } from '../lib/viewer';
-import { PlatformField, pillClass } from '../posts/PlatformField';
+import { PlatformField } from '../posts/PlatformField';
 import { VoteButton } from '../posts/VoteButton';
-import { BoardAvatar, Button, Dialog, Field, Icon, Input, STATUS_META, TYPE_META, useToast } from '../ui';
+import { BoardAvatar, Button, Dialog, Field, Icon, Input, Menu, MenuItemRadio, STATUS_META, TYPE_META, useToast } from '../ui';
 import { useRequireAuth } from './auth';
 import { useAddProduct } from '../products/AddProductDialog';
 
@@ -364,10 +364,10 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
           triggerRef={typeRef}
           value={type}
           error={errors.type}
-          onChange={(t, how) => {
+          onChange={(t) => {
             setType(t);
             setErrors((x) => ({ ...x, type: undefined }));
-            if (how === 'click') requestAnimationFrame(() => titleRef.current?.focus());
+            requestAnimationFrame(() => titleRef.current?.focus());
           }}
         />
 
@@ -647,46 +647,50 @@ function TypeField({
   triggerRef: RefObject<HTMLButtonElement | null>;
   value: PostType | null;
   error?: string | undefined;
-  onChange: (t: PostType, how: 'click' | 'key') => void;
+  onChange: (t: PostType) => void;
 }) {
   const labelId = useId();
-  const refs = useRef<(HTMLButtonElement | null)[]>([]);
-  // One tab stop (the chosen type, else the first); arrows move and choose, as a radio group does.
-  const current = Math.max(0, TYPES.findIndex((t) => t.value === value));
-  const onKey = (e: KeyboardEvent<HTMLButtonElement>, i: number) => {
-    const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
-    if (!step) return;
-    e.preventDefault();
-    const next = (i + step + TYPES.length) % TYPES.length;
-    refs.current[next]?.focus();
-    onChange(TYPES[next]!.value, 'key');
-  };
   return (
     <Section label="Type" labelId={labelId} error={error}>
-        <div role="radiogroup" aria-labelledby={labelId} className="flex min-h-8 flex-wrap items-center gap-2">
-          {TYPES.map((t, i) => {
-            const selected = value === t.value;
-            return (
-              <button
-                key={t.value}
-                ref={(el) => {
-                  refs.current[i] = el;
-                  if (i === current) triggerRef.current = el;
-                }}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                tabIndex={i === current ? 0 : -1}
-                onClick={() => onChange(t.value, 'click')}
-                onKeyDown={(e) => onKey(e, i)}
-                className={pillClass(selected, 'gap-2')}
-              >
-                <TypeDot type={t.value} />
-                {TYPE_META[t.value].label}
-              </button>
-            );
-          })}
-        </div>
+      <Menu
+        label="Type"
+        fullWidth
+        trigger={(p) => (
+          <button
+            type="button"
+            {...p}
+            ref={(el) => {
+              triggerRef.current = el;
+              if (typeof p.ref === 'function') p.ref(el);
+              else if (p.ref && typeof p.ref === 'object') (p.ref as RefObject<HTMLButtonElement | null>).current = el;
+            }}
+            aria-labelledby={`${labelId} ${p.id}`}
+            aria-invalid={error ? true : undefined}
+            className="flex h-8 w-full items-center gap-2 rounded-md border border-line-strong bg-card px-3 text-left text-base text-ink transition-colors duration-120 aria-expanded:border-ink-muted aria-invalid:border-danger"
+          >
+            {value ? (
+              <span className="inline-flex flex-1 items-center gap-2">
+                <TypeDot type={value} />
+                {TYPE_META[value].label}
+              </span>
+            ) : (
+              <span className="flex-1 text-ink-muted">Choose a type</span>
+            )}
+            <span className="text-ink-muted">
+              <Icon name="chevron-down" size={16} />
+            </span>
+          </button>
+        )}
+      >
+        {TYPES.map((t) => (
+          <MenuItemRadio key={t.value} checked={value === t.value} description={t.desc} onSelect={() => onChange(t.value)}>
+            <span className="inline-flex items-center gap-2">
+              <TypeDot type={t.value} />
+              {TYPE_META[t.value].label}
+            </span>
+          </MenuItemRadio>
+        ))}
+      </Menu>
     </Section>
   );
 }

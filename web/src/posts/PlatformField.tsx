@@ -2,7 +2,7 @@ import { useId } from 'react';
 import { PLATFORMS, type Platform } from '../api';
 import { cx } from '../lib/cx';
 
-/** The selectable pill shared by the composer's Type and Platform rows, so both read the same when chosen. */
+/** The selectable platform pill. */
 export function pillClass(on: boolean, extra?: string) {
   return cx(
     'inline-flex h-7 items-center rounded-pill border px-3 text-sm transition-colors duration-120',
