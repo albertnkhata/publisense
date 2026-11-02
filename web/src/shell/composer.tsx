@@ -650,7 +650,6 @@ function TypeField({
   onChange: (t: PostType, how: 'click' | 'key') => void;
 }) {
   const labelId = useId();
-  const hintId = useId();
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   // One tab stop (the chosen type, else the first); arrows move and choose, as a radio group does.
   const current = Math.max(0, TYPES.findIndex((t) => t.value === value));
@@ -662,11 +661,9 @@ function TypeField({
     refs.current[next]?.focus();
     onChange(TYPES[next]!.value, 'key');
   };
-  const hint = value ? TYPES.find((t) => t.value === value)?.desc : 'Pick the one that fits best.';
   return (
     <Section label="Type" labelId={labelId} error={error}>
-      <div className="flex flex-col gap-1">
-        <div role="radiogroup" aria-labelledby={labelId} aria-describedby={hintId} className="flex min-h-8 flex-wrap items-center gap-2">
+        <div role="radiogroup" aria-labelledby={labelId} className="flex min-h-8 flex-wrap items-center gap-2">
           {TYPES.map((t, i) => {
             const selected = value === t.value;
             return (
@@ -690,10 +687,6 @@ function TypeField({
             );
           })}
         </div>
-        <p id={hintId} className="m-0 text-sm text-ink-muted">
-          {hint}
-        </p>
-      </div>
     </Section>
   );
 }

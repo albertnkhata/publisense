@@ -127,17 +127,15 @@ describe('composer', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Post feedback' })).toBeNull());
   });
 
-  it('moves through types with the arrow keys and says what the chosen one means', async () => {
+  it('moves through types with the arrow keys', async () => {
     renderComposer();
     const dialog = await open();
     await chooseSupabase(dialog);
     const radios = within(dialog).getAllByRole('radio');
     expect(radios.filter((r) => r.tabIndex === 0)).toHaveLength(1);
-    expect(within(dialog).getByText('Pick the one that fits best.')).toBeTruthy();
     fireEvent.keyDown(radios[0]!, { key: 'ArrowRight' });
     expect(radios[1]!.getAttribute('aria-checked')).toBe('true');
     expect(radios[1]!.tabIndex).toBe(0);
-    expect(within(dialog).queryByText('Pick the one that fits best.')).toBeNull();
   });
 
   it('suggests similar posts to upvote instead', async () => {
