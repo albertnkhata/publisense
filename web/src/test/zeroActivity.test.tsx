@@ -54,6 +54,16 @@ describe('right rail boards card', () => {
     expect(await screen.findByRole('heading', { name: 'Trending this week' })).toBeTruthy();
     expect(screen.getByText('3 new').getAttribute('title')).toBe('3 new posts this week');
   });
+
+  it('shows Recently added beside Trending, without repeating a trending board', async () => {
+    boardsApi.fetchTrending.mockResolvedValue([{ ...SUPABASE, recent: 3 }]);
+    boardsApi.fetchBoards.mockResolvedValue([SUPABASE, QUIET_OLD, QUIET_NEW]);
+    renderWith(<RailBoards />);
+    expect(await screen.findByRole('heading', { name: 'Trending this week' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Recently added' })).toBeTruthy();
+    const recent = within(screen.getByRole('list', { name: 'Recently added boards' })).getAllByRole('link');
+    expect(recent.map((a) => a.getAttribute('href'))).toEqual(['/b/notion', '/b/linear']);
+  });
 });
 
 describe('explore while quiet', () => {
