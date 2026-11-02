@@ -6,16 +6,12 @@ alter table public.post drop constraint if exists post_platform_check;
 alter table public.post add constraint post_platform_check
   check (platform is null or platform in ('ios', 'android', 'web', 'desktop'));
 
-create or replace function public.seed_post(
-  p_board      uuid,
-  p_type       text,
-  p_title      text,
-  p_body       text,
-  p_source_url text,
-  p_posted_at  timestamptz default null,
-  p_source_author text default null,
-  p_platform   text default null
-) returns jsonb language plpgsql security definer set search_path = public as $$
+CREATE OR REPLACE FUNCTION public.seed_post(p_board uuid, p_type text, p_title text, p_body text, p_source_url text, p_posted_at timestamp with time zone DEFAULT NULL::timestamp with time zone, p_source_author text DEFAULT NULL::text, p_platform text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 declare
   uid     uuid := auth.uid();
   b       board;
@@ -29,7 +25,7 @@ declare
   v_id    uuid;
 begin
   if uid is null then return public.v2_err('sign_in'); end if;
-  if not public.is_platform_admin(uid) then return public.v2_err('not_allowed'); end if;
+  if not private.is_platform_admin(uid) then return public.v2_err('not_allowed'); end if;
   select * into b from board where id = p_board;
   if not found or b.status not in ('live', 'pending') then return public.v2_err('not_found'); end if;
   if v_type not in ('bug', 'feature', 'friction') then return public.v2_err('invalid_type'); end if;
@@ -47,18 +43,14 @@ begin
   values (b.id, null, v_url, v_who, v_plat, v_type::v2_post_type, v_title, v_body, least(v_at, now()))
   returning id into v_id;
   return jsonb_build_object('ok', true, 'id', v_id);
-end $$;
+end $function$;
 
-create or replace function public.edit_seeded_post(
-  p_post       uuid,
-  p_type       text,
-  p_title      text,
-  p_body       text,
-  p_source_url text,
-  p_posted_at  timestamptz default null,
-  p_source_author text default null,
-  p_platform   text default null
-) returns jsonb language plpgsql security definer set search_path = public as $$
+CREATE OR REPLACE FUNCTION public.edit_seeded_post(p_post uuid, p_type text, p_title text, p_body text, p_source_url text, p_posted_at timestamp with time zone DEFAULT NULL::timestamp with time zone, p_source_author text DEFAULT NULL::text, p_platform text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 declare
   uid     uuid := auth.uid();
   p       post;
@@ -71,7 +63,7 @@ declare
   v_at    timestamptz;
 begin
   if uid is null then return public.v2_err('sign_in'); end if;
-  if not public.is_platform_admin(uid) then return public.v2_err('not_allowed'); end if;
+  if not private.is_platform_admin(uid) then return public.v2_err('not_allowed'); end if;
   select * into p from post where id = p_post for update;
   if not found or p.author_id is not null or p.source_url is null then return public.v2_err('not_found'); end if;
   if v_type not in ('bug', 'feature', 'friction') then return public.v2_err('invalid_type'); end if;
@@ -92,4 +84,4 @@ begin
          edited_at = case when (type::text, title, body) is distinct from (v_type, v_title, v_body) then now() else edited_at end
    where id = p.id;
   return jsonb_build_object('ok', true, 'id', p.id);
-end $$;
+end $function$;
