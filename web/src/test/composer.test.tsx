@@ -86,11 +86,16 @@ describe('composer', () => {
 
     await chooseSupabase(dialog);
     expect(within(dialog).getByText('Supabase')).toBeTruthy();
+    expect(within(dialog).getByText('Product')).toBeTruthy();
+    expect(within(dialog).getByText('Type')).toBeTruthy();
     chooseType(dialog, 'Friction');
     chooseType(dialog, 'Feature request');
     fireEvent.change(within(dialog).getByRole('textbox', { name: 'Title' }), { target: { value: 'Branching for preview databases' } });
     fireEvent.change(within(dialog).getByRole('textbox', { name: /Details/ }), { target: { value: 'One per pull request.' } });
-    // Device is optional (0033): choosing it again clears it.
+    // Platform is optional (0033): choosing it again clears it. Desktop is split into macOS and Windows (0057).
+    expect(within(dialog).getByRole('button', { name: 'macOS' })).toBeTruthy();
+    expect(within(dialog).getByRole('button', { name: 'Windows' })).toBeTruthy();
+    expect(within(dialog).queryByRole('button', { name: 'Desktop' })).toBeNull();
     const ios = within(dialog).getByRole('button', { name: 'iOS' });
     fireEvent.click(ios);
     expect(ios.getAttribute('aria-pressed')).toBe('true');
@@ -110,6 +115,20 @@ describe('composer', () => {
     expect(router.state.location.pathname).toBe('/post/a0000000-0000-4000-8000-0000000000ff');
     expect(await screen.findByText('Posted to Supabase')).toBeTruthy();
     expect(screen.queryByRole('dialog', { name: 'Post feedback' })).toBeNull();
+  });
+
+  it('asks before throwing away a draft, from Escape, the X or Cancel', async () => {
+    renderComposer();
+    const dialog = await open();
+    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Title' }), { target: { value: 'Half a thought' } });
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(within(dialog).getByText(/Discard this post\?/)).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Keep editing' }));
+    expect(screen.getByRole('dialog', { name: 'Post feedback' })).toBeTruthy();
+    expect((within(dialog).getByRole('textbox', { name: 'Title' }) as HTMLInputElement).value).toBe('Half a thought');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Discard' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Post feedback' })).toBeNull());
   });
 
   it('suggests similar posts to upvote instead', async () => {
@@ -169,8 +188,7 @@ describe('composer', () => {
     expect(post.disabled).toBe(true);
     expect(reason()).toBe('Choose a product to post.');
     await chooseSupabase(dialog);
-    expect(reason()).toBe('Choose a type to post.');
-    chooseType(dialog, 'Bug');
+    // Type comes preselected (Bug), so the next reason is the title.
     expect(reason()).toBe('Add a title to post.');
     fireEvent.change(within(dialog).getByRole('textbox', { name: 'Title' }), { target: { value: 'ab' } });
     expect(reason()).toBe('Give it a title of at least 3 characters.');

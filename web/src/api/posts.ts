@@ -238,14 +238,19 @@ export const REPLY_MAX = 5_000;
 /** status_event.note (0016). */
 export const STATUS_NOTE_MAX = 1_000;
 
-export type Platform = 'ios' | 'android' | 'web' | 'desktop';
+/** 'desktop' is legacy (0057): older posts keep it, new posts choose macOS or Windows. */
+export type Platform = 'ios' | 'android' | 'web' | 'macos' | 'windows' | 'desktop';
+/** The platforms a post can choose (and a board can filter by). */
 export const PLATFORMS: { value: Platform; label: string }[] = [
   { value: 'ios', label: 'iOS' },
   { value: 'android', label: 'Android' },
   { value: 'web', label: 'Web' },
-  { value: 'desktop', label: 'Desktop' },
+  { value: 'macos', label: 'macOS' },
+  { value: 'windows', label: 'Windows' },
 ];
-export const platformLabel = (p: Platform | null | undefined) => PLATFORMS.find((x) => x.value === p)?.label ?? null;
+const LEGACY_PLATFORMS: { value: Platform; label: string }[] = [{ value: 'desktop', label: 'Desktop' }];
+export const platformLabel = (p: Platform | null | undefined) =>
+  [...PLATFORMS, ...LEGACY_PLATFORMS].find((x) => x.value === p)?.label ?? null;
 
 export interface PostDraft {
   type: PostType;
@@ -929,7 +934,7 @@ const SEED_ERRORS: Record<string, string> = {
   invalid_date: 'The original date can’t be in the future.',
   duplicate: 'That source is already on this board.',
   author_length: 'The original poster’s name is too long.',
-  invalid_platform: 'Choose iOS, Android, Web or Desktop.',
+  invalid_platform: 'Choose iOS, Android, Web, macOS or Windows.',
 };
 
 /**

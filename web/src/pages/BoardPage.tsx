@@ -64,7 +64,8 @@ export const PLATFORM_CHOICES: Choice<PlatformFilter>[] = [
   { value: 'ios', label: 'iOS' },
   { value: 'android', label: 'Android' },
   { value: 'web', label: 'Web' },
-  { value: 'desktop', label: 'Desktop' },
+  { value: 'macos', label: 'macOS' },
+  { value: 'windows', label: 'Windows' },
 ];
 
 export const SORT_CHOICES: Choice<FeedSort>[] = [
