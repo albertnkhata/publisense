@@ -12,7 +12,7 @@ export function pillClass(on: boolean, extra?: string) {
 }
 
 /**
- * Optional platform a post is about (0033): iOS, Android, Web or Desktop. One choice at
+ * Optional platform a post is about (0033, 0057): iOS, Android, Web, macOS or Windows. One choice at
  * most; choosing it again clears it. Pass `labelledBy` when the caller draws its own label
  * (the composer's section gutter); otherwise the field labels itself.
  */

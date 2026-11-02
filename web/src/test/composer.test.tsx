@@ -92,7 +92,10 @@ describe('composer', () => {
     chooseType(dialog, 'Feature request');
     fireEvent.change(within(dialog).getByRole('textbox', { name: 'Title' }), { target: { value: 'Branching for preview databases' } });
     fireEvent.change(within(dialog).getByRole('textbox', { name: /Details/ }), { target: { value: 'One per pull request.' } });
-    // Device is optional (0033): choosing it again clears it.
+    // Platform is optional (0033): choosing it again clears it. Desktop is split into macOS and Windows (0057).
+    expect(within(dialog).getByRole('button', { name: 'macOS' })).toBeTruthy();
+    expect(within(dialog).getByRole('button', { name: 'Windows' })).toBeTruthy();
+    expect(within(dialog).queryByRole('button', { name: 'Desktop' })).toBeNull();
     const ios = within(dialog).getByRole('button', { name: 'iOS' });
     fireEvent.click(ios);
     expect(ios.getAttribute('aria-pressed')).toBe('true');
