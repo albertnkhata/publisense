@@ -185,8 +185,7 @@ describe('composer', () => {
     expect(post.disabled).toBe(true);
     expect(reason()).toBe('Choose a product to post.');
     await chooseSupabase(dialog);
-    expect(reason()).toBe('Choose a type to post.');
-    chooseType(dialog, 'Bug');
+    // Type comes preselected (Bug), so the next reason is the title.
     expect(reason()).toBe('Add a title to post.');
     fireEvent.change(within(dialog).getByRole('textbox', { name: 'Title' }), { target: { value: 'ab' } });
     expect(reason()).toBe('Give it a title of at least 3 characters.');

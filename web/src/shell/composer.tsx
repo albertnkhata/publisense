@@ -122,7 +122,8 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
   const create = useCreatePost(viewer?.id ?? null);
 
   const [boardSlug, setBoardSlug] = useState<string | null>(opts.board ?? null);
-  const [type, setType] = useState<PostType | null>(null);
+  // Preselected so a post is never blocked on it; Bug is the most common kind of feedback.
+  const [type, setType] = useState<PostType | null>('bug');
   const [platform, setPlatform] = useState<Platform | null>(null);
   const [title, setTitle] = useState(opts.title ?? '');
   const [body, setBody] = useState('');
@@ -327,7 +328,7 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
             ))}
           </div>
         ) : null}
-        <Section label="Product" error={errors.board}>
+        <Section label="Product" stacked error={errors.board}>
           {board ? (
             <SelectedBoard board={board} onChange={() => setBoardSlug(null)} />
           ) : boardSlug && boards.isPending ? (
@@ -651,7 +652,7 @@ function TypeField({
 }) {
   const labelId = useId();
   return (
-    <Section label="Type" labelId={labelId} error={error}>
+    <Section label="Type" stacked labelId={labelId} error={error}>
       <Menu
         label="Type"
         fullWidth
@@ -696,37 +697,39 @@ function TypeField({
 }
 
 /**
- * One row of the composer: a small label in a left gutter, the control beside it.
- * On phones the label sits above. Every section (Product, Type, Platform) uses it, so they line up.
+ * One labelled section of the composer. `stacked` puts the label above the control (Product, Type);
+ * otherwise the label sits inline before it (Platform).
  */
 function Section({
   label,
   labelId,
+  stacked,
   optional,
   error,
   children,
 }: {
   label: string;
   labelId?: string;
+  stacked?: boolean;
   optional?: boolean;
   error?: string | undefined;
   children: ReactNode;
 }) {
   return (
-      <div className="flex items-start gap-3 max-sm:flex-col max-sm:gap-1">
-        <span id={labelId} className="flex w-label shrink-0 flex-col justify-center max-sm:w-auto max-sm:flex-row max-sm:items-baseline max-sm:gap-1 sm:min-h-8">
-          <span className="text-xs font-semibold uppercase text-ink-muted">{label}</span>
-          {optional ? <span className="text-xs text-ink-muted">Optional</span> : null}
-        </span>
-        <div className="flex min-w-0 flex-1 flex-col gap-1 max-sm:w-full">
-          {children}
-          {error ? (
-            <p role="alert" className="m-0 text-sm text-danger">
-              {error}
-            </p>
-          ) : null}
-        </div>
+    <div className={cx('flex', stacked ? 'flex-col gap-1' : 'flex-wrap items-center gap-x-3 gap-y-1')}>
+      <span id={labelId} className={cx('flex shrink-0 gap-1', stacked ? 'items-baseline' : 'min-h-8 items-center')}>
+        <span className="text-xs font-semibold uppercase text-ink-muted">{label}</span>
+        {optional ? <span className="text-xs text-ink-muted">Optional</span> : null}
+      </span>
+      <div className={cx('flex min-w-0 flex-col gap-1', stacked ? 'w-full' : 'flex-1')}>
+        {children}
+        {error ? (
+          <p role="alert" className="m-0 text-sm text-danger">
+            {error}
+          </p>
+        ) : null}
       </div>
+    </div>
   );
 }
 
