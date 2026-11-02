@@ -64,7 +64,7 @@ export function PrivacyPage() {
   return (
     <LegalShell
       title="Privacy Policy"
-      intro="Publisense is a public product-feedback index. This page lists exactly what we store, who processes it, and how to have it removed, in plain language rather than legal boilerplate."
+      intro="This policy explains what information Publisense collects, how we use it, who processes it on our behalf, and how you can access or delete it."
     >
       <Section heading="What we store about you">
         <P>
@@ -150,7 +150,7 @@ export function TermsPage() {
   return (
     <LegalShell
       title="Terms of Service"
-      intro="These are the rules for using Publisense. They are deliberately short: use the site honestly, post things you have the right to post, and do not claim a product you do not represent."
+      intro="These terms govern your use of Publisense. By creating an account or posting on the site, you agree to them."
     >
       <Section heading="What Publisense is">
         <P>
