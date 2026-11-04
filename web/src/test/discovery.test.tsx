@@ -535,6 +535,16 @@ describe('explore', () => {
 });
 
 describe('search', () => {
+  it('leaves out a hub with a single live product', async () => {
+    boardsApi.searchAll.mockImplementation(async (q: string) => {
+      const real = await vi.importActual<typeof import('../api/boards')>('../api/boards');
+      return { ...real.matchCatalogue(q, [FIGMA], [{ ...FIGMA_HUB, boards: [FIGMA] }]), posts: [] };
+    });
+    renderAt('/search?q=fig');
+    expect(await screen.findByRole('heading', { name: 'Products' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Hubs' })).toBeNull();
+  });
+
   it('shows hubs, products and posts under Top, with full lists in tabs', async () => {
     boardsApi.searchAll.mockResolvedValue({ boards: [FIGMA, FIGJAM], hubs: [FIGMA_HUB], posts: [makePost({ title: 'Figma variables export' })] });
     const { router } = renderAt('/search?q=fig');

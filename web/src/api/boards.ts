@@ -442,6 +442,7 @@ export function matchCatalogue(q: string, boards: Board[], hubs: Hub[]): { board
   // A company answers to the names it used to have: searching "xAI" finds SpaceXSI (0030).
   const hubText = (h: Hub) => `${h.name} ${h.former_names.join(' ')} ${h.legal_name ?? ''} ${h.description}`;
   const matchedHubs = hubs
+    .filter((h) => isProductFamily(h.boards.length))
     .filter((h) => matchesAll(hubText(h), term) || h.boards.some((b) => matchesAll(b.name, term)))
     .sort((a, b) => Number(matchesAll(b.name, term)) - Number(matchesAll(a.name, term)) || a.name.localeCompare(b.name));
   return { boards: matchedBoards, hubs: matchedHubs };
