@@ -86,99 +86,102 @@ export function PostCard({ post, variant = 'feed', onDeleted, hideBoard = false 
   );
 }
 
-/** Row 1: who and when (or the board, for seeded posts). Row 2: board crumb and type. */
+/**
+ * One header for every post in a feed. The product leads: its logo
+ * beside row 1, which carries the product, type, platform and age. Row 2
+ * credits who it came from: the author's handle, or the source a seeded post
+ * was found on. On a board page the board is already named, so a community
+ * post leads with its author instead.
+ */
 function PostHead({ post, hideBoard }: { post: Post; hideBoard: boolean }) {
   const kind = postKind(post);
   const board = post.board;
-  const age = ago(post.created_at);
+  const author = post.author;
+  const time = (
+    <Dot>
+      <time dateTime={post.created_at}>{ago(post.created_at)}</time>
+    </Dot>
+  );
   const platform = post.platform ? (
     <Dot>
       <span className="text-ink-muted">{platformLabel(post.platform)}</span>
     </Dot>
   ) : null;
   const edited = post.edited_at ? <Dot>edited</Dot> : null;
-  const boardName = board?.name ?? 'Unknown board';
-  const boardLink = board ? (
-    <Link to={`/b/${board.slug}`} className={cx(linkClass, 'font-semibold text-ink')}>
-      {boardName}
+  const handle = author ? (
+    <Link to={`/u/${author.handle}`} className={cx(linkClass, 'font-medium text-ink-secondary')}>
+      @{author.handle}
     </Link>
   ) : (
-    <span className="font-semibold text-ink">{boardName}</span>
+    <span className="font-medium text-ink-muted italic">deleted user</span>
   );
+  const row = 'flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-muted';
 
-  if (kind === 'seeded') {
+  if (hideBoard && kind !== 'seeded') {
     return (
       <>
         <span className="absolute top-0 left-0">
-          {board ? (
-            <Link to={`/b/${board.slug}`} tabIndex={-1} aria-hidden="true">
-              <BoardAvatar name={boardName} color={board.color} logoSrc={boardLogoSrc(board)} size="md" decorative />
+          {author ? (
+            <Link to={`/u/${author.handle}`} tabIndex={-1} aria-hidden="true">
+              <UserAvatar src={avatarSrc(author)} size="md" />
             </Link>
           ) : (
-            <BoardAvatar name={boardName} size="md" decorative />
+            <UserAvatar size="md" />
           )}
         </span>
-        <div className="flex min-h-4 min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-muted">
-          {boardLink}
-          <Dot>
-            <time dateTime={post.created_at}>{age}</time>
-          </Dot>
+        <div className={cx(row, 'min-h-4')}>
+          {handle}
+          {time}
           {edited}
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-muted">
+        <div className={cx(row, 'mt-1')}>
           <TypePill type={post.type} />
           {platform}
-          {post.source_url ? (
-            <Dot>
-              <a href={post.source_url} target="_blank" rel="noopener noreferrer" className={cx(linkClass, 'inline-flex items-center gap-1 text-ink-muted hover:text-ink')}>
-                {sourceCredit(post)}
-                <Icon name="arrow-up-right" size={11} />
-              </a>
-            </Dot>
-          ) : null}
         </div>
       </>
     );
   }
 
-  const author = post.author;
+  const boardName = board?.name ?? 'Unknown board';
+  const credit =
+    kind === 'seeded' ? (
+      post.source_url ? (
+        <a href={post.source_url} target="_blank" rel="noopener noreferrer" className={cx(linkClass, 'inline-flex items-center gap-1 text-ink-muted hover:text-ink')}>
+          {sourceCredit(post)}
+          <Icon name="arrow-up-right" size={11} />
+        </a>
+      ) : null
+    ) : (
+      handle
+    );
+
   return (
     <>
       <span className="absolute top-0 left-0">
-        {author ? (
-          <Link to={`/u/${author.handle}`} tabIndex={-1} aria-hidden="true">
-            <UserAvatar src={avatarSrc(author)} size="md" />
+        {board ? (
+          <Link to={`/b/${board.slug}`} tabIndex={-1} aria-hidden="true">
+            <BoardAvatar name={boardName} color={board.color} logoSrc={boardLogoSrc(board)} size="md" decorative />
           </Link>
         ) : (
-          <UserAvatar size="md" />
+          <BoardAvatar name={boardName} size="md" decorative />
         )}
       </span>
-      <div className="flex min-h-4 min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-muted">
-        {author ? (
-          <Link to={`/u/${author.handle}`} className={cx(linkClass, 'font-medium text-ink-secondary')}>
-            @{author.handle}
+      <div className={cx(row, 'min-h-4')}>
+        {board ? (
+          <Link to={`/b/${board.slug}`} className={cx(linkClass, 'font-semibold text-ink')}>
+            {boardName}
           </Link>
         ) : (
-          <span className="font-medium text-ink-muted italic">deleted user</span>
+          <span className="font-semibold text-ink">{boardName}</span>
         )}
         <Dot>
-          <time dateTime={post.created_at}>{age}</time>
+          <TypePill type={post.type} />
         </Dot>
+        {platform}
+        {time}
         {edited}
       </div>
-      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-muted">
-        {hideBoard ? (
-          <TypePill type={post.type} />
-        ) : (
-          <>
-            {boardLink}
-            <Dot>
-              <TypePill type={post.type} />
-            </Dot>
-          </>
-        )}
-        {platform}
-      </div>
+      {credit ? <div className={cx(row, 'mt-1')}>{credit}</div> : null}
     </>
   );
 }
