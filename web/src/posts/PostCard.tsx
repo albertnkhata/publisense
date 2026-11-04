@@ -50,7 +50,9 @@ export function PostCard({ post, variant = 'feed', onDeleted, hideBoard = false 
       className={cx(
         // Borderless (#205): in a feed the list draws a hairline between posts (FEED_LIST);
         // on its own page a hairline under the post separates it from what follows.
-        'px-5 py-4 max-sm:px-4',
+        // On phones the page's own margin is the side margin, so the card adds none and its
+        // logo lines up with the feed's toolbar (Albert, 2026-11-04: the gap was too wide).
+        'px-5 py-4 max-sm:px-0',
         page ? 'border-b border-line' : 'cursor-pointer',
       )}
     >
