@@ -80,6 +80,10 @@ describe('home feed', () => {
     const first = cards[0]!;
     expect(within(first).getByRole('link', { name: '@jmwamba' }).getAttribute('href')).toBe('/u/jmwamba');
     expect(within(first).getByRole('link', { name: 'Cursor' }).getAttribute('href')).toBe('/b/cursor');
+    // Product-led header: the product names row 1 and the handle credits row 2.
+    const handleRow = within(first).getByRole('link', { name: '@jmwamba' }).parentElement!;
+    expect(handleRow.querySelector('time')).toBeNull();
+    expect(handleRow.parentElement!.querySelector('time')).toBeTruthy();
     expect(within(first).getByText('In progress')).toBeTruthy();
     expect(within(first).getByRole('button', { name: /Upvote, 92 votes/ })).toBeTruthy();
     expect(within(first).getByRole('link', { name: '14 replies' })).toBeTruthy();
