@@ -154,9 +154,10 @@ describe('user page', () => {
     expect(await screen.findByText('Sync settings across machines')).toBeTruthy();
   });
 
-  it('nobody yet: offers to claim a board', async () => {
+  it('managing nothing: no claim prompt on the profile', async () => {
     renderAt(`/u/${ME.handle}`);
-    expect(await screen.findByRole('button', { name: /Claim its board/ })).toBeTruthy();
+    expect(await screen.findByRole('tab', { name: /Upvoted/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Claim its board/ })).toBeNull();
   });
 
   it('an unknown handle says so', async () => {

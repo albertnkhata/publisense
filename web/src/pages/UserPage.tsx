@@ -25,7 +25,6 @@ import {
   type PublicProfile,
 } from '../api';
 import { BackLink } from '../boards/parts';
-import { useClaim } from '../claim/ClaimDialog';
 import { shareLink } from '../lib/share';
 import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
@@ -310,25 +309,10 @@ function PersonMenu({ person, onShare }: { person: PublicProfile; onShare: () =>
 function Manages() {
   const { viewer } = useViewer();
   const managed = useManaged(viewer?.id ?? null);
-  const { openClaim } = useClaim();
   if (managed.isPending || managed.isError) return null;
   const list = managed.data ?? [];
-  if (list.length === 0) {
-    return (
-      <div className="basis-full">
-        <button
-          type="button"
-          onClick={() => openClaim()}
-          className="inline-flex items-center gap-2 rounded-md border border-dashed border-line-strong bg-transparent px-3 py-2 text-sm text-ink-secondary hover:bg-subtle"
-        >
-          <Icon name="hub" size={16} />
-          <span>
-            Run a product? <b className="font-semibold text-ink">Claim its board</b>
-          </span>
-        </button>
-      </div>
-    );
-  }
+  // No claim prompt on profiles: claiming lives on boards and the right rail.
+  if (list.length === 0) return null;
   return (
     <div className="basis-full">
       <p className="mt-1 mb-2 text-xs font-semibold text-ink-muted uppercase">Manages</p>
