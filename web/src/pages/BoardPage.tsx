@@ -19,6 +19,7 @@ import {
   type PlatformFilter,
   type StatusFilter,
   type TypeFilter,
+  isProductFamily,
 } from '../api';
 import { BackLink, ChoiceMenu, FollowScopeButton, type Choice } from '../boards/parts';
 import { Changelog, Roadmap } from '../boards/Roadmap';
@@ -123,7 +124,7 @@ function Board({ board }: { board: BoardWithHub }) {
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
       <div className="mb-4 flex items-center justify-between gap-2">
-        <BackLink {...(board.hub ? { to: `/h/${board.hub.slug}`, smart: true, fallbackLabel: board.hub.name } : {})} />
+        <BackLink {...(familyHub(board) ? { to: `/h/${board.hub!.slug}`, smart: true, fallbackLabel: board.hub!.name } : {})} />
         {SHOW_MORE_MENU ? (
           <div className="flex items-center gap-1">
             <Menu label={`More from ${board.name}`} align="end" trigger={(p) => <IconButton {...p} icon="more" label="More" />}>
@@ -372,10 +373,16 @@ const SHOW_MORE_MENU = false;
  * while unclaimed. Each item is a whole flex unit, so on a phone the line
  * wraps between items rather than inside them. Null when there is nothing to show.
  */
+/** The board's hub, only when the company has other live products to show there. */
+function familyHub(board: BoardWithHub) {
+  return board.hub && isProductFamily(board.hub.board_count ?? 0) ? board.hub : null;
+}
+
 function boardMeta(board: BoardWithHub): ReactNode {
   const site = siteLink(board.site);
+  const hub = familyHub(board);
   const addedBy = SHOW_ADDED_BY && !board.claimed_at && board.creator ? board.creator : null;
-  if (!site && !board.hub && !addedBy) return null;
+  if (!site && !hub && !addedBy) return null;
   return (
     <>
       {site ? (
@@ -384,10 +391,10 @@ function boardMeta(board: BoardWithHub): ReactNode {
           <span className="truncate">{site.label}</span>
         </a>
       ) : null}
-      {board.hub ? (
-        <Link to={`/h/${board.hub.slug}`} title={`All ${board.hub.name} products`} className={metaLink}>
+      {hub ? (
+        <Link to={`/h/${hub.slug}`} title={`All ${hub.name} products`} className={metaLink}>
           <Icon name="hub" size={13} />
-          <span className="truncate">{board.hub.name}</span>
+          <span className="truncate">{hub.name}</span>
         </Link>
       ) : null}
       {addedBy ? (

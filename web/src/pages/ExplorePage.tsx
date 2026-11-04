@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useSearchParams } from 'react-router';
-import { CATEGORIES, isLive, matchCatalogue, useBoards, useHubs, useTrending, useWanted, type Board, type BoardCategory, type Hub } from '../api';
+import { CATEGORIES, isLive, isProductFamily, matchCatalogue, useBoards, useHubs, useTrending, useWanted, type Board, type BoardCategory, type Hub } from '../api';
 import { BoardCard, CardGrid, HubRow, PostRow, RowItem, RowList, Section } from '../boards/parts';
 import { cx } from '../lib/cx';
 import { usePageTitle } from '../lib/usePageTitle';
@@ -86,9 +86,9 @@ export function ExplorePage() {
           retrying={boards.isRefetching || hubs.isRefetching}
         />
       ) : q.trim() || cat !== 'all' ? (
-        <Filtered q={q.trim()} cat={cat} boards={boards.data.filter(isLive)} hubs={hubs.data} />
+        <Filtered q={q.trim()} cat={cat} boards={boards.data.filter(isLive)} hubs={hubs.data.filter((h) => isProductFamily(h.boards.length))} />
       ) : (
-        <Discover boards={boards.data.filter(isLive)} hubs={hubs.data} />
+        <Discover boards={boards.data.filter(isLive)} hubs={hubs.data.filter((h) => isProductFamily(h.boards.length))} />
       )}
       {boards.isSuccess && hubs.isSuccess ? <MissingProduct q={q.trim()} /> : null}
     </section>

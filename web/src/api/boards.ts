@@ -49,6 +49,8 @@ export interface HubRef {
   /** Every domain the company owns, primary first (0026). */
   domains?: string[];
   status?: HubStatus;
+  /** On a board's own hub (fetchBoard): how many live products the company has, this one included. */
+  board_count?: number;
 }
 
 export interface BoardWithHub extends Board {
@@ -199,6 +201,12 @@ export const CATEGORIES: Array<{ value: 'all' | BoardCategory; label: string }> 
  */
 export const isLive = (b: Pick<Board, 'status'>) => (b.status ?? 'live') === 'live';
 
+/**
+ * A hub is only worth showing when it groups products: a company with a single
+ * live product stays out of Explore, and its board doesn't link to it.
+ */
+export const isProductFamily = (count: number) => count >= 2;
+
 /** Boards the composer may offer: live ones, plus the viewer's own pending boards. */
 export const isPostable = (b: Pick<Board, 'status' | 'created_by'>, viewerId: string | null) =>
   isLive(b) || (b.status === 'pending' && Boolean(viewerId) && b.created_by === viewerId);
@@ -233,14 +241,16 @@ export async function fetchBoard(slug: string): Promise<BoardWithHub | null> {
   const { data, error } = await getSupabase()
     .from('board')
     .select(
-      `${BOARD_COLUMNS}, review_note, hub:hub!hub_id(id, slug, name, claimed_at, primary_domain, status, hub_domain(domain, created_at)), creator:profile!board_created_by_fkey(id, handle, name, avatar_path)`,
+      `${BOARD_COLUMNS}, review_note, hub:hub!hub_id(id, slug, name, claimed_at, primary_domain, status, hub_domain(domain, created_at), boards:board(status)), creator:profile!board_created_by_fkey(id, handle, name, avatar_path)`,
     )
     .eq('slug', slug)
     .maybeSingle();
   if (error) throw error;
-  const row = data as (BoardWithHub & { hub: (HubRef & { hub_domain?: Array<{ domain: string; created_at?: string }> }) | null }) | null;
+  const row = data as (BoardWithHub & { hub: (HubRef & { hub_domain?: Array<{ domain: string; created_at?: string }>; boards?: Array<Pick<Board, 'status'>> }) | null }) | null;
   if (!row) return null;
-  return { ...row, hub: row.hub ? withDomains(row.hub) : null };
+  if (!row.hub) return { ...row, hub: null };
+  const { boards, ...hub } = row.hub;
+  return { ...row, hub: { ...withDomains(hub), board_count: (boards ?? []).filter(isLive).length } };
 }
 
 /** Every hub with its boards. */

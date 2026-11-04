@@ -95,7 +95,7 @@ describe('board page', () => {
   });
 
   it('falls back to the company hub, by name, when the board has one', async () => {
-    boardsApi.fetchBoard.mockResolvedValue({ ...FIGJAM, hub: { id: FIGMA_HUB.id, slug: 'figma', name: 'Figma' } });
+    boardsApi.fetchBoard.mockResolvedValue({ ...FIGJAM, hub: { id: FIGMA_HUB.id, slug: 'figma', name: 'Figma', board_count: 2 } });
     renderAt('/b/figjam');
     const back = await screen.findByRole('link', { name: 'Back to Figma' });
     expect(back.getAttribute('href')).toBe('/h/figma');
@@ -281,7 +281,7 @@ describe('board page', () => {
   });
 
   it('shows Manage to the team and links the hub', async () => {
-    boardsApi.fetchBoard.mockResolvedValue({ ...FIGJAM, claimed_at: '2026-10-01T00:00:00Z', hub: { id: FIGMA_HUB.id, slug: 'figma', name: 'Figma' } });
+    boardsApi.fetchBoard.mockResolvedValue({ ...FIGJAM, claimed_at: '2026-10-01T00:00:00Z', hub: { id: FIGMA_HUB.id, slug: 'figma', name: 'Figma', board_count: 2 } });
     boardsApi.fetchIsBoardTeam.mockResolvedValue(true);
     renderAt('/b/figjam', true);
     expect((await screen.findByRole('link', { name: 'Manage' })).getAttribute('href')).toBe('/b/figjam/manage');
@@ -314,8 +314,15 @@ describe('board header meta line', () => {
     expect(screen.queryByRole('link', { name: /hub/ })).toBeNull();
   });
 
+  it('leaves out the hub link and back link when the company has one live product', async () => {
+    boardsApi.fetchBoard.mockResolvedValue({ ...FIGMA, site: 'figma.com', hub: { id: FIGMA_HUB.id, slug: 'figma', name: 'Figma', board_count: 1 } });
+    renderAt('/b/figma');
+    await metaLine('Figma');
+    expect(document.querySelector('a[href="/h/figma"]')).toBeNull();
+  });
+
   it('adds the company (hub) link with its icon, as the company name, when the board belongs to a hub, once', async () => {
-    boardsApi.fetchBoard.mockResolvedValue({ ...FIGMA, site: 'figma.com', hub: { id: FIGMA_HUB.id, slug: 'figma', name: 'Figma' } });
+    boardsApi.fetchBoard.mockResolvedValue({ ...FIGMA, site: 'figma.com', hub: { id: FIGMA_HUB.id, slug: 'figma', name: 'Figma', board_count: 2 } });
     renderAt('/b/figma');
     const line = await metaLine('Figma');
     const hub = within(line).getByRole('link', { name: 'Figma' });
@@ -512,6 +519,13 @@ describe('explore', () => {
     expect(chips.getByRole('button', { name: 'Code editors' })).toBeTruthy();
     expect(chips.getByRole('button', { name: 'Travel' }).getAttribute('aria-pressed')).toBe('true');
     expect(chips.queryByRole('button', { name: 'Shopping' })).toBeNull();
+  });
+
+  it('leaves out a hub with a single live product', async () => {
+    boardsApi.fetchHubs.mockResolvedValue([{ ...FIGMA_HUB, boards: [FIGMA] }]);
+    renderAt('/explore');
+    await screen.findAllByRole('link', { name: /Figma/ });
+    expect(screen.queryByRole('heading', { name: 'Hubs' })).toBeNull();
   });
 
   it('says when nothing matches', async () => {
