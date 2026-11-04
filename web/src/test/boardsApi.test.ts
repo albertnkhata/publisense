@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { makeBoard } from './boardFixtures';
 import {
   compactCount,
   siteLink,
@@ -390,7 +391,8 @@ describe('company names (0030)', () => {
     claimed_at: null,
     created_at: '',
     follower_count: 0,
-    boards: [],
+    // Two live products: a hub with one is left out of the catalogue.
+    boards: [makeBoard({ id: 'grok', slug: 'grok', name: 'Grok' }), makeBoard({ id: 'grok-imagine', slug: 'grok-imagine', name: 'Grok Imagine' })],
     ...over,
   });
 
