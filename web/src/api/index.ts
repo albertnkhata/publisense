@@ -8,6 +8,7 @@ export * from './profile';
 export * from './notifications';
 export * from './account';
 export * from './posts';
+export * from './postImages';
 export * from './postHooks';
 export * from './boards';
 export * from './boardHooks';

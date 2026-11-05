@@ -294,6 +294,13 @@ jobs:
           PGPASSWORD: postgres
         run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_dm_email_test.sql
 
+      # Post images (0060): the bucket and its policies, the four-image cap and path
+      # shape, own uploads only, and the edit window. Rolled back.
+      - name: v2 post image tests
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_post_images_test.sql
+
       # Join request messages (0049, #189): length, trimming, who reads them, the
       # notification payload, and that the old three-argument call still works.
       - name: v2 join message tests

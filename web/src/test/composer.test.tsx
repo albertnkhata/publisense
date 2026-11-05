@@ -107,7 +107,7 @@ describe('composer', () => {
     fireEvent.click(post);
     await waitFor(() =>
       expect(postsApi.createPost).toHaveBeenCalledWith(
-        { boardId: SUPABASE.id, type: 'feature', title: 'Branching for preview databases', body: 'One per pull request.', platform: 'web' },
+        { boardId: SUPABASE.id, type: 'feature', title: 'Branching for preview databases', body: 'One per pull request.', platform: 'web', images: [] },
         TEST_VIEWER.id,
       ),
     );

@@ -57,6 +57,8 @@ export interface Post {
   source_author: string | null;
   /** The device it is about, when the poster said (0033). */
   platform: Platform | null;
+  /** Screenshots, as post-images paths in display order (0060). Absent on older reads. */
+  images?: string[];
   type: PostType;
   status: PostStatus;
   title: string;
@@ -88,7 +90,7 @@ export const FEED_PAGE_SIZE = 20;
 const PERSON = 'id, handle, name, avatar_path';
 const BOARD = 'id, slug, name, color, logo_path, status';
 export const POST_SELECT =
-  'id, board_id, author_id, source_url, source_author, platform, type, status, title, body, merged_into, hidden_at, edited_at, created_at, vote_count, reply_count, ' +
+  'id, board_id, author_id, source_url, source_author, platform, images, type, status, title, body, merged_into, hidden_at, edited_at, created_at, vote_count, reply_count, ' +
   `author:profile!author_id(${PERSON}), board:board!board_id(${BOARD})`;
 const REPLY_SELECT = `id, post_id, parent_id, author_id, body, is_official, hidden_at, edited_at, created_at, author:profile!author_id(${PERSON})`;
 
@@ -846,6 +848,8 @@ export async function fetchSimilar(title: string, boardIds: string[], viewerId: 
 
 export interface NewPost extends PostDraft {
   boardId: string;
+  /** Uploaded screenshot paths, in order (0060). */
+  images?: string[];
 }
 
 const isRlsReadBack = (e: { code?: string; message?: string } | null) =>
@@ -871,7 +875,14 @@ export function slowDown(error: { hint?: string | null } | null | undefined, wha
 
 export async function createPost(d: NewPost, viewerId: string | null): Promise<Post> {
   const sb = getSupabase();
-  const row = { board_id: d.boardId, type: d.type, title: d.title.trim(), body: d.body.trim(), ...(d.platform ? { platform: d.platform } : {}) };
+  const row = {
+    board_id: d.boardId,
+    type: d.type,
+    title: d.title.trim(),
+    body: d.body.trim(),
+    ...(d.platform ? { platform: d.platform } : {}),
+    ...(d.images?.length ? { images: d.images } : {}),
+  };
   const first = await sb.from('post').insert(row).select(POST_SELECT).single();
   let data: unknown = first.data;
   let error = first.error;
@@ -894,6 +905,7 @@ export async function createPost(d: NewPost, viewerId: string | null): Promise<P
   }
   if (error || !data) {
     if (error?.code === 'PT429') throw failed(slowDown(error, 'posts'));
+    if (error?.hint === 'images_not_owned') throw failed('One of the images didn’t upload properly. Remove it and add it again.');
     if (error?.code === '42501') throw failed('You can’t post on this board.');
     if (error?.code === '23514') throw failed('Check the title and details, then try again.');
     throw failed('We couldn’t post this. Try again.');

@@ -6,6 +6,7 @@ import { sharePost } from '../lib/share';
 import { useViewer } from '../lib/viewer';
 import { useRequireAuth } from '../shell/auth';
 import { BoardAvatar, Icon, StatusPill, TypePill, UserAvatar, useToast } from '../ui';
+import { PostImages } from './PostImages';
 import { PostMenu } from './PostMenu';
 import { TeamByline } from './TeamByline';
 import { VoteButton } from './VoteButton';
@@ -79,6 +80,8 @@ export function PostCard({ post, variant = 'feed', onDeleted, hideBoard = false 
             {post.body}
           </p>
         ) : null}
+
+        <PostImages paths={post.images} title={post.title} page={page} />
 
         {!page && post.official ? <OfficialQuote post={post} /> : null}
 
