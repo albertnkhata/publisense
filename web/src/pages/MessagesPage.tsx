@@ -34,7 +34,8 @@ import { NotFound } from './NotFound';
  * once it is accepted. /messages/to/:handle opens the conversation with that person,
  * or an empty one whose first send starts it.
  *
- * Step 2: staff only (useMessagesEnabled). Updates poll; Realtime comes in step 3.
+ * Staff only for now (useMessagesEnabled). New messages arrive over Realtime
+ * (useDmLive); a slow poll backs it up.
  */
 
 type Tab = 'inbox' | 'requests';

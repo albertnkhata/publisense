@@ -3,6 +3,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes } from 'react-router';
 import { dmErrorMessage, type Conversation, type DmMessage } from '../api/messages';
 import { ConversationPage, MessagesPage, NewConversationPage, NoConversationPage } from '../pages/MessagesPage';
+import { resetDmLiveForTests } from '../api/messageHooks';
 import { iso, ME, OTHER } from './postFixtures';
 import { renderWith, TEST_VIEWER } from './renderApp';
 
@@ -15,6 +16,7 @@ const dm = vi.hoisted(() => ({
   deleteConversation: vi.fn(),
   markConversationRead: vi.fn(),
   setPersonBlocked: vi.fn(),
+  subscribeToDmMessages: vi.fn(),
 }));
 const mod = vi.hoisted(() => ({ fetchIsPlatformAdmin: vi.fn() }));
 const people = vi.hoisted(() => ({ fetchProfileByHandle: vi.fn() }));
@@ -62,6 +64,8 @@ beforeEach(() => {
   dm.acceptRequest.mockResolvedValue(undefined);
   dm.deleteConversation.mockResolvedValue(undefined);
   dm.setPersonBlocked.mockResolvedValue(undefined);
+  resetDmLiveForTests();
+  dm.subscribeToDmMessages.mockImplementation(() => () => {});
 });
 
 describe('messages list', () => {
@@ -195,5 +199,34 @@ describe('dm error copy', () => {
     expect(dmErrorMessage({ error: 'rate_limited', hint: 'short' })).toMatch(/quickly/);
     expect(dmErrorMessage({ error: 'confirm_email' })).toMatch(/Confirm your email/);
     expect(dmErrorMessage({ error: 'weird' })).toBe('Something went wrong. Try again.');
+  });
+});
+
+describe('realtime', () => {
+  it('opens one shared channel and refreshes the thread when a message lands', async () => {
+    let onInsert: (row: { conversation_id: string }) => void = () => {};
+    const stop = vi.fn();
+    dm.subscribeToDmMessages.mockImplementation((_viewer: string, ins: typeof onInsert) => {
+      onInsert = ins;
+      return stop;
+    });
+    dm.fetchConversations.mockResolvedValue([conv()]);
+    dm.fetchMessages.mockResolvedValue([msg('m1', OTHER.id, 'See you there')]);
+    renderAt('/messages/c1');
+    expect(await screen.findByText('See you there')).toBeTruthy();
+    expect(dm.subscribeToDmMessages).toHaveBeenCalledTimes(1);
+    expect(dm.subscribeToDmMessages).toHaveBeenCalledWith(TEST_VIEWER.id, expect.any(Function), expect.any(Function));
+
+    dm.fetchMessages.mockResolvedValue([msg('m1', OTHER.id, 'See you there'), msg('m2', OTHER.id, 'Running late', 0)]);
+    onInsert({ conversation_id: 'c1' });
+    expect(await screen.findByText('Running late')).toBeTruthy();
+  });
+
+  it('stays closed for people outside the rollout', async () => {
+    mod.fetchIsPlatformAdmin.mockResolvedValue(false);
+    dm.fetchConversations.mockResolvedValue([conv()]);
+    renderAt('/messages');
+    expect(await screen.findByText(/Page not found|isn’t here|not found/i)).toBeTruthy();
+    expect(dm.subscribeToDmMessages).not.toHaveBeenCalled();
   });
 });

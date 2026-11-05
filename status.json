@@ -120,7 +120,7 @@
     ],
     "webTests": {
       "files": 46,
-      "cases": 582
+      "cases": 584
     },
     "gates": [
       {
