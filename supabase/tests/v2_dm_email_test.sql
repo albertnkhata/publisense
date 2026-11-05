@@ -49,9 +49,9 @@ select c_ab, least(ann, bea), greatest(ann, bea), ann from f
 union all select c_ac, least(ann, cal), greatest(ann, cal), ann from f
 union all select c_ad, least(ann, dee), greatest(ann, dee), ann from f;
 insert into public.dm_member (conversation_id, user_id, state, muted)
-select c_ab, ann, 'inbox', false from f union all select c_ab, bea, 'inbox', false from f
-union all select c_ac, ann, 'inbox', false from f union all select c_ac, cal, 'request', false from f
-union all select c_ad, ann, 'inbox', false from f union all select c_ad, dee, 'inbox', true from f;
+select c_ab, ann, 'inbox'::public.v2_dm_state, false from f union all select c_ab, bea, 'inbox', false from f
+union all select c_ac, ann, 'inbox'::public.v2_dm_state, false from f union all select c_ac, cal, 'request'::public.v2_dm_state, false from f
+union all select c_ad, ann, 'inbox'::public.v2_dm_state, false from f union all select c_ad, dee, 'inbox'::public.v2_dm_state, true from f;
 
 create function pg_temp.say(p_conv uuid, p_from uuid, p_body text, p_ago interval) returns void language sql as $$
   insert into public.dm_message (conversation_id, sender, body, created_at) values (p_conv, p_from, p_body, now() - p_ago);
@@ -105,7 +105,7 @@ select pg_temp.expect('0059: after reading, a new unread streak gets a new email
 update public.dm_member set last_read_at = now(), emailed_at = null where conversation_id = (select c_ab from f);
 select pg_temp.say(c_ab, ann, 'Setting off', interval '20 minutes') from f;
 update public.dm_member set last_read_at = now() - interval '25 minutes' where conversation_id = (select c_ab from f) and user_id = (select bea from f);
-insert into public.notification_pref (user_id, kind, channel, enabled) select bea, 'message', 'email', false from f;
+insert into public.notification_pref (user_id, kind, channel, enabled) select bea, 'message'::public.v2_notification_kind, 'email'::public.v2_channel, false from f;
 select pg_temp.expect('0059: the message email setting off sends nothing', public.v2_dm_email_flush() = 0);
 delete from public.notification_pref where user_id = (select bea from f) and kind = 'message';
 update public.dm_member set emailed_at = null where conversation_id = (select c_ab from f);
