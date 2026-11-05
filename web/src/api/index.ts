@@ -21,3 +21,5 @@ export * from './notificationHooks';
 export * from './products';
 export * from './productHooks';
 export * from './analytics';
+export * from './messages';
+export * from './messageHooks';

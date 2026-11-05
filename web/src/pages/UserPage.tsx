@@ -12,6 +12,7 @@ import {
   useAdminScopes,
   useBlocksFor,
   useFollowedUsers,
+  useMessagesEnabled,
   useFollowUser,
   useManaged,
   usePerson,
@@ -181,9 +182,19 @@ function ProfileActions({ person, self }: { person: PublicProfile; self: boolean
   return (
     <div className="flex shrink-0 items-center gap-2 max-md:order-3 max-md:w-full">
       <FollowPersonButton person={person} />
+      <MessagePersonButton person={person} />
       <PersonMenu person={person} onShare={share} />
     </div>
   );
+}
+
+/** Message (0058): staff only during the DM rollout (useMessagesEnabled). */
+function MessagePersonButton({ person }: { person: PublicProfile }) {
+  const { viewer } = useViewer();
+  const enabled = useMessagesEnabled(viewer?.id ?? null);
+  const navigate = useNavigate();
+  if (!enabled) return null;
+  return <IconButton icon="mail" label={`Message @${person.handle}`} onClick={() => void navigate(`/messages/to/${person.handle}`)} />;
 }
 
 export function FollowPersonButton({ person, size = 'md' }: { person: { id: string; handle: string }; size?: 'sm' | 'md' }) {

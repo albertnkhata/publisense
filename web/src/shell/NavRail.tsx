@@ -3,7 +3,7 @@ import { Link, NavLink, useLocation } from 'react-router';
 import { cx } from '../lib/cx';
 import { MQ, useMediaQuery } from '../lib/useMediaQuery';
 import { useShortcut } from '../lib/useShortcut';
-import { useIsPlatformAdmin, useUnreadCount } from '../api';
+import { useDmUnread, useIsPlatformAdmin, useMessagesEnabled, useUnreadCount } from '../api';
 import { useViewer } from '../lib/viewer';
 import { Icon, Tooltip, type IconName } from '../ui';
 import { BrandSymbol } from './BrandMark';
@@ -39,6 +39,8 @@ export function NavRail() {
   const collapsed = manual || belowXl;
   const unread = useUnreadCount(viewer?.id ?? null).data ?? 0;
   const staff = useIsPlatformAdmin(viewer?.id ?? null).data ?? false;
+  const messages = useMessagesEnabled(viewer?.id ?? null);
+  const dmUnread = useDmUnread(viewer?.id ?? null);
 
   const isFollowing = location.pathname === '/' && location.search.includes('scope=following');
   const isHome = location.pathname === '/' && !isFollowing;
@@ -99,6 +101,7 @@ export function NavRail() {
         <NavRow to="/explore" icon="search" label="Explore" collapsed={collapsed} />
         {viewer ? <NavRow to="/?scope=following" icon="users" label="Following" collapsed={collapsed} active={isFollowing} /> : null}
         {viewer ? <NavRow to="/notifications" icon="bell" label="Notifications" collapsed={collapsed} count={unread} /> : null}
+        {viewer && messages ? <NavRow to="/messages" icon="mail" label="Messages" collapsed={collapsed} count={dmUnread} /> : null}
       </nav>
 
       {staff ? <AdminSections collapsed={collapsed} /> : null}

@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { AppShell } from './shell/AppShell';
-import { NO_RAIL_NARROW, NO_RAIL_WIDE, SITE_PAGE, STAFF_PAGE } from './shell/layout';
+import { MESSAGES_PAGE, NO_RAIL_NARROW, NO_RAIL_WIDE, SITE_PAGE, STAFF_PAGE } from './shell/layout';
 import { NotFound } from './pages/NotFound';
 import {
   AdminDisputesPage,
@@ -13,10 +13,14 @@ import {
   AuthResetPage,
   BoardManagePage,
   BoardPage,
+  ConversationPage,
   ExplorePage,
   HomePage,
   HubManagePage,
   HubPage,
+  MessagesPage,
+  NewConversationPage,
+  NoConversationPage,
   NotificationsPage,
   PostPage,
   PrivacyPage,
@@ -52,6 +56,16 @@ export const routes = [
       { path: 'post/:id', element: <PostPage /> },
       { path: 'u/:handle', element: <UserPage /> },
       { path: 'notifications', handle: NO_RAIL_NARROW, element: <NotificationsPage /> },
+      {
+        path: 'messages',
+        handle: MESSAGES_PAGE,
+        element: <MessagesPage />,
+        children: [
+          { index: true, element: <NoConversationPage /> },
+          { path: 'to/:handle', element: <NewConversationPage /> },
+          { path: ':id', element: <ConversationPage /> },
+        ],
+      },
       { path: 'settings', handle: NO_RAIL_NARROW, element: <SettingsPage /> },
       { path: 'privacy', handle: SITE_PAGE, element: <PrivacyPage /> },
       { path: 'terms', handle: SITE_PAGE, element: <TermsPage /> },

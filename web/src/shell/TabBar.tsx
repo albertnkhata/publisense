@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, NavLink } from 'react-router';
-import { useIsPlatformAdmin, useUnreadCount } from '../api';
+import { useDmUnread, useIsPlatformAdmin, useMessagesEnabled, useUnreadCount } from '../api';
 import { cx } from '../lib/cx';
 import { useTheme } from '../lib/ThemeProvider';
 import { useViewer } from '../lib/viewer';
@@ -20,6 +20,8 @@ export function TabBar() {
   const [sheet, setSheet] = useState(false);
   const unread = useUnreadCount(viewer?.id ?? null).data ?? 0;
   const staff = useIsPlatformAdmin(viewer?.id ?? null).data ?? false;
+  const messages = useMessagesEnabled(viewer?.id ?? null);
+  const dmUnread = useDmUnread(viewer?.id ?? null);
 
   const tabClass = ({ isActive }: { isActive: boolean }) =>
     cx('relative flex h-8 items-center justify-center no-underline', isActive ? 'text-ink' : 'text-ink-muted');
@@ -42,6 +44,16 @@ export function TabBar() {
               <span className="relative">
                 <TabIcon name="bell" active={isActive} />
                 {unread > 0 ? <span aria-hidden="true" className="absolute top-0 -right-1 size-2 rounded-pill bg-brand ring-2 ring-card" /> : null}
+              </span>
+            )}
+          </NavLink>
+        ) : null}
+        {viewer && messages ? (
+          <NavLink to="/messages" aria-label={dmUnread > 0 ? `Messages, ${dmUnread} unread` : 'Messages'} className={tabClass}>
+            {({ isActive }) => (
+              <span className="relative">
+                <TabIcon name="mail" active={isActive} />
+                {dmUnread > 0 ? <span aria-hidden="true" className="absolute top-0 -right-1 size-2 rounded-pill bg-brand ring-2 ring-card" /> : null}
               </span>
             )}
           </NavLink>

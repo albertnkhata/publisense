@@ -18,6 +18,10 @@ import { useMatches } from 'react-router';
  * - `topBar: false` drops the top bar from lg up, where the nav rail is
  *   already there, for staff screens (/admin) where search and the bell add
  *   nothing. Below lg it stays: it carries the brand, search and the bell there.
+ * - `fill: true` makes the page exactly one screen tall (no page scroll) and the
+ *   full width beside the nav rail, edge to edge (no column cap, no gutters): the
+ *   page lays out its own scrolling panes, and anything at its foot stays at the
+ *   foot of the screen. For Messages, whose composer sits at the bottom always.
  * - `chrome` picks the frame around the page:
  *   - `'app'` (the default): nav rail, top bar, tab bar at sm.
  *   - `'site'`: a plain website header (brand, Terms · Privacy, Sign in or
@@ -33,6 +37,7 @@ export interface ShellHandle {
   width?: ShellWidth;
   chrome?: ShellChrome;
   topBar?: boolean;
+  fill?: boolean;
 }
 
 export interface ShellLayout {
@@ -42,6 +47,8 @@ export interface ShellLayout {
   chrome: ShellChrome;
   /** False: no top bar from lg up (it stays below lg). */
   topBar: boolean;
+  /** One screen tall, no page scroll: the page scrolls its own panes. */
+  fill: boolean;
 }
 
 /** No rail, wide column: dense staff and owner screens (/admin, Manage). */
@@ -53,11 +60,15 @@ export const NO_RAIL_NARROW = { rail: false, width: 'narrow' } as const satisfie
 /** Website header instead of the app's nav rail, reading-width column: the legal pages. */
 export const SITE_PAGE = { chrome: 'site', rail: false, width: 'narrow' } as const satisfies ShellHandle;
 
+/** Messages: one screen tall, wide, no top bar on desktop (the nav rail has Messages). */
+export const MESSAGES_PAGE = { rail: false, width: 'wide', topBar: false, fill: true } as const satisfies ShellHandle;
+
 export function shellLayoutFor(handles: unknown[]): ShellLayout {
   let rail = true;
   let width: ShellWidth | undefined;
   let chrome: ShellChrome = 'app';
   let topBar = true;
+  let fill = false;
   for (const h of handles) {
     if (!h || typeof h !== 'object') continue;
     const s = h as ShellHandle;
@@ -65,10 +76,11 @@ export function shellLayoutFor(handles: unknown[]): ShellLayout {
     if (s.width === 'narrow' || s.width === 'wide') width = s.width;
     if (s.chrome === 'app' || s.chrome === 'site') chrome = s.chrome;
     if (typeof s.topBar === 'boolean') topBar = s.topBar;
+    if (typeof s.fill === 'boolean') fill = s.fill;
   }
-  if (chrome === 'site') return { rail: false, width: 'narrow', chrome, topBar };
-  if (rail) return { rail, width: 'narrow', chrome, topBar };
-  return { rail, width: width ?? 'wide', chrome, topBar };
+  if (chrome === 'site') return { rail: false, width: 'narrow', chrome, topBar, fill: false };
+  if (rail) return { rail, width: 'narrow', chrome, topBar, fill: false };
+  return { rail, width: width ?? 'wide', chrome, topBar, fill };
 }
 
 export function useShellLayout(): ShellLayout {

@@ -36,7 +36,7 @@ export function AppShell() {
   const onTheme = useCallback(() => toggle(), [toggle]);
   useShortcut('d', onTheme, { ctrl: true });
   const { pathname } = useLocation();
-  const { rail, width, chrome, topBar } = useShellLayout();
+  const { rail, width, chrome, topBar, fill } = useShellLayout();
 
   useEffect(() => {
     // Board pages (/b/:slug) log their own page_view with boardId once the board loads;
@@ -72,12 +72,21 @@ export function AppShell() {
           <SiteFooter />
         </div>
       ) : (
-        <div className="flex min-h-dvh bg-page text-ink">
+        <div className={cx('flex bg-page text-ink', fill ? 'h-dvh overflow-hidden' : 'min-h-dvh')}>
           <NavRail />
-          <div className="flex min-w-0 flex-1 flex-col">
+          <div className={cx('flex min-w-0 flex-1 flex-col', fill && 'min-h-0')}>
             <TopBar always={!rail && topBar} />
-            <div className="mx-auto flex w-full justify-center gap-6 px-7 pt-6 pb-10 max-sm:px-3 max-sm:pt-4 max-sm:pb-10">
-              <main id="main" tabIndex={-1} className={cx('w-full min-w-0 flex-1 outline-none', width === 'narrow' ? 'max-w-content' : 'max-w-wide')}>
+            <div
+              className={cx(
+                'mx-auto flex w-full justify-center gap-6',
+                fill ? 'min-h-0 flex-1 max-sm:pb-tabbar' : 'px-7 pt-6 pb-10 max-sm:px-3 max-sm:pt-4 max-sm:pb-10',
+              )}
+            >
+              <main
+                id="main"
+                tabIndex={-1}
+                className={cx('w-full min-w-0 flex-1 outline-none', fill ? 'flex min-h-0 flex-col' : width === 'narrow' ? 'max-w-content' : 'max-w-wide')}
+              >
                 <Outlet />
               </main>
               {rail ? <RightRail /> : null}

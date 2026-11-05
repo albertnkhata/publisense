@@ -31,3 +31,6 @@ export { SettingsPage } from './SettingsPage';
 export { PrivacyPage, TermsPage } from './LegalPages';
 export { AuthResetPage } from './AuthResetPage';
 export { UnsubscribePage } from './UnsubscribePage';
+
+// Direct messages (0058).
+export { ConversationPage, MessagesPage, NewConversationPage, NoConversationPage } from './MessagesPage';
