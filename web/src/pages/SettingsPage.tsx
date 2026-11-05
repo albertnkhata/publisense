@@ -330,10 +330,10 @@ function NotificationsSection({ viewer }: { viewer: Viewer }) {
 
 // ------------------------------------------------------------------ messages
 
-const DM_POLICY_OPTIONS: { value: DmPolicy; label: string; hint: string }[] = [
-  { value: 'everyone', label: 'Everyone', hint: 'People you don’t follow land in Requests.' },
-  { value: 'following', label: 'People you follow', hint: 'Nobody else can start a conversation.' },
-  { value: 'nobody', label: 'No one', hint: 'Conversations you already have stay open.' },
+const DM_POLICY_OPTIONS: { value: DmPolicy; label: string }[] = [
+  { value: 'everyone', label: 'Everyone' },
+  { value: 'following', label: 'People you follow' },
+  { value: 'nobody', label: 'No one' },
 ];
 
 export function MessagesSettings({ viewer }: { viewer: Viewer }) {
@@ -350,7 +350,7 @@ export function MessagesSettings({ viewer }: { viewer: Viewer }) {
   const blockedList = blocked.data ?? [];
 
   return (
-    <Section id="messages" title="Messages" description="Who can start a conversation with you, and who you’ve blocked.">
+    <Section id="messages" title="Messages">
       <Card padding="none">
         <fieldset className="m-0 border-0 p-0" aria-labelledby={groupId}>
           <legend id={groupId} className="px-5 pt-4 pb-1 text-base font-medium text-ink max-sm:px-4">
@@ -363,20 +363,17 @@ export function MessagesSettings({ viewer }: { viewer: Viewer }) {
           ) : (
             <div className="flex flex-col pb-2">
               {DM_POLICY_OPTIONS.map((o) => (
-                <label key={o.value} className="flex cursor-pointer items-start gap-3 px-5 py-2 max-sm:px-4">
+                <label key={o.value} className="flex cursor-pointer items-center gap-3 px-5 py-2 max-sm:px-4">
                   <input
                     type="radio"
                     name="dm-policy"
-                    className="mt-1 size-4 cursor-pointer accent-brand"
+                    className="size-4 cursor-pointer accent-brand"
                     checked={current === o.value}
                     onChange={() =>
                       setPolicy.mutate(o.value, { onSuccess: () => toast('Saved'), onError: () => toast('Couldn’t save that change. Try again.') })
                     }
                   />
-                  <span className="min-w-0">
-                    <span className="block text-base text-ink">{o.label}</span>
-                    <span className="block text-sm text-ink-muted">{o.hint}</span>
-                  </span>
+                  <span className="text-base text-ink">{o.label}</span>
                 </label>
               ))}
             </div>
