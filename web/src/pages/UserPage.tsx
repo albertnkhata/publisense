@@ -12,6 +12,7 @@ import {
   useAdminScopes,
   useBlocksFor,
   useFollowedUsers,
+  useDmPolicy,
   useMessagesEnabled,
   useFollowUser,
   useManaged,
@@ -192,8 +193,11 @@ function ProfileActions({ person, self }: { person: PublicProfile; self: boolean
 function MessagePersonButton({ person }: { person: PublicProfile }) {
   const { viewer } = useViewer();
   const enabled = useMessagesEnabled(viewer?.id ?? null);
+  const policy = useDmPolicy(enabled ? person.id : null);
   const navigate = useNavigate();
-  if (!enabled) return null;
+  // Hidden on your own profile and for people who take no messages. "People they follow"
+  // is left to the server, which says so clearly if you can't message them.
+  if (!enabled || viewer?.id === person.id || policy.data === 'nobody') return null;
   return <IconButton icon="mail" label={`Message @${person.handle}`} onClick={() => void navigate(`/messages/to/${person.handle}`)} />;
 }
 

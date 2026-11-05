@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState, type ChangeEvent, type FormEvent, t
 import { useNavigate } from 'react-router';
 import {
   AUTH_COPY,
+  avatarSrc,
   BIO_MAX,
   changeEmail,
   changePassword,
@@ -19,13 +20,19 @@ import {
   setNewPassword,
   updateProfile,
   uploadAvatar,
+  useBlockedPeople,
   useDeletionBlockers,
+  useDmPolicy,
+  useMessagesEnabled,
+  useSetDmPolicy,
+  useSetPersonBlocked,
   useNotificationPrefs,
   useSetNotificationPref,
   validateAvatarFile,
   validateProfile,
   type AvatarType,
   type Channel,
+  type DmPolicy,
   type NotificationKind,
   type OwnedScope,
   type ProfileErrors,
@@ -74,6 +81,7 @@ export function SettingsPage() {
         <>
           <ProfileSection viewer={viewer} />
           <NotificationsSection viewer={viewer} />
+          <MessagesSettings viewer={viewer} />
           <AccountSection viewer={viewer} />
         </>
       )}
@@ -315,6 +323,94 @@ function NotificationsSection({ viewer }: { viewer: Viewer }) {
             </tbody>
           </table>
         )}
+      </Card>
+    </Section>
+  );
+}
+
+// ------------------------------------------------------------------ messages
+
+const DM_POLICY_OPTIONS: { value: DmPolicy; label: string }[] = [
+  { value: 'everyone', label: 'Everyone' },
+  { value: 'following', label: 'People you follow' },
+  { value: 'nobody', label: 'No one' },
+];
+
+export function MessagesSettings({ viewer }: { viewer: Viewer }) {
+  const enabled = useMessagesEnabled(viewer.id);
+  const policy = useDmPolicy(enabled ? viewer.id : null);
+  const setPolicy = useSetDmPolicy();
+  const blocked = useBlockedPeople(viewer.id, enabled);
+  const unblock = useSetPersonBlocked();
+  const { toast } = useToast();
+  const groupId = useId();
+  if (!enabled) return null;
+
+  const current = setPolicy.isPending && setPolicy.variables ? setPolicy.variables : (policy.data ?? 'everyone');
+  const blockedList = blocked.data ?? [];
+
+  return (
+    <Section id="messages" title="Messages">
+      <Card padding="none">
+        <fieldset className="m-0 border-0 p-0" aria-labelledby={groupId}>
+          <legend id={groupId} className="px-5 pt-4 pb-1 text-base font-medium text-ink max-sm:px-4">
+            Who can message you
+          </legend>
+          {policy.isPending ? (
+            <div className="px-5 py-3">
+              <Skeleton variant="row" />
+            </div>
+          ) : (
+            <div className="flex flex-col pb-2">
+              {DM_POLICY_OPTIONS.map((o) => (
+                <label key={o.value} className="flex cursor-pointer items-center gap-3 px-5 py-2 max-sm:px-4">
+                  <input
+                    type="radio"
+                    name="dm-policy"
+                    className="size-4 cursor-pointer accent-brand"
+                    checked={current === o.value}
+                    onChange={() =>
+                      setPolicy.mutate(o.value, { onSuccess: () => toast('Saved'), onError: () => toast('Couldn’t save that change. Try again.') })
+                    }
+                  />
+                  <span className="text-base text-ink">{o.label}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </fieldset>
+        <div className="border-t border-line px-5 py-4 max-sm:px-4">
+          <h3 className="m-0 text-base font-medium text-ink">Blocked people</h3>
+          {blocked.isPending ? (
+            <Skeleton variant="row" />
+          ) : blockedList.length === 0 ? (
+            <p className="mt-1 mb-0 text-sm text-ink-muted">You haven’t blocked anyone.</p>
+          ) : (
+            <ul className="m-0 mt-2 flex list-none flex-col p-0" aria-label="Blocked people">
+              {blockedList.map((p) => (
+                <li key={p.id} className="flex items-center gap-3 border-t border-line py-2 first:border-t-0">
+                  <UserAvatar size="md" name={p.name || p.handle} src={avatarSrc(p)} />
+                  <span className="min-w-0 flex-1 truncate text-base text-ink">
+                    {p.name || p.handle} <span className="text-sm text-ink-muted">@{p.handle}</span>
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    loading={unblock.isPending && unblock.variables?.userId === p.id}
+                    onClick={() =>
+                      unblock.mutate(
+                        { userId: p.id, on: false },
+                        { onSuccess: () => toast(`Unblocked @${p.handle}`), onError: (e) => toast(e.message) },
+                      )
+                    }
+                  >
+                    Unblock
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </Card>
     </Section>
   );

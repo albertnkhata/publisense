@@ -133,6 +133,31 @@ export async function markConversationRead(conversationId: string): Promise<void
 export async function setPersonBlocked(userId: string, on: boolean): Promise<void> {
   await rpc(on ? 'block_user' : 'unblock_user', { p_user: userId });
 }
+/** Muting stops the unread badge and (step 4) the email for this conversation; messages still arrive. */
+export async function muteConversation(conversationId: string, muted: boolean): Promise<void> {
+  await rpc('dm_mute', { p_conversation: conversationId, p_muted: muted });
+}
+
+/** Who may start a conversation with this person. Public on profile, so the Message button can respect it. */
+export async function fetchDmPolicy(userId: string): Promise<DmPolicy> {
+  const { data, error } = await getSupabase().from('profile').select('dm_policy').eq('id', userId).maybeSingle();
+  if (error) throw error;
+  const v = (data as { dm_policy?: unknown } | null)?.dm_policy;
+  return v === 'following' || v === 'nobody' ? v : 'everyone';
+}
+export async function setDmPolicy(policy: DmPolicy): Promise<void> {
+  await rpc('set_dm_policy', { p_policy: policy });
+}
+
+export interface BlockedPerson extends PersonRef {
+  blocked_at: string;
+}
+/** People the viewer has blocked, newest first. Only the blocker can see this list. */
+export async function fetchBlockedPeople(): Promise<BlockedPerson[]> {
+  const { data, error } = await getSupabase().rpc('blocked_users');
+  if (error) throw error;
+  return (data ?? []) as BlockedPerson[];
+}
 
 /**
  * Step 3: Realtime. One channel on INSERTs into dm_message. There is no filter:
