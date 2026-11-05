@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes } from 'react-router';
 import { dmErrorMessage, type Conversation, type DmMessage } from '../api/messages';
-import { ConversationPage, MessagesPage, NewConversationPage } from '../pages/MessagesPage';
+import { ConversationPage, MessagesPage, NewConversationPage, NoConversationPage } from '../pages/MessagesPage';
 import { iso, ME, OTHER } from './postFixtures';
 import { renderWith, TEST_VIEWER } from './renderApp';
 
@@ -43,9 +43,11 @@ const msg = (id: string, sender: string, body: string, hoursAgo = 1): DmMessage 
 function renderAt(path: string) {
   return renderWith(
     <Routes>
-      <Route path="/messages" element={<MessagesPage />} />
-      <Route path="/messages/to/:handle" element={<NewConversationPage />} />
-      <Route path="/messages/:id" element={<ConversationPage />} />
+      <Route path="/messages" element={<MessagesPage />}>
+        <Route index element={<NoConversationPage />} />
+        <Route path="to/:handle" element={<NewConversationPage />} />
+        <Route path=":id" element={<ConversationPage />} />
+      </Route>
     </Routes>,
     { viewer: TEST_VIEWER, path },
   );
@@ -86,6 +88,36 @@ describe('messages list', () => {
     renderAt('/messages');
     expect(await screen.findByText(/Page not found|isn’t here|not found/i)).toBeTruthy();
     expect(dm.fetchConversations).not.toHaveBeenCalled();
+  });
+});
+
+describe('two-pane layout', () => {
+  it('keeps the list beside the open conversation and marks the open one', async () => {
+    dm.fetchConversations.mockResolvedValue([conv(), conv({ id: 'c3', other: STRANGER, unread: 0, last_body: 'Later' })]);
+    dm.fetchMessages.mockResolvedValue([msg('m2', OTHER.id, 'See you there')]);
+    renderAt('/messages/c1');
+    const inbox = await screen.findByRole('list', { name: 'Inbox' });
+    expect(within(inbox).getAllByRole('link')).toHaveLength(2);
+    expect(within(inbox).getByRole('link', { current: 'page' }).getAttribute('href')).toBe('/messages/c1');
+    expect(await screen.findByRole('region', { name: 'Conversation with @jmwamba' })).toBeTruthy();
+  });
+
+  it('shows Select a message with nothing open', async () => {
+    dm.fetchConversations.mockResolvedValue([conv()]);
+    renderAt('/messages');
+    expect(await screen.findByText('Select a message')).toBeTruthy();
+  });
+
+  it('opens on Requests when the open conversation is a request', async () => {
+    dm.fetchConversations.mockResolvedValue([conv({ id: 'c2', other: STRANGER, state: 'request' })]);
+    renderAt('/messages/c2');
+    expect(await screen.findByRole('list', { name: 'Requests' })).toBeTruthy();
+  });
+
+  it('says so when a conversation is gone', async () => {
+    dm.fetchConversations.mockResolvedValue([conv()]);
+    renderAt('/messages/nope');
+    expect(await screen.findByText('This conversation isn’t available')).toBeTruthy();
   });
 });
 

@@ -147,6 +147,7 @@
   --spacing-date: 120px;        /* not in §3: changelog date column (mockup .cl-entry) */
   --spacing-select: 160px;    /* not in §3: status and role selects in Manage rows (mockup .mg-select) */
   --spacing-list: 300px;
+  --spacing-list-pane: 360px; /* not in §3: the conversation list beside an open conversation on /messages (lg up) */
   --spacing-tabbar: 57px;     /* not in §3: the tab bar's height at sm, so a sticky message composer sits on top of it */
   --spacing-fab: 72px;        /* not in §3: floating Post button's bottom offset at sm, clearing the 57px tab bar by 16px */      /* not in §3: scrolling picker list in the merge dialog (mockup .mgm-list) */
 
