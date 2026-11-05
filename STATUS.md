@@ -91,17 +91,17 @@ _CI steps read from `.github/workflows/ci.yml`; v2 test counts are under v2 buil
 
 <!-- status:live:start — refreshed by `node scripts/status.mjs --live`; may lag until the next scheduled refresh -->
 
-_probed 2026-10-29T06:01:04Z · anything that could not be read says `unknown` rather than guessing_
+_probed 2026-11-05T06:01:06Z · anything that could not be read says `unknown` rather than guessing_
 
 ### Production
 
-- https://publisense.app → **200** · served entry bundle `/assets/index-C-wQC2Fo.js`
+- https://publisense.app → **200** · served entry bundle `/assets/index-BOplqDPF.js`
 - www → 308 → https://publisense.app/
-- production deployment: `1e89427` (READY, 2026-10-29T05:19:34.576Z)
+- production deployment: `eff83fb` (READY, 2026-11-04T15:54:49.029Z)
 
 ### Data
 
-- board **31** · hub **6** · post **12** · reply **1** · vote **0** · follow **7** · profile **8** · status_event **4**
+- board **31** · hub **6** · post **12** · reply **1** · vote **0** · follow **9** · profile **8** · status_event **4**
 - counted with an authenticated probe; as an anonymous visitor these read: follow = restricted
 - post: **12** total = **11 imported** (no author, sourced elsewhere) + **1 from members**
 - auth users: **8**
@@ -117,7 +117,7 @@ _probed 2026-10-29T06:01:04Z · anything that could not be read says `unknown` r
 ### Work queue
 
 - open issues: none
-- open PRs: none
+- open PRs: #262 DMs step 2: Messages inbox, requests and threads (staff only) · #254 chore: refresh the live status block
 
 <!-- status:live:end -->
 
