@@ -342,6 +342,8 @@ export function MessagesSettings({ viewer }: { viewer: Viewer }) {
   const setPolicy = useSetDmPolicy();
   const blocked = useBlockedPeople(viewer.id, enabled);
   const unblock = useSetPersonBlocked();
+  const prefs = useNotificationPrefs(enabled ? viewer.id : null);
+  const setPref = useSetNotificationPref(viewer.id);
   const { toast } = useToast();
   const groupId = useId();
   if (!enabled) return null;
@@ -379,6 +381,21 @@ export function MessagesSettings({ viewer }: { viewer: Viewer }) {
             </div>
           )}
         </fieldset>
+        <label className="flex cursor-pointer items-center gap-3 border-t border-line px-5 py-3 max-sm:px-4">
+          <input
+            type="checkbox"
+            className="size-4 cursor-pointer accent-brand"
+            disabled={!prefs.data}
+            checked={prefs.data?.['message:email'] ?? true}
+            onChange={(e) =>
+              setPref.mutate(
+                { kind: 'message', channel: 'email', enabled: e.target.checked },
+                { onError: () => toast('Couldn’t save that change. Try again.') },
+              )
+            }
+          />
+          <span className="text-base text-ink">Email me about unread messages</span>
+        </label>
         <div className="border-t border-line px-5 py-4 max-sm:px-4">
           <h3 className="m-0 text-base font-medium text-ink">Blocked people</h3>
           {blocked.isPending ? (

@@ -29,19 +29,29 @@ export const KIND_COPY: Record<NotificationKind, { label: string; hint: string }
   product: { label: 'Products you add', hint: 'A product you added is approved, or not' },
 };
 
+/**
+ * 'message' (0059) is email-only and set from the Messages section of Settings
+ * (DMs are still staff only), so it stays out of NOTIFICATION_KINDS and the table.
+ */
+export type PrefKind = NotificationKind | 'message';
+
 export interface PrefRow {
-  kind: NotificationKind;
+  kind: PrefKind;
   channel: Channel;
   enabled: boolean;
 }
 
 /** Absent row = enabled (0016_v2_schema.sql). */
-export type PrefMap = Record<`${NotificationKind}:${Channel}`, boolean>;
+export type PrefMap = Record<`${NotificationKind}:${Channel}` | 'message:email', boolean>;
 
 export function toPrefMap(rows: PrefRow[]): PrefMap {
   const map = {} as PrefMap;
   for (const k of NOTIFICATION_KINDS) for (const c of CHANNELS) map[`${k}:${c}`] = true;
-  for (const r of rows) map[`${r.kind}:${r.channel}`] = r.enabled;
+  map['message:email'] = true;
+  for (const r of rows) {
+    const key = `${r.kind}:${r.channel}`;
+    if (key in map) map[key as keyof PrefMap] = r.enabled;
+  }
   return map;
 }
 

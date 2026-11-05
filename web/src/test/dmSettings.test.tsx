@@ -91,6 +91,12 @@ describe('message settings', () => {
     await waitFor(() => expect(dm.setDmPolicy).toHaveBeenCalledWith('nobody', expect.anything()));
   });
 
+  it('shows the unread-message email setting', async () => {
+    renderWith(<MessagesSettings viewer={TEST_VIEWER} />, { viewer: TEST_VIEWER });
+    const box = await screen.findByRole('checkbox', { name: 'Email me about unread messages' });
+    expect(box).toBeTruthy();
+  });
+
   it('lists blocked people and unblocks', async () => {
     dm.fetchBlockedPeople.mockResolvedValue([{ ...OTHER, blocked_at: iso(2) }]);
     renderWith(<MessagesSettings viewer={TEST_VIEWER} />, { viewer: TEST_VIEWER });
