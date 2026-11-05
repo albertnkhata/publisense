@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-29T06:01:04Z",
+  "generatedAt": "2026-11-05T06:01:06Z",
   "repo": {
     "openDecisions": [],
     "resolved": [
@@ -329,12 +329,12 @@
     ]
   },
   "live": {
-    "generatedAt": "2026-10-29T06:01:04Z",
+    "generatedAt": "2026-11-05T06:01:06Z",
     "site": {
       "status": 200,
-      "bundle": "/assets/index-C-wQC2Fo.js",
+      "bundle": "/assets/index-BOplqDPF.js",
       "wwwRedirect": "308 → https://publisense.app/",
-      "checkedAt": "2026-10-29T06:01:04Z"
+      "checkedAt": "2026-11-05T06:01:06Z"
     },
     "data": {
       "counts": {
@@ -353,7 +353,7 @@
         "post": 12,
         "reply": 1,
         "vote": 0,
-        "follow": 7,
+        "follow": 9,
         "profile": 8,
         "status_event": 4
       },
@@ -381,12 +381,21 @@
     },
     "github": {
       "issues": [],
-      "prs": []
+      "prs": [
+        {
+          "number": 262,
+          "title": "DMs step 2: Messages inbox, requests and threads (staff only)"
+        },
+        {
+          "number": 254,
+          "title": "chore: refresh the live status block"
+        }
+      ]
     },
     "deployedCommit": {
-      "sha": "1e89427",
+      "sha": "eff83fb",
       "state": "READY",
-      "createdAt": "2026-10-29T05:19:34.576Z"
+      "createdAt": "2026-11-04T15:54:49.029Z"
     },
     "unitTests": "unknown"
   }
