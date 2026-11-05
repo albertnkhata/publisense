@@ -19,6 +19,7 @@ import {
   recordEvent,
   isLive,
   isPostable,
+  isPostImagePath,
   isSourceUrl,
   logoSrc,
   matchesAll,
@@ -41,6 +42,7 @@ import {
   sourceLabel,
 } from '../api';
 import { cx } from '../lib/cx';
+import { clearPostDraft, loadPostDraft, savePostDraft } from '../lib/postDraft';
 import { useViewer } from '../lib/viewer';
 import { AddImagesButton, DraftImages, imageFiles, useImageDraft } from '../posts/ImageDraft';
 import { PlatformField } from '../posts/PlatformField';
@@ -122,13 +124,19 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
   const hubs = useHubs();
   const create = useCreatePost(viewer?.id ?? null);
 
-  const [boardSlug, setBoardSlug] = useState<string | null>(opts.board ?? null);
+  // The saved draft (one per person, this device) comes back when the composer opens.
+  // Staff seeding from a source starts clean and never saves one.
+  const [draft] = useState(() => (opts.seed ? null : loadPostDraft(viewer?.id ?? null)));
+  const [boardSlug, setBoardSlug] = useState<string | null>(draft?.board ?? opts.board ?? null);
   // Preselected so a post is never blocked on it; Bug is the most common kind of feedback.
-  const [type, setType] = useState<PostType | null>('bug');
-  const [platform, setPlatform] = useState<Platform | null>(null);
-  const [title, setTitle] = useState(opts.title ?? '');
-  const [body, setBody] = useState('');
-  const images = useImageDraft(viewer?.id ?? null);
+  const [type, setType] = useState<PostType | null>(draft ? draft.type : 'bug');
+  const [platform, setPlatform] = useState<Platform | null>(draft?.platform ?? null);
+  const [title, setTitle] = useState(draft?.title ?? opts.title ?? '');
+  const [body, setBody] = useState(draft?.body ?? '');
+  const images = useImageDraft(
+    viewer?.id ?? null,
+    (draft?.images ?? []).filter((p) => isPostImagePath(p) && Boolean(viewer?.id) && p.startsWith(`${viewer?.id}/`)),
+  );
   const [errors, setErrors] = useState<PostErrors & { board?: string }>({});
   const [failure, setFailure] = useState<string | null>(null);
   // Staff only: post as yourself, or seed one from a public source (0028).
@@ -213,6 +221,7 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
         : { boardId: board.id, type, title, body, platform, images: images.paths },
       {
         onSuccess: (post) => {
+          if (!seeding) clearPostDraft(viewerId);
           onClose();
           toast(seeding ? `Added to ${board.name} from ${sourceLabel(sourceUrl)}` : `Posted to ${board.name}`);
           void navigate(`/post/${post.id}`);
@@ -230,8 +239,22 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
   };
 
   const initialFocus = board ? (type ? titleRef : typeRef) : productRef;
-  // A draft is never lost by accident: Escape, the X, the backdrop and Cancel all ask first.
+  // A draft is never lost by accident: it saves as you type, and Escape, the X, the
+  // backdrop and Cancel all ask whether to keep it as a draft or discard it.
   const dirty = title.trim().length > 0 || body.trim().length > 0 || images.items.length > 0;
+  const imagePaths = images.paths.join('\n');
+  const currentDraft = useMemo(
+    () => ({ board: boardSlug, type, platform, title, body, images: imagePaths ? imagePaths.split('\n') : [] }),
+    [boardSlug, type, platform, title, body, imagePaths],
+  );
+  const saveDraft = useCallback(() => {
+    if (!seeding) savePostDraft(viewerId, currentDraft);
+  }, [seeding, viewerId, currentDraft]);
+  useEffect(() => {
+    if (seeding || create.isPending || create.isSuccess) return;
+    const t = setTimeout(saveDraft, 400);
+    return () => clearTimeout(t);
+  }, [saveDraft, seeding, create.isPending, create.isSuccess]);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const requestClose = () => {
     if (create.isPending) return;
@@ -240,6 +263,11 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
   };
   const discardAndClose = () => {
     images.discard();
+    if (!seeding) clearPostDraft(viewerId);
+    onClose();
+  };
+  const saveAndClose = () => {
+    saveDraft();
     onClose();
   };
   const footNote = seeding
@@ -261,17 +289,24 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
         confirmDiscard ? (
           <div
             role="alertdialog"
-            aria-label="Discard this post?"
+            aria-label={seeding ? 'Discard this post?' : 'Save this post as a draft?'}
             className="flex w-full items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch max-sm:gap-2"
           >
-            <span className="mr-auto text-sm text-ink max-sm:mr-0 max-sm:text-center">Discard this post? What you wrote won’t be saved.</span>
+            <span className="mr-auto text-sm text-ink max-sm:mr-0 max-sm:text-center">
+              {seeding ? 'Discard this post? What you wrote won’t be saved.' : 'Save this post as a draft?'}
+            </span>
             <div className="flex shrink-0 items-center gap-2 max-sm:w-full max-sm:*:flex-1">
-              <Button variant="secondary" autoFocus onClick={() => setConfirmDiscard(false)}>
+              <Button variant="secondary" autoFocus={seeding} onClick={() => setConfirmDiscard(false)}>
                 Keep editing
               </Button>
-              <Button variant="danger" onClick={discardAndClose}>
+              <Button variant={seeding ? 'danger' : 'secondary'} onClick={discardAndClose}>
                 Discard
               </Button>
+              {seeding ? null : (
+                <Button autoFocus onClick={saveAndClose}>
+                  Save draft
+                </Button>
+              )}
             </div>
           </div>
         ) : (

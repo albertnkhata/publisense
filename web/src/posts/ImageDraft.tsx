@@ -3,6 +3,7 @@ import {
   POST_IMAGE_ACCEPT,
   POST_IMAGES_MAX,
   isPostImageType,
+  postImageUrl,
   preparePostImage,
   removePostImages,
   uploadPostImage,
@@ -24,8 +25,15 @@ export interface DraftImage {
 
 let seq = 0;
 
-export function useImageDraft(viewerId: string | null) {
-  const [items, setItems] = useState<DraftImage[]>([]);
+const revoke = (preview: string) => {
+  if (preview.startsWith('blob:')) URL.revokeObjectURL(preview);
+};
+
+/** `initial`: paths already uploaded, from a saved draft. */
+export function useImageDraft(viewerId: string | null, initial: readonly string[] = []) {
+  const [items, setItems] = useState<DraftImage[]>(() =>
+    initial.map((path) => ({ key: `img-${++seq}`, preview: postImageUrl(path) ?? '', status: 'done' as const, path })),
+  );
   const [error, setError] = useState<string | null>(null);
   const itemsRef = useRef(items);
   itemsRef.current = items;
@@ -33,7 +41,7 @@ export function useImageDraft(viewerId: string | null) {
   // Free the previews when the composer goes away.
   useEffect(
     () => () => {
-      for (const it of itemsRef.current) URL.revokeObjectURL(it.preview);
+      for (const it of itemsRef.current) revoke(it.preview);
     },
     [],
   );
@@ -78,7 +86,7 @@ export function useImageDraft(viewerId: string | null) {
   const remove = useCallback((key: string) => {
     const it = itemsRef.current.find((x) => x.key === key);
     if (!it) return;
-    URL.revokeObjectURL(it.preview);
+    revoke(it.preview);
     if (it.path) void removePostImages([it.path]);
     setItems((cur) => cur.filter((x) => x.key !== key));
     setError(null);
