@@ -78,7 +78,7 @@ export function AppShell() {
             <TopBar always={!rail && topBar} />
             <div
               className={cx(
-                'mx-auto flex w-full justify-center gap-6',
+                'mx-auto flex w-full justify-center gap-rail-gap',
                 fill ? 'min-h-0 flex-1 max-sm:pb-tabbar' : 'px-7 pt-6 pb-10 max-sm:px-3 max-sm:pt-4 max-sm:pb-10',
               )}
             >
