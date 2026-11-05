@@ -144,6 +144,7 @@
   --spacing-wide: 1024px;       /* not in §3: content + gap-6 + rail, for routes without the right rail (shell/layout.ts) */
   --spacing-dialog: 440px;      /* not in §3: standard dialog width (mockup 400–460) */
   --spacing-dialog-lg: 600px;   /* not in §3: composer-size dialog (mockup 600) */
+  --spacing-alert: 360px;      /* not in §3: small centred prompt over a dialog (Save post?) */
   --spacing-menu: 224px;        /* not in §3: menu min width (mockup user menu) */
   --spacing-date: 120px;        /* not in §3: changelog date column (mockup .cl-entry) */
   --spacing-select: 160px;    /* not in §3: status and role selects in Manage rows (mockup .mg-select) */

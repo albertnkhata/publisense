@@ -47,7 +47,7 @@ import { useViewer } from '../lib/viewer';
 import { AddImagesButton, DraftImages, imageFiles, useImageDraft } from '../posts/ImageDraft';
 import { PlatformField } from '../posts/PlatformField';
 import { VoteButton } from '../posts/VoteButton';
-import { BoardAvatar, Button, Dialog, Field, Icon, Input, Menu, MenuItemRadio, STATUS_META, TYPE_META, useToast } from '../ui';
+import { AlertDialog, BoardAvatar, Button, Dialog, Field, Icon, Input, Menu, MenuItemRadio, STATUS_META, TYPE_META, useToast } from '../ui';
 import { useRequireAuth } from './auth';
 import { useAddProduct } from '../products/AddProductDialog';
 
@@ -286,30 +286,6 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
       initialFocus={initialFocus}
       dismissable={!create.isPending}
       footer={
-        confirmDiscard ? (
-          <div
-            role="alertdialog"
-            aria-label={seeding ? 'Discard this post?' : 'Save this post as a draft?'}
-            className="flex w-full items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch max-sm:gap-2"
-          >
-            <span className="mr-auto text-sm text-ink max-sm:mr-0 max-sm:text-center">
-              {seeding ? 'Discard this post? What you wrote won’t be saved.' : 'Save this post as a draft?'}
-            </span>
-            <div className="flex shrink-0 items-center gap-2 max-sm:w-full max-sm:*:flex-1">
-              <Button variant="secondary" autoFocus={seeding} onClick={() => setConfirmDiscard(false)}>
-                Keep editing
-              </Button>
-              <Button variant={seeding ? 'danger' : 'secondary'} onClick={discardAndClose}>
-                Discard
-              </Button>
-              {seeding ? null : (
-                <Button autoFocus onClick={saveAndClose}>
-                  Save draft
-                </Button>
-              )}
-            </div>
-          </div>
-        ) : (
         <div className="flex w-full items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch max-sm:gap-2">
           {blocker ? (
             <span id={blockerId} role="status" className="mr-auto text-sm text-ink-muted max-sm:mr-0 max-sm:text-center">
@@ -327,9 +303,27 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
             </Button>
           </div>
         </div>
-        )
       }
+      paused={confirmDiscard}
     >
+      <AlertDialog
+        open={confirmDiscard}
+        title={seeding ? 'Discard post?' : 'Save post?'}
+        description={seeding ? 'What you wrote won’t be saved.' : 'Save it as a draft and pick up where you left off next time.'}
+        onCancel={() => setConfirmDiscard(false)}
+        actions={
+          <>
+            <Button variant="ghost" onClick={discardAndClose} data-autofocus={seeding ? 'true' : undefined}>
+              {seeding ? 'Discard' : 'Delete'}
+            </Button>
+            {seeding ? null : (
+              <Button onClick={saveAndClose} data-autofocus="true">
+                Save
+              </Button>
+            )}
+          </>
+        }
+      />
       <form id={formId} noValidate onSubmit={submit} onKeyDown={onSubmitKey} className="flex flex-col gap-3">
         {opts.onClaim && board ? (
           <p className="m-0 flex flex-wrap items-center gap-x-2 rounded-md border border-line bg-elevated px-3 py-2 text-sm text-ink-secondary">

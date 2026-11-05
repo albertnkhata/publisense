@@ -23,6 +23,8 @@ export interface DialogProps {
   initialFocus?: RefObject<HTMLElement | null>;
   /** Close when the backdrop is clicked (default true). */
   dismissable?: boolean;
+  /** A prompt is open on top (AlertDialog): leave Escape and Tab to it. */
+  paused?: boolean;
 }
 
 export function Dialog({
@@ -36,6 +38,7 @@ export function Dialog({
   size = 'md',
   initialFocus,
   dismissable = true,
+  paused = false,
 }: DialogProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const returnTo = useRef<HTMLElement | null>(null);
@@ -44,6 +47,8 @@ export function Dialog({
   const descId = useId();
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
 
   // Remember the opener and inherit its theme scope (the portal leaves the subtree).
   useLayoutEffect(() => {
@@ -62,6 +67,7 @@ export function Dialog({
     target.focus();
 
     const onKeyDown = (e: KeyboardEvent) => {
+      if (pausedRef.current) return;
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();

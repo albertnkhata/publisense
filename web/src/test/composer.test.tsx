@@ -118,19 +118,22 @@ describe('composer', () => {
     expect(screen.queryByRole('dialog', { name: 'Post feedback' })).toBeNull();
   });
 
-  it('asks whether to save or discard a draft, from Escape, the X or Cancel', async () => {
+  it('asks whether to save or delete a draft, from Escape, the X or Cancel', async () => {
     renderComposer();
     const dialog = await open();
     fireEvent.change(within(dialog).getByRole('textbox', { name: 'Title' }), { target: { value: 'Half a thought' } });
     fireEvent.keyDown(document, { key: 'Escape' });
-    expect(within(dialog).getByText('Save this post as a draft?')).toBeTruthy();
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Keep editing' }));
+    const prompt = await screen.findByRole('alertdialog', { name: 'Save post?' });
+    // Escape again cancels the prompt and keeps the composer open.
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(prompt).toBeTruthy();
     expect(screen.getByRole('dialog', { name: 'Post feedback' })).toBeTruthy();
     expect((within(dialog).getByRole('textbox', { name: 'Title' }) as HTMLInputElement).value).toBe('Half a thought');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Discard' }));
+    fireEvent.click(within(await screen.findByRole('alertdialog', { name: 'Save post?' })).getByRole('button', { name: 'Delete' }));
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Post feedback' })).toBeNull());
-    // Discarded: the next composer starts empty.
+    // Deleted: the next composer starts empty.
     const again = await open();
     expect((within(again).getByRole('textbox', { name: 'Title' }) as HTMLInputElement).value).toBe('');
   });
@@ -143,7 +146,7 @@ describe('composer', () => {
     fireEvent.change(within(dialog).getByRole('textbox', { name: 'Title' }), { target: { value: 'Branching for preview databases' } });
     fireEvent.change(within(dialog).getByRole('textbox', { name: /Details/ }), { target: { value: 'One per pull request.' } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Save draft' }));
+    fireEvent.click(within(await screen.findByRole('alertdialog', { name: 'Save post?' })).getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Post feedback' })).toBeNull());
 
     const again = await open();
