@@ -278,6 +278,14 @@ jobs:
           PGPASSWORD: postgres
         run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_product_decision_test.sql
 
+      # Direct messages (0058): requests vs inbox, one message per pending request,
+      # members-only reads, dm_policy, person-to-person blocks, clearing your copy,
+      # unread counts, confirmed email, and the conversation and message limits. Rolled back.
+      - name: v2 direct message tests
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_direct_messages_test.sql
+
       # Join request messages (0049, #189): length, trimming, who reads them, the
       # notification payload, and that the old three-argument call still works.
       - name: v2 join message tests
