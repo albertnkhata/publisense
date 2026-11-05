@@ -10,6 +10,7 @@ import {
   useMarkConversationRead,
   useMessages,
   useMessagesEnabled,
+  useMuteConversation,
   usePerson,
   useSendMessage,
   useSetPersonBlocked,
@@ -198,7 +199,7 @@ function ConversationRow({ c, viewerId }: { c: Conversation; viewerId: string })
           {c.last_body}
         </span>
       </span>
-      {c.muted ? <span className="sr-only">Muted</span> : null}
+      {c.muted ? <span role="img" aria-label="Muted" className="flex shrink-0 text-ink-muted"><Icon name="bell-off" size={16} /></span> : null}
       {unread ? <span className="sr-only">{c.unread === 1 ? '1 unread message' : `${c.unread} unread messages`}</span> : null}
     </NavLink>
   );
@@ -285,6 +286,7 @@ function Thread({ conv, viewerId }: { conv: Conversation; viewerId: string }) {
   const accept = useAcceptRequest();
   const del = useDeleteConversation();
   const block = useSetPersonBlocked();
+  const mute = useMuteConversation();
   const scrollRef = useRef<HTMLDivElement>(null);
   const items = messages.data ?? [];
   const lastId = items.at(-1)?.id;
@@ -322,6 +324,20 @@ function Thread({ conv, viewerId }: { conv: Conversation; viewerId: string }) {
       <MenuItem icon="user" to={`/u/${handle}`}>
         View profile
       </MenuItem>
+      {isRequest ? null : (
+        <MenuItem
+          icon={conv.muted ? 'bell' : 'bell-off'}
+          description={conv.muted ? undefined : 'No badge or email for new messages'}
+          onSelect={() =>
+            mute.mutate(
+              { conversationId: conv.id, muted: !conv.muted },
+              { onSuccess: () => toast(conv.muted ? 'Conversation unmuted' : 'Conversation muted'), onError: (e) => toast(e.message) },
+            )
+          }
+        >
+          {conv.muted ? 'Unmute conversation' : 'Mute conversation'}
+        </MenuItem>
+      )}
       <MenuSeparator />
       <MenuItem icon="shield" danger={!conv.blocked} onSelect={() => onBlock(!conv.blocked)}>
         {conv.blocked ? `Unblock @${handle}` : `Block @${handle}`}

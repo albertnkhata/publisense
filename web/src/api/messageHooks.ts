@@ -3,10 +3,14 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tansta
 import {
   acceptRequest,
   deleteConversation,
+  fetchBlockedPeople,
   fetchConversations,
+  fetchDmPolicy,
   fetchMessages,
   markConversationRead,
+  muteConversation,
   sendMessage,
+  setDmPolicy,
   setPersonBlocked,
   startConversation,
   subscribeToDmMessages,
@@ -20,6 +24,8 @@ export const dmKeys = {
   all: ['dm'] as const,
   list: (viewerId: string | null) => ['dm', 'list', viewerId ?? 'none'] as const,
   thread: (conversationId: string) => ['dm', 'thread', conversationId] as const,
+  policy: (userId: string) => ['dm', 'policy', userId] as const,
+  blocked: (viewerId: string) => ['dm', 'blocked', viewerId] as const,
 };
 
 /** Step 2 rollout: Messages is visible to platform staff only. */
@@ -90,11 +96,11 @@ export function useConversations(viewerId: string | null, enabled = true) {
   });
 }
 
-/** Unread conversations in the Inbox, for the nav badge (requests don't badge, as on X). */
+/** Unread conversations in the Inbox, for the nav badge (requests and muted conversations don't badge, as on X). */
 export function useDmUnread(viewerId: string | null): number {
   const enabled = useMessagesEnabled(viewerId);
   const list = useConversations(viewerId, enabled);
-  return (list.data ?? []).filter((c) => c.state === 'inbox' && c.unread > 0).length;
+  return (list.data ?? []).filter((c) => c.state === 'inbox' && !c.muted && c.unread > 0).length;
 }
 
 export function useMessages(conversationId: string | null) {
@@ -134,4 +140,28 @@ export function useMarkConversationRead() {
 export function useSetPersonBlocked() {
   const done = useInvalidateDm();
   return useMutation({ mutationFn: (v: { userId: string; on: boolean }) => setPersonBlocked(v.userId, v.on), onSuccess: done });
+}
+export function useMuteConversation() {
+  const done = useInvalidateDm();
+  return useMutation({ mutationFn: (v: { conversationId: string; muted: boolean }) => muteConversation(v.conversationId, v.muted), onSuccess: done });
+}
+
+export function useDmPolicy(userId: string | null) {
+  return useQuery({
+    queryKey: dmKeys.policy(userId ?? 'none'),
+    queryFn: () => fetchDmPolicy(userId ?? ''),
+    enabled: Boolean(userId),
+    staleTime: 60_000,
+  });
+}
+export function useSetDmPolicy() {
+  const done = useInvalidateDm();
+  return useMutation({ mutationFn: setDmPolicy, onSuccess: done });
+}
+export function useBlockedPeople(viewerId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: dmKeys.blocked(viewerId ?? 'none'),
+    queryFn: fetchBlockedPeople,
+    enabled: Boolean(viewerId) && enabled,
+  });
 }
