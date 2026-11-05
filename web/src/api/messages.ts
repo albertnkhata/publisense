@@ -1,4 +1,4 @@
-import { getSupabase } from './supabase';
+import { getSupabase, hasSupabaseConfig } from './supabase';
 import { ApiError, type PersonRef } from './posts';
 
 /*
@@ -132,4 +132,35 @@ export async function markConversationRead(conversationId: string): Promise<void
 }
 export async function setPersonBlocked(userId: string, on: boolean): Promise<void> {
   await rpc(on ? 'block_user' : 'unblock_user', { p_user: userId });
+}
+
+/**
+ * Step 3: Realtime. One channel on INSERTs into dm_message. There is no filter:
+ * the table's RLS ("v2 dm_message member") limits each socket to the viewer's
+ * own conversations, so the server never sends a row the viewer cannot select.
+ * Returns the unsubscribe. `onReconnect` fires when the channel (re)joins, so
+ * the caller can refetch anything missed while the socket was down.
+ */
+export function subscribeToDmMessages(
+  viewerId: string,
+  onInsert: (row: { conversation_id: string }) => void,
+  onReconnect: () => void,
+): () => void {
+  if (!hasSupabaseConfig) return () => {};
+  const sb = getSupabase();
+  let joinedOnce = false;
+  const channel = sb
+    .channel(`dm:${viewerId}`)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dm_message' }, (payload) => {
+      const row = payload.new as { conversation_id?: unknown };
+      if (typeof row.conversation_id === 'string') onInsert({ conversation_id: row.conversation_id });
+    })
+    .subscribe((status) => {
+      if (status !== 'SUBSCRIBED') return;
+      if (joinedOnce) onReconnect();
+      joinedOnce = true;
+    });
+  return () => {
+    void sb.removeChannel(channel);
+  };
 }
