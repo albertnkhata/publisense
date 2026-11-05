@@ -189,7 +189,7 @@ function ProfileActions({ person, self }: { person: PublicProfile; self: boolean
   );
 }
 
-/** Message (0058): staff only during the DM rollout (useMessagesEnabled). */
+/** Message (0058): for signed-in viewers (useMessagesEnabled). */
 function MessagePersonButton({ person }: { person: PublicProfile }) {
   const { viewer } = useViewer();
   const enabled = useMessagesEnabled(viewer?.id ?? null);

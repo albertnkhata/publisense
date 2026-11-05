@@ -105,10 +105,9 @@ describe('message settings', () => {
     await waitFor(() => expect(dm.setPersonBlocked).toHaveBeenCalledWith(OTHER.id, false));
   });
 
-  it('stays hidden outside the rollout', async () => {
+  it('shows for everyone signed in, not only staff (4c)', async () => {
     mod.fetchIsPlatformAdmin.mockResolvedValue(false);
-    const { container } = renderWith(<MessagesSettings viewer={TEST_VIEWER} />, { viewer: TEST_VIEWER });
-    await waitFor(() => expect(mod.fetchIsPlatformAdmin).toHaveBeenCalled());
-    expect(container.querySelector('#messages')).toBeNull();
+    renderWith(<MessagesSettings viewer={TEST_VIEWER} />, { viewer: TEST_VIEWER });
+    expect(await screen.findByRole('checkbox', { name: 'Email me about unread messages' })).toBeTruthy();
   });
 });

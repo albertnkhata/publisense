@@ -88,12 +88,12 @@ describe('messages list', () => {
     expect(screen.getByText(/won’t know you’ve seen their message/)).toBeTruthy();
   });
 
-  it('is hidden from people outside the rollout', async () => {
+  it('is open to everyone signed in, not only staff (4c)', async () => {
     mod.fetchIsPlatformAdmin.mockResolvedValue(false);
     dm.fetchConversations.mockResolvedValue([conv()]);
     renderAt('/messages');
-    expect(await screen.findByText(/Page not found|isn’t here|not found/i)).toBeTruthy();
-    expect(dm.fetchConversations).not.toHaveBeenCalled();
+    expect(await screen.findByRole('list', { name: 'Inbox' })).toBeTruthy();
+    expect(dm.fetchConversations).toHaveBeenCalled();
   });
 });
 
@@ -224,12 +224,11 @@ describe('realtime', () => {
     expect(await screen.findByText('Running late')).toBeTruthy();
   });
 
-  it('stays closed for people outside the rollout', async () => {
+  it('subscribes for everyone signed in, not only staff (4c)', async () => {
     mod.fetchIsPlatformAdmin.mockResolvedValue(false);
     dm.fetchConversations.mockResolvedValue([conv()]);
     renderAt('/messages');
-    expect(await screen.findByText(/Page not found|isn’t here|not found/i)).toBeTruthy();
-    expect(dm.subscribeToDmMessages).not.toHaveBeenCalled();
+    await waitFor(() => expect(dm.subscribeToDmMessages).toHaveBeenCalled());
   });
 });
 

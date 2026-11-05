@@ -15,7 +15,6 @@ import {
   startConversation,
   subscribeToDmMessages,
 } from './messages';
-import { useIsPlatformAdmin } from './moderationHooks';
 
 /* TanStack Query hooks for direct messages (0058). */
 
@@ -28,9 +27,9 @@ export const dmKeys = {
   blocked: (viewerId: string) => ['dm', 'blocked', viewerId] as const,
 };
 
-/** Step 2 rollout: Messages is visible to platform staff only. */
+/** Messages is on for every signed-in person (step 4c). Kept as one switch so it can be gated again. */
 export function useMessagesEnabled(viewerId: string | null): boolean {
-  return useIsPlatformAdmin(viewerId).data ?? false;
+  return Boolean(viewerId);
 }
 
 /*
