@@ -35,7 +35,7 @@ import { NotFound } from './NotFound';
  * once it is accepted. /messages/to/:handle opens the conversation with that person,
  * or an empty one whose first send starts it.
  *
- * Staff only for now (useMessagesEnabled). New messages arrive over Realtime
+ * On for every signed-in person (useMessagesEnabled). New messages arrive over Realtime
  * (useDmLive); a slow poll backs it up.
  */
 

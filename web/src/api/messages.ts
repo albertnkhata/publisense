@@ -7,8 +7,8 @@ import { ApiError, type PersonRef } from './posts';
  * until the recipient accepts or replies. Every rule lives in the database RPCs; this
  * layer only calls them and words their answers.
  *
- * Rollout: step 2 shows Messages to platform staff only (useMessagesEnabled), so the
- * screens can be tried on real accounts before anyone else sees them.
+ * Rollout: staff-only through steps 2-4b; on for every signed-in person since step 4c
+ * (useMessagesEnabled).
  */
 
 export type DmState = 'inbox' | 'request';

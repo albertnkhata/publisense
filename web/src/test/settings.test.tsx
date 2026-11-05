@@ -63,7 +63,9 @@ describe('notification preferences', () => {
     db.rows.notification_pref = [{ kind: 'reply', channel: 'email', enabled: false }];
     renderWith(<SettingsPage />, { viewer: TEST_VIEWER, path: '/settings' });
     const replyEmail = (await screen.findByRole('checkbox', { name: 'Replies: Email' })) as HTMLInputElement;
-    expect(screen.getAllByRole('checkbox')).toHaveLength(18);
+    // 18 in the kind × channel table, plus the unread-message email toggle under Messages (4c).
+    expect(screen.getAllByRole('checkbox')).toHaveLength(19);
+    expect(screen.getByRole('checkbox', { name: 'Email me about unread messages' })).toBeTruthy();
     expect(replyEmail.checked).toBe(false);
     const mentionEmail = screen.getByRole('checkbox', { name: 'Mentions: Email' }) as HTMLInputElement;
     expect(mentionEmail.checked).toBe(true);
