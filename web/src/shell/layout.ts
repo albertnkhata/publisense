@@ -18,7 +18,8 @@ import { useMatches } from 'react-router';
  * - `topBar: false` drops the top bar from lg up, where the nav rail is
  *   already there, for staff screens (/admin) where search and the bell add
  *   nothing. Below lg it stays: it carries the brand, search and the bell there.
- * - `fill: true` makes the page exactly one screen tall (no page scroll): the
+ * - `fill: true` makes the page exactly one screen tall (no page scroll) and the
+ *   full width beside the nav rail, edge to edge (no column cap, no gutters): the
  *   page lays out its own scrolling panes, and anything at its foot stays at the
  *   foot of the screen. For Messages, whose composer sits at the bottom always.
  * - `chrome` picks the frame around the page:

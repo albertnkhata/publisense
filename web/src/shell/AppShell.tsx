@@ -79,13 +79,13 @@ export function AppShell() {
             <div
               className={cx(
                 'mx-auto flex w-full justify-center gap-6',
-                fill ? 'min-h-0 flex-1 px-7 max-sm:px-0 max-sm:pb-tabbar' : 'px-7 pt-6 pb-10 max-sm:px-3 max-sm:pt-4 max-sm:pb-10',
+                fill ? 'min-h-0 flex-1 max-sm:pb-tabbar' : 'px-7 pt-6 pb-10 max-sm:px-3 max-sm:pt-4 max-sm:pb-10',
               )}
             >
               <main
                 id="main"
                 tabIndex={-1}
-                className={cx('w-full min-w-0 flex-1 outline-none', width === 'narrow' ? 'max-w-content' : 'max-w-wide', fill && 'flex min-h-0 flex-col')}
+                className={cx('w-full min-w-0 flex-1 outline-none', fill ? 'flex min-h-0 flex-col' : width === 'narrow' ? 'max-w-content' : 'max-w-wide')}
               >
                 <Outlet />
               </main>

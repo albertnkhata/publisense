@@ -77,7 +77,7 @@ export function MessagesPage() {
   }
   if (!enabled) return null;
   return (
-    <div className="flex min-h-0 flex-1 border-x border-line bg-card max-sm:border-x-0">
+    <div className="flex min-h-0 flex-1 bg-card">
       <section
         aria-labelledby="page-title"
         className={cx('flex min-h-0 w-list-pane shrink-0 flex-col border-r border-line max-lg:w-full max-lg:border-r-0', open && 'max-lg:hidden')}
@@ -341,7 +341,7 @@ function Thread({ conv, viewerId }: { conv: Conversation; viewerId: string }) {
           </div>
         ) : (
           // mt-auto: a short conversation sits at the bottom, by the composer, as in any chat app.
-          <ol className="m-0 mt-auto flex list-none flex-col gap-2 p-0 py-4" aria-label="Messages">
+          <ol className="m-0 mx-auto mt-auto flex w-full max-w-wide list-none flex-col gap-2 p-0 py-4" aria-label="Messages">
             {items.map((m, i) => (
               <Bubble key={m.id} m={m} mine={m.sender === viewerId} showTime={showTime(items, i)} />
             ))}
@@ -422,7 +422,7 @@ function ComposerForm({ onSend, pending }: { onSend: (body: string, clear: () =>
     }
   };
   return (
-    <form onSubmit={submit} className="flex items-end gap-2 py-3">
+    <form onSubmit={submit} className="mx-auto flex w-full max-w-wide items-end gap-2 py-3">
       <Textarea
         aria-label="Message"
         placeholder="Write a message"
