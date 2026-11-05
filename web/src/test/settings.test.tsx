@@ -55,7 +55,8 @@ describe('notification preferences', () => {
     expect(map['reply:email']).toBe(false);
     expect(map['reply:in_app']).toBe(true);
     expect(map['join:email']).toBe(true);
-    expect(Object.keys(map)).toHaveLength(18);
+    expect(Object.keys(map)).toHaveLength(19);
+    expect(map['message:email']).toBe(true);
   });
 
   it('shows every kind × channel and saves a toggle as an upsert', async () => {
