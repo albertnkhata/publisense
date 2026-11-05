@@ -118,9 +118,10 @@ update public.dm_member set emailed_at = null where conversation_id = (select c_
 update public.dm_message set created_at = now() - interval '30 hours' where conversation_id = (select c_ab from f);
 select pg_temp.expect('0059: unread messages older than 24 hours are not emailed', public.v2_dm_email_flush() = 0);
 
-select pg_temp.expect('0059: the one-click unsubscribe also turns message emails off',
-  (select public.unsubscribe((select token from public.email_token where user_id = (select bea from f)))
-   and exists (select 1 from public.notification_pref where user_id = (select bea from f) and kind = 'message' and channel = 'email' and not enabled)));
+select pg_temp.expect('0059: the one-click unsubscribe accepts the token',
+  public.unsubscribe((select token from public.email_token where user_id = (select bea from f))));
+select pg_temp.expect('0059: ... and it turns message emails off too',
+  (exists (select 1 from public.notification_pref where user_id = (select bea from f) and kind = 'message' and channel = 'email' and not enabled)));
 
 -- ------------------------------------------------------------ grants
 
