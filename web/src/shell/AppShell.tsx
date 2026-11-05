@@ -92,7 +92,7 @@ export function AppShell() {
               {rail ? <RightRail /> : null}
             </div>
           </div>
-          <TabBar />
+          <TabBar showPost={!fill} />
         </div>
       )}
     </ClaimProvider>

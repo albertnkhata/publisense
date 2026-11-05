@@ -10,7 +10,8 @@ import { useComposer } from './composer';
 import { LegalLinks } from './LegalLinks';
 
 /** Icon-only tab bar at sm (≤520px), replacing the nav rail, plus the floating Post button. */
-export function TabBar() {
+/** `showPost` is false on full-screen pages (Messages), where the floating button would sit on the composer. */
+export function TabBar({ showPost = true }: { showPost?: boolean } = {}) {
   const { viewer, signOut } = useViewer();
   const { openAuth } = useAuthDialog();
   const { toast } = useToast();
@@ -79,16 +80,18 @@ export function TabBar() {
       {/* Floating Post button at sm, bottom right above the tab bar (as on X and
           Substack). It replaces the composer row above the feed on phones. */}
       {/* Shown signed out too: a tap opens sign-in, then the composer. */}
-      <button
-        type="button"
-        aria-label="Post feedback"
-        onClick={() => {
-          if (requireAuth('post feedback')) openComposer();
-        }}
-        className="fixed right-4 bottom-fab z-30 hidden size-9 cursor-pointer place-items-center rounded-pill border-0 bg-brand text-on-brand shadow-overlay transition-colors duration-120 active:bg-brand-hover max-sm:grid"
-      >
-        <Icon name="plus" size={22} strokeWidth={2.2} />
-      </button>
+      {showPost ? (
+        <button
+          type="button"
+          aria-label="Post feedback"
+          onClick={() => {
+            if (requireAuth('post feedback')) openComposer();
+          }}
+          className="fixed right-4 bottom-fab z-30 hidden size-9 cursor-pointer place-items-center rounded-pill border-0 bg-brand text-on-brand shadow-overlay transition-colors duration-120 active:bg-brand-hover max-sm:grid"
+        >
+          <Icon name="plus" size={22} strokeWidth={2.2} />
+        </button>
+      ) : null}
 
       {viewer ? (
         <Dialog open={sheet} onClose={() => setSheet(false)} title={viewer.name}>

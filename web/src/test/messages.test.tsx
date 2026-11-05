@@ -4,6 +4,8 @@ import { Route, Routes } from 'react-router';
 import { dmErrorMessage, type Conversation, type DmMessage } from '../api/messages';
 import { ConversationPage, MessagesPage, NewConversationPage, NoConversationPage } from '../pages/MessagesPage';
 import { resetDmLiveForTests } from '../api/messageHooks';
+import { ComposerProvider } from '../shell/composer';
+import { TabBar } from '../shell/TabBar';
 import { iso, ME, OTHER } from './postFixtures';
 import { renderWith, TEST_VIEWER } from './renderApp';
 
@@ -228,5 +230,15 @@ describe('realtime', () => {
     renderAt('/messages');
     expect(await screen.findByText(/Page not found|isn’t here|not found/i)).toBeTruthy();
     expect(dm.subscribeToDmMessages).not.toHaveBeenCalled();
+  });
+});
+
+describe('phone tab bar', () => {
+  it('drops the floating Post button on Messages so it never covers Send', () => {
+    const { unmount } = renderWith(<ComposerProvider><TabBar /></ComposerProvider>, { viewer: TEST_VIEWER });
+    expect(screen.getByRole('button', { name: 'Post feedback' })).toBeTruthy();
+    unmount();
+    renderWith(<ComposerProvider><TabBar showPost={false} /></ComposerProvider>, { viewer: TEST_VIEWER });
+    expect(screen.queryByRole('button', { name: 'Post feedback' })).toBeNull();
   });
 });
