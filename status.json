@@ -119,8 +119,8 @@
       }
     ],
     "webTests": {
-      "files": 47,
-      "cases": 591
+      "files": 48,
+      "cases": 599
     },
     "gates": [
       {
@@ -283,6 +283,13 @@
         "name": "v2 DM email tests",
         "runs": [
           "psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_dm_email_test.sql"
+        ],
+        "scripted": false
+      },
+      {
+        "name": "v2 post image tests",
+        "runs": [
+          "psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_post_images_test.sql"
         ],
         "scripted": false
       },

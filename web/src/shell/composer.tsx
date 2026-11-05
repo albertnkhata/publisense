@@ -42,6 +42,7 @@ import {
 } from '../api';
 import { cx } from '../lib/cx';
 import { useViewer } from '../lib/viewer';
+import { AddImagesButton, DraftImages, imageFiles, useImageDraft } from '../posts/ImageDraft';
 import { PlatformField } from '../posts/PlatformField';
 import { VoteButton } from '../posts/VoteButton';
 import { BoardAvatar, Button, Dialog, Field, Icon, Input, Menu, MenuItemRadio, STATUS_META, TYPE_META, useToast } from '../ui';
@@ -127,6 +128,7 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
   const [platform, setPlatform] = useState<Platform | null>(null);
   const [title, setTitle] = useState(opts.title ?? '');
   const [body, setBody] = useState('');
+  const images = useImageDraft(viewer?.id ?? null);
   const [errors, setErrors] = useState<PostErrors & { board?: string }>({});
   const [failure, setFailure] = useState<string | null>(null);
   // Staff only: post as yourself, or seed one from a public source (0028).
@@ -184,7 +186,11 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
             ? TITLE_TOO_LONG
             : seeding && !sourceUrl.trim()
               ? 'Paste the source link to post.'
-              : null;
+              : images.uploading
+                ? 'Wait for the images to upload.'
+                : images.failed
+                  ? 'Remove the image that didn’t upload.'
+                  : null;
   const valid = !blocker;
   const blockerId = useId();
   // Over the limit is said at the field the moment it happens; the paste is kept so it can be shortened.
@@ -200,10 +206,11 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
     const badSource = seeding && !isSourceUrl(sourceUrl) ? 'Paste the full https link to the original post.' : undefined;
     setSourceError(badSource);
     if (Object.keys(found).length || badSource || !board || !type) return;
+    if (!seeding && (images.uploading || images.failed)) return;
     setFailure(null);
     create.mutate(
       seeding ? { boardId: board.id, type, title, body, platform, sourceUrl, postedOn: postedOn || null, sourceAuthor: sourceAuthor || null }
-        : { boardId: board.id, type, title, body, platform },
+        : { boardId: board.id, type, title, body, platform, images: images.paths },
       {
         onSuccess: (post) => {
           onClose();
@@ -224,12 +231,16 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
 
   const initialFocus = board ? (type ? titleRef : typeRef) : productRef;
   // A draft is never lost by accident: Escape, the X, the backdrop and Cancel all ask first.
-  const dirty = title.trim().length > 0 || body.trim().length > 0;
+  const dirty = title.trim().length > 0 || body.trim().length > 0 || images.items.length > 0;
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const requestClose = () => {
     if (create.isPending) return;
     if (dirty && !confirmDiscard) setConfirmDiscard(true);
-    else onClose();
+    else discardAndClose();
+  };
+  const discardAndClose = () => {
+    images.discard();
+    onClose();
   };
   const footNote = seeding
     ? `Shows as the board’s post, from ${isSourceUrl(sourceUrl) ? sourceLabel(sourceUrl) : 'the source'}, with no author`
@@ -258,7 +269,7 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
               <Button variant="secondary" autoFocus onClick={() => setConfirmDiscard(false)}>
                 Keep editing
               </Button>
-              <Button variant="danger" onClick={onClose}>
+              <Button variant="danger" onClick={discardAndClose}>
                 Discard
               </Button>
             </div>
@@ -405,6 +416,17 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
         ) : null}
 
         <div
+            onDragOver={(e) => {
+              if (!seeding && e.dataTransfer.types.includes('Files')) e.preventDefault();
+            }}
+            onDrop={(e) => {
+              if (seeding) return;
+              const files = imageFiles(e.dataTransfer);
+              if (files.length) {
+                e.preventDefault();
+                images.add(files);
+              }
+            }}
             className={cx(
               'overflow-hidden rounded-md border bg-card transition-colors duration-120 focus-within:border-ink-muted',
               titleError ? 'border-danger focus-within:border-danger' : 'border-line-strong',
@@ -453,12 +475,33 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
               aria-label="Details"
               placeholder="Details (optional): what happened, what you expected, any workaround. Markdown works."
               onChange={(e) => setBody(e.target.value)}
+              onPaste={(e) => {
+                if (seeding) return;
+                const files = imageFiles(e.clipboardData);
+                if (files.length) {
+                  e.preventDefault();
+                  images.add(files);
+                }
+              }}
               className="w-full resize-y border-0 bg-transparent px-3 py-2 text-base text-ink placeholder:text-ink-muted outline-none focus:outline-none"
             />
             {errors.body ? (
               <p role="alert" className="m-0 px-3 pb-2 text-sm text-danger">
                 {errors.body}
               </p>
+            ) : null}
+            {!seeding ? (
+              <div className="flex flex-col gap-2 px-2 pb-2">
+                <DraftImages draft={images} />
+                <div className="flex items-center gap-2">
+                  <AddImagesButton draft={images} />
+                  {images.error ? (
+                    <p role="alert" className="m-0 text-sm text-danger">
+                      {images.error}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
             ) : null}
         </div>
 

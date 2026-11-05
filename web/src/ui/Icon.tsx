@@ -94,6 +94,13 @@ const PATHS = {
       <path d="M8 11V7a4 4 0 0 1 8 0v4" />
     </>
   ),
+  image: (
+    <>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <circle cx="9" cy="9" r="2" />
+      <path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21" />
+    </>
+  ),
   mail: (
     <>
       <rect x="3" y="5" width="18" height="14" rx="2" />

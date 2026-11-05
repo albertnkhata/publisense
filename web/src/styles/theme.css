@@ -149,6 +149,9 @@
   --spacing-list: 300px;
   --spacing-list-pane: 360px; /* not in §3: the conversation list beside an open conversation on /messages (lg up) */
   --spacing-tabbar: 57px;     /* not in §3: the tab bar's height at sm, so a sticky message composer sits on top of it */
+  --spacing-shot: 384px;      /* not in §3: tallest a lone screenshot shows on a feed card (0060) */
+  --spacing-shot-page: 640px; /* not in §3: tallest a screenshot shows on the post page and in its viewer (0060) */
+  --aspect-shot: 16 / 9;      /* not in §3: screenshot tiles when a post has two to four (0060) */
   --spacing-fab: 72px;        /* not in §3: floating Post button's bottom offset at sm, clearing the 57px tab bar by 16px */      /* not in §3: scrolling picker list in the merge dialog (mockup .mgm-list) */
 
   /* Glass blur for the sticky top bar and tab bar (mockup: blur 12px). */
