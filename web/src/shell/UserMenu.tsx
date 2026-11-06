@@ -2,6 +2,7 @@ import { useIsPlatformAdmin } from '../api';
 import { useTheme } from '../lib/ThemeProvider';
 import { useViewer, type Viewer } from '../lib/viewer';
 import { cx } from '../lib/cx';
+import { promptInstall, useCanInstall } from '../lib/pwa';
 import { Icon, Menu, MenuItem, MenuSeparator, UserAvatar, useToast } from '../ui';
 
 /**
@@ -14,6 +15,7 @@ export function UserMenu({ viewer, collapsed }: { viewer: Viewer; collapsed: boo
   const { signOut } = useViewer();
   const { toast } = useToast();
   const staff = useIsPlatformAdmin(viewer.id).data ?? false;
+  const canInstall = useCanInstall();
   return (
     <Menu
       side="top"
@@ -56,6 +58,11 @@ export function UserMenu({ viewer, collapsed }: { viewer: Viewer; collapsed: boo
       {pref !== 'system' ? (
         <MenuItem icon="settings" onSelect={() => setPref('system')} description="Follow your device setting">
           Use system theme
+        </MenuItem>
+      ) : null}
+      {canInstall ? (
+        <MenuItem icon="download" onSelect={() => void promptInstall()}>
+          Install app
         </MenuItem>
       ) : null}
       <MenuSeparator />
