@@ -7,6 +7,10 @@
   "trailingSlash": false,
   "rewrites": [
     {
+      "source": "/badge/:slug.svg",
+      "destination": "/api/badge?slug=:slug"
+    },
+    {
       "source": "/b/:key",
       "has": [
         {
