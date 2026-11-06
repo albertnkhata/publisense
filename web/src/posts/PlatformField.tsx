@@ -5,7 +5,7 @@ import { cx } from '../lib/cx';
 /** The selectable platform pill. */
 export function pillClass(on: boolean, extra?: string) {
   return cx(
-    'inline-flex h-7 items-center rounded-pill border px-3 text-sm transition-colors duration-120',
+    'inline-flex h-7 shrink-0 items-center rounded-pill border px-3 text-sm transition-colors duration-120 max-sm:px-2',
     on ? 'border-ink bg-ink font-semibold text-card' : 'border-line-strong bg-card text-ink-secondary hover:bg-subtle hover:text-ink',
     extra,
   );
@@ -28,7 +28,11 @@ export function PlatformField({
   const ownId = useId();
   const labelId = labelledBy ?? ownId;
   const pills = (
-    <div role="group" aria-labelledby={labelId} className="flex min-h-8 flex-wrap items-center gap-2">
+    <div
+      role="group"
+      aria-labelledby={labelId}
+      className="flex min-h-8 flex-wrap items-center gap-2 max-sm:flex-nowrap max-sm:gap-1 max-sm:overflow-x-auto scrollbar-none"
+    >
       {PLATFORMS.map((p) => {
         const on = value === p.value;
         return (

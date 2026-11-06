@@ -123,6 +123,18 @@ describe('composer', () => {
     expect(screen.queryByRole('dialog', { name: 'Post feedback' })).toBeNull();
   });
 
+  it('renders platform pills in a single responsive row that stacks on phones', async () => {
+    renderComposer();
+    const dialog = await open();
+    const group = within(dialog).getByRole('group', { name: /Platform/i });
+    expect(group.className).toContain('max-sm:flex-nowrap');
+    expect(group.className).toContain('max-sm:overflow-x-auto');
+    const ios = within(group).getByRole('button', { name: 'iOS' });
+    expect(ios.className).toContain('max-sm:px-2');
+    const section = group.parentElement?.parentElement;
+    expect(section?.className).toContain('max-sm:flex-col');
+  });
+
   it('asks whether to save or delete a draft, from Escape, the X or Cancel', async () => {
     renderComposer();
     const dialog = await open();

@@ -896,12 +896,22 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <div className={cx('flex', stacked ? 'flex-col gap-1' : 'flex-wrap items-center gap-x-3 gap-y-1')}>
-      <span id={labelId} className={cx('flex shrink-0 gap-1', stacked ? 'items-baseline' : 'min-h-8 items-center')}>
+    <div
+      className={cx(
+        'flex',
+        stacked
+          ? 'flex-col gap-1'
+          : 'flex-wrap items-center gap-x-3 gap-y-1 max-sm:flex-col max-sm:items-start max-sm:gap-1',
+      )}
+    >
+      <span
+        id={labelId}
+        className={cx('flex shrink-0 gap-1', stacked ? 'items-baseline' : 'min-h-8 items-center max-sm:min-h-0 max-sm:items-baseline')}
+      >
         <span className="text-xs font-semibold uppercase text-ink-muted">{label}</span>
         {optional ? <span className="text-xs text-ink-muted">Optional</span> : null}
       </span>
-      <div className={cx('flex min-w-0 flex-col gap-1', stacked ? 'w-full' : 'flex-1')}>
+      <div className={cx('flex min-w-0 flex-col gap-1', stacked ? 'w-full' : 'flex-1 max-sm:w-full')}>
         {children}
         {error ? (
           <p role="alert" className="m-0 text-sm text-danger">
