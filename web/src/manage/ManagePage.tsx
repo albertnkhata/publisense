@@ -29,6 +29,7 @@ import { ScopeHeader } from '../boards/ScopeHeader';
 import { useClaim } from '../claim/ClaimDialog';
 import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
+import { badgeSnippets } from '../lib/badge';
 import { HeaderSkeleton, ScopeNotFound, actionLink } from '../pages/BoardPage';
 import { useAuthDialog } from '../shell/auth';
 import { BoardAvatar, Button, EmptyState, Field, Icon, Input, TabPanel, Tabs, Textarea, useToast } from '../ui';
@@ -237,6 +238,43 @@ function BoardManage({ board, role }: { board: BoardWithHub; role: Role }) {
   );
 }
 
+/** The embeddable feedback badge: a live preview and the snippets to paste. */
+function BadgeSection({ slug }: { slug: string }) {
+  const { toast } = useToast();
+  const snip = badgeSnippets(slug);
+  const copy = (text: string) => {
+    void navigator.clipboard?.writeText(text).then(
+      () => toast('Copied'),
+      () => toast('We couldn’t copy that. Select it and copy instead.'),
+    );
+  };
+  return (
+    <Section title="Feedback badge" note="Add it to your README, docs or site footer. It shows your open feedback and links to this board.">
+      <div className="flex flex-col gap-4">
+        <a href={snip.board} className="self-start">
+          {/* Same-origin so previews show the badge before it reaches publisense.app. */}
+          <img src={`/badge/${slug}.svg`} alt="Feedback badge preview" height={20} />
+        </a>
+        {(
+          [
+            ['Markdown', snip.markdown],
+            ['HTML', snip.html],
+          ] as const
+        ).map(([label, text]) => (
+          <Field key={label} label={label}>
+            <div className="flex gap-2">
+              <Input value={text} readOnly onFocus={(e) => e.currentTarget.select()} className="font-mono text-sm" />
+              <Button variant="secondary" onClick={() => copy(text)} aria-label={`Copy ${label}`}>
+                Copy
+              </Button>
+            </div>
+          </Field>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
 function StatTiles({ stats }: { stats: { waiting: number; newThisWeek: number; upvotes: number; shipped: number } | undefined }) {
   const v = (n: number | undefined) => (n === undefined ? '–' : compactCount(n));
   return (
@@ -325,6 +363,7 @@ function BoardSettings({ board, owner }: { board: Board; owner: boolean }) {
           </div>
         </form>
       </Section>
+      <BadgeSection slug={board.slug} />
       {owner ? <ReleaseSection scope="board" scopeId={board.id} name={board.name} onReleased={() => void navigate(`/b/${board.slug}`)} /> : null}
     </>
   );
