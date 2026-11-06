@@ -63,6 +63,7 @@ function chooseType(dialog: HTMLElement, label: 'Bug' | 'Friction' | 'Feature re
 
 beforeEach(() => {
   vi.clearAllMocks();
+  window.localStorage.clear();
   boardsApi.fetchBoards.mockResolvedValue([CURSOR, FIGMA, SUPABASE]);
   boardsApi.fetchHubs.mockResolvedValue([FIGMA_HUB]);
   postsApi.fetchSimilar.mockResolvedValue([]);
@@ -117,18 +118,61 @@ describe('composer', () => {
     expect(screen.queryByRole('dialog', { name: 'Post feedback' })).toBeNull();
   });
 
-  it('asks before throwing away a draft, from Escape, the X or Cancel', async () => {
+  it('asks whether to save or delete a draft, from Escape, the X or Cancel', async () => {
     renderComposer();
     const dialog = await open();
     fireEvent.change(within(dialog).getByRole('textbox', { name: 'Title' }), { target: { value: 'Half a thought' } });
     fireEvent.keyDown(document, { key: 'Escape' });
-    expect(within(dialog).getByText(/Discard this post\?/)).toBeTruthy();
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Keep editing' }));
+    const prompt = await screen.findByRole('alertdialog', { name: 'Save post?' });
+    // Escape again cancels the prompt and keeps the composer open.
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(prompt).toBeTruthy();
     expect(screen.getByRole('dialog', { name: 'Post feedback' })).toBeTruthy();
     expect((within(dialog).getByRole('textbox', { name: 'Title' }) as HTMLInputElement).value).toBe('Half a thought');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Discard' }));
+    fireEvent.click(within(await screen.findByRole('alertdialog', { name: 'Save post?' })).getByRole('button', { name: 'Delete' }));
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Post feedback' })).toBeNull());
+    // Deleted: the next composer starts empty.
+    const again = await open();
+    expect((within(again).getByRole('textbox', { name: 'Title' }) as HTMLInputElement).value).toBe('');
+  });
+
+  it('saves a draft and brings it back the next time the composer opens', async () => {
+    renderComposer();
+    const dialog = await open();
+    await chooseSupabase(dialog);
+    chooseType(dialog, 'Feature request');
+    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Title' }), { target: { value: 'Branching for preview databases' } });
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /Details/ }), { target: { value: 'One per pull request.' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(within(await screen.findByRole('alertdialog', { name: 'Save post?' })).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Post feedback' })).toBeNull());
+
+    const again = await open();
+    expect((within(again).getByRole('textbox', { name: 'Title' }) as HTMLInputElement).value).toBe('Branching for preview databases');
+    expect((within(again).getByRole('textbox', { name: /Details/ }) as HTMLTextAreaElement).value).toBe('One per pull request.');
+    expect(await within(again).findByText('Supabase')).toBeTruthy();
+    expect(within(again).getByRole('button', { name: /Type/ }).textContent).toMatch(/Feature request/);
+  });
+
+  it('keeps what was typed even when the composer is never closed properly', async () => {
+    renderComposer();
+    const dialog = await open();
+    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Title' }), { target: { value: 'Autosaved thought' } });
+    await waitFor(() => expect(window.localStorage.getItem(`publisense:post-draft:${TEST_VIEWER.id}`)).toContain('Autosaved thought'));
+  });
+
+  it('clears the draft once it is posted', async () => {
+    postsApi.createPost.mockResolvedValue(makePost({ id: 'a0000000-0000-4000-8000-0000000000fe', title: 'Posted thought' }));
+    renderComposer();
+    const dialog = await open();
+    await chooseSupabase(dialog);
+    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Title' }), { target: { value: 'Posted thought' } });
+    await waitFor(() => expect(window.localStorage.getItem(`publisense:post-draft:${TEST_VIEWER.id}`)).toContain('Posted thought'));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Post' }));
+    expect(await screen.findByRole('heading', { name: 'Post page' })).toBeTruthy();
+    expect(window.localStorage.getItem(`publisense:post-draft:${TEST_VIEWER.id}`)).toBeNull();
   });
 
   it('suggests similar posts to upvote instead', async () => {

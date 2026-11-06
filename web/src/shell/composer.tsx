@@ -19,6 +19,7 @@ import {
   recordEvent,
   isLive,
   isPostable,
+  isPostImagePath,
   isSourceUrl,
   logoSrc,
   matchesAll,
@@ -41,11 +42,12 @@ import {
   sourceLabel,
 } from '../api';
 import { cx } from '../lib/cx';
+import { clearPostDraft, loadPostDraft, savePostDraft } from '../lib/postDraft';
 import { useViewer } from '../lib/viewer';
 import { AddImagesButton, DraftImages, imageFiles, useImageDraft } from '../posts/ImageDraft';
 import { PlatformField } from '../posts/PlatformField';
 import { VoteButton } from '../posts/VoteButton';
-import { BoardAvatar, Button, Dialog, Field, Icon, Input, Menu, MenuItemRadio, STATUS_META, TYPE_META, useToast } from '../ui';
+import { AlertDialog, BoardAvatar, Button, Dialog, Field, Icon, Input, Menu, MenuItemRadio, STATUS_META, TYPE_META, useToast } from '../ui';
 import { useRequireAuth } from './auth';
 import { useAddProduct } from '../products/AddProductDialog';
 
@@ -122,13 +124,19 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
   const hubs = useHubs();
   const create = useCreatePost(viewer?.id ?? null);
 
-  const [boardSlug, setBoardSlug] = useState<string | null>(opts.board ?? null);
+  // The saved draft (one per person, this device) comes back when the composer opens.
+  // Staff seeding from a source starts clean and never saves one.
+  const [draft] = useState(() => (opts.seed ? null : loadPostDraft(viewer?.id ?? null)));
+  const [boardSlug, setBoardSlug] = useState<string | null>(draft?.board ?? opts.board ?? null);
   // Preselected so a post is never blocked on it; Bug is the most common kind of feedback.
-  const [type, setType] = useState<PostType | null>('bug');
-  const [platform, setPlatform] = useState<Platform | null>(null);
-  const [title, setTitle] = useState(opts.title ?? '');
-  const [body, setBody] = useState('');
-  const images = useImageDraft(viewer?.id ?? null);
+  const [type, setType] = useState<PostType | null>(draft ? draft.type : 'bug');
+  const [platform, setPlatform] = useState<Platform | null>(draft?.platform ?? null);
+  const [title, setTitle] = useState(draft?.title ?? opts.title ?? '');
+  const [body, setBody] = useState(draft?.body ?? '');
+  const images = useImageDraft(
+    viewer?.id ?? null,
+    (draft?.images ?? []).filter((p) => isPostImagePath(p) && Boolean(viewer?.id) && p.startsWith(`${viewer?.id}/`)),
+  );
   const [errors, setErrors] = useState<PostErrors & { board?: string }>({});
   const [failure, setFailure] = useState<string | null>(null);
   // Staff only: post as yourself, or seed one from a public source (0028).
@@ -213,6 +221,7 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
         : { boardId: board.id, type, title, body, platform, images: images.paths },
       {
         onSuccess: (post) => {
+          if (!seeding) clearPostDraft(viewerId);
           onClose();
           toast(seeding ? `Added to ${board.name} from ${sourceLabel(sourceUrl)}` : `Posted to ${board.name}`);
           void navigate(`/post/${post.id}`);
@@ -230,8 +239,22 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
   };
 
   const initialFocus = board ? (type ? titleRef : typeRef) : productRef;
-  // A draft is never lost by accident: Escape, the X, the backdrop and Cancel all ask first.
+  // A draft is never lost by accident: it saves as you type, and Escape, the X, the
+  // backdrop and Cancel all ask whether to keep it as a draft or discard it.
   const dirty = title.trim().length > 0 || body.trim().length > 0 || images.items.length > 0;
+  const imagePaths = images.paths.join('\n');
+  const currentDraft = useMemo(
+    () => ({ board: boardSlug, type, platform, title, body, images: imagePaths ? imagePaths.split('\n') : [] }),
+    [boardSlug, type, platform, title, body, imagePaths],
+  );
+  const saveDraft = useCallback(() => {
+    if (!seeding) savePostDraft(viewerId, currentDraft);
+  }, [seeding, viewerId, currentDraft]);
+  useEffect(() => {
+    if (seeding || create.isPending || create.isSuccess) return;
+    const t = setTimeout(saveDraft, 400);
+    return () => clearTimeout(t);
+  }, [saveDraft, seeding, create.isPending, create.isSuccess]);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const requestClose = () => {
     if (create.isPending) return;
@@ -240,6 +263,11 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
   };
   const discardAndClose = () => {
     images.discard();
+    if (!seeding) clearPostDraft(viewerId);
+    onClose();
+  };
+  const saveAndClose = () => {
+    saveDraft();
     onClose();
   };
   const footNote = seeding
@@ -258,23 +286,6 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
       initialFocus={initialFocus}
       dismissable={!create.isPending}
       footer={
-        confirmDiscard ? (
-          <div
-            role="alertdialog"
-            aria-label="Discard this post?"
-            className="flex w-full items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch max-sm:gap-2"
-          >
-            <span className="mr-auto text-sm text-ink max-sm:mr-0 max-sm:text-center">Discard this post? What you wrote won’t be saved.</span>
-            <div className="flex shrink-0 items-center gap-2 max-sm:w-full max-sm:*:flex-1">
-              <Button variant="secondary" autoFocus onClick={() => setConfirmDiscard(false)}>
-                Keep editing
-              </Button>
-              <Button variant="danger" onClick={discardAndClose}>
-                Discard
-              </Button>
-            </div>
-          </div>
-        ) : (
         <div className="flex w-full items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch max-sm:gap-2">
           {blocker ? (
             <span id={blockerId} role="status" className="mr-auto text-sm text-ink-muted max-sm:mr-0 max-sm:text-center">
@@ -292,9 +303,27 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
             </Button>
           </div>
         </div>
-        )
       }
+      paused={confirmDiscard}
     >
+      <AlertDialog
+        open={confirmDiscard}
+        title={seeding ? 'Discard post?' : 'Save post?'}
+        description={seeding ? 'What you wrote won’t be saved.' : 'Save it as a draft and pick up where you left off next time.'}
+        onCancel={() => setConfirmDiscard(false)}
+        actions={
+          <>
+            <Button variant="ghost" onClick={discardAndClose} data-autofocus={seeding ? 'true' : undefined}>
+              {seeding ? 'Discard' : 'Delete'}
+            </Button>
+            {seeding ? null : (
+              <Button onClick={saveAndClose} data-autofocus="true">
+                Save
+              </Button>
+            )}
+          </>
+        }
+      />
       <form id={formId} noValidate onSubmit={submit} onKeyDown={onSubmitKey} className="flex flex-col gap-3">
         {opts.onClaim && board ? (
           <p className="m-0 flex flex-wrap items-center gap-x-2 rounded-md border border-line bg-elevated px-3 py-2 text-sm text-ink-secondary">

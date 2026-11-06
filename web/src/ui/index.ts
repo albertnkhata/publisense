@@ -1,6 +1,7 @@
 export { Avatar, BoardAvatar, HubAvatar, UserAvatar } from './avatarExports';
 export { Button, type ButtonProps, type ButtonSize, type ButtonVariant } from './Button';
 export { Card } from './Card';
+export { AlertDialog } from './AlertDialog';
 export { Dialog } from './Dialog';
 export { EmptyState } from './EmptyState';
 export { Field, Input, PasswordInput, Select, Textarea } from './Field';
