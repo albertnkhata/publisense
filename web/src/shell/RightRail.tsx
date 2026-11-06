@@ -24,8 +24,10 @@ export function RightRail() {
           <RailEmpty />
         </Card>
       )}
-      <ClaimLine />
-      <LegalLinks inline className="pt-2" />
+      <div className="flex flex-col gap-2 border-t border-line pt-3">
+        <ClaimLine />
+        <LegalLinks inline />
+      </div>
     </aside>
   );
 }
