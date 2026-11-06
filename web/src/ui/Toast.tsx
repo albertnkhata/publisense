@@ -11,6 +11,8 @@ export interface ToastInput {
   /** Optional undo; the toast stays up longer when present. */
   onUndo?: () => void;
   undoLabel?: string;
+  /** Stays until acted on or replaced (the app-update prompt). */
+  sticky?: boolean;
 }
 
 interface ToastEntry extends ToastInput {
@@ -39,7 +41,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!current) return;
+    if (!current || current.sticky) return;
     const timer = window.setTimeout(dismiss, current.onUndo ? TOAST_UNDO_MS : TOAST_MS);
     return () => window.clearTimeout(timer);
   }, [current, dismiss]);

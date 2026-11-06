@@ -7,6 +7,7 @@ import { AuthLinkErrorWatcher } from './AuthLinkErrorWatcher';
 import { RecoveryWatcher } from './RecoveryWatcher';
 import { HandleTakenNotice } from './HandleTakenNotice';
 import { OnboardingDialog } from './OnboardingDialog';
+import { PwaWatcher } from './PwaWatcher';
 import { useTheme } from '../lib/ThemeProvider';
 import { useShortcut } from '../lib/useShortcut';
 import { ClaimProvider } from '../claim/ClaimDialog';
@@ -54,6 +55,7 @@ export function AppShell() {
       <AuthLinkErrorWatcher />
       <HandleTakenNotice />
       <OnboardingDialog />
+      <PwaWatcher />
       <AddProductHost />
       <a
         href="#main"
