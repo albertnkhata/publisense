@@ -161,4 +161,54 @@ describe('post screenshots', () => {
     fireEvent.click(within(viewer).getByRole('button', { name: 'Next screenshot' }));
     expect(await screen.findByRole('dialog', { name: 'Screenshot 1 of 2' })).toBeTruthy();
   });
+
+  it('steps with arrow keys from anywhere, and Home/End jump to the ends', async () => {
+    renderWith(<PostImages paths={[P1, P2]} title="Crash on save" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open screenshot 1 of 2 for Crash on save' }));
+    await screen.findByRole('dialog', { name: 'Screenshot 1 of 2' });
+    fireEvent.keyDown(document, { key: 'ArrowRight' });
+    expect(await screen.findByRole('dialog', { name: 'Screenshot 2 of 2' })).toBeTruthy();
+    fireEvent.keyDown(document, { key: 'ArrowRight' });
+    expect(await screen.findByRole('dialog', { name: 'Screenshot 1 of 2' })).toBeTruthy();
+    fireEvent.keyDown(document, { key: 'End' });
+    expect(await screen.findByRole('dialog', { name: 'Screenshot 2 of 2' })).toBeTruthy();
+    fireEvent.keyDown(document, { key: 'Home' });
+    expect(await screen.findByRole('dialog', { name: 'Screenshot 1 of 2' })).toBeTruthy();
+  });
+
+  it('closes on Escape and gives focus back to the tile', async () => {
+    renderWith(<PostImages paths={[P1, P2]} title="Crash on save" />);
+    const tile = screen.getByRole('button', { name: 'Open screenshot 2 of 2 for Crash on save' });
+    tile.focus();
+    fireEvent.click(tile);
+    await screen.findByRole('dialog', { name: 'Screenshot 2 of 2' });
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(document.activeElement).toBe(tile);
+  });
+
+  it('jumps to a screenshot from the thumbnail strip and links the original', async () => {
+    renderWith(<PostImages paths={[P1, P2]} title="Crash on save" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open screenshot 1 of 2 for Crash on save' }));
+    const viewer = await screen.findByRole('dialog', { name: 'Screenshot 1 of 2' });
+    const strip = within(viewer).getByRole('list', { name: 'All screenshots' });
+    expect(within(strip).getByRole('button', { name: 'Show screenshot 1' }).getAttribute('aria-current')).toBe('true');
+    fireEvent.click(within(strip).getByRole('button', { name: 'Show screenshot 2' }));
+    const second = await screen.findByRole('dialog', { name: 'Screenshot 2 of 2' });
+    const original = within(second).getByRole('link', { name: 'Open original in a new tab' }) as HTMLAnchorElement;
+    expect(original.href).toContain('22222222');
+    expect(original.target).toBe('_blank');
+  });
+
+  it('shows a lone screenshot without arrows or a strip, and closes from the button', async () => {
+    renderWith(<PostImages paths={[P1]} title="Crash on save" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open screenshot for Crash on save' }));
+    const viewer = await screen.findByRole('dialog', { name: 'Screenshot' });
+    expect(within(viewer).queryByRole('button', { name: 'Next screenshot' })).toBeNull();
+    expect(within(viewer).queryByRole('list', { name: 'All screenshots' })).toBeNull();
+    fireEvent.keyDown(document, { key: 'ArrowRight' });
+    expect(screen.getByRole('dialog', { name: 'Screenshot' })).toBeTruthy();
+    fireEvent.click(within(viewer).getByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
 });
