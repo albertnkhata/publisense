@@ -28,6 +28,18 @@ const PATHS = {
       <path d="M20 20l-3.5-3.5" />
     </>
   ),
+  'zoom-in': (
+    <>
+      <circle cx="11" cy="11" r="7" />
+      <path d="M20 20l-3.5-3.5M11 8v6M8 11h6" />
+    </>
+  ),
+  'zoom-out': (
+    <>
+      <circle cx="11" cy="11" r="7" />
+      <path d="M20 20l-3.5-3.5M8 11h6" />
+    </>
+  ),
   close: <path d="M18 6 6 18M6 6l12 12" />,
   check: <path d="M20 6 9 17l-5-5" />,
   'chevron-down': <path d="m6 9 6 6 6-6" />,

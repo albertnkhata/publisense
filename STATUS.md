@@ -27,7 +27,7 @@ _derived from `docs/v2/BUILD.md` checkbox state · one PR per step, see `docs/v2
 - [x] 8. Moderation and people
 - [x] 9. Cutover
 
-- v2 web tests (`web/src/**/*.test.ts(x)`): **50** files, **617** declared cases
+- v2 web tests (`web/src/**/*.test.ts(x)`): **50** files, **621** declared cases
 
 ### Open decisions and risks
 
@@ -94,33 +94,29 @@ _CI steps read from `.github/workflows/ci.yml`; v2 test counts are under v2 buil
 
 <!-- status:live:start — refreshed by `node scripts/status.mjs --live`; may lag until the next scheduled refresh -->
 
-_probed 2026-10-29T06:01:04Z · anything that could not be read says `unknown` rather than guessing_
+_probed never — run `node scripts/status.mjs --live` · anything that could not be read says `unknown` rather than guessing_
 
 ### Production
 
-- https://publisense.app → **200** · served entry bundle `/assets/index-C-wQC2Fo.js`
-- www → 308 → https://publisense.app/
-- production deployment: `1e89427` (READY, 2026-10-29T05:19:34.576Z)
+- https://publisense.app → **unknown** · served entry bundle `unknown`
+- www → unknown
+- production deployment commit: unknown _(`VERCEL_TOKEN` not set)_
 
 ### Data
 
-- board **31** · hub **6** · post **12** · reply **1** · vote **0** · follow **7** · profile **8** · status_event **4**
-- counted with an authenticated probe; as an anonymous visitor these read: follow = restricted
-- post: **12** total = **11 imported** (no author, sourced elsewhere) + **1 from members**
-- auth users: **8**
-
-> ⚠️ Imported posts carry no author — each one links to the source it came from (`D-011`). Printed so traction is never claimed without the split.
+- table counts: unknown
+- counted as an anonymous visitor only — tables behind RLS read `hidden by RLS`, never 0
+- auth users: unknown _(`SUPABASE_SERVICE_ROLE` not set)_
 
 ### Auth surface
 
-- enabled providers: **google, email**
-- email confirmation: **required** (mailer_autoconfirm=false) · SMTP sender: `auth@publisense.app`
-- Google consent screen: "to continue to **Publisense**" · terms ✓ · privacy ✓ · support `support@publisense.app` · unverified banner: no
+- enabled providers: unknown
+- email confirmation: unknown · SMTP sender: `unknown`
+- Google consent screen: unknown
 
 ### Work queue
 
-- open issues: none
-- open PRs: none
+- open issues/PRs: unknown _(`gh` unavailable or unauthenticated)_
 
 <!-- status:live:end -->
 
