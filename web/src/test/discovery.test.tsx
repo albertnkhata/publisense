@@ -145,6 +145,28 @@ describe('board page', () => {
     expect(screen.getByRole('button', { name: 'Work at Cursor?' })).toBeTruthy();
   });
 
+  it('omits the redundant board name and logo on seeded posts on a board page, leading with the source credit instead', async () => {
+    postsApi.fetchPostList.mockResolvedValue(
+      page([
+        makePost({
+          title: 'Memory leak when agents spawn',
+          author: null,
+          author_id: null,
+          source_url: 'https://www.reddit.com/r/cursor/comments/1/x',
+          source_author: 'u/zoidbergisawesome',
+          platform: 'macos',
+        }),
+      ]),
+    );
+    renderAt('/b/cursor');
+    const list = await screen.findByRole('list', { name: 'Cursor posts' });
+    const card = within(list).getByRole('article');
+    expect(within(card).queryByRole('link', { name: 'Cursor' })).toBeNull();
+    const credit = within(card).getByRole('link', { name: /u\/zoidbergisawesome on Reddit/ });
+    expect(credit.getAttribute('href')).toBe('https://www.reddit.com/r/cursor/comments/1/x');
+    expect(within(card).getByText('macOS')).toBeTruthy();
+  });
+
   it('filters by type, then clears', async () => {
     const { router } = renderAt('/b/cursor');
     await screen.findByText('Composer drops edits');

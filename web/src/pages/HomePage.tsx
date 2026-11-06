@@ -150,7 +150,7 @@ function SortMenu({ sort, onChange }: { sort: FeedSort; onChange: (s: FeedSort) 
 
 /**
  * The collapsed composer: a field, not a card — one rule, one line, one quiet action.
- * It shares the feed's grid (PostCard: px-5, then a pl-gutter column): the plus
+ * It shares the feed's grid (PostCard: a pl-gutter column): the plus
  * hangs in the gutter where avatars sit, and the prompt and its rule span exactly
  * the post content's width, so the rule reads as the field's underline.
  */
@@ -163,7 +163,7 @@ function ComposerTrigger() {
       onClick={() => {
         if (requireAuth('post feedback')) openComposer();
       }}
-      className="group flex w-full cursor-pointer items-center border-0 bg-transparent px-5 text-left max-sm:hidden"
+      className="group flex w-full cursor-pointer items-center border-0 bg-transparent px-0 text-left max-sm:hidden"
     >
       <span className="flex w-gutter shrink-0 items-center">
         <span className="flex size-6 items-center justify-center rounded-pill border border-line-strong text-ink-muted transition-colors duration-120 group-hover:border-ink-muted group-hover:text-ink-secondary">

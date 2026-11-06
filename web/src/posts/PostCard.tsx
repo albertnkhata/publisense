@@ -51,9 +51,8 @@ export function PostCard({ post, variant = 'feed', onDeleted, hideBoard = false 
       className={cx(
         // Borderless (#205): in a feed the list draws a hairline between posts (FEED_LIST);
         // on its own page a hairline under the post separates it from what follows.
-        // On phones the page's own margin is the side margin, so the card adds none and its
-        // logo lines up with the feed's toolbar (Albert, 2026-11-04: the gap was too wide).
-        'px-5 py-4 max-sm:px-0',
+        // No side padding so the avatar column aligns flush with the page header and filter bar.
+        'pt-4 pb-5',
         page ? 'border-b border-line' : 'cursor-pointer',
       )}
     >
@@ -96,7 +95,7 @@ export function PostCard({ post, variant = 'feed', onDeleted, hideBoard = false 
  * beside row 1, which carries the product, type, platform and age. Row 2
  * credits who it came from: the author's handle, or the source a seeded post
  * was found on. On a board page the board is already named, so a community
- * post leads with its author instead.
+ * post leads with its author instead and a seeded post leads with its source.
  */
 function PostHead({ post, hideBoard }: { post: Post; hideBoard: boolean }) {
   const kind = postKind(post);
@@ -122,7 +121,39 @@ function PostHead({ post, hideBoard }: { post: Post; hideBoard: boolean }) {
   );
   const row = 'flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-muted';
 
-  if (hideBoard && kind !== 'seeded') {
+  if (hideBoard) {
+    if (kind === 'seeded') {
+      const credit = post.source_url ? (
+        <a
+          href={post.source_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={cx(linkClass, 'inline-flex items-center gap-1 font-medium text-ink-secondary hover:text-ink')}
+        >
+          {sourceCredit(post)}
+          <Icon name="arrow-up-right" size={11} />
+        </a>
+      ) : (
+        <span className="font-medium text-ink-secondary">{sourceCredit(post)}</span>
+      );
+      return (
+        <>
+          <span className="absolute top-0 left-0 inline-grid size-7 shrink-0 place-items-center rounded-pill border border-line bg-subtle text-ink-muted" aria-hidden="true">
+            <Icon name="globe" size={14} />
+          </span>
+          <div className={cx(row, 'min-h-4')}>
+            {credit}
+            {time}
+            {edited}
+          </div>
+          <div className={cx(row, 'mt-1')}>
+            <TypePill type={post.type} />
+            {platform}
+          </div>
+        </>
+      );
+    }
+
     return (
       <>
         <span className="absolute top-0 left-0">

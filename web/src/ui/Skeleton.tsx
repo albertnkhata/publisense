@@ -35,7 +35,7 @@ export function Skeleton({ variant = 'card', className, label = 'Loading' }: { v
     );
   }
   return (
-    <div {...a11y} className={cx('rounded-md border border-line bg-card px-5 py-4', className)}>
+    <div {...a11y} className={cx('pt-4 pb-5', className)}>
       <div className="flex">
         <div className="w-gutter shrink-0">
           <SkeletonBlock className="size-7 rounded-pill" />
@@ -45,7 +45,7 @@ export function Skeleton({ variant = 'card', className, label = 'Loading' }: { v
           <SkeletonBlock className="h-4 w-3/4" />
           <SkeletonBlock className="h-3 w-full" />
           <SkeletonBlock className="h-3 w-2/3" />
-          <div className="mt-2 flex gap-2 border-t border-line pt-3">
+          <div className="mt-2 flex gap-2">
             <SkeletonBlock className="h-7 w-10" />
             <SkeletonBlock className="h-7 w-9" />
           </div>
