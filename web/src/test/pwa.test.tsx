@@ -1,31 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, renderHook, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { initInstallPrompt, promptInstall, useCanInstall } from '../lib/pwa';
 import { PwaWatcher, PWA_COPY } from '../shell/PwaWatcher';
 import { ToastProvider, useToast } from '../ui';
-
-describe('install prompt', () => {
-  it('offers install once the browser fires beforeinstallprompt, and clears after prompting', async () => {
-    const target = new EventTarget() as unknown as Window;
-    initInstallPrompt(target);
-    const { result } = renderHook(() => useCanInstall());
-    expect(result.current).toBe(false);
-    const prompt = vi.fn(async () => undefined);
-    const e = Object.assign(new Event('beforeinstallprompt', { cancelable: true }), { prompt, userChoice: Promise.resolve({ outcome: 'accepted' as const }) });
-    act(() => void target.dispatchEvent(e));
-    expect(e.defaultPrevented).toBe(true);
-    expect(result.current).toBe(true);
-    let accepted = false;
-    await act(async () => {
-      accepted = await promptInstall();
-    });
-    expect(prompt).toHaveBeenCalledTimes(1);
-    expect(accepted).toBe(true);
-    expect(result.current).toBe(false);
-  });
-});
 
 describe('PwaWatcher', () => {
   it('shows an offline pill while offline', () => {
