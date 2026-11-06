@@ -24,3 +24,5 @@ export * from './productHooks';
 export * from './analytics';
 export * from './messages';
 export * from './messageHooks';
+export * from './drafts';
+export * from './draftHooks';

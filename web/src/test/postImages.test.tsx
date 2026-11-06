@@ -14,6 +14,8 @@ const imagesApi = vi.hoisted(() => ({ preparePostImage: vi.fn(), uploadPostImage
 const modApi = vi.hoisted(() => ({ fetchIsPlatformAdmin: vi.fn() }));
 vi.mock('../api/moderation', async (orig) => ({ ...(await orig<typeof import('../api/moderation')>()), ...modApi }));
 vi.mock('../api/boards', async (orig) => ({ ...(await orig<typeof import('../api/boards')>()), ...boardsApi }));
+const draftsApi = vi.hoisted(() => ({ fetchDrafts: vi.fn(), saveDraft: vi.fn(), deleteDraft: vi.fn() }));
+vi.mock('../api/drafts', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/drafts')>()), ...draftsApi }));
 vi.mock('../api/posts', async (orig) => ({ ...(await orig<typeof import('../api/posts')>()), ...postsApi }));
 vi.mock('../api/postImages', async (orig) => ({
   ...(await orig<typeof import('../api/postImages')>()),
@@ -39,6 +41,9 @@ const png = (name: string) => new File(['x'], name, { type: 'image/png' });
 beforeEach(() => {
   vi.clearAllMocks();
   window.localStorage.clear();
+  draftsApi.fetchDrafts.mockResolvedValue([]);
+  draftsApi.saveDraft.mockResolvedValue('d0000000-0000-4000-8000-000000000009');
+  draftsApi.deleteDraft.mockResolvedValue(undefined);
   boardsApi.fetchBoards.mockResolvedValue([CURSOR, FIGMA, SUPABASE]);
   boardsApi.fetchHubs.mockResolvedValue([FIGMA_HUB]);
   postsApi.fetchSimilar.mockResolvedValue([]);

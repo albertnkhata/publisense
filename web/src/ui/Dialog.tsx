@@ -23,6 +23,8 @@ export interface DialogProps {
   initialFocus?: RefObject<HTMLElement | null>;
   /** Close when the backdrop is clicked (default true). */
   dismissable?: boolean;
+  /** A control beside the close button (the composer's Drafts). */
+  headerAction?: ReactNode;
   /** A prompt is open on top (AlertDialog): leave Escape and Tab to it. */
   paused?: boolean;
 }
@@ -39,6 +41,7 @@ export function Dialog({
   initialFocus,
   dismissable = true,
   paused = false,
+  headerAction,
 }: DialogProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const returnTo = useRef<HTMLElement | null>(null);
@@ -116,6 +119,7 @@ export function Dialog({
           <h2 id={titleId} className={cx('m-0 flex-1 text-md font-semibold text-ink', hideTitle && 'sr-only')}>
             {title}
           </h2>
+          {headerAction}
           <IconButton icon="close" label="Close" onClick={() => onCloseRef.current()} data-dialog-close="true" />
         </header>
         <div className="flex-1 overflow-y-auto px-5 py-4">
