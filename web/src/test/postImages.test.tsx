@@ -38,6 +38,7 @@ const png = (name: string) => new File(['x'], name, { type: 'image/png' });
 
 beforeEach(() => {
   vi.clearAllMocks();
+  window.localStorage.clear();
   boardsApi.fetchBoards.mockResolvedValue([CURSOR, FIGMA, SUPABASE]);
   boardsApi.fetchHubs.mockResolvedValue([FIGMA_HUB]);
   postsApi.fetchSimilar.mockResolvedValue([]);
@@ -120,13 +121,22 @@ describe('composer screenshots', () => {
     expect((within(dialog).getByRole('button', { name: 'Post' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it('deletes the uploads when the draft is discarded', async () => {
+  it('deletes the uploads when the draft is deleted', async () => {
     const dialog = await openWithDraft();
     fireEvent.change(fileInput(dialog), { target: { files: [png('one.png')] } });
     await waitFor(() => expect(within(dialog).queryByLabelText('Uploading')).toBeNull());
     fireEvent.keyDown(document, { key: 'Escape' });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Discard' }));
+    fireEvent.click(within(await screen.findByRole('alertdialog', { name: 'Save post?' })).getByRole('button', { name: 'Delete' }));
     expect(imagesApi.removePostImages).toHaveBeenCalledWith([P1]);
+  });
+
+  it('keeps the uploads when the draft is saved', async () => {
+    const dialog = await openWithDraft();
+    fireEvent.change(fileInput(dialog), { target: { files: [png('one.png')] } });
+    await waitFor(() => expect(within(dialog).queryByLabelText('Uploading')).toBeNull());
+    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.click(within(await screen.findByRole('alertdialog', { name: 'Save post?' })).getByRole('button', { name: 'Save' }));
+    expect(imagesApi.removePostImages).not.toHaveBeenCalledWith([P1]);
   });
 });
 
