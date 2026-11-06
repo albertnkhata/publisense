@@ -1,12 +1,15 @@
 import type { Platform, PostType } from '../api';
 
 /**
- * The composer's saved draft: one per signed-in person, on this device
- * (localStorage). Saved as they type, restored when the composer next opens,
- * cleared when they post or discard. Images are paths already uploaded to the
+ * The composer's crash copy: one per signed-in person, on this device
+ * (localStorage). Saved as they type, cleared when they post, save to Drafts
+ * (0061) or delete; so if it is still here when the composer opens, the last one
+ * closed without either (a reload, a crash) and it comes back. Images are paths already uploaded to the
  * post-images bucket (0060), so a draft keeps its screenshots.
  */
 export interface PostDraft {
+  /** The saved draft (0061) this copy belongs to, if it was opened from Drafts or saved before. */
+  draftId?: string | null;
   board: string | null;
   type: PostType | null;
   platform: Platform | null;
@@ -30,6 +33,7 @@ export function loadPostDraft(viewerId: string | null): PostDraft | null {
     if (!raw) return null;
     const d = JSON.parse(raw) as Partial<PostDraft>;
     const draft: PostDraft = {
+      draftId: typeof d.draftId === 'string' ? d.draftId : null,
       board: typeof d.board === 'string' ? d.board : null,
       type: d.type === 'bug' || d.type === 'feature' || d.type === 'friction' ? d.type : null,
       platform: typeof d.platform === 'string' ? (d.platform as Platform) : null,

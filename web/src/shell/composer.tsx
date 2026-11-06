@@ -33,6 +33,12 @@ import {
   useIsPlatformAdmin,
   useSimilarPosts,
   validatePost,
+  ago,
+  removePostImages,
+  useDeleteDraft,
+  useDrafts,
+  useSaveDraft,
+  type SavedDraft,
   type Board,
   type Post,
   type PostErrors,
@@ -47,7 +53,7 @@ import { useViewer } from '../lib/viewer';
 import { AddImagesButton, DraftImages, imageFiles, useImageDraft } from '../posts/ImageDraft';
 import { PlatformField } from '../posts/PlatformField';
 import { VoteButton } from '../posts/VoteButton';
-import { AlertDialog, BoardAvatar, Button, Dialog, Field, Icon, Input, Menu, MenuItemRadio, STATUS_META, TYPE_META, useToast } from '../ui';
+import { AlertDialog, BoardAvatar, Button, Dialog, IconButton, Field, Icon, Input, Menu, MenuItemRadio, STATUS_META, TYPE_META, useToast } from '../ui';
 import { useRequireAuth } from './auth';
 import { useAddProduct } from '../products/AddProductDialog';
 
@@ -70,6 +76,8 @@ export interface ComposerOptions {
   onClaim?: () => void;
   /** Staff: open on "From a source" (a seeded post with a link back, no author). */
   seed?: boolean;
+  /** Open this saved draft (0061), picked from Drafts. */
+  draft?: SavedDraft;
 }
 
 interface ComposerCtx {
@@ -87,7 +95,7 @@ export function ComposerProvider({ children }: { children: ReactNode }) {
       // Guard against being handed a click event as `opts`.
       const clean: ComposerOptions =
         opts && typeof opts === 'object' && !('nativeEvent' in opts)
-          ? { board: opts.board, hub: opts.hub, title: opts.title, firstPost: opts.firstPost, onClaim: opts.onClaim, seed: opts.seed }
+          ? { board: opts.board, hub: opts.hub, title: opts.title, firstPost: opts.firstPost, onClaim: opts.onClaim, seed: opts.seed, draft: opts.draft }
           : {};
       recordEvent('composer_open');
       setState((s) => ({ open: true, opts: clean, key: s.key + 1 }));
@@ -95,11 +103,13 @@ export function ComposerProvider({ children }: { children: ReactNode }) {
     [requireAuth],
   );
   const close = useCallback(() => setState((s) => ({ ...s, open: false })), []);
+  // Picking a draft starts a fresh composer on it.
+  const openDraft = useCallback((draft: SavedDraft) => setState((s) => ({ open: true, opts: { draft }, key: s.key + 1 })), []);
   const value = useMemo(() => ({ openComposer }), [openComposer]);
   return (
     <ComposerContext.Provider value={value}>
       {children}
-      {state.open ? <Composer key={state.key} opts={state.opts} onClose={close} /> : null}
+      {state.open ? <Composer key={state.key} opts={state.opts} onClose={close} onOpenDraft={openDraft} /> : null}
     </ComposerContext.Provider>
   );
 }
@@ -116,7 +126,7 @@ const TYPES: Array<{ value: PostType; desc: string }> = [
   { value: 'feature', desc: 'A feature or change you’d like' },
 ];
 
-function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => void }) {
+function Composer({ opts, onClose, onOpenDraft }: { opts: ComposerOptions; onClose: () => void; onOpenDraft: (d: SavedDraft) => void }) {
   const { viewer } = useViewer();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -124,9 +134,30 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
   const hubs = useHubs();
   const create = useCreatePost(viewer?.id ?? null);
 
-  // The saved draft (one per person, this device) comes back when the composer opens.
-  // Staff seeding from a source starts clean and never saves one.
-  const [draft] = useState(() => (opts.seed ? null : loadPostDraft(viewer?.id ?? null)));
+  // A draft picked from Drafts opens as it was saved. Otherwise the crash copy on this
+  // device comes back (the last composer closed without Post, Save or Delete).
+  // Staff seeding from a source starts clean and never saves either.
+  const [draft] = useState(() =>
+    opts.draft
+      ? {
+          draftId: opts.draft.id,
+          board: opts.draft.board?.slug ?? null,
+          type: opts.draft.type,
+          platform: opts.draft.platform,
+          title: opts.draft.title,
+          body: opts.draft.body,
+          images: opts.draft.images,
+        }
+      : opts.seed
+        ? null
+        : loadPostDraft(viewer?.id ?? null),
+  );
+  const [draftId, setDraftId] = useState<string | null>(draft?.draftId ?? null);
+  const savedDrafts = useDrafts(viewer?.id ?? null, !opts.seed);
+  const saveDraftMut = useSaveDraft(viewer?.id ?? null);
+  const deleteDraftMut = useDeleteDraft(viewer?.id ?? null);
+  const [view, setView] = useState<'compose' | 'drafts'>('compose');
+  const [deleting, setDeleting] = useState<SavedDraft | null>(null);
   const [boardSlug, setBoardSlug] = useState<string | null>(draft?.board ?? opts.board ?? null);
   // Preselected so a post is never blocked on it; Bug is the most common kind of feedback.
   const [type, setType] = useState<PostType | null>(draft ? draft.type : 'bug');
@@ -221,7 +252,11 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
         : { boardId: board.id, type, title, body, platform, images: images.paths },
       {
         onSuccess: (post) => {
-          if (!seeding) clearPostDraft(viewerId);
+          if (!seeding) {
+            clearPostDraft(viewerId);
+            // Posted: the saved draft goes, but its images now belong to the post.
+            if (draftId) deleteDraftMut.mutate(draftId);
+          }
           onClose();
           toast(seeding ? `Added to ${board.name} from ${sourceLabel(sourceUrl)}` : `Posted to ${board.name}`);
           void navigate(`/post/${post.id}`);
@@ -244,8 +279,8 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
   const dirty = title.trim().length > 0 || body.trim().length > 0 || images.items.length > 0;
   const imagePaths = images.paths.join('\n');
   const currentDraft = useMemo(
-    () => ({ board: boardSlug, type, platform, title, body, images: imagePaths ? imagePaths.split('\n') : [] }),
-    [boardSlug, type, platform, title, body, imagePaths],
+    () => ({ draftId, board: boardSlug, type, platform, title, body, images: imagePaths ? imagePaths.split('\n') : [] }),
+    [draftId, boardSlug, type, platform, title, body, imagePaths],
   );
   const saveDraft = useCallback(() => {
     if (!seeding) savePostDraft(viewerId, currentDraft);
@@ -263,13 +298,54 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
   };
   const discardAndClose = () => {
     images.discard();
-    if (!seeding) clearPostDraft(viewerId);
+    if (!seeding) {
+      clearPostDraft(viewerId);
+      if (draftId) deleteDraftMut.mutate(draftId);
+    }
     onClose();
   };
-  const saveAndClose = () => {
-    saveDraft();
-    onClose();
+  /** Save to Drafts (0061). On failure the crash copy stays and the reason shows. */
+  const saveToDrafts = async (): Promise<boolean> => {
+    try {
+      const boardId = (boards.data ?? []).find((b) => b.slug === boardSlug)?.id ?? null;
+      const id = await saveDraftMut.mutateAsync({ id: draftId, fields: { boardId, type, platform, title, body, images: images.paths } });
+      setDraftId(id);
+      clearPostDraft(viewerId);
+      return true;
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'We couldn’t save the draft. Try again.');
+      return false;
+    }
   };
+  const saveAndClose = async () => {
+    if (images.uploading) return;
+    if (await saveToDrafts()) {
+      onClose();
+      toast('Saved to Drafts');
+    } else setConfirmDiscard(false);
+  };
+  // Open another draft; what's in the composer now is saved first, so nothing is lost.
+  const pickDraft = async (d: SavedDraft) => {
+    if (d.id === draftId) {
+      setView('compose');
+      return;
+    }
+    if (dirty && !(await saveToDrafts())) return;
+    clearPostDraft(viewerId);
+    onOpenDraft(d);
+  };
+  const confirmDeleteDraft = () => {
+    if (!deleting) return;
+    const d = deleting;
+    setDeleting(null);
+    deleteDraftMut.mutate(d.id);
+    if (d.id === draftId) {
+      // The one open now: it's still in the composer, just no longer saved.
+      setDraftId(null);
+    } else void removePostImages(d.images);
+  };
+  const draftCount = savedDrafts.data?.length ?? 0;
+  const showDrafts = view === 'drafts';
   const footNote = seeding
     ? `Shows as the board’s post, from ${isSourceUrl(sourceUrl) ? sourceLabel(sourceUrl) : 'the source'}, with no author`
     : 'You’ll follow this post automatically';
@@ -277,15 +353,27 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
   return (
     <Dialog
       open
-      onClose={requestClose}
-      title={seeding ? 'Add feedback from a source' : opts.firstPost ? 'What do you want to tell them?' : 'Post feedback'}
-      {...(pendingBoard && board
+      onClose={showDrafts ? () => setView('compose') : requestClose}
+      title={showDrafts ? 'Drafts' : seeding ? 'Add feedback from a source' : opts.firstPost ? 'What do you want to tell them?' : 'Post feedback'}
+      headerAction={
+        showDrafts ? (
+          <Button variant="ghost" size="sm" icon="arrow-left" onClick={() => setView('compose')}>
+            Back
+          </Button>
+        ) : !seeding && draftCount > 0 ? (
+          <Button variant="ghost" size="sm" onClick={() => setView('drafts')}>
+            Drafts
+          </Button>
+        ) : null
+      }
+      {...(pendingBoard && board && !showDrafts
         ? { description: `${board.name} is waiting for review. Until it’s approved, only you can see it and what you post on it.` }
         : {})}
       size="lg"
       initialFocus={initialFocus}
       dismissable={!create.isPending}
       footer={
+        showDrafts ? undefined : (
         <div className="flex w-full items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch max-sm:gap-2">
           {blocker ? (
             <span id={blockerId} role="status" className="mr-auto text-sm text-ink-muted max-sm:mr-0 max-sm:text-center">
@@ -303,9 +391,29 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
             </Button>
           </div>
         </div>
+        )
       }
-      paused={confirmDiscard}
+      paused={confirmDiscard || deleting !== null}
     >
+      <AlertDialog
+        open={deleting !== null}
+        title="Delete draft?"
+        description="This can’t be undone."
+        onCancel={() => setDeleting(null)}
+        actions={
+          <>
+            <Button variant="ghost" onClick={() => setDeleting(null)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={confirmDeleteDraft} data-autofocus="true">
+              Delete
+            </Button>
+          </>
+        }
+      />
+      {showDrafts ? (
+        <DraftList drafts={savedDrafts.data ?? []} loading={savedDrafts.isLoading} currentId={draftId} onPick={(d) => void pickDraft(d)} onDelete={setDeleting} />
+      ) : null}
       <AlertDialog
         open={confirmDiscard}
         title={seeding ? 'Discard post?' : 'Save post?'}
@@ -317,14 +425,14 @@ function Composer({ opts, onClose }: { opts: ComposerOptions; onClose: () => voi
               {seeding ? 'Discard' : 'Delete'}
             </Button>
             {seeding ? null : (
-              <Button onClick={saveAndClose} data-autofocus="true">
+              <Button onClick={() => void saveAndClose()} loading={saveDraftMut.isPending} data-autofocus="true">
                 Save
               </Button>
             )}
           </>
         }
       />
-      <form id={formId} noValidate onSubmit={submit} onKeyDown={onSubmitKey} className="flex flex-col gap-3">
+      <form id={formId} hidden={showDrafts} noValidate onSubmit={submit} onKeyDown={onSubmitKey} className="flex flex-col gap-3">
         {opts.onClaim && board ? (
           <p className="m-0 flex flex-wrap items-center gap-x-2 rounded-md border border-line bg-elevated px-3 py-2 text-sm text-ink-secondary">
             Is this your product?
@@ -839,3 +947,53 @@ function Similar({ posts, onOpen }: { posts: Post[]; onOpen: () => void }) {
   );
 }
 
+
+/** Saved drafts (0061), newest first. Tap one to open it; the bin asks before deleting. */
+function DraftList({
+  drafts,
+  loading,
+  currentId,
+  onPick,
+  onDelete,
+}: {
+  drafts: SavedDraft[];
+  loading: boolean;
+  currentId: string | null;
+  onPick: (d: SavedDraft) => void;
+  onDelete: (d: SavedDraft) => void;
+}) {
+  if (loading) return <p className="m-0 py-6 text-center text-sm text-ink-muted">Loading drafts…</p>;
+  if (!drafts.length) return <p className="m-0 py-6 text-center text-sm text-ink-muted">No drafts yet.</p>;
+  return (
+    <ul aria-label="Saved drafts" className="m-0 flex list-none flex-col p-0">
+      {drafts.map((d) => {
+        const name = d.title.trim() || 'Untitled draft';
+        return (
+          <li key={d.id} className="flex items-center gap-2 border-b border-line py-2 last:border-b-0">
+            <button
+              type="button"
+              onClick={() => onPick(d)}
+              aria-label={`Open draft: ${name}`}
+              className="flex min-w-0 flex-1 items-center gap-3 rounded-md border-0 bg-transparent p-2 text-left hover:bg-subtle"
+            >
+              {d.board ? (
+                <BoardAvatar name={d.board.name} color={d.board.color} logoSrc={logoSrc(d.board)} size="sm" decorative />
+              ) : (
+                <span aria-hidden="true" className="inline-grid size-6 shrink-0 place-items-center rounded-sm bg-subtle text-ink-muted">
+                  <Icon name="edit" size={14} />
+                </span>
+              )}
+              <span className="flex min-w-0 flex-col">
+                <span className={cx('truncate text-base font-semibold', d.title.trim() ? 'text-ink' : 'text-ink-muted')}>{name}</span>
+                <span className="truncate text-sm text-ink-muted">
+                  {[d.board?.name, d.id === currentId ? 'Open now' : ago(d.updated_at)].filter(Boolean).join(' · ')}
+                </span>
+              </span>
+            </button>
+            <IconButton icon="trash" label={`Delete draft: ${name}`} onClick={() => onDelete(d)} />
+          </li>
+        );
+      })}
+    </ul>
+  );
+}

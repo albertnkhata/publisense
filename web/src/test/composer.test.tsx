@@ -19,6 +19,8 @@ const postsApi = vi.hoisted(() => ({
   setVote: vi.fn(),
 }));
 const modApi = vi.hoisted(() => ({ fetchIsPlatformAdmin: vi.fn() }));
+const draftsApi = vi.hoisted(() => ({ fetchDrafts: vi.fn(), saveDraft: vi.fn(), deleteDraft: vi.fn() }));
+vi.mock('../api/drafts', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/drafts')>()), ...draftsApi }));
 vi.mock('../api/moderation', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/moderation')>()), ...modApi }));
 vi.mock('../api/boards', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/boards')>()), ...boardsApi }));
 vi.mock('../api/posts', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/posts')>()), ...postsApi }));
@@ -68,6 +70,9 @@ beforeEach(() => {
   boardsApi.fetchHubs.mockResolvedValue([FIGMA_HUB]);
   postsApi.fetchSimilar.mockResolvedValue([]);
   modApi.fetchIsPlatformAdmin.mockResolvedValue(false);
+  draftsApi.fetchDrafts.mockResolvedValue([]);
+  draftsApi.saveDraft.mockResolvedValue('d0000000-0000-4000-8000-000000000001');
+  draftsApi.deleteDraft.mockResolvedValue(undefined);
 });
 
 describe('composer', () => {
@@ -138,22 +143,89 @@ describe('composer', () => {
     expect((within(again).getByRole('textbox', { name: 'Title' }) as HTMLInputElement).value).toBe('');
   });
 
-  it('saves a draft and brings it back the next time the composer opens', async () => {
+  it('saves a draft to Drafts, and opens it again from the list', async () => {
     renderComposer();
     const dialog = await open();
     await chooseSupabase(dialog);
     chooseType(dialog, 'Feature request');
     fireEvent.change(within(dialog).getByRole('textbox', { name: 'Title' }), { target: { value: 'Branching for preview databases' } });
     fireEvent.change(within(dialog).getByRole('textbox', { name: /Details/ }), { target: { value: 'One per pull request.' } });
+    // What the server lists once it is saved.
+    draftsApi.fetchDrafts.mockResolvedValue([
+      {
+        id: 'd0000000-0000-4000-8000-000000000001',
+        board: { id: SUPABASE.id, slug: 'supabase', name: 'Supabase', color: SUPABASE.color, logo_path: null },
+        type: 'feature',
+        platform: null,
+        title: 'Branching for preview databases',
+        body: 'One per pull request.',
+        images: [],
+        updated_at: new Date().toISOString(),
+      },
+    ]);
     fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     fireEvent.click(within(await screen.findByRole('alertdialog', { name: 'Save post?' })).getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Post feedback' })).toBeNull());
+    expect(draftsApi.saveDraft).toHaveBeenCalledWith(null, {
+      boardId: SUPABASE.id,
+      type: 'feature',
+      platform: null,
+      title: 'Branching for preview databases',
+      body: 'One per pull request.',
+      images: [],
+    });
+    expect(await screen.findByText('Saved to Drafts')).toBeTruthy();
+    // Saved to the server, so the device copy is gone and the next composer starts blank.
+    expect(window.localStorage.getItem(`publisense:post-draft:${TEST_VIEWER.id}`)).toBeNull();
 
     const again = await open();
-    expect((within(again).getByRole('textbox', { name: 'Title' }) as HTMLInputElement).value).toBe('Branching for preview databases');
-    expect((within(again).getByRole('textbox', { name: /Details/ }) as HTMLTextAreaElement).value).toBe('One per pull request.');
-    expect(await within(again).findByText('Supabase')).toBeTruthy();
-    expect(within(again).getByRole('button', { name: /Type/ }).textContent).toMatch(/Feature request/);
+    expect((within(again).getByRole('textbox', { name: 'Title' }) as HTMLInputElement).value).toBe('');
+    fireEvent.click(await within(again).findByRole('button', { name: 'Drafts' }));
+    const list = await screen.findByRole('dialog', { name: 'Drafts' });
+    fireEvent.click(within(list).getByRole('button', { name: 'Open draft: Branching for preview databases' }));
+    const opened = await screen.findByRole('dialog', { name: 'Post feedback' });
+    expect((within(opened).getByRole('textbox', { name: 'Title' }) as HTMLInputElement).value).toBe('Branching for preview databases');
+    expect((within(opened).getByRole('textbox', { name: /Details/ }) as HTMLTextAreaElement).value).toBe('One per pull request.');
+    expect(await within(opened).findByText('Supabase')).toBeTruthy();
+    expect(within(opened).getByRole('button', { name: /Type/ }).textContent).toMatch(/Feature request/);
+
+    // Posting it removes the saved draft.
+    postsApi.createPost.mockResolvedValue(makePost({ id: 'a0000000-0000-4000-8000-0000000000fd', title: 'Branching for preview databases' }));
+    fireEvent.click(within(opened).getByRole('button', { name: 'Post' }));
+    expect(await screen.findByRole('heading', { name: 'Post page' })).toBeTruthy();
+    await waitFor(() => expect(draftsApi.deleteDraft).toHaveBeenCalledWith('d0000000-0000-4000-8000-000000000001'));
+  });
+
+  it('asks before deleting a draft from the list', async () => {
+    draftsApi.fetchDrafts.mockResolvedValue([
+      { id: 'd0000000-0000-4000-8000-000000000002', board: null, type: 'bug', platform: null, title: '', body: 'x', images: [], updated_at: new Date().toISOString() },
+    ]);
+    renderComposer();
+    const dialog = await open();
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Drafts' }));
+    const list = await screen.findByRole('dialog', { name: 'Drafts' });
+    fireEvent.click(within(list).getByRole('button', { name: 'Delete draft: Untitled draft' }));
+    const prompt = await screen.findByRole('alertdialog', { name: 'Delete draft?' });
+    fireEvent.click(within(prompt).getByRole('button', { name: 'Cancel' }));
+    expect(draftsApi.deleteDraft).not.toHaveBeenCalled();
+    draftsApi.fetchDrafts.mockResolvedValue([]);
+    fireEvent.click(within(list).getByRole('button', { name: 'Delete draft: Untitled draft' }));
+    fireEvent.click(within(await screen.findByRole('alertdialog', { name: 'Delete draft?' })).getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(draftsApi.deleteDraft).toHaveBeenCalledWith('d0000000-0000-4000-8000-000000000002'));
+    expect(await within(list).findByText('No drafts yet.')).toBeTruthy();
+    // Back returns to the composer.
+    fireEvent.click(within(list).getByRole('button', { name: 'Back' }));
+    expect(await screen.findByRole('dialog', { name: 'Post feedback' })).toBeTruthy();
+  });
+
+  it('brings back what was typed when the composer was never closed properly', async () => {
+    window.localStorage.setItem(
+      `publisense:post-draft:${TEST_VIEWER.id}`,
+      JSON.stringify({ board: null, type: 'bug', platform: null, title: 'Lost in a reload', body: '', images: [] }),
+    );
+    renderComposer();
+    const dialog = await open();
+    expect((within(dialog).getByRole('textbox', { name: 'Title' }) as HTMLInputElement).value).toBe('Lost in a reload');
   });
 
   it('keeps what was typed even when the composer is never closed properly', async () => {
