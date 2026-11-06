@@ -4,12 +4,10 @@ import { getSupabase, hasSupabaseConfig } from './api';
 import { App } from './App';
 import { Providers } from './Providers';
 import { initMonitoring, rootErrorOptions } from './lib/monitoring';
-import { initInstallPrompt } from './lib/pwa';
 import { Analytics } from '@vercel/analytics/react';
 import './styles/app.css';
 
 initMonitoring();
-initInstallPrompt();
 
 // Create the client before React mounts, so a reset link's #type=recovery is seen
 // while it is still in the URL (docs/deferred.md D-014).

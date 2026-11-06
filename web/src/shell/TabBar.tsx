@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Link, NavLink } from 'react-router';
 import { useDmUnread, useIsPlatformAdmin, useMessagesEnabled, useUnreadCount } from '../api';
 import { cx } from '../lib/cx';
-import { promptInstall, useCanInstall } from '../lib/pwa';
 import { useTheme } from '../lib/ThemeProvider';
 import { useViewer } from '../lib/viewer';
 import { Dialog, Icon, UserAvatar, useToast, type IconName } from '../ui';
@@ -20,7 +19,6 @@ export function TabBar({ showPost = true }: { showPost?: boolean } = {}) {
   const requireAuth = useRequireAuth();
   const { theme, pref, toggle, setPref } = useTheme();
   const [sheet, setSheet] = useState(false);
-  const canInstall = useCanInstall();
   const unread = useUnreadCount(viewer?.id ?? null).data ?? 0;
   const staff = useIsPlatformAdmin(viewer?.id ?? null).data ?? false;
   const messages = useMessagesEnabled(viewer?.id ?? null);
@@ -125,19 +123,6 @@ export function TabBar({ showPost = true }: { showPost?: boolean } = {}) {
               >
                 <Icon name="settings" size={20} strokeWidth={1.75} />
                 Use system theme
-              </button>
-            ) : null}
-            {canInstall ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setSheet(false);
-                  void promptInstall();
-                }}
-                className={sheetItem}
-              >
-                <Icon name="download" size={20} strokeWidth={1.75} />
-                Install app
               </button>
             ) : null}
             <button
