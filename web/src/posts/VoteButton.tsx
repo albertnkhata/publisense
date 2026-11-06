@@ -53,10 +53,10 @@ export function VoteButton({ post, size = 'md' }: { post: Post; size?: 'sm' | 'm
         size === 'sm' ? 'h-6 px-2 text-xs' : 'h-7 pr-3 pl-2 text-sm',
         post.voted
           ? 'border-brand bg-brand text-on-brand enabled:hover:border-brand-hover enabled:hover:bg-brand-hover'
-          : 'border-line bg-card text-ink-secondary enabled:hover:border-brand enabled:hover:bg-brand-soft enabled:hover:text-brand',
+          : 'border-line-strong bg-card text-ink-secondary enabled:hover:border-brand enabled:hover:bg-brand-soft enabled:hover:text-brand',
       )}
     >
-      <Icon name="arrow-up" size={size === 'sm' ? 14 : 16} strokeWidth={1.8} />
+      <Icon name="arrow-up" size={size === 'sm' ? 14 : 16} strokeWidth={1.8} className={post.voted ? undefined : 'text-brand'} />
       {/* No "0" at zero (#156): an unvoted post shows the action, not an empty counter. */}
       {post.vote_count > 0 ? <span className="font-mono tabular-nums">{post.vote_count}</span> : size === 'md' ? <span>Upvote</span> : null}
     </button>

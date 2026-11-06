@@ -48,10 +48,10 @@ export const TYPE_META: Record<PostType, { label: string; dot: string }> = {
   feature: { label: 'Feature request', dot: 'text-warning' },
 };
 
-export function TypePill({ type }: { type: PostType }) {
+export function TypePill({ type, className }: { type: PostType; className?: string }) {
   const meta = TYPE_META[type];
   return (
-    <span className="inline-flex items-center gap-2 text-sm text-ink-muted">
+    <span className={cx('inline-flex items-center gap-2 text-xs text-ink-muted', className)}>
       <svg width="6" height="6" viewBox="0 0 6 6" aria-hidden="true" className={meta.dot}>
         <circle cx="3" cy="3" r="3" fill="currentColor" />
       </svg>

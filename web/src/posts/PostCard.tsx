@@ -53,7 +53,7 @@ export function PostCard({ post, variant = 'feed', onDeleted, hideBoard = false 
         // on its own page a hairline under the post separates it from what follows.
         // On phones the page's own margin is the side margin, so the card adds none and its
         // logo lines up with the feed's toolbar (Albert, 2026-11-04: the gap was too wide).
-        'px-5 py-4 max-sm:px-0',
+        'px-5 py-5 max-sm:px-0 max-sm:py-4',
         page ? 'border-b border-line' : 'cursor-pointer',
       )}
     >
@@ -120,7 +120,7 @@ function PostHead({ post, hideBoard }: { post: Post; hideBoard: boolean }) {
   ) : (
     <span className="font-medium text-ink-muted italic">deleted user</span>
   );
-  const row = 'flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-muted';
+  const row = 'flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-muted';
 
   if (hideBoard && kind !== 'seeded') {
     return (
@@ -173,11 +173,11 @@ function PostHead({ post, hideBoard }: { post: Post; hideBoard: boolean }) {
       </span>
       <div className={cx(row, 'min-h-4')}>
         {board ? (
-          <Link to={`/b/${board.slug}`} className={cx(linkClass, 'font-semibold text-ink')}>
+          <Link to={`/b/${board.slug}`} className={cx(linkClass, 'font-semibold text-ink-secondary hover:text-ink')}>
             {boardName}
           </Link>
         ) : (
-          <span className="font-semibold text-ink">{boardName}</span>
+          <span className="font-semibold text-ink-secondary">{boardName}</span>
         )}
         <Dot>
           <TypePill type={post.type} />
@@ -228,7 +228,7 @@ function PostFooter({ post, page }: { post: Post; page: boolean }) {
   const { toast } = useToast();
   const replies = `${post.reply_count} ${post.reply_count === 1 ? 'reply' : 'replies'}`;
   return (
-    <div className={cx('-ml-2 flex flex-wrap items-center gap-1', page ? 'mt-3' : 'mt-2')}>
+    <div className="-ml-2 mt-3 flex flex-wrap items-center gap-1">
       <VoteButton post={post} />
       <Link to={page ? '#replies' : `/post/${post.id}#replies`} className={actClass} aria-label={replies} title="Replies">
         <Icon name="reply" size={16} strokeWidth={1.8} />
