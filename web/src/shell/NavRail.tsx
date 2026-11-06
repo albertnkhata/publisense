@@ -1,4 +1,4 @@
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useState, type MouseEvent, type ReactNode } from 'react';
 import { Link, NavLink, useLocation } from 'react-router';
 import { cx } from '../lib/cx';
 import { MQ, useMediaQuery } from '../lib/useMediaQuery';
@@ -7,7 +7,7 @@ import { useDmUnread, useIsPlatformAdmin, useMessagesEnabled, useUnreadCount } f
 import { useViewer } from '../lib/viewer';
 import { Icon, Tooltip, type IconName } from '../ui';
 import { BrandSymbol } from './BrandMark';
-import { useAuthDialog } from './auth';
+import { useAuthDialog, useRequireAuth } from './auth';
 import { useComposer } from './composer';
 import { UserMenu } from './UserMenu';
 
@@ -33,6 +33,7 @@ export function NavRail() {
   const { viewer, ready } = useViewer();
   const { openComposer } = useComposer();
   const { openAuth } = useAuthDialog();
+  const requireAuth = useRequireAuth();
   const location = useLocation();
   const belowXl = useMediaQuery(MQ.xl);
   const [manual, setManual] = useState<boolean>(readCollapsed);
@@ -55,15 +56,18 @@ export function NavRail() {
       return !c;
     });
   }, []);
+  const onPost = () => {
+    if (requireAuth('post feedback')) openComposer();
+  };
   useShortcut('[', toggle, { enabled: !belowXl });
-  useShortcut('c', () => openComposer(), { enabled: Boolean(viewer) });
+  useShortcut('c', onPost);
 
   return (
     <aside
       aria-label="Main navigation"
       data-collapsed={collapsed || undefined}
       className={cx(
-        'group sticky top-0 z-30 flex h-dvh shrink-0 flex-col border-r border-line bg-card px-3 pt-4 pb-3 select-none',
+        'group sticky top-0 z-30 flex h-dvh shrink-0 flex-col bg-transparent px-3 pt-4 pb-3 select-none',
         'transition-all duration-180 ease-out max-sm:hidden',
         collapsed ? 'w-nav-collapsed' : 'w-nav',
       )}
@@ -99,9 +103,47 @@ export function NavRail() {
       <nav aria-label="Primary" className="mb-4 flex flex-col gap-1">
         <NavRow to="/" icon="home" label="Home" collapsed={collapsed} active={isHome} end />
         <NavRow to="/explore" icon="search" label="Explore" collapsed={collapsed} />
-        {viewer ? <NavRow to="/?scope=following" icon="users" label="Following" collapsed={collapsed} active={isFollowing} /> : null}
-        {viewer ? <NavRow to="/notifications" icon="bell" label="Notifications" collapsed={collapsed} count={unread} /> : null}
-        {viewer && messages ? <NavRow to="/messages" icon="mail" label="Messages" collapsed={collapsed} count={dmUnread} /> : null}
+        <NavRow
+          to="/?scope=following"
+          icon="users"
+          label="Following"
+          collapsed={collapsed}
+          active={isFollowing}
+          onClick={(e) => {
+            if (!viewer) {
+              e.preventDefault();
+              requireAuth('see what you follow');
+            }
+          }}
+        />
+        <NavRow
+          to="/notifications"
+          icon="bell"
+          label="Notifications"
+          collapsed={collapsed}
+          count={unread}
+          onClick={(e) => {
+            if (!viewer) {
+              e.preventDefault();
+              requireAuth('see notifications');
+            }
+          }}
+        />
+        {messages || !viewer ? (
+          <NavRow
+            to="/messages"
+            icon="mail"
+            label="Messages"
+            collapsed={collapsed}
+            count={dmUnread}
+            onClick={(e) => {
+              if (!viewer) {
+                e.preventDefault();
+                requireAuth('see your messages');
+              }
+            }}
+          />
+        ) : null}
       </nav>
 
       {staff ? <AdminSections collapsed={collapsed} /> : null}
@@ -125,21 +167,20 @@ export function NavRail() {
         </div>
       ) : null}
 
-      {viewer ? (
-        <Tooltip content="Post feedback" kbd="C" side="right" disabled={!collapsed}>
-          <button
-            type="button"
-            onClick={() => openComposer()}
-            className="flex h-row w-full items-center overflow-hidden rounded-md border-0 bg-brand text-left text-sm font-semibold whitespace-nowrap text-on-brand transition-colors duration-120 hover:bg-brand-hover"
-          >
-            <span className="grid h-row w-gutter shrink-0 place-items-center">
-              <Icon name="plus" size={18} strokeWidth={1.75} />
-            </span>
-            <Label collapsed={collapsed}>Post feedback</Label>
-            <span className={cx('pr-3 font-mono text-xs opacity-70 transition-opacity duration-120', collapsed && 'opacity-0')}>C</span>
-          </button>
-        </Tooltip>
-      ) : null}
+      <Tooltip content="Post feedback" kbd="C" side="right" disabled={!collapsed}>
+        <button
+          type="button"
+          aria-label="Post feedback"
+          onClick={onPost}
+          className="flex h-row w-full items-center overflow-hidden rounded-md border-0 bg-brand text-left text-sm font-semibold whitespace-nowrap text-on-brand transition-colors duration-120 hover:bg-brand-hover"
+        >
+          <span className="grid h-row w-gutter shrink-0 place-items-center">
+            <Icon name="plus" size={18} strokeWidth={1.75} />
+          </span>
+          <Label collapsed={collapsed}>Post feedback</Label>
+          <span className={cx('pr-3 font-mono text-xs opacity-70 transition-opacity duration-120', collapsed && 'opacity-0')}>C</span>
+        </button>
+      </Tooltip>
 
       <div className="flex-1" />
 
@@ -205,6 +246,7 @@ function NavRow({
   end,
   count = 0,
   active,
+  onClick,
 }: {
   to: string;
   icon: IconName;
@@ -213,6 +255,7 @@ function NavRow({
   end?: boolean;
   count?: number;
   active?: boolean;
+  onClick?: (e: MouseEvent<HTMLAnchorElement>) => void;
 }) {
   const tip = count > 0 ? `${label} · ${count} new` : label;
   return (
@@ -220,6 +263,7 @@ function NavRow({
       <NavLink
         to={to}
         end={end}
+        onClick={onClick}
         aria-label={count > 0 ? `${label}, ${count} new` : undefined}
         className={({ isActive }) => {
           const isRowActive = active !== undefined ? active : isActive;
@@ -231,7 +275,7 @@ function NavRow({
       >
         <span className="relative grid h-row w-gutter shrink-0 place-items-center">
           <Icon name={icon} size={18} strokeWidth={1.75} />
-          {count > 0 && collapsed ? <span aria-hidden="true" className="absolute top-2 right-2 size-2 rounded-pill bg-brand ring-2 ring-card" /> : null}
+          {count > 0 && collapsed ? <span aria-hidden="true" className="absolute top-2 right-2 size-2 rounded-pill bg-brand ring-2 ring-page" /> : null}
         </span>
         <Label collapsed={collapsed}>{label}</Label>
         {count > 0 && !collapsed ? (
