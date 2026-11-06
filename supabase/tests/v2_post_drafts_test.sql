@@ -83,7 +83,11 @@ select pg_temp.expect('0061: others could not change or delete them',
   (select count(*) from public.post_draft where title = 'Half a thought') = 1
   and not exists (select 1 from public.post_draft where title = 'Hijacked'));
 
+select pg_temp.as_owner();
+alter table public.post_draft disable trigger post_draft_before_write;
 update public.post_draft set updated_at = now() - interval '1 day' where title = 'Half a thought';
+alter table public.post_draft enable trigger post_draft_before_write;
+select pg_temp.as_user((select ann from f));
 update public.post_draft set body = 'Edited' where title = 'Half a thought';
 select pg_temp.expect('0061: updated_at is stamped on every change',
   (select updated_at from public.post_draft where title = 'Half a thought') > now() - interval '1 minute');
