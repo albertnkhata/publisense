@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { NavRail } from '../shell/NavRail';
 import { ComposerProvider } from '../shell/composer';
 import { renderWith, TEST_VIEWER } from './renderApp';
@@ -76,7 +76,7 @@ describe('NavRail admin sections', () => {
 });
 
 describe('NavRail links and layout', () => {
-  it('shows Following link when signed in and hides it when signed out', () => {
+  it('shows primary links and Post feedback both signed in and signed out', () => {
     const { unmount } = renderWith(
       <ComposerProvider>
         <NavRail />
@@ -84,6 +84,8 @@ describe('NavRail links and layout', () => {
       { viewer: TEST_VIEWER },
     );
     expect(screen.getByRole('link', { name: 'Following' }).getAttribute('href')).toBe('/?scope=following');
+    expect(screen.getByRole('link', { name: 'Notifications' }).getAttribute('href')).toBe('/notifications');
+    expect(screen.getByRole('button', { name: 'Post feedback' })).toBeTruthy();
     unmount();
 
     renderWith(
@@ -92,10 +94,25 @@ describe('NavRail links and layout', () => {
       </ComposerProvider>,
       { viewer: null },
     );
-    expect(screen.queryByRole('link', { name: 'Following' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Following' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Notifications' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Messages' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Post feedback' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Sign in' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Create account' })).toBeNull();
     // Legal links are moved out of the nav rail
     expect(screen.queryByRole('navigation', { name: 'Legal links' })).toBeNull();
+  });
+
+  it('prompts sign in when signed-out visitor clicks Following or Post feedback', async () => {
+    renderWith(
+      <ComposerProvider>
+        <NavRail />
+      </ComposerProvider>,
+      { viewer: null },
+    );
+    fireEvent.click(screen.getByRole('link', { name: 'Following' }));
+    expect(await screen.findByRole('dialog')).toBeTruthy();
+    expect(screen.getByText(/Sign in to see what you follow/)).toBeTruthy();
   });
 });
