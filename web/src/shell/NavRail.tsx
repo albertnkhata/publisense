@@ -63,7 +63,7 @@ export function NavRail() {
       aria-label="Main navigation"
       data-collapsed={collapsed || undefined}
       className={cx(
-        'group sticky top-0 z-30 flex h-dvh shrink-0 flex-col border-r border-line bg-card px-3 pt-4 pb-3 select-none',
+        'group sticky top-0 z-30 flex h-dvh shrink-0 flex-col bg-transparent px-3 pt-4 pb-3 select-none',
         'transition-all duration-180 ease-out max-sm:hidden',
         collapsed ? 'w-nav-collapsed' : 'w-nav',
       )}
@@ -231,7 +231,7 @@ function NavRow({
       >
         <span className="relative grid h-row w-gutter shrink-0 place-items-center">
           <Icon name={icon} size={18} strokeWidth={1.75} />
-          {count > 0 && collapsed ? <span aria-hidden="true" className="absolute top-2 right-2 size-2 rounded-pill bg-brand ring-2 ring-card" /> : null}
+          {count > 0 && collapsed ? <span aria-hidden="true" className="absolute top-2 right-2 size-2 rounded-pill bg-brand ring-2 ring-page" /> : null}
         </span>
         <Label collapsed={collapsed}>{label}</Label>
         {count > 0 && !collapsed ? (
