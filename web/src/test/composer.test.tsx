@@ -135,6 +135,12 @@ describe('composer', () => {
     expect(section?.className).toContain('max-sm:flex-col');
   });
 
+  it('does not display automatic follow note in composer', async () => {
+    renderComposer();
+    const dialog = await open();
+    expect(within(dialog).queryByText(/follow this post automatically/i)).toBeNull();
+  });
+
   it('asks whether to save or delete a draft, from Escape, the X or Cancel', async () => {
     renderComposer();
     const dialog = await open();
