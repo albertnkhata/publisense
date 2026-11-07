@@ -120,7 +120,7 @@
     ],
     "webTests": {
       "files": 50,
-      "cases": 624
+      "cases": 625
     },
     "gates": [
       {
@@ -297,6 +297,13 @@
         "name": "v2 post draft tests",
         "runs": [
           "psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_post_drafts_test.sql"
+        ],
+        "scripted": false
+      },
+      {
+        "name": "v2 duplicate source item tests",
+        "runs": [
+          "psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_duplicate_source_items_test.sql"
         ],
         "scripted": false
       },
