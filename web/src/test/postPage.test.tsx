@@ -86,7 +86,7 @@ describe('post page', () => {
     const post = makePost({ title: 'Keyboard shortcut is missing' });
     renderPost(post);
     const article = await screen.findByRole('article', { name: post.title });
-    const header = article.querySelector('.relative.min-w-0.pl-gutter');
+    const header = article.querySelector('.relative.min-w-0');
     const headerText = header?.textContent ?? '';
     const time = article.querySelector('time');
     const timeText = time?.textContent ?? '';
@@ -95,6 +95,10 @@ describe('post page', () => {
     const timeAt = headerText.indexOf(timeText);
     const authorAt = headerText.indexOf(`@${post.author?.handle}`);
     expect(header).not.toBeNull();
+    expect(header?.className).not.toContain('pl-gutter');
+    const productIcon = header?.querySelector('.bg-board');
+    expect(productIcon?.parentElement?.parentElement).toBe(header);
+    expect(article.querySelector('h1')?.parentElement).toBe(header);
     expect(time?.getAttribute('datetime')).toBe(post.created_at);
     expect(productAt).toBeGreaterThanOrEqual(0);
     expect(productAt).toBeLessThan(categoryAt);
@@ -181,12 +185,15 @@ describe('post page', () => {
 
 describe('replies', () => {
   it('aligns the Replies heading and composer with post text without a card shell', async () => {
-    renderPost(makePost());
+    const post = makePost({ reply_count: 1 });
+    renderPost(post, { replies: [makeReply(post, { body: 'A reply with its rail' })] });
     const section = await screen.findByRole('region', { name: 'Replies' });
     const heading = within(section).getByRole('heading', { name: 'Replies' });
     const composer = await within(section).findByRole('textbox', { name: 'Add a reply' });
+    const replyBody = await within(section).findByText('A reply with its rail');
     expect(heading.parentElement?.className).toContain('pl-gutter');
     expect(composer.closest('.relative.pl-gutter')).not.toBeNull();
+    expect(replyBody.closest('article')?.className).toContain('pl-gutter');
     expect(section.className).not.toMatch(/rounded-md|border|bg-card/);
   });
 
