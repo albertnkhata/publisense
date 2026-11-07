@@ -944,7 +944,7 @@ const SEED_ERRORS: Record<string, string> = {
   body_length: 'Details are too long.',
   invalid_source: 'Use the full https link to the original post.',
   invalid_date: 'The original date can’t be in the future.',
-  duplicate: 'That source is already on this board.',
+  duplicate: 'A post with the same source, type, title, and details is already on this board.',
   author_length: 'The original poster’s name is too long.',
   invalid_platform: 'Choose iOS, Android, Web, macOS or Windows.',
 };
