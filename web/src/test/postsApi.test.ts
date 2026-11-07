@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { deletePost, fetchFeed, fetchPost, setVote, updatePost, updateReply, FEED_PAGE_SIZE } from '../api/posts';
+import { deletePost, editSeededPost, fetchFeed, fetchPost, seedPost, setVote, updatePost, updateReply, FEED_PAGE_SIZE } from '../api/posts';
 
 /*
  * The api layer against a recording stand-in for the Supabase query builder:
@@ -11,6 +11,8 @@ const db = vi.hoisted(() => ({
   calls: {} as Record<string, Call[][]>,
   rows: {} as Record<string, unknown[]>,
   errors: {} as Record<string, { code?: string; message: string; hint?: string } | null>,
+  rpcData: null as unknown,
+  rpcError: null as { code?: string; message: string; hint?: string } | null,
 }));
 
 vi.mock('../api/supabase', () => {
@@ -29,7 +31,10 @@ vi.mock('../api/supabase', () => {
   }
   return {
     hasSupabaseConfig: true,
-    getSupabase: () => ({ from: builder }),
+    getSupabase: () => ({
+      from: builder,
+      rpc: () => Promise.resolve({ data: db.rpcData, error: db.rpcError }),
+    }),
     publicStorageUrl: () => null,
   };
 });
@@ -42,6 +47,8 @@ beforeEach(() => {
   db.calls = {};
   db.rows = {};
   db.errors = {};
+  db.rpcData = null;
+  db.rpcError = null;
 });
 
 describe('fetchFeed', () => {
@@ -131,5 +138,19 @@ describe('fetchPost and writes', () => {
     await expect(deletePost('p1')).rejects.toThrow('We couldn’t delete this post. Try again.');
     db.rows.post = [{ id: 'p1' }];
     await expect(deletePost('p1')).resolves.toBeUndefined();
+  });
+
+  it('explains the exact duplicate rule for seeded create and edit', async () => {
+    db.rpcData = { ok: false, error: 'duplicate' };
+    const draft = {
+      type: 'bug' as const,
+      title: 'Login freezes',
+      body: 'The app freezes after sign-in.',
+      sourceUrl: 'https://example.com/issues/1',
+    };
+    const message = 'A post with the same source, type, title, and details is already on this board.';
+
+    await expect(seedPost({ ...draft, boardId: 'board-1' }, null)).rejects.toThrow(message);
+    await expect(editSeededPost('post-1', draft, null)).rejects.toThrow(message);
   });
 });
