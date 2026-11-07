@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { deletePost, editSeededPost, fetchFeed, fetchPost, seedPost, setVote, updatePost, updateReply, FEED_PAGE_SIZE } from '../api/posts';
+import { deletePost, editSeededPost, fetchFeed, fetchPost, fetchRelated, seedPost, setVote, updatePost, updateReply, FEED_PAGE_SIZE, POST_SELECT } from '../api/posts';
 
 /*
  * The api layer against a recording stand-in for the Supabase query builder:
@@ -99,6 +99,51 @@ describe('fetchFeed', () => {
   it('throws when the read fails so the feed can show its error', async () => {
     db.errors.post = { message: 'boom' };
     await expect(fetchFeed({ scope: 'all', sort: 'top', offset: 0, viewerId: null })).rejects.toBeTruthy();
+  });
+});
+
+describe('fetchRelated', () => {
+  it('returns full cards decorated for the current viewer', async () => {
+    db.rows.post = [
+      {
+        ...row('related-1'),
+        board_id: 'board-1',
+        author_id: 'author-1',
+        source_url: null,
+        source_author: null,
+        platform: null,
+        images: [],
+        type: 'bug',
+        status: 'open',
+        body: 'Full details',
+        merged_into: null,
+        hidden_at: null,
+        edited_at: null,
+        created_at: '2025-01-01T00:00:00Z',
+        author: { id: 'author-1', handle: 'poster', name: 'Poster', avatar_path: null },
+        board: { id: 'board-1', slug: 'product', name: 'Product', color: '', logo_path: null, status: 'live' },
+      },
+    ];
+    db.rows.vote = [{ post_id: 'related-1' }];
+    db.rows.follow = [{ target_id: 'related-1' }];
+    db.rows.reply = [];
+
+    const related = await fetchRelated('board-1', 'current-post', 'me');
+
+    expect(has(only('post'), 'select', POST_SELECT)).toBe(true);
+    expect(has(only('post'), 'eq', 'board_id', 'board-1')).toBe(true);
+    expect(has(only('post'), 'neq', 'id', 'current-post')).toBe(true);
+    expect(has(only('post'), 'limit', 3)).toBe(true);
+    expect(related[0]).toMatchObject({
+      id: 'related-1',
+      author: { handle: 'poster' },
+      board: { name: 'Product' },
+      body: 'Full details',
+      voted: true,
+      following: true,
+    });
+    expect(has(only('vote'), 'eq', 'user_id', 'me')).toBe(true);
+    expect(has(only('follow'), 'eq', 'user_id', 'me')).toBe(true);
   });
 });
 

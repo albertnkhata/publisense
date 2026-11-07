@@ -34,7 +34,7 @@ export const postKeys = {
   all: ['posts'] as const,
   feed: (scope: FeedScope, sort: FeedSort, viewerId: string | null) => ['posts', 'feed', scope, sort, viewerId ?? 'anon'] as const,
   detail: (id: string, viewerId: string | null) => ['posts', 'detail', id, viewerId ?? 'anon'] as const,
-  related: (boardId: string, id: string) => ['related', boardId, id] as const,
+  related: (boardId: string, id: string, viewerId: string | null) => ['related', boardId, id, viewerId ?? 'anon'] as const,
   title: (id: string) => ['post-title', id] as const,
   replies: (postId: string) => ['replies', postId] as const,
   status: (postId: string) => ['status_events', postId] as const,
@@ -117,10 +117,10 @@ export function usePost(id: string | undefined, viewerId: string | null) {
   });
 }
 
-export function useRelated(boardId: string | undefined, id: string) {
+export function useRelated(boardId: string | undefined, id: string, viewerId: string | null) {
   return useQuery({
-    queryKey: postKeys.related(boardId ?? '', id),
-    queryFn: () => fetchRelated(boardId ?? '', id),
+    queryKey: postKeys.related(boardId ?? '', id, viewerId),
+    queryFn: () => fetchRelated(boardId ?? '', id, viewerId),
     enabled: Boolean(boardId),
     staleTime: 60_000,
   });

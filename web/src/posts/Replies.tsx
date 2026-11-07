@@ -113,10 +113,10 @@ export function ReplySection({ post }: { post: Post }) {
   }, [target, replies.data, focusId]);
 
   return (
-    <section id="replies" aria-label="Replies" className="scroll-mt-6 rounded-md border border-line bg-card px-5 py-4 max-sm:p-4">
-      <div className="flex items-center justify-between gap-3">
+    <section id="replies" aria-label="Replies" className="scroll-mt-6">
+      <div className="flex items-center justify-between gap-3 pl-gutter">
         <h2 className="m-0 text-sm font-semibold text-ink-muted uppercase">
-          {post.reply_count} {post.reply_count === 1 ? 'reply' : 'replies'}
+          Replies
         </h2>
         <Menu
           align="end"
@@ -169,20 +169,20 @@ export function ReplySection({ post }: { post: Post }) {
       ) : null}
 
       {replies.isPending ? (
-        <div role="status" aria-label="Loading replies" className="mt-4 flex flex-col gap-3">
+        <div role="status" aria-label="Loading replies" className="mt-4 flex flex-col gap-3 pl-gutter">
           <SkeletonBlock className="h-3 w-1/3" />
           <SkeletonBlock className="h-3 w-3/4" />
           <SkeletonBlock className="h-3 w-1/2" />
         </div>
       ) : replies.isError ? (
-        <div className="mt-4 flex items-center gap-3 text-sm text-ink-muted">
+        <div className="mt-4 flex items-center gap-3 pl-gutter text-sm text-ink-muted">
           <span>We couldn’t load the replies.</span>
           <Button variant="secondary" size="sm" onClick={() => void replies.refetch()}>
             Try again
           </Button>
         </div>
       ) : shown.length === 0 ? (
-        <p className="mt-4 mb-1 text-sm text-ink-muted">
+        <p className="mt-4 mb-1 pl-gutter text-sm text-ink-muted">
           {focusId ? 'This reply isn’t here any more.' : 'No replies yet. Add what you know, a workaround or a +1 with your use case.'}
         </p>
       ) : (
