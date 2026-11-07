@@ -348,7 +348,7 @@ function Composer({ opts, onClose, onOpenDraft }: { opts: ComposerOptions; onClo
   const showDrafts = view === 'drafts';
   const footNote = seeding
     ? `Shows as the board’s post, from ${isSourceUrl(sourceUrl) ? sourceLabel(sourceUrl) : 'the source'}, with no author`
-    : 'You’ll follow this post automatically';
+    : null;
 
   return (
     <Dialog
@@ -379,9 +379,9 @@ function Composer({ opts, onClose, onOpenDraft }: { opts: ComposerOptions; onClo
             <span id={blockerId} role="status" className="mr-auto text-sm text-ink-muted max-sm:mr-0 max-sm:text-center">
               {blocker}
             </span>
-          ) : (
+          ) : footNote ? (
             <span className="mr-auto text-sm text-ink-muted max-sm:hidden">{footNote}</span>
-          )}
+          ) : null}
           <div className="flex shrink-0 items-center gap-2 max-sm:w-full max-sm:*:flex-1">
             <Button variant="secondary" onClick={requestClose} disabled={create.isPending}>
               Cancel
@@ -648,7 +648,7 @@ function Composer({ opts, onClose, onOpenDraft }: { opts: ComposerOptions; onClo
           <PlatformField value={platform} onChange={setPlatform} labelledBy={platformLabelId} />
         </Section>
 
-        <p className="m-0 hidden text-center text-sm text-ink-muted max-sm:block">{footNote}</p>
+        {footNote ? <p className="m-0 hidden text-center text-sm text-ink-muted max-sm:block">{footNote}</p> : null}
         {failure ? (
           <p role="alert" className="m-0 text-sm text-danger">
             {failure}
