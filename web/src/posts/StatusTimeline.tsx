@@ -17,16 +17,16 @@ export function StatusTimeline({ post, events }: { post: Post; events: StatusEve
   ];
   const last = steps.length - 1;
   return (
-    <section aria-labelledby={`status-${post.id}`} className="rounded-md border border-line bg-card px-5 py-4 max-sm:p-4">
-      <h2 id={`status-${post.id}`} className="mt-0 mb-3 text-xs font-semibold text-ink-muted uppercase">
+    <section aria-labelledby={`status-${post.id}`} className="border-b border-line pb-4">
+      <h2 id={`status-${post.id}`} className="mt-0 mb-3 pl-gutter text-xs font-semibold text-ink-muted uppercase">
         Status
       </h2>
       <ol className="m-0 flex list-none flex-col p-0">
         {steps.map((s, i) => {
           const now = i === last;
           return (
-            <li key={s.key} aria-current={now ? 'step' : undefined} className="flex gap-3">
-              <span aria-hidden="true" className="flex flex-col items-center">
+            <li key={s.key} aria-current={now ? 'step' : undefined} className="relative min-w-0 pl-gutter">
+              <span aria-hidden="true" className="absolute top-1 bottom-0 left-0 flex w-8 flex-col items-center">
                 <span
                   className={cx(
                     'mt-1 size-3 shrink-0 rounded-pill border-2',

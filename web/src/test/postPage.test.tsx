@@ -124,6 +124,9 @@ describe('post page', () => {
     // The status change is the team's, shown as the board with its Team badge.
     expect(timeline.textContent).toContain('Cursor Team');
     expect(timeline.textContent).not.toContain('Cursor team');
+    expect(timeline.className).not.toMatch(/rounded-md|bg-card/);
+    expect(timeline.className).toContain('border-b');
+    expect(within(timeline).getByRole('heading', { name: 'Status' }).className).toContain('pl-gutter');
 
     const replies = screen.getByRole('region', { name: 'Replies' });
     const items = await within(replies).findAllByRole('article');
