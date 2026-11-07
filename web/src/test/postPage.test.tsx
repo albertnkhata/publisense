@@ -82,6 +82,30 @@ describe('post page', () => {
     await waitFor(() => expect(document.title).toBe('Ghost preview in split windows · Publisense'));
   });
 
+  it('shows product, category and time before the author on the post page', async () => {
+    const post = makePost({ title: 'Keyboard shortcut is missing' });
+    renderPost(post);
+    const article = await screen.findByRole('article', { name: post.title });
+    const header = article.querySelector('.relative.min-w-0');
+    const headerText = header?.textContent ?? '';
+    const time = article.querySelector('time');
+    const timeText = time?.textContent ?? '';
+    const productAt = headerText.indexOf(post.board?.name ?? '');
+    const categoryAt = headerText.indexOf('Bug');
+    const timeAt = headerText.indexOf(timeText);
+    const authorAt = headerText.indexOf(`@${post.author?.handle}`);
+    expect(header).not.toBeNull();
+    expect(header?.className).not.toContain('pl-gutter');
+    const productIcon = header?.querySelector('.bg-board');
+    expect(productIcon?.parentElement?.parentElement).toBe(header);
+    expect(article.querySelector('h1')?.parentElement).toBe(header);
+    expect(time?.getAttribute('datetime')).toBe(post.created_at);
+    expect(productAt).toBeGreaterThanOrEqual(0);
+    expect(productAt).toBeLessThan(categoryAt);
+    expect(categoryAt).toBeLessThan(timeAt);
+    expect(timeAt).toBeLessThan(authorAt);
+  });
+
   it('shows the post, its status timeline, the official reply unpinned and threads', async () => {
     const post = makePost({ title: 'Ghost preview in split windows', status: 'planned', reply_count: 3, body: 'Line one\nLine two' });
     const official = makeReply(post, { is_official: true, body: 'On the roadmap for next cycle.', created_at: iso(1) });
@@ -100,6 +124,9 @@ describe('post page', () => {
     // The status change is the team's, shown as the board with its Team badge.
     expect(timeline.textContent).toContain('Cursor Team');
     expect(timeline.textContent).not.toContain('Cursor team');
+    expect(timeline.className).not.toMatch(/rounded-md|bg-card/);
+    expect(timeline.className).toContain('border-b');
+    expect(within(timeline).getByRole('heading', { name: 'Status' }).className).toContain('pl-gutter');
 
     const replies = screen.getByRole('region', { name: 'Replies' });
     const items = await within(replies).findAllByRole('article');
@@ -141,9 +168,38 @@ describe('post page', () => {
     // Voting follows the post.
     expect(screen.getByRole('button', { name: 'Following' }).getAttribute('aria-pressed')).toBe('true');
   });
+
+  it('renders related posts as full standard feedback cards', async () => {
+    const post = makePost({ title: 'Primary post' });
+    const related = makePost({ title: 'Keyboard shortcut is missing', body: 'The shortcut is missing from the editor.' });
+    api.fetchRelated.mockResolvedValue([related]);
+    renderPost(post);
+    const section = await screen.findByRole('region', { name: `More on ${BOARD.name}` });
+    const card = within(section).getByRole('article', { name: related.title });
+    expect(within(card).getByText(`@${related.author?.handle}`)).toBeTruthy();
+    expect(within(card).getByText('Bug')).toBeTruthy();
+    expect(card.textContent).toContain(related.body);
+    expect(card.querySelector('time')?.getAttribute('datetime')).toBe(related.created_at);
+    expect(card.querySelector('a[aria-hidden="true"] span')).not.toBeNull();
+    expect(within(card).getByRole('button', { name: /Upvote/ })).toBeTruthy();
+    expect(section.querySelector('ul')?.className).toContain('divide-y');
+  });
 });
 
 describe('replies', () => {
+  it('aligns the Replies heading and composer with post text without a card shell', async () => {
+    const post = makePost({ reply_count: 1 });
+    renderPost(post, { replies: [makeReply(post, { body: 'A reply with its rail' })] });
+    const section = await screen.findByRole('region', { name: 'Replies' });
+    const heading = within(section).getByRole('heading', { name: 'Replies' });
+    const composer = await within(section).findByRole('textbox', { name: 'Add a reply' });
+    const replyBody = await within(section).findByText('A reply with its rail');
+    expect(heading.parentElement?.className).toContain('pl-gutter');
+    expect(composer.closest('.relative.pl-gutter')).not.toBeNull();
+    expect(replyBody.closest('article')?.className).toContain('pl-gutter');
+    expect(section.className).not.toMatch(/rounded-md|border|bg-card/);
+  });
+
   it('posts a reply, adds it to the thread and follows the post', async () => {
     const post = makePost({ reply_count: 0 });
     renderPost(post);
@@ -159,7 +215,7 @@ describe('replies', () => {
     expect(await screen.findByText('Workaround: pin the working directory.')).toBeTruthy();
     expect(screen.getByText('Reply posted')).toBeTruthy();
     expect(api.setPostFollow).toHaveBeenCalledWith(post.id, TEST_VIEWER.id, true);
-    expect(screen.getByRole('heading', { name: '1 reply' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Replies' })).toBeTruthy();
     expect(screen.getByRole('link', { name: '1 reply' })).toBeTruthy();
   });
 
@@ -316,7 +372,7 @@ describe('replies', () => {
     await waitFor(() => expect(api.deleteReply).toHaveBeenCalledWith(mine.id));
     await waitFor(() => expect(screen.queryByText('First!')).toBeNull());
     expect(screen.queryByText('Answer to it')).toBeNull();
-    expect(screen.getByRole('heading', { name: '0 replies' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Replies' })).toBeTruthy();
   });
 });
 

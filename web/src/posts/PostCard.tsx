@@ -51,13 +51,13 @@ export function PostCard({ post, variant = 'feed', onDeleted, hideBoard = false 
       className={cx(
         // Borderless (#205): in a feed the list draws a hairline between posts (FEED_LIST);
         // on its own page a hairline under the post separates it from what follows.
-        // No side padding so the avatar column aligns flush with the page header and filter bar.
+        // Feed cards reserve an avatar gutter; the page variant keeps the post text flush with its icon.
         'pt-4 pb-5',
         page ? 'border-b border-line' : 'cursor-pointer',
       )}
     >
-      <div className="relative min-w-0 pl-gutter">
-        <PostHead post={post} hideBoard={hideBoard} />
+      <div className={cx('relative min-w-0', !page && 'pl-gutter')}>
+        <PostHead post={post} hideBoard={hideBoard} page={page} />
         <div className="absolute -top-1 -right-2">
           <PostMenu post={post} {...(onDeleted ? { onDeleted } : {})} />
         </div>
@@ -97,7 +97,9 @@ export function PostCard({ post, variant = 'feed', onDeleted, hideBoard = false 
  * was found on. On a board page the board is already named, so a community
  * post leads with its author instead and a seeded post leads with its source.
  */
-function PostHead({ post, hideBoard }: { post: Post; hideBoard: boolean }) {
+function PostHead({ post, hideBoard, page }: { post: Post; hideBoard: boolean; page: boolean }) {
+  if (page) return <PagePostHead post={post} />;
+
   const kind = postKind(post);
   const board = post.board;
   const author = post.author;
@@ -222,6 +224,67 @@ function PostHead({ post, hideBoard }: { post: Post; hideBoard: boolean }) {
   );
 }
 
+/** The detail-page header has no avatar rail: its product icon and post text share the same left edge. */
+function PagePostHead({ post }: { post: Post }) {
+  const board = post.board;
+  const boardName = board?.name ?? 'Unknown board';
+  const kind = postKind(post);
+  const time = (
+    <Dot>
+      <time dateTime={post.created_at}>{ago(post.created_at)}</time>
+    </Dot>
+  );
+  const platform = post.platform ? (
+    <Dot>
+      <span className="text-ink-muted">{platformLabel(post.platform)}</span>
+    </Dot>
+  ) : null;
+  const edited = post.edited_at ? <Dot>edited</Dot> : null;
+  const handle = post.author ? (
+    <Link to={`/u/${post.author.handle}`} className={cx(linkClass, 'font-medium text-ink-secondary')}>
+      @{post.author.handle}
+    </Link>
+  ) : (
+    <span className="font-medium text-ink-muted italic">deleted user</span>
+  );
+  const credit =
+    kind === 'seeded' ? (
+      post.source_url ? (
+        <a href={post.source_url} target="_blank" rel="noopener noreferrer" className={cx(linkClass, 'inline-flex items-center gap-1 text-ink-muted hover:text-ink')}>
+          {sourceCredit(post)}
+          <Icon name="arrow-up-right" size={11} />
+        </a>
+      ) : null
+    ) : (
+      handle
+    );
+  const row = 'flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-muted';
+
+  return (
+    <div className="flex min-w-0 items-start gap-3">
+      <BoardAvatar name={boardName} color={board?.color} logoSrc={boardLogoSrc(board)} size="md" decorative />
+      <div className="min-w-0">
+        <div className={cx(row, 'min-h-4')}>
+          {board ? (
+            <Link to={`/b/${board.slug}`} className={cx(linkClass, 'font-semibold text-ink')}>
+              {boardName}
+            </Link>
+          ) : (
+            <span className="font-semibold text-ink">{boardName}</span>
+          )}
+          <Dot>
+            <TypePill type={post.type} />
+          </Dot>
+          {platform}
+          {time}
+          {edited}
+        </div>
+        {credit ? <div className={cx(row, 'mt-1')}>{credit}</div> : null}
+      </div>
+    </div>
+  );
+}
+
 function Dot({ children }: { children: ReactNode }) {
   return (
     <span className="inline-flex items-center gap-2">
@@ -259,7 +322,7 @@ function PostFooter({ post, page }: { post: Post; page: boolean }) {
   const { toast } = useToast();
   const replies = `${post.reply_count} ${post.reply_count === 1 ? 'reply' : 'replies'}`;
   return (
-    <div className={cx('-ml-2 flex flex-wrap items-center gap-1', page ? 'mt-3' : 'mt-2')}>
+    <div className={cx('flex flex-wrap items-center gap-1', page ? 'mt-3' : '-ml-2 mt-2')}>
       <VoteButton post={post} />
       <Link to={page ? '#replies' : `/post/${post.id}#replies`} className={actClass} aria-label={replies} title="Replies">
         <Icon name="reply" size={16} strokeWidth={1.8} />

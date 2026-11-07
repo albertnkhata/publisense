@@ -397,19 +397,11 @@ export async function fetchPost(id: string, viewerId: string | null): Promise<Po
   return post ?? null;
 }
 
-export interface RelatedPost {
-  id: string;
-  title: string;
-  type: PostType;
-  status: PostStatus;
-  vote_count: number;
-}
-
 /** "More on {board}": its other most upvoted live posts. */
-export async function fetchRelated(boardId: string, exceptId: string, limit = 3): Promise<RelatedPost[]> {
+export async function fetchRelated(boardId: string, exceptId: string, viewerId: string | null, limit = 3): Promise<Post[]> {
   const { data, error } = await getSupabase()
     .from('post')
-    .select('id, title, type, status, vote_count')
+    .select(POST_SELECT)
     .eq('board_id', boardId)
     .neq('id', exceptId)
     .is('hidden_at', null)
@@ -418,7 +410,7 @@ export async function fetchRelated(boardId: string, exceptId: string, limit = 3)
     .order('created_at', { ascending: false })
     .limit(limit);
   if (error) throw error;
-  return (data ?? []) as RelatedPost[];
+  return decorate((data ?? []) as unknown as PostRow[], viewerId);
 }
 
 /** Title of the post a merged post now lives in. */

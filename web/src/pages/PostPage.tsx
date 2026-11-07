@@ -3,10 +3,11 @@ import { canUnmerge, isPostId, useIsBoardTeam, usePost, usePostTitle, useRelated
 import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { PostCard } from '../posts/PostCard';
+import { FEED_LIST } from '../posts/PostList';
 import { ReplySection } from '../posts/Replies';
 import { StatusTimeline } from '../posts/StatusTimeline';
 import { BackLink } from '../boards/parts';
-import { Button, EmptyState, Icon, Skeleton, STATUS_META, TYPE_META, useToast } from '../ui';
+import { Button, EmptyState, Icon, Skeleton, useToast } from '../ui';
 
 /**
  * PostPage (FOUNDATION §5): the post, its status timeline, the reply thread
@@ -67,7 +68,7 @@ function PostBody({ post }: { post: Post }) {
       <PostCard post={post} variant="page" onDeleted={() => void navigate('/', { replace: true })} />
       {showTimeline && events.data && events.data.length > 0 ? <StatusTimeline post={post} events={events.data} /> : null}
       <ReplySection post={post} />
-      <Related post={post} />
+      <Related post={post} viewerId={viewer?.id ?? null} />
     </>
   );
 }
@@ -131,34 +132,19 @@ function MergedNotice({ post, targetId, events }: { post: Post; targetId: string
   );
 }
 
-function Related({ post }: { post: Post }) {
-  const related = useRelated(post.board_id, post.id);
+function Related({ post, viewerId }: { post: Post; viewerId: string | null }) {
+  const related = useRelated(post.board_id, post.id, viewerId);
   const items = related.data ?? [];
   if (!post.board || items.length === 0) return null;
   return (
-    <section aria-labelledby={`related-${post.id}`} className="rounded-md border border-line bg-card px-5 py-4 max-sm:p-4">
-      <h2 id={`related-${post.id}`} className="mt-0 mb-2 text-xs font-semibold text-ink-muted uppercase">
+    <section aria-labelledby={`related-${post.id}`}>
+      <h2 id={`related-${post.id}`} className="mt-0 mb-2 pl-gutter text-xs font-semibold text-ink-muted uppercase">
         More on {post.board.name}
       </h2>
-      <ul className="m-0 flex list-none flex-col p-0">
-        {items.map((r) => (
-          <li key={r.id} className="border-t border-line first:border-t-0">
-            <Link to={`/post/${r.id}`} className="-mx-2 flex items-start gap-3 rounded-sm px-2 py-3 text-ink no-underline transition-colors duration-120 hover:bg-subtle">
-              <span
-                aria-label={`${r.vote_count} upvotes`}
-                className="inline-flex min-w-8 shrink-0 flex-col items-center rounded-sm border border-line px-1 py-1 font-mono text-xs font-semibold text-ink-secondary"
-              >
-                <Icon name="arrow-up" size={12} />
-                {r.vote_count}
-              </span>
-              <span className="flex min-w-0 flex-col">
-                <span className="text-base text-ink">{r.title}</span>
-                <span className="text-xs text-ink-muted">
-                  {TYPE_META[r.type].label}
-                  {r.status !== 'open' ? ` · ${STATUS_META[r.status].label}` : ''}
-                </span>
-              </span>
-            </Link>
+      <ul className={FEED_LIST}>
+        {items.map((item) => (
+          <li key={item.id}>
+            <PostCard post={item} hideBoard />
           </li>
         ))}
       </ul>
