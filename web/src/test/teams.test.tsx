@@ -265,6 +265,26 @@ describe('generic claim overview', () => {
 });
 
 describe('claim a board', () => {
+  it('uses the hub name in the work prompt while hiding singleton hub links', async () => {
+    const singleton = {
+      ...CURSOR,
+      hub: { id: 'h-anthropic', slug: 'anthropic', name: 'Anthropic', claimed_at: null, primary_domain: null, status: 'live' as const, board_count: 1 },
+    };
+    boardsApi.fetchBoard.mockResolvedValue(singleton);
+    renderAt('/b/cursor');
+    expect(await screen.findByRole('button', { name: 'Work at Anthropic?' })).toBeTruthy();
+    expect(document.querySelector('a[title="All Anthropic products"]')).toBeNull();
+
+    cleanup();
+    boardsApi.fetchBoard.mockResolvedValue({
+      ...singleton,
+      hub: { ...singleton.hub, board_count: 2 },
+    });
+    renderAt('/b/cursor');
+    expect(await screen.findByRole('button', { name: 'Work at Anthropic?' })).toBeTruthy();
+    expect(document.querySelector('a[title="All Anthropic products"]')).toBeTruthy();
+  });
+
   it('explains claiming and verification in-place before asking a signed-out visitor to sign up (#157)', async () => {
     renderAt('/b/cursor', false);
     fireEvent.click(await screen.findByRole('button', { name: 'Work at Cursor?' }));
@@ -284,7 +304,7 @@ describe('claim a board', () => {
     boardsApi.fetchBoard.mockResolvedValue(CLAIMED);
     boardsApi.fetchBoards.mockResolvedValue([CLAIMED, FIGJAM, FIGMA]);
     renderAt('/b/cursor', false);
-    fireEvent.click(await screen.findByRole('button', { name: 'Work here?' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Work at Cursor?' }));
     const dialog = await screen.findByRole('dialog', { name: 'Cursor is already claimed' });
     expect(within(dialog).getByRole('button', { name: /Request to join the team/ })).toBeTruthy();
     expect(within(dialog).getByRole('button', { name: /Report the wrong owner/ })).toBeTruthy();
@@ -452,14 +472,14 @@ describe('claim a board', () => {
   });
 });
 
-describe('"Work here?" on a claimed board', () => {
+describe('work-at-hub prompts on a claimed board', () => {
   it('sends a join request straight away when the domain is already proved', async () => {
     boardsApi.fetchBoard.mockResolvedValue(CLAIMED);
     boardsApi.fetchBoards.mockResolvedValue([CLAIMED, FIGJAM, FIGMA]);
     teamsApi.fetchVerifiedDomains.mockResolvedValue(['cursor.com']);
     renderAt('/b/cursor');
     expect(await screen.findByText('Verified team')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Work here?' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Work at Cursor?' }));
     const dialog = await screen.findByRole('dialog', { name: 'Cursor is already claimed' });
     fireEvent.click(within(dialog).getByRole('button', { name: /Request to join the team/ }));
     fireEvent.change(await screen.findByLabelText('Your work email'), { target: { value: 'dan@cursor.com' } });
@@ -475,7 +495,7 @@ describe('"Work here?" on a claimed board', () => {
     boardsApi.fetchBoards.mockResolvedValue([CLAIMED, FIGJAM, FIGMA]);
     teamsApi.fetchVerifiedDomains.mockResolvedValue(['cursor.com']);
     renderAt('/b/cursor');
-    fireEvent.click(await screen.findByRole('button', { name: 'Work here?' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Work at Cursor?' }));
     const dialog = await screen.findByRole('dialog', { name: 'Cursor is already claimed' });
     fireEvent.click(within(dialog).getByRole('button', { name: /Request to join the team/ }));
     fireEvent.change(await screen.findByLabelText('Your work email'), { target: { value: 'dan@cursor.com' } });
@@ -494,14 +514,14 @@ describe('"Work here?" on a claimed board', () => {
     teamsApi.fetchMyRequests.mockResolvedValue({ join: { id: 'r1', created_at: new Date().toISOString() }, dispute: null });
     renderAt('/b/cursor');
     expect(await screen.findByText('Request to join pending')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Work here?' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Work at Cursor?' })).toBeNull();
   });
 
   it('reports the wrong owner after confirming a work email by code', async () => {
     boardsApi.fetchBoard.mockResolvedValue(CLAIMED);
     boardsApi.fetchBoards.mockResolvedValue([CLAIMED, FIGJAM, FIGMA]);
     renderAt('/b/cursor');
-    fireEvent.click(await screen.findByRole('button', { name: 'Work here?' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Work at Cursor?' }));
     fireEvent.click(await screen.findByRole('button', { name: /Report the wrong owner/ }));
     const dialog = await screen.findByRole('dialog', { name: 'Report the wrong owner' });
     fireEvent.change(within(dialog).getByLabelText('Your work email'), { target: { value: 'dan@cursor.com' } });

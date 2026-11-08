@@ -79,9 +79,11 @@ insert into public.block (scope, scope_id, user_id) select 'board'::public.v2_sc
 update public.board set claimed_at = now() where slug = 'cursor';
 insert into public.platform_admin (user_id) select staff from ids;
 
-select pg_temp.expect('seed: 13 boards, 1 hub, figma hub holds 3',
-  (select count(*) from public.board) = 13 and (select count(*) from public.hub) = 1
-  and (select count(*) from public.board b join public.hub h on h.id = b.hub_id where h.slug = 'figma') = 3);
+select pg_temp.expect('seed: 13 boards, 11 hubs, figma hub holds 3 and the rest are singletons',
+  (select count(*) from public.board) = 13 and (select count(*) from public.hub) = 11
+  and (select count(*) from public.board b join public.hub h on h.id = b.hub_id where h.slug = 'figma') = 3
+  and (select count(*) from public.hub h where (select count(*) from public.board b where b.hub_id = h.id) = 1) = 10
+  and not exists (select 1 from public.board where hub_id is null));
 select pg_temp.expect('sign-up makes a profile and an email token',
   (select count(*) from public.profile where id in (select alice from ids union select bob from ids)) = 2
   and exists (select 1 from public.email_token, ids where user_id = ids.alice));
@@ -101,7 +103,7 @@ select pg_temp.expect_error('shared subdomain refused (acme.vercel.app)',
 
 select pg_temp.as_user(null);
 select pg_temp.expect('anon reads boards and hubs',
-  (select count(*) from public.board) = 13 and (select count(*) from public.hub) = 1);
+  (select count(*) from public.board) = 13 and (select count(*) from public.hub) = 11);
 select pg_temp.expect_error('anon cannot post',
   $$insert into public.post (board_id, type, title) select cursor, 'bug', 'Anon post' from ids$$);
 select pg_temp.expect_error('anon cannot read notifications', $$select * from public.notification$$);
@@ -955,9 +957,12 @@ select pg_temp.expect_error('add product: no direct insert into board',
 create temp table s10 (k text primary key, v jsonb);
 grant select, insert on s10 to anon, authenticated;
 insert into s10 values ('a', public.create_board('https://www.acme-notes.dev/', '  Acme   Notes ', 'Notes for small teams', 'prod'));
-select pg_temp.expect('add product: create_board answers ok, pending, with a slug from the name',
+select pg_temp.expect('add product: create_board answers ok, pending, with a product-name singleton hub',
   (select (v ->> 'ok')::boolean and v ->> 'status' = 'pending' and v ->> 'slug' = 'acme-notes'
-          and v ->> 'name' = 'Acme Notes' and v -> 'hub' = 'null'::jsonb and not (v ->> 'can_claim')::boolean from s10 where k = 'a'));
+          and v ->> 'name' = 'Acme Notes' and v ->> 'hub' = 'acme-notes'
+          and v ->> 'hub_status' = 'pending' and not (v ->> 'can_claim')::boolean from s10 where k = 'a')
+  and (select h.name = 'Acme Notes' and h.status = 'pending' and b.hub_id = h.id
+         from public.board b join public.hub h on h.id = b.hub_id where b.slug = 'acme-notes'));
 select pg_temp.expect('add product: the row is pending, created by the caller, keyed by host, followed by its creator',
   (select status = 'pending' and created_by = ids.bob and site = 'acme-notes.dev' and canonical = 'acme-notes.dev'
           and category = 'prod' and claimed_at is null and follower_count = 1
@@ -1011,13 +1016,15 @@ select pg_temp.expect('add product: a fourth pending board is refused',
   (select bool_and((v ->> 'ok')::boolean) from s10 where k in ('b', 'c'))
   and public.create_board('https://delta.so', 'Delta', '', 'prod') ->> 'error' = 'too_many_pending');
 
--- GitHub repos and hubs.
+-- GitHub repos get a singleton hub without claiming GitHub itself as a company domain.
 select pg_temp.as_user('00000000-0000-4000-8000-00000000000d');
 insert into s10 values ('gh', public.create_board('https://github.com/Vercel/Next.js', 'next.js', 'The React Framework', 'dev'));
-select pg_temp.expect('add product: a GitHub repo is keyed by owner/repo and joins no hub',
-  (select (v ->> 'ok')::boolean and v ->> 'slug' = 'next-js' and v -> 'hub' = 'null'::jsonb from s10 where k = 'gh')
-  and (select site = 'github.com/vercel/next.js' and canonical = 'github.com/vercel/next.js' and hub_id is null
-         from public.board where slug = 'next-js')
+select pg_temp.expect('add product: a GitHub repo is keyed by owner/repo and gets a singleton hub',
+  (select (v ->> 'ok')::boolean and v ->> 'slug' = 'next-js' and v ->> 'hub' = 'next-js'
+          and v ->> 'hub_status' = 'pending' from s10 where k = 'gh')
+  and (select b.site = 'github.com/vercel/next.js' and b.canonical = 'github.com/vercel/next.js'
+              and b.hub_id = h.id and h.name = 'next.js'
+         from public.board b join public.hub h on h.id = b.hub_id where b.slug = 'next-js')
   and public.check_product_link('github.com/vercel/next.js/issues') -> 'match' ->> 'slug' = 'next-js'
   and public.check_product_link('github.com/vercel/swr') -> 'match' = 'null'::jsonb);
 select pg_temp.as_user('00000000-0000-4000-8000-00000000000e');
@@ -1080,9 +1087,8 @@ insert into auth.users (id, email) values
 create temp table s26 (k text primary key, v jsonb);
 grant select, insert on s26 to anon, authenticated;
 
-select pg_temp.expect('companies: existing hubs are live and their primary_domain moved into hub_domain',
-  not exists (select 1 from public.hub where status <> 'live')
-  and exists (select 1 from public.hub_domain d join public.hub h on h.id = d.hub_id
+select pg_temp.expect('companies: the Figma hub is live and its primary_domain moved into hub_domain',
+  exists (select 1 from public.hub_domain d join public.hub h on h.id = d.hub_id
                where h.slug = 'figma' and d.domain = 'figma.com' and h.primary_domain = 'figma.com'));
 
 -- A company with two domains (claude.com first, so claude.ai is NOT its primary domain),
@@ -1205,9 +1211,10 @@ select pg_temp.expect('companies: rejecting the only board of a pending company 
   (select (v ->> 'ok')::boolean from s26 where k = 'd3')
   and (select status = 'rejected' from public.hub where slug = 'lena-letters-ltd'));
 insert into s26 values ('d4', public.decide_board((select (v ->> 'id')::uuid from s26 where k = 'repo'), true, null, null, null, null, 'none'));
-select pg_temp.expect('companies: approving with no company detaches it',
-  (select (v ->> 'ok')::boolean from s26 where k = 'd4')
-  and (select hub_id is null from public.board where slug = 'widgets')
+select pg_temp.expect('companies: approving with no company creates a product-name singleton',
+  (select (v ->> 'ok')::boolean and v ->> 'hub' = 'widgets' from s26 where k = 'd4')
+  and (select b.hub_id = h.id and h.name = 'Widgets' and h.status = 'live'
+         from public.board b join public.hub h on h.id = b.hub_id where b.slug = 'widgets')
   and (select status = 'rejected' from public.hub where slug = 'lena-co'));
 select pg_temp.expect('companies: admins add a domain (any link form) and are refused shared or taken ones',
   public.add_hub_domain((select (v #>> '{}')::uuid from s26 where k = 'anthropic'), 'https://www.Anthropic.com/news') ->> 'domain' = 'anthropic.com'
