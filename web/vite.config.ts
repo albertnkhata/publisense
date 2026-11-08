@@ -23,5 +23,23 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (
+            id.includes('node_modules/react/') ||
+            id.includes('node_modules/react-dom/') ||
+            id.includes('node_modules/react-router/') ||
+            id.includes('node_modules/scheduler/') ||
+            id.includes('node_modules/@tanstack/')
+          ) {
+            return 'react-vendor';
+          }
+          if (id.includes('node_modules/')) return 'vendor';
+          if (id.includes('/src/pages/Admin')) return 'admin';
+          if (id.includes('/src/manage/')) return 'manage';
+        },
+      },
+    },
   },
 });
