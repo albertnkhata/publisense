@@ -103,12 +103,12 @@ select pg_temp.expect('0064: hub owner saves Discord webhook',
 
 select pg_temp.expect('0064: test_scope_webhook dispatches test payload',
   (select (public.test_scope_webhook('board', board_id) ->> 'queued')::boolean from f));
+select pg_temp.as_owner();
 select pg_temp.expect('0064: ... recorded in net.sent',
   (select count(*) = 1 and max(url) = 'https://hooks.slack.com/services/T00/B00/X00' from net.sent));
 
 -- ------------------------------------------------------------ post.created & post.status_changed triggers
 
-select pg_temp.as_owner();
 delete from net.sent;
 
 select pg_temp.as_user((select stranger_u from f));
