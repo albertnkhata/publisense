@@ -436,6 +436,7 @@ function ClaimState({ board, team }: { board: BoardWithHub; team: boolean }) {
   const pendingDns = usePendingDns(viewerId);
   const mine = useMyRequests(hubTeam && board.hub ? 'hub' : 'board', hubTeam && board.hub ? board.hub.id : board.id, viewerId, claimed && !team);
   const domain = siteDomain(board.site);
+  const workPrompt = `Work at ${board.hub?.name ?? board.name}?`;
   if (claimed) {
     return (
       <>
@@ -448,7 +449,7 @@ function ClaimState({ board, team }: { board: BoardWithHub; team: boolean }) {
         {team ? null : mine.data?.join ? (
           <span className="text-ink-muted">Request to join pending</span>
         ) : (
-          <ClaimLink onClick={() => openClaim({ board: board.slug })}>Work here?</ClaimLink>
+          <ClaimLink onClick={() => openClaim({ board: board.slug })}>{workPrompt}</ClaimLink>
         )}
       </>
     );
@@ -460,7 +461,7 @@ function ClaimState({ board, team }: { board: BoardWithHub; team: boolean }) {
       </ClaimLink>
     );
   }
-  return <ClaimLink onClick={() => openClaim({ board: board.slug })}>Work at {board.name}?</ClaimLink>;
+  return <ClaimLink onClick={() => openClaim({ board: board.slug })}>{workPrompt}</ClaimLink>;
 }
 
 export function ClaimLink({ children, onClick, pending }: { children: ReactNode; onClick: () => void; pending?: boolean }) {

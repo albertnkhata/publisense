@@ -200,6 +200,12 @@ jobs:
           fi
           echo "OK: no world-open write policies"
 
+      # 0063: every product has a hub; null writes create hidden product-name singletons.
+      - name: v2 board-hub invariant tests
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_board_hubs_test.sql
+
       # FOUNDATION section 8, exercised as the real API roles: column grants, RLS,
       # triggers and RPCs together. Runs in a transaction that rolls back.
       - name: v2 permission tests

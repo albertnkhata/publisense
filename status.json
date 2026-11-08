@@ -120,7 +120,7 @@
     ],
     "webTests": {
       "files": 50,
-      "cases": 629
+      "cases": 630
     },
     "gates": [
       {
@@ -203,6 +203,13 @@
         "name": "Assert no world-open write policy exists",
         "runs": [],
         "scripted": true
+      },
+      {
+        "name": "v2 board-hub invariant tests",
+        "runs": [
+          "psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_board_hubs_test.sql"
+        ],
+        "scripted": false
       },
       {
         "name": "v2 permission tests",
