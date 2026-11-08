@@ -45,6 +45,15 @@ describe('share handler status', () => {
     expect((await call('post', '00000000-0000-0000-0000-000000000000')).status).toBe(404);
   });
 
+  it('answers 404 for a singleton hub with one live board and 200 for a multi-product hub (0063)', async () => {
+    mockFetch([{ slug: 'cursor', name: 'Cursor', description: '', boards: [{ status: 'live' }] }]);
+    expect((await call('hub', 'cursor')).status).toBe(404);
+    mockFetch([{ slug: 'figma', name: 'Figma', description: '', boards: [{ status: 'live' }, { status: 'live' }] }]);
+    const ok = await call('hub', 'figma');
+    expect(ok.status).toBe(200);
+    expect(ok.body).toContain('Figma');
+  });
+
   it('answers 200 for a merged post (readable since 0043) with the target as canonical', async () => {
     mockFetch([{ id: '00000000-0000-4000-8000-000000000001', title: 'Composer drops edits', body: '', status: 'merged', merged_into: '00000000-0000-4000-8000-000000000002', board: { name: 'Cursor' }, merged: { id: '00000000-0000-4000-8000-000000000002', title: 'Caret lost' } }]);
     const r = await call('post', '00000000-0000-4000-8000-000000000001');

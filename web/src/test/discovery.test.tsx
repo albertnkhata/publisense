@@ -446,6 +446,13 @@ describe('hub page', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'FigJam' }));
     expect(await within(dialog).findByRole('button', { name: 'Change' })).toBeTruthy();
   });
+
+  it('redirects a single-product hub to its board page instead of showing a singleton hub (0063)', async () => {
+    boardsApi.fetchHub.mockResolvedValue({ ...FIGMA_HUB, slug: 'cursor', name: 'Cursor', boards: [CURSOR] });
+    const { router } = renderAt('/h/cursor');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Cursor' })).toBeTruthy();
+    await waitFor(() => expect(router.state.location.pathname).toBe('/b/cursor'));
+  });
 });
 
 // Board and hub headers hide a zero follower count, as the cards do (#156),

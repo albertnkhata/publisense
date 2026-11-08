@@ -31,4 +31,21 @@ describe('sitemap', () => {
     expect(xml).not.toContain('not-a-uuid');
     expect(xml).not.toMatch(/admin|settings|manage/);
   });
+
+  it('omits hidden singleton hubs that have fewer than two live boards (0063)', () => {
+    const xml = buildSitemap(
+      sitemapEntries({
+        boards: [{ slug: 'cursor' }],
+        hubs: [
+          { slug: 'cursor', boards: [{ status: 'live' }] },
+          { slug: 'almost', boards: [{ status: 'live' }, { status: 'pending' }] },
+          { slug: 'figma', boards: [{ status: 'live' }, { status: 'live' }] },
+        ],
+        posts: [],
+      }),
+    );
+    expect(xml).not.toContain('/h/cursor');
+    expect(xml).not.toContain('/h/almost');
+    expect(xml).toContain('<loc>https://publisense.app/h/figma</loc>');
+  });
 });

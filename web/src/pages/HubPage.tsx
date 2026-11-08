@@ -3,6 +3,7 @@ import { Link, Navigate, useParams, useSearchParams } from 'react-router';
 import {
   covered,
   dedupePosts,
+  isProductFamily,
   logoSrc,
   onHubDomain,
   siteDomain,
@@ -44,7 +45,8 @@ export function HubPage() {
   const { hub: slug } = useParams();
   const query = useHub(slug);
   const hub = query.data;
-  usePageTitle(hub ? `${hub.name} hub` : query.isPending ? null : 'Hub not found');
+  const isFamily = Boolean(hub && isProductFamily(hub.boards.length));
+  usePageTitle(isFamily && hub ? `${hub.name} hub` : query.isPending ? null : 'Hub not found');
 
   if (query.isPending) return <HeaderSkeleton label="Loading hub" />;
   if (query.isError) {
@@ -57,7 +59,10 @@ export function HubPage() {
       </section>
     );
   }
-  if (!hub) return <ScopeNotFound kind="hub" />;
+  if (!hub || !isProductFamily(hub.boards.length)) {
+    if (hub?.boards.length === 1) return <Navigate to={`/b/${hub.boards[0]!.slug}`} replace />;
+    return <ScopeNotFound kind="hub" />;
+  }
   // A former slug resolves to the company it belongs to: send the reader to the current
   // address instead of showing two URLs for one page (0030).
   if (slug && hub.slug !== slug) return <Navigate to={`/h/${hub.slug}`} replace />;

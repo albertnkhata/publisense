@@ -1,6 +1,6 @@
 import { getSupabase } from './supabase';
 import { ApiError, type PersonRef } from './posts';
-import { BOARD_COLUMNS, hubFormerNames, withDomains, type Board, type BoardCategory, type BoardWithHub, type HubName, type HubRef, type HubStatus } from './boards';
+import { BOARD_COLUMNS, hubFormerNames, isProductFamily, withDomains, type Board, type BoardCategory, type BoardWithHub, type HubName, type HubRef, type HubStatus } from './boards';
 import { parseLink, type LinkKind } from '../lib/link';
 
 /*
@@ -140,14 +140,24 @@ export async function checkProductLink(link: string): Promise<LinkCheck> {
   return { kind: res.kind, canonical: res.canonical, match: res.match ?? null, hub: res.hub ?? null };
 }
 
-/** Live companies whose name contains the term, for the typeahead. */
+/** Live companies whose name contains the term, for the typeahead (excluding 0063 domainless singletons). */
 export async function searchCompanies(term: string): Promise<CompanyOption[]> {
   const t = term.trim().slice(0, COMPANY_NAME_MAX);
   if (!t) return [];
   const like = `%${t.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
-  const { data, error } = await getSupabase().from('hub').select('id, slug, name, primary_domain').eq('status', 'live').ilike('name', like).order('name').limit(6);
+  const { data, error } = await getSupabase()
+    .from('hub')
+    .select('id, slug, name, primary_domain, boards:board(status)')
+    .eq('status', 'live')
+    .ilike('name', like)
+    .order('name')
+    .limit(20);
   if (error) throw error;
-  return (data ?? []) as CompanyOption[];
+  type Raw = CompanyOption & { boards?: Array<{ status?: string | null }> | null };
+  return ((data ?? []) as Raw[])
+    .filter((h) => !h.boards || isProductFamily(h.boards.filter((b) => (b.status ?? 'live') === 'live').length) || Boolean(h.primary_domain))
+    .map(({ boards: _boards, ...rest }) => rest)
+    .slice(0, 6);
 }
 
 /**
@@ -246,13 +256,13 @@ export interface QueuedBoard extends BoardWithHub {
 }
 
 const QUEUE_SELECT =
-  `${BOARD_COLUMNS}, review_note, reviewed_at, hub:hub!hub_id(id, slug, name, status, primary_domain, hub_domain(domain, created_at)), ` +
+  `${BOARD_COLUMNS}, review_note, reviewed_at, hub:hub!hub_id(id, slug, name, status, primary_domain, hub_domain(domain, created_at), boards:board(id)), ` +
   'creator:profile!board_created_by_fkey(id, handle, name, avatar_path)';
 const DECIDED_SELECT =
   `${QUEUE_SELECT}, decisions:board_decision(decision, note, decided_at, decider:profile!board_decision_decided_by_fkey(id, handle, name, avatar_path))`;
 
 type RawQueued = QueuedBoard & {
-  hub: (HubRef & { hub_domain?: Array<{ domain: string; created_at?: string }> }) | null;
+  hub: (HubRef & { hub_domain?: Array<{ domain: string; created_at?: string }>; boards?: Array<{ id: string }> }) | null;
   decisions?: ProductDecision[] | null;
 };
 
@@ -264,7 +274,16 @@ export async function fetchProductQueue(status: 'pending' | 'decided'): Promise<
   if (error) throw error;
   return ((data ?? []) as unknown as RawQueued[]).map(({ decisions, ...b }) => {
     const latest = [...(decisions ?? [])].sort((x, y) => y.decided_at.localeCompare(x.decided_at))[0] ?? null;
-    return { ...b, hub: b.hub ? withDomains(b.hub) : null, ...(status === 'decided' ? { decision: latest } : {}) };
+    const rawHub = b.hub ? withDomains(b.hub) : null;
+    // 0063 gives ungrouped products a domainless product-name singleton hub; treat that as "no company" in the queue.
+    const isSingleton = Boolean(
+      rawHub &&
+        (rawHub.boards?.length ?? 1) <= 1 &&
+        rawHub.domains.length === 0 &&
+        rawHub.name.toLowerCase() === b.name.toLowerCase(),
+    );
+    const hub = rawHub && !isSingleton ? (({ boards: _boards, ...rest }) => rest)(rawHub) : null;
+    return { ...b, hub, ...(status === 'decided' ? { decision: latest } : {}) };
   });
 }
 
@@ -312,7 +331,7 @@ export interface AdminCompany {
   board_count: number;
 }
 
-/** Every company that is not rejected, live first then pending, with its domains. RLS: platform admins see them all. */
+/** Every company that is not rejected (excluding 0063 domainless singletons), with its domains. RLS: platform admins see them all. */
 export async function fetchCompanies(): Promise<AdminCompany[]> {
   const { data, error } = await getSupabase()
     .from('hub')
@@ -325,10 +344,12 @@ export async function fetchCompanies(): Promise<AdminCompany[]> {
     hub_name?: HubName[] | null;
     board?: Array<{ count: number }>;
   };
-  return ((data ?? []) as unknown as Raw[]).map((h) => {
-    const { board, ...rest } = h;
-    return { ...withDomains(rest), former_names: hubFormerNames(h), board_count: board?.[0]?.count ?? 0 };
-  });
+  return ((data ?? []) as unknown as Raw[])
+    .map((h) => {
+      const { board, ...rest } = h;
+      return { ...withDomains(rest), former_names: hubFormerNames(h), board_count: board?.[0]?.count ?? 0 };
+    })
+    .filter((h) => isProductFamily(h.board_count) || h.domains.length > 0 || h.former_names.length > 0);
 }
 
 export async function addHubDomain(hubId: string, domain: string): Promise<string> {

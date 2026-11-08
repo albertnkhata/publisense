@@ -61,10 +61,10 @@ jobs:
           stamp=$(date -u +%Y-%m-%dT%H%MZ)
           echo "STAMP=$stamp" >> "$GITHUB_ENV"
           umask 077
-          # App data + auth users + storage metadata, custom format (pg_restore-able).
+          # App data + private helpers/analytics + auth users + storage metadata, custom format (pg_restore-able).
           /usr/lib/postgresql/17/bin/pg_dump "$DB" \
             --format=custom --no-owner --no-privileges \
-            --schema=public --schema=auth --schema=storage --schema=supabase_migrations \
+            --schema=public --schema=private --schema=auth --schema=storage --schema=supabase_migrations \
             --file=db.dump
           size=$(stat -c %s db.dump)
           [ "$size" -gt 10000 ] || { echo "::error::dump is suspiciously small ($size bytes)"; exit 1; }

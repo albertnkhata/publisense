@@ -3,6 +3,7 @@ Allow: /
 Disallow: /admin/
 Disallow: /settings
 Disallow: /notifications
+Disallow: /messages
 Disallow: /auth/
 Disallow: /unsubscribe
 Disallow: /search

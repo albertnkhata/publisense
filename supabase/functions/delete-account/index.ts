@@ -76,14 +76,19 @@ Deno.serve(async (req: Request) => {
   if (admins.some((a) => a.user_id === uid) && admins.length === 1) return json(409, { error: 'last_platform_admin' });
 
   // 4. Storage objects first: Supabase refuses to delete a user who still owns objects.
-  const bucket = admin.storage.from('avatars');
-  for (;;) {
-    const { data: files, error } = await bucket.list(uid, { limit: 100 });
-    if (error) return failed('avatar list', error);
-    if (!files?.length) break;
-    const { error: rmError } = await bucket.remove(files.map((f) => `${uid}/${f.name}`));
-    if (rmError) return failed('avatar remove', rmError);
-    if (files.length < 100) break;
+  //    Clear screenshot paths on surviving posts first so they never point at removed files.
+  const clearImages = await admin.from('post').update({ images: [] }).eq('author_id', uid);
+  if (clearImages.error) return failed('post images clear', clearImages.error);
+  for (const bucketName of ['avatars', 'post-images'] as const) {
+    const bucket = admin.storage.from(bucketName);
+    for (;;) {
+      const { data: files, error } = await bucket.list(uid, { limit: 100 });
+      if (error) return failed(`${bucketName} list`, error);
+      if (!files?.length) break;
+      const { error: rmError } = await bucket.remove(files.map((f) => `${uid}/${f.name}`));
+      if (rmError) return failed(`${bucketName} remove`, rmError);
+      if (files.length < 100) break;
+    }
   }
   const follows = await admin.from('follow').delete().eq('target', 'user').eq('target_id', uid);
   if (follows.error) return failed('follow cleanup', follows.error);

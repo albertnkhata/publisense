@@ -24,7 +24,7 @@ export async function lookup(kind: string, key: string): Promise<Lookup> {
     kind === 'board' && /^[a-z0-9-]{1,80}$/i.test(key)
       ? `board?select=slug,name,tagline&slug=eq.${k}&status=eq.live&limit=1`
       : kind === 'hub' && /^[a-z0-9-]{1,80}$/i.test(key)
-        ? `hub?select=slug,name,description&slug=eq.${k}&limit=1`
+        ? `hub?select=slug,name,description,boards:board(status)&slug=eq.${k}&status=eq.live&limit=1`
         : kind === 'post' && /^[0-9a-f-]{36}$/i.test(key)
           ? `post?select=id,title,body,status,merged_into,board(name),merged:merged_into(id,title)&id=eq.${k}&hidden_at=is.null&limit=1`
           : kind === 'user' && /^@?[a-z0-9_]{3,30}$/i.test(key)
@@ -41,7 +41,11 @@ export async function lookup(kind: string, key: string): Promise<Lookup> {
   if (!row) return 'missing';
   if (kind === 'board') return boardMeta(row as { slug: string; name: string; tagline: string | null });
   if (kind === 'user') return userMeta(row as { handle: string; name: string | null; bio: string | null });
-  if (kind === 'hub') return hubMeta(row as { slug: string; name: string; description: string | null });
+  if (kind === 'hub') {
+    const boards = Array.isArray(row.boards) ? (row.boards as Array<{ status?: string | null }>) : null;
+    if (boards && boards.filter((b) => (b.status ?? 'live') === 'live').length < 2) return 'missing';
+    return hubMeta(row as { slug: string; name: string; description: string | null });
+  }
   // A merged post (readable since 0043) answers 200 with its canonical set to the post it was merged into.
   return postMeta(row as unknown as PostMetaRow);
 }

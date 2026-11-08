@@ -16,13 +16,17 @@ export default async function handler(_req: unknown, res: Res): Promise<void> {
   const base = (process.env.VITE_SUPABASE_URL ?? '').trim().replace(/\/$/, '');
   const anon = (process.env.VITE_SUPABASE_ANON_KEY ?? '').trim();
   let boards: Array<{ slug: string; created_at: string }> = [];
-  let hubs: Array<{ slug: string; created_at: string }> = [];
+  let hubs: Array<{ slug: string; created_at: string; boards?: Array<{ status?: string | null }> | null }> = [];
   let posts: Array<{ id: string; created_at: string; edited_at: string | null }> = [];
   if (base && anon) {
     try {
       [boards, hubs, posts] = await Promise.all([
         rows<{ slug: string; created_at: string }>(base, anon, 'board?select=slug,created_at&status=eq.live&order=slug&limit=5000'),
-        rows<{ slug: string; created_at: string }>(base, anon, 'hub?select=slug,created_at&status=eq.live&order=slug&limit=1000'),
+        rows<{ slug: string; created_at: string; boards?: Array<{ status?: string | null }> | null }>(
+          base,
+          anon,
+          'hub?select=slug,created_at,boards:board(status)&status=eq.live&order=slug&limit=1000',
+        ),
         rows<{ id: string; created_at: string; edited_at: string | null }>(
           base,
           anon,

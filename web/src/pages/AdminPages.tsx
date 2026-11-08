@@ -512,7 +512,7 @@ function CompanyCard({ h }: { h: AdminCompany }) {
   return (
     <Card>
       <p className="mt-0 mb-3 flex flex-wrap items-center gap-2">
-        {h.status === 'live' ? (
+        {h.status === 'live' && h.board_count >= 2 ? (
           <Link to={`/h/${h.slug}`} className="text-base font-semibold text-ink no-underline hover:underline">
             {h.name}
           </Link>

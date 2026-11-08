@@ -38,12 +38,14 @@ const UUID = /^[0-9a-f-]{36}$/i;
 
 export function sitemapEntries(rows: {
   boards: Array<{ slug: string; created_at?: string | null }>;
-  hubs: Array<{ slug: string; created_at?: string | null }>;
+  hubs: Array<{ slug: string; created_at?: string | null; boards?: Array<{ status?: string | null }> | null }>;
   posts: Array<{ id: string; created_at?: string | null; edited_at?: string | null }>;
 }): SitemapEntry[] {
   return [
     ...STATIC_PATHS.map((path) => ({ path })),
-    ...rows.hubs.filter((h) => SLUG.test(h.slug)).map((h) => ({ path: `/h/${h.slug}`, lastmod: h.created_at })),
+    ...rows.hubs
+      .filter((h) => SLUG.test(h.slug) && (!h.boards || h.boards.filter((b) => (b.status ?? 'live') === 'live').length >= 2))
+      .map((h) => ({ path: `/h/${h.slug}`, lastmod: h.created_at })),
     ...rows.boards.filter((b) => SLUG.test(b.slug)).map((b) => ({ path: `/b/${b.slug}`, lastmod: b.created_at })),
     ...rows.posts.filter((p) => UUID.test(p.id)).map((p) => ({ path: `/post/${p.id}`, lastmod: p.edited_at ?? p.created_at })),
   ];

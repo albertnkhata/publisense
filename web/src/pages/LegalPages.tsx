@@ -12,7 +12,7 @@ import { Card } from '../ui';
  */
 
 const CONTACT = 'support@publisense.app';
-const UPDATED = '28 October 2026';
+const UPDATED = '8 November 2026';
 
 const linkClass = 'font-semibold text-ink underline underline-offset-2 hover:text-brand';
 
@@ -69,8 +69,9 @@ export function PrivacyPage() {
       <Section heading="What we store about you">
         <P>
           When you have an account: your email address, the name and handle you choose, an optional photo and short bio, and when you joined. We also
-          store what you do here: the posts and replies you write, the votes you cast, the boards, hubs, posts and people you follow, your
-          notification settings, and, if you claim a board, the work email or domain you verify with that claim.
+          store what you do here: the posts, saved drafts, screenshots and replies you write, the direct messages you send, the votes you cast, the
+          boards, hubs, posts and people you follow, accounts you block, your notification and message settings, and, if you claim a board, the work
+          email or domain you verify with that claim.
         </P>
         <P>
           For all visitors: we record individual usage events, such as the page path you viewed, the website that referred you, search terms that
@@ -86,8 +87,8 @@ export function PrivacyPage() {
       <Section heading="Why we store it">
         <P>
           To sign you in, show your name and photo next to what you post, count votes once per person, let teams answer feedback on their own boards,
-          send you the notifications you asked for, and understand how the site is being used so we can improve it. Nothing here is used to build an
-          advertising profile, and we do not sell or rent data to anyone.
+          deliver direct messages and the notifications you asked for, and understand how the site is being used so we can improve it. Nothing here is
+          used to build an advertising profile, and we do not sell or rent data to anyone.
         </P>
       </Section>
       <Section heading="Who processes it">
@@ -110,7 +111,7 @@ export function PrivacyPage() {
       <Section heading="Public by design">
         <P>
           Publisense is a public index. Your handle, name, photo, bio, posts and replies are visible to anyone, including signed-out visitors and
-          search engines. Your email address is never shown publicly.
+          search engines. Your email address, saved drafts and direct messages are never shown publicly.
         </P>
       </Section>
       <Section heading="Email">
@@ -125,9 +126,10 @@ export function PrivacyPage() {
       </Section>
       <Section heading="Your copy, and deleting it">
         <P>
-          Download a copy of your data as a JSON file from Settings, any time. You can also delete your account there: your profile, photo, votes,
-          follows and notifications are removed, along with the sign-in record. Posts and replies stay, shown as from a deleted user, so threads
-          others replied to still make sense. If you are the only owner of a board or hub, add another owner first.
+          Download a copy of your data as a JSON file from Settings, any time. You can also delete your account there: your profile, photo, saved
+          drafts, uploaded screenshots, direct messages, votes, follows and notifications are removed, along with the sign-in record. Posts and
+          replies stay, shown as from a deleted user, so threads others replied to still make sense. If you are the only owner of a board or hub, add
+          another owner first.
         </P>
       </Section>
       <Section heading="Your other rights">

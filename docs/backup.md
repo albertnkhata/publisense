@@ -4,9 +4,9 @@
 and keeps 30 days of encrypted copies as Actions artifacts named `publisense-db-<UTC stamp>`.
 Run it by hand from **Actions → Nightly backup → Run workflow**.
 
-Covered schemas: `public` (all app data), `auth` (accounts), `storage` (file metadata; the
-logo and avatar files themselves live in Supabase Storage and are not in the dump),
-`supabase_migrations`.
+Covered schemas: `public` (all app data), `private` (RLS/check helpers and first-party analytics),
+`auth` (accounts), `storage` (file metadata; the logo and avatar files themselves live in
+Supabase Storage and are not in the dump), `supabase_migrations`.
 
 The repo is public, so every dump is encrypted with `BACKUP_PASSPHRASE`. Lose the passphrase
 and the backups are unreadable: keep a copy outside GitHub.

@@ -101,6 +101,7 @@ export async function deleteAccount(): Promise<DeleteResult> {
 export const EXPORT_TABLES = [
   ['profile', 'id'],
   ['post', 'author_id'],
+  ['post_draft', 'author_id'],
   ['reply', 'author_id'],
   ['vote', 'user_id'],
   ['follow', 'user_id'],
@@ -110,6 +111,9 @@ export const EXPORT_TABLES = [
   ['join_request', 'user_id'],
   ['ownership_dispute', 'user_id'],
   ['report', 'reporter'],
+  ['dm_member', 'user_id'],
+  ['dm_message', 'sender'],
+  ['user_block', 'blocker'],
 ] as const;
 
 export interface DataExport {
