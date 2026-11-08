@@ -181,6 +181,26 @@ describe('merge', () => {
     fireEvent.change(within(dialog).getByRole('searchbox'), { target: { value: 'caret' } });
     await waitFor(() => expect(mod.fetchMergeCandidates).toHaveBeenCalledWith([post.board_id], 'caret', post.id, 8));
   });
+
+  it('lists similar posts first followed by the remaining top candidates', async () => {
+    boards.fetchIsBoardTeam.mockResolvedValue(true);
+    const post = makePost({ title: 'Cursor jumps to top', vote_count: 4 });
+    const simPost = makePost({ id: 'a0000000-0000-4000-8000-0000000000c1', title: 'Cursor jumps on paste', vote_count: 12 });
+    posts.fetchSimilar.mockResolvedValue([simPost]);
+    mod.fetchMergeCandidates.mockResolvedValue([
+      { id: simPost.id, board_id: post.board_id, title: simPost.title, status: 'open', vote_count: 12, reply_count: 1 },
+      { id: 'a0000000-0000-4000-8000-0000000000c2', board_id: post.board_id, title: 'Top unrelated post', status: 'planned', vote_count: 40, reply_count: 3 },
+    ]);
+    renderCard(post);
+    await waitFor(() => expect(boards.fetchIsBoardTeam).toHaveBeenCalled());
+    fireEvent.click(await within(await openMenu()).findByRole('menuitem', { name: /Merge duplicate/ }));
+    const dialog = await screen.findByRole('dialog', { name: 'Merge duplicate' });
+    const radios = await within(dialog).findAllByRole('radio');
+    expect(radios).toHaveLength(2);
+    expect(within(radios[0]!).getByText('Cursor jumps on paste')).toBeTruthy();
+    expect(within(radios[0]!).getByText('Similar')).toBeTruthy();
+    expect(within(radios[1]!).getByText('Top unrelated post')).toBeTruthy();
+  });
 });
 
 describe('post page', () => {

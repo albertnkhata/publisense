@@ -33,7 +33,7 @@ import { badgeSnippets } from '../lib/badge';
 import { HeaderSkeleton, ScopeNotFound, actionLink } from '../pages/BoardPage';
 import { useAuthDialog } from '../shell/auth';
 import { BoardAvatar, Button, EmptyState, Field, Icon, Input, TabPanel, Tabs, Textarea, useToast } from '../ui';
-import { AddTeammate, BlockedList, canManage, Chips, Inbox, JoinRequests, ReleaseSection, Section, TeamList, Tiles, TYPE_OPTIONS } from './parts';
+import { AddTeammate, BlockedList, canManage, Chips, Inbox, JoinRequests, ReleaseSection, Section, TeamList, Tiles, TYPE_OPTIONS, WebhookSection } from './parts';
 import { useSetUrlParams } from '../lib/useUrlParam';
 
 /**
@@ -193,6 +193,7 @@ function BoardManage({ board, role }: { board: BoardWithHub; role: Role }) {
               boardIds={ids}
               status="open"
               type={type}
+              site={board.site}
               empty={
                 <>
                   <b className="block font-semibold text-ink">Inbox zero</b>
@@ -202,7 +203,7 @@ function BoardManage({ board, role }: { board: BoardWithHub; role: Role }) {
             />
           </>
         ) : tab === 'posts' ? (
-          <Inbox boardIds={ids} status="all" type="all" empty="No posts yet." />
+          <Inbox boardIds={ids} status="all" type="all" site={board.site} empty="No posts yet." />
         ) : tab === 'team' ? (
           <>
             {admin ? <JoinRequests scopes={[{ scope: 'board', id: board.id }]} /> : null}
@@ -364,6 +365,7 @@ function BoardSettings({ board, owner }: { board: Board; owner: boolean }) {
         </form>
       </Section>
       <BadgeSection slug={board.slug} />
+      <WebhookSection scope="board" scopeId={board.id} />
       {owner ? <ReleaseSection scope="board" scopeId={board.id} name={board.name} onReleased={() => void navigate(`/b/${board.slug}`)} /> : null}
     </>
   );
@@ -554,6 +556,7 @@ function HubSettings({ hub, owner }: { hub: Hub; owner: boolean }) {
           </ul>
         </Section>
       ) : null}
+      <WebhookSection scope="hub" scopeId={hub.id} />
       {owner ? <ReleaseSection scope="hub" scopeId={hub.id} name={hub.name} onReleased={() => void navigate(`/h/${hub.slug}`)} /> : null}
     </>
   );

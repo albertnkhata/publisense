@@ -51,9 +51,11 @@ export function MergeDialog({ post, open, onClose, onMerged }: { post: Post; ope
   const candidates = useMergeCandidates(pool, q, post.id, open);
 
   const rows: Row[] = useMemo(() => {
+    if (q.trim()) return (candidates.data ?? []).map((p) => ({ ...p, similar: false }));
     const sim = (similar.data ?? []).filter((p) => p.id !== post.id && p.status !== 'merged').slice(0, 4);
-    if (!q.trim() && sim.length) return sim.map((p) => ({ ...p, similar: true }));
-    return (candidates.data ?? []).map((p) => ({ ...p, similar: false }));
+    const seen = new Set(sim.map((p) => p.id));
+    const rest = (candidates.data ?? []).filter((p) => !seen.has(p.id));
+    return [...sim.map((p) => ({ ...p, similar: true })), ...rest.map((p) => ({ ...p, similar: false }))].slice(0, 8);
   }, [similar.data, candidates.data, q, post.id]);
 
   const go = () => {

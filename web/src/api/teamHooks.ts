@@ -6,19 +6,23 @@ import {
   claimBoard,
   claimHub,
   decideJoinRequest,
+  deleteScopeWebhook,
   fetchJoinRequests,
   fetchManageStats,
   fetchMyRequests,
   fetchPendingDns,
   fetchScopeRole,
+  fetchScopeWebhook,
   fetchTeam,
   fetchVerifiedDomains,
   openDispute,
   removeBoardLogo,
   removeMember,
   requestJoin,
+  saveScopeWebhook,
   setMemberRole,
   setPostStatus,
+  testScopeWebhook,
   updateBoardTagline,
   updateHub,
   uploadBoardLogo,
@@ -26,6 +30,7 @@ import {
   type JoinRequest,
   type Role,
   type Scope,
+  type WebhookKind,
 } from './teams';
 
 /* TanStack Query hooks for step 7: claiming, teams, join requests, Manage. */
@@ -38,6 +43,7 @@ export const teamKeys = {
   role: (scope: Scope, id: string, viewerId: string | null) => ['scope-role', scope, id, viewerId ?? 'anon'] as const,
   joinRequests: (ids: string[]) => ['join-requests', ids.join(',')] as const,
   stats: (ids: string[]) => ['manage-stats', ids.join(',')] as const,
+  webhook: (scope: Scope, id: string) => ['scope-webhook', scope, id] as const,
 };
 
 export function useVerifiedDomains(viewerId: string | null) {
@@ -230,3 +236,39 @@ export function useUpdateHub() {
     },
   });
 }
+
+export function useScopeWebhook(scope: Scope, id: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: teamKeys.webhook(scope, id ?? ''),
+    queryFn: () => fetchScopeWebhook(scope, id ?? ''),
+    enabled: enabled && Boolean(id),
+  });
+}
+
+export function useSaveScopeWebhook() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { scope: Scope; id: string; kind: WebhookKind; url: string; enabled?: boolean }) =>
+      saveScopeWebhook(v.scope, v.id, v.kind, v.url, v.enabled ?? true),
+    onSuccess: (w, v) => {
+      qc.setQueryData(teamKeys.webhook(v.scope, v.id), w);
+    },
+  });
+}
+
+export function useDeleteScopeWebhook() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { scope: Scope; id: string }) => deleteScopeWebhook(v.scope, v.id),
+    onSuccess: (_d, v) => {
+      qc.setQueryData(teamKeys.webhook(v.scope, v.id), null);
+    },
+  });
+}
+
+export function useTestScopeWebhook() {
+  return useMutation({
+    mutationFn: (v: { scope: Scope; id: string }) => testScopeWebhook(v.scope, v.id),
+  });
+}
+

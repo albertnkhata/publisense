@@ -12,7 +12,7 @@ const VERSION = 'v1';
 const SHELL = `shell-${VERSION}`;
 const ASSETS = `assets-${VERSION}`;
 const ASSET_MAX = 80;
-const BYPASS = /^\/(api|badge|sitemap\.xml|auth)(\/|$|\?)/;
+const BYPASS = /^\/(api|badge|sitemap\.xml|auth)(\/|$|\?)|^\/b\/[^/]+\/(feed|changelog)\.xml$/;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(SHELL).then((c) => c.add(new Request('/', { cache: 'reload' }))).catch(() => undefined));

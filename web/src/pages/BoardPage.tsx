@@ -191,14 +191,26 @@ function Board({ board }: { board: BoardWithHub }) {
         <div className="flex flex-col">
           <div className="mb-4 flex items-center justify-between gap-3 border-b border-line pb-3">
             <h2 className="m-0 text-lg font-semibold text-ink">{tab === 'roadmap' ? 'Roadmap' : 'Changelog'}</h2>
-            <button
-              type="button"
-              onClick={() => setParam('tab', 'feedback', 'feedback')}
-              className="inline-flex items-center gap-2 text-sm font-medium text-ink-muted hover:text-ink"
-            >
-              <Icon name="arrow-left" size={14} />
-              Back to feedback
-            </button>
+            <div className="flex items-center gap-4">
+              {tab === 'changelog' && board.status === 'live' ? (
+                <a
+                  href={`/b/${board.slug}/changelog.xml`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm font-medium text-ink-muted no-underline hover:text-ink"
+                >
+                  Atom feed
+                </a>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setParam('tab', 'feedback', 'feedback')}
+                className="inline-flex items-center gap-2 text-sm font-medium text-ink-muted hover:text-ink"
+              >
+                <Icon name="arrow-left" size={14} />
+                Back to feedback
+              </button>
+            </div>
           </div>
           {tab === 'roadmap' ? <RoadmapTab boardIds={ids} /> : <ChangelogTab boardIds={ids} />}
         </div>

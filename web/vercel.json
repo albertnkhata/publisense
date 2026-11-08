@@ -11,6 +11,14 @@
       "destination": "/api/badge?slug=:slug"
     },
     {
+      "source": "/b/:slug/feed.xml",
+      "destination": "/api/feed?slug=:slug"
+    },
+    {
+      "source": "/b/:slug/changelog.xml",
+      "destination": "/api/feed?slug=:slug&tab=changelog"
+    },
+    {
       "source": "/b/:key",
       "has": [
         {

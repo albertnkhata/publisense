@@ -1,5 +1,5 @@
 import { getSupabase } from './supabase';
-import { ApiError, type PersonRef, type PostStatus, type PostType } from './posts';
+import { anyWordQuery, ApiError, similarityScore, type PersonRef, type PostStatus, type PostType } from './posts';
 import type { CommandCentreData, CommandCentreWindow } from './analytics';
 import type { Role, Scope } from './teams';
 
@@ -102,7 +102,7 @@ export interface MergeCandidate {
   reply_count: number;
 }
 
-/** Live posts on these boards to merge into: matching `q` in the title, most upvoted first. */
+/** Live posts on these boards to merge into: matching `q` in the title or full-text search, most relevant/upvoted first. */
 export async function fetchMergeCandidates(boardIds: string[], q: string, exceptId: string, limit = 8): Promise<MergeCandidate[]> {
   if (boardIds.length === 0) return [];
   let query = getSupabase()
@@ -113,10 +113,21 @@ export async function fetchMergeCandidates(boardIds: string[], q: string, except
     .is('hidden_at', null)
     .neq('status', 'merged');
   const term = q.replace(/[%_\\,()]/g, ' ').trim();
-  if (term) query = query.ilike('title', `%${term}%`);
-  const { data, error } = await query.order('vote_count', { ascending: false }).order('created_at', { ascending: false }).limit(limit);
+  const multiWordTsq = /\s/.test(term) ? anyWordQuery(term) : null;
+  if (multiWordTsq) {
+    query = query.textSearch('search', multiWordTsq, { config: 'english' });
+  } else if (term) {
+    query = query.ilike('title', `%${term}%`);
+  }
+  const { data, error } = await query.order('vote_count', { ascending: false }).order('created_at', { ascending: false }).limit(multiWordTsq ? 25 : limit);
   if (error) throw error;
-  return (data ?? []) as MergeCandidate[];
+  const rows = (data ?? []) as MergeCandidate[];
+  if (!multiWordTsq) return rows;
+  return rows
+    .map((r) => ({ r, s: similarityScore(term, r) }))
+    .sort((a, b) => b.s - a.s || b.r.vote_count - a.r.vote_count)
+    .slice(0, limit)
+    .map((x) => x.r);
 }
 
 /** Still inside the unmerge window? `mergedAt` is the status_event time of the merge. */

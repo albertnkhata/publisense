@@ -787,20 +787,62 @@ export function simTokens(text: string): string[] {
     .map((w) => w.replace(/(ing|ed|es|s)$/, ''));
 }
 
+/** Character trigrams (pg_trgm-style word padding: two leading spaces, one trailing space per word). */
+export function trigrams(text: string): Set<string> {
+  const out = new Set<string>();
+  const words = text
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]+/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+  for (const w of words) {
+    const padded = `  ${w} `;
+    for (let i = 0; i <= padded.length - 3; i += 1) {
+      out.add(padded.slice(i, i + 3));
+    }
+  }
+  return out;
+}
+
+/** Jaccard similarity (0..1) over character trigrams, matching Postgres pg_trgm similarity(). */
+export function trigramSimilarity(a: string, b: string): number {
+  const ta = trigrams(a);
+  const tb = trigrams(b);
+  if (ta.size === 0 || tb.size === 0) return 0;
+  let shared = 0;
+  for (const g of ta) if (tb.has(g)) shared += 1;
+  return shared / (ta.size + tb.size - shared);
+}
+
+function tokenMatchWeight(word: string, queryWords: Set<string>): number {
+  if (queryWords.has(word)) return 1;
+  if (word.length < 4) return 0;
+  let best = 0;
+  for (const q of queryWords) {
+    if (q.length < 4) continue;
+    const sim = trigramSimilarity(word, q);
+    if (sim > best) best = sim;
+  }
+  return best >= 0.45 ? 0.75 : 0;
+}
+
 /**
  * Score a candidate against what is being typed: shared words anywhere plus
- * extra weight for shared title words. Mockup rule: at least one title word in
- * common and a score of 2.5 or more.
+ * extra weight for shared title words (including trigram-close typos and stems).
+ * Requires at least one matching or near-matching title word and a score >= 2.25.
  */
 export function similarityScore(query: string, candidate: { title: string; body?: string }): number {
   const q = new Set(simTokens(query));
   if (q.size === 0) return 0;
-  const all = new Set(simTokens(`${candidate.title} ${candidate.body ?? ''}`));
-  const hit = [...all].filter((w) => q.has(w)).length;
-  const inTitle = simTokens(candidate.title).filter((w) => q.has(w)).length;
-  if (inTitle < 1) return 0;
-  const score = hit + inTitle * 1.5;
-  return score >= 2.5 ? score : 0;
+  const all = [...new Set(simTokens(`${candidate.title} ${candidate.body ?? ''}`))];
+  let hit = 0;
+  for (const w of all) hit += tokenMatchWeight(w, q);
+  let inTitle = 0;
+  for (const w of simTokens(candidate.title)) inTitle += tokenMatchWeight(w, q);
+  if (inTitle < 0.75) return 0;
+  const titleTrgm = trigramSimilarity(query, candidate.title);
+  const score = hit + inTitle * 1.5 + (titleTrgm >= 0.25 ? titleTrgm * 1.5 : 0);
+  return score >= 2.25 ? score : 0;
 }
 
 /** The to_tsquery text for "any of these words" (prefix match), or null if nothing is searchable. */

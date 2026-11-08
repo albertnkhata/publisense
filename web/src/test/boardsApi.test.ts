@@ -256,8 +256,9 @@ describe('similar posts', () => {
     expect(anyWordQuery('the and of')).toBeNull();
   });
 
-  it('needs a shared title word and enough overlap', () => {
+  it('needs a shared title word and enough overlap, including trigram-close typos', () => {
     expect(similarityScore('keyboard shortcut for cycles', { title: 'Cycle keyboard shortcuts' })).toBeGreaterThan(0);
+    expect(similarityScore('keybaord shorcut for cycles', { title: 'Cycle keyboard shortcuts' })).toBeGreaterThan(0);
     expect(similarityScore('keyboard shortcut for cycles', { title: 'Dark mode', body: 'keyboard shortcut cycles' })).toBe(0);
   });
 

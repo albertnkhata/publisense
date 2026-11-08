@@ -455,3 +455,45 @@ export async function removeBoardLogo(boardId: string, previous: string | null):
 }
 
 export const memberAvatar = (p: PersonRef | null) => publicStorageUrl('avatars', p?.avatar_path);
+
+// ------------------------------------------------------------------ webhooks (0064)
+
+export type WebhookKind = 'slack' | 'discord' | 'generic';
+
+export interface ScopeWebhook {
+  kind: WebhookKind;
+  url: string;
+  enabled: boolean;
+  updated_at: string;
+}
+
+export const WEBHOOK_KIND_LABEL: Record<WebhookKind, string> = {
+  slack: 'Slack',
+  discord: 'Discord',
+  generic: 'JSON webhook',
+};
+
+export async function fetchScopeWebhook(scope: Scope, id: string): Promise<ScopeWebhook | null> {
+  const res = await rpc<RpcResult & { webhook?: ScopeWebhook | null }>('get_scope_webhook', { p_scope: scope, p_scope_id: id });
+  return res.webhook ?? null;
+}
+
+export async function saveScopeWebhook(scope: Scope, id: string, kind: WebhookKind, url: string, enabled = true): Promise<ScopeWebhook> {
+  const res = await rpc<RpcResult & { webhook: ScopeWebhook }>('set_scope_webhook', {
+    p_scope: scope,
+    p_scope_id: id,
+    p_kind: kind,
+    p_url: url.trim(),
+    p_enabled: enabled,
+  });
+  return res.webhook;
+}
+
+export async function deleteScopeWebhook(scope: Scope, id: string): Promise<void> {
+  await rpc('delete_scope_webhook', { p_scope: scope, p_scope_id: id });
+}
+
+export async function testScopeWebhook(scope: Scope, id: string): Promise<{ queued: boolean }> {
+  const res = await rpc<RpcResult & { queued?: boolean }>('test_scope_webhook', { p_scope: scope, p_scope_id: id });
+  return { queued: Boolean(res.queued) };
+}

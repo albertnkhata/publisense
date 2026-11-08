@@ -50,12 +50,12 @@ describe('manifest and worker', () => {
     expect(m.start_url).toBe('/');
     expect(m.icons.map((i: { sizes: string; purpose: string }) => `${i.sizes}:${i.purpose}`)).toEqual(['192x192:any', '512x512:any', '512x512:maskable']);
   });
-  it('worker never handles API, badge, sitemap or auth paths', () => {
+  it('worker never handles API, badge, feed, sitemap or auth paths', () => {
     const src = pub('sw.js');
     const m = src.match(/const BYPASS = (\/.*\/);/);
     expect(m).toBeTruthy();
     const re = new Function(`return ${m![1]}`)() as RegExp;
-    for (const p of ['/api/share', '/badge/cursor.svg', '/sitemap.xml', '/auth/reset']) expect(re.test(p)).toBe(true);
+    for (const p of ['/api/share', '/badge/cursor.svg', '/b/cursor/feed.xml', '/b/cursor/changelog.xml', '/sitemap.xml', '/auth/reset']) expect(re.test(p)).toBe(true);
     for (const p of ['/', '/b/cursor', '/apiary', '/badges']) expect(re.test(p)).toBe(false);
   });
 });

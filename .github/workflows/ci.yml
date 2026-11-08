@@ -318,6 +318,13 @@ jobs:
           PGPASSWORD: postgres
         run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_duplicate_source_items_test.sql
 
+      # Team webhooks (0064): Slack, Discord and generic JSON dispatch on post creation
+      # and status transitions, scoped to board/hub admins. Stubs pg_net; rolled back.
+      - name: v2 team webhook tests
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_team_webhooks_test.sql
+
       # Join request messages (0049, #189): length, trimming, who reads them, the
       # notification payload, and that the old three-argument call still works.
       - name: v2 join message tests

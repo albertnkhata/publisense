@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import {
   APPROVE_ROLES,
@@ -12,14 +12,19 @@ import {
   useApproveJoin,
   useBlocked,
   useDecideJoin,
+  useDeleteScopeWebhook,
   useJoinRequests,
   usePostList,
   useReleaseScope,
   useRemoveMember,
+  useSaveScopeWebhook,
+  useScopeWebhook,
   useSetBlocked,
   useSetMemberRole,
   useSetPostStatus,
   useTeam,
+  useTestScopeWebhook,
+  WEBHOOK_KIND_LABEL,
   type ApproveRole,
   type Board,
   type JoinRequest,
@@ -29,14 +34,16 @@ import {
   type Role,
   type Scope,
   type TypeFilter,
+  type WebhookKind,
 } from '../api';
 import { cx } from '../lib/cx';
+import { formatIssueMarkdown, githubIssueUrl, linearIssueUrl, resolveBoardGitHubRepo } from '../lib/issueExport';
 import { useViewer } from '../lib/viewer';
 import { ConfirmDialog } from '../posts/dialogs';
 import { MergeDialog } from '../posts/MergeDialog';
 import { LoadError } from '../posts/PostList';
 import { statusToast, TEAM_STATUSES } from '../posts/StatusDialog';
-import { Button, Dialog, Field, IconButton, Input, Select, SkeletonBlock, STATUS_META, TYPE_META, UserAvatar, useToast } from '../ui';
+import { Button, Dialog, Field, IconButton, Input, Menu, MenuItem, Select, SkeletonBlock, STATUS_META, TYPE_META, UserAvatar, useToast } from '../ui';
 
 /*
  * Pieces of the Manage screens (FOUNDATION §5 ManageInbox, TeamPanel): stat
@@ -106,6 +113,7 @@ export function Inbox({
   status,
   type,
   boards,
+  site,
   empty,
 }: {
   boardIds: string[];
@@ -113,6 +121,7 @@ export function Inbox({
   type: TypeFilter;
   /** Show each row's board (hub inbox). */
   boards?: Board[];
+  site?: string | null;
   empty: ReactNode;
 }) {
   const { viewer } = useViewer();
@@ -135,7 +144,7 @@ export function Inbox({
       <ul className="m-0 list-none rounded-md border border-line bg-card p-0" aria-label="Posts">
         {posts.map((p) => (
           <li key={p.id} className="border-t border-line first:border-t-0">
-            <InboxRow post={p} board={boards?.find((b) => b.id === p.board_id) ?? null} />
+            <InboxRow post={p} board={boards?.find((b) => b.id === p.board_id) ?? null} site={site} />
           </li>
         ))}
       </ul>
@@ -150,10 +159,11 @@ export function Inbox({
   );
 }
 
-export function InboxRow({ post, board }: { post: Post; board: Board | null }) {
+export function InboxRow({ post, board, site }: { post: Post; board: Board | null; site?: string | null }) {
   const { toast } = useToast();
   const setStatus = useSetPostStatus();
   const [merging, setMerging] = useState(false);
+  const ghRepo = resolveBoardGitHubRepo(post, board, site);
   const change = (to: PostStatus) => {
     if (to === post.status) return;
     setStatus.mutate(
@@ -163,6 +173,15 @@ export function InboxRow({ post, board }: { post: Post; board: Board | null }) {
         onError: (e) => toast(e instanceof Error ? e.message : 'We couldn’t update the status. Try again.'),
       },
     );
+  };
+  const copyIssue = () => {
+    void navigator.clipboard?.writeText(formatIssueMarkdown(post)).then(
+      () => toast('Copied issue markdown'),
+      () => toast('We couldn’t copy that.'),
+    );
+  };
+  const openExternal = (url: string) => {
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
   return (
     <div className="flex items-center gap-3 px-4 py-3 max-sm:flex-wrap max-sm:px-3">
@@ -181,6 +200,27 @@ export function InboxRow({ post, board }: { post: Post; board: Board | null }) {
         </span>
       </Link>
       <span className="flex shrink-0 items-center gap-2 max-sm:w-full">
+        <Menu
+          align="end"
+          label={`Export ${post.title}`}
+          trigger={(props) => (
+            <Button {...props} size="sm" variant="ghost" className="shrink-0" aria-label={`Export ${post.title}`}>
+              Export
+            </Button>
+          )}
+        >
+          <MenuItem onSelect={() => openExternal(linearIssueUrl(post))} description="Pre-filled Linear issue">
+            Open in Linear ↗
+          </MenuItem>
+          {ghRepo ? (
+            <MenuItem onSelect={() => openExternal(githubIssueUrl(ghRepo, post))} description={ghRepo}>
+              Open in GitHub Issues ↗
+            </MenuItem>
+          ) : null}
+          <MenuItem onSelect={copyIssue} description="For Jira, Notion or GitLab">
+            Copy issue markdown
+          </MenuItem>
+        </Menu>
         {post.status !== 'merged' ? (
           <Button size="sm" variant="secondary" onClick={() => setMerging(true)} className="shrink-0" aria-label={`Merge ${post.title}`}>
             Merge
@@ -575,3 +615,113 @@ export function ReleaseSection({ scope, scopeId, name, onReleased }: { scope: Sc
     </Section>
   );
 }
+
+// ------------------------------------------------------------------ webhooks (0064)
+
+const WEBHOOK_KINDS: WebhookKind[] = ['slack', 'discord', 'generic'];
+
+export function WebhookSection({ scope, scopeId }: { scope: Scope; scopeId: string }) {
+  const { toast } = useToast();
+  const query = useScopeWebhook(scope, scopeId);
+  const save = useSaveScopeWebhook();
+  const del = useDeleteScopeWebhook();
+  const test = useTestScopeWebhook();
+  const existing = query.data ?? null;
+  const [kind, setKind] = useState<WebhookKind>('slack');
+  const [url, setUrl] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (existing) {
+      setKind(existing.kind);
+      setUrl(existing.url);
+    }
+  }, [existing]);
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    save.mutate(
+      { scope, id: scopeId, kind, url },
+      {
+        onSuccess: () => toast('Webhook saved'),
+        onError: (err) => setError(err instanceof Error ? err.message : 'We couldn’t save the webhook.'),
+      },
+    );
+  };
+
+  const onTest = () => {
+    setError(null);
+    test.mutate(
+      { scope, id: scopeId },
+      {
+        onSuccess: () => toast('Test webhook sent'),
+        onError: (err) => setError(err instanceof Error ? err.message : 'We couldn’t send the test webhook.'),
+      },
+    );
+  };
+
+  const onDelete = () => {
+    setError(null);
+    del.mutate(
+      { scope, id: scopeId },
+      {
+        onSuccess: () => {
+          setUrl('');
+          toast('Webhook removed');
+        },
+        onError: (err) => setError(err instanceof Error ? err.message : 'We couldn’t remove the webhook.'),
+      },
+    );
+  };
+
+  const unchanged = Boolean(existing && existing.kind === kind && existing.url === url.trim());
+
+  return (
+    <Section title="Team webhook" note="Send new posts and status changes to Slack, Discord or a webhook URL.">
+      <form onSubmit={submit} className="flex flex-col gap-4">
+        <div className="flex flex-wrap gap-3">
+          <div className="w-select shrink-0 max-sm:w-full">
+            <Field label="Destination">
+              <Select value={kind} onChange={(e) => setKind(e.target.value as WebhookKind)} aria-label="Webhook destination">
+                {WEBHOOK_KINDS.map((k) => (
+                  <option key={k} value={k}>
+                    {WEBHOOK_KIND_LABEL[k]}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+          <div className="min-w-0 flex-1 max-sm:w-full">
+            <Field label="Webhook URL" error={error}>
+              <Input
+                type="url"
+                placeholder={kind === 'slack' ? 'https://hooks.slack.com/services/…' : kind === 'discord' ? 'https://discord.com/api/webhooks/…' : 'https://example.com/webhooks/publisense'}
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                autoComplete="off"
+                className="font-mono text-sm"
+              />
+            </Field>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="submit" variant="secondary" loading={save.isPending} disabled={!url.trim() || unchanged}>
+            Save webhook
+          </Button>
+          {existing ? (
+            <>
+              <Button type="button" variant="secondary" onClick={onTest} loading={test.isPending}>
+                Send test
+              </Button>
+              <Button type="button" variant="ghost" onClick={onDelete} loading={del.isPending}>
+                Remove
+              </Button>
+            </>
+          ) : null}
+        </div>
+      </form>
+    </Section>
+  );
+}
+

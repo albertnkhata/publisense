@@ -37,6 +37,10 @@ const teamsApi = vi.hoisted(() => ({
   fetchManageStats: vi.fn(),
   updateBoardTagline: vi.fn(),
   updateHub: vi.fn(),
+  fetchScopeWebhook: vi.fn(),
+  saveScopeWebhook: vi.fn(),
+  deleteScopeWebhook: vi.fn(),
+  testScopeWebhook: vi.fn(),
 }));
 const boardsApi = vi.hoisted(() => ({
   fetchBoard: vi.fn(),
@@ -130,6 +134,10 @@ beforeEach(() => {
   teamsApi.setMemberRole.mockResolvedValue(undefined);
   teamsApi.decideJoinRequest.mockResolvedValue(undefined);
   teamsApi.addMember.mockResolvedValue({ handle: 'hank' });
+  teamsApi.fetchScopeWebhook.mockResolvedValue(null);
+  teamsApi.saveScopeWebhook.mockResolvedValue({ kind: 'slack', url: 'https://hooks.slack.com/services/T00/B00/X00', enabled: true, updated_at: new Date().toISOString() });
+  teamsApi.deleteScopeWebhook.mockResolvedValue(undefined);
+  teamsApi.testScopeWebhook.mockResolvedValue({ queued: true });
 });
 
 function GenericClaimButton() {
@@ -815,4 +823,34 @@ describe('team management', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(teamsApi.updateBoardTagline).toHaveBeenCalledWith(CURSOR.id, 'The AI code editor for teams'));
   });
+
+  it('saves and tests a team webhook from Settings', async () => {
+    teamsApi.fetchScopeRole.mockResolvedValue('admin');
+    boardsApi.fetchBoard.mockResolvedValue({ ...makeBoard(), hub: null });
+    renderAt('/b/cursor/manage?tab=settings');
+    const urlInput = await screen.findByLabelText('Webhook URL');
+    fireEvent.change(urlInput, { target: { value: 'https://hooks.slack.com/services/T00/B00/X00' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save webhook' }));
+    await waitFor(() => expect(teamsApi.saveScopeWebhook).toHaveBeenCalledWith('board', CURSOR.id, 'slack', 'https://hooks.slack.com/services/T00/B00/X00', true));
+    expect(await screen.findByText('Webhook saved')).toBeTruthy();
+    fireEvent.click(await screen.findByRole('button', { name: 'Send test' }));
+    await waitFor(() => expect(teamsApi.testScopeWebhook).toHaveBeenCalledWith('board', CURSOR.id));
+  });
+
+  it('exports a triage post to Linear or GitHub Issues', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    teamsApi.fetchScopeRole.mockResolvedValue('member');
+    const ghBoard = { ...makeBoard({ site: 'github.com/getcursor/cursor' }), hub: null };
+    boardsApi.fetchBoard.mockResolvedValue(ghBoard);
+    postsApi.fetchPostList.mockResolvedValue(page([makePost({ title: 'Indexing stalls on monorepos', board: { id: ghBoard.id, slug: ghBoard.slug, name: ghBoard.name, color: ghBoard.color, logo_path: null } })]));
+    renderAt('/b/cursor/manage');
+    const exportBtn = await screen.findByRole('button', { name: 'Export Indexing stalls on monorepos' });
+    fireEvent.click(exportBtn);
+    const ghItem = await screen.findByRole('menuitem', { name: /Open in GitHub Issues/ });
+    expect(ghItem).toBeTruthy();
+    fireEvent.click(screen.getByRole('menuitem', { name: /Open in Linear/ }));
+    expect(openSpy).toHaveBeenCalledWith(expect.stringContaining('https://linear.app/new?'), '_blank', 'noopener,noreferrer');
+    openSpy.mockRestore();
+  });
 });
+

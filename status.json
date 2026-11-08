@@ -119,8 +119,8 @@
       }
     ],
     "webTests": {
-      "files": 50,
-      "cases": 634
+      "files": 51,
+      "cases": 641
     },
     "gates": [
       {
@@ -311,6 +311,13 @@
         "name": "v2 duplicate source item tests",
         "runs": [
           "psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_duplicate_source_items_test.sql"
+        ],
+        "scripted": false
+      },
+      {
+        "name": "v2 team webhook tests",
+        "runs": [
+          "psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_team_webhooks_test.sql"
         ],
         "scripted": false
       },
