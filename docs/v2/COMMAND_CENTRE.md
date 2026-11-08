@@ -1,6 +1,6 @@
 # Publisense v2: admin command centre & first-party analytics
 
-> **Status:** planned, 2026-10-27. The Privacy Policy is **not** updated yet: update [`web/src/pages/LegalPages.tsx`](../../web/src/pages/LegalPages.tsx) in the same PR that ships `record_event`, so the policy never describes tracking that doesn't exist (keep the Vercel line "counts page views without cookies or personal identifiers"). Linked from [`BUILD.md`](./BUILD.md) and [`docs/archive/roadmap.md`](../archive/roadmap.md).
+> **Status:** shipped (`0054_v2_command_centre.sql`–`0056_v2_visits_exclude_unfurls.sql`, [`web/src/pages/AdminPages.tsx`](../../web/src/pages/AdminPages.tsx), and [`web/src/pages/LegalPages.tsx`](../../web/src/pages/LegalPages.tsx)). Linked from [`BUILD.md`](./BUILD.md) and [`docs/archive/roadmap.md`](../archive/roadmap.md).
 
 ---
 
