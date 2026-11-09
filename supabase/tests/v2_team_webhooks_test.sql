@@ -135,12 +135,45 @@ select pg_temp.as_owner();
 select pg_temp.expect('0064: status change fires both webhooks with Marked Shipped',
   (select count(*) = 2 and bool_and(( coalesce(body ->> 'text', body ->> 'content') ) like '%Marked Shipped%') from net.sent));
 
--- ------------------------------------------------------------ delete_scope_webhook
+-- ------------------------------------------------------------ delete_scope_webhook & inbound sync (0065)
 
 select pg_temp.as_user((select admin_u from f));
-select pg_temp.expect('0064: delete_scope_webhook removes the webhook',
+select pg_temp.expect('0064: delete_scope_webhook removes the webhook and keeps inbound_token',
   (select (public.delete_scope_webhook('board', board_id) ->> 'ok')::boolean
       and (public.get_scope_webhook('board', board_id) -> 'webhook') = 'null'::jsonb
+      and (public.get_scope_webhook('board', board_id) ->> 'inbound_token') is not null
      from f));
+
+create temp table tok as
+  select (public.get_scope_webhook('board', board_id) ->> 'inbound_token')::uuid as t1,
+         (public.rotate_scope_inbound_token('board', board_id) ->> 'inbound_token')::uuid as t2
+    from f;
+grant select on tok to anon, authenticated;
+
+select pg_temp.expect('0065: rotate_scope_inbound_token mints a fresh token',
+  (select t1 is not null and t2 is not null and t1 <> t2 from tok));
+
+select pg_temp.as_user(null);
+select pg_temp.expect('0065: old inbound token is rejected after rotation',
+  (select (public.apply_inbound_webhook(
+    (select t1 from tok),
+    (select id from public.post where board_id = (select board_id from f) limit 1),
+    'in_progress'::public.v2_post_status,
+    'Started in ENG-42'
+  ) ->> 'error') = 'invalid_token'));
+
+select pg_temp.expect('0065: current inbound token updates post status as anon',
+  (select (public.apply_inbound_webhook(
+    (select t2 from tok),
+    (select id from public.post where board_id = (select board_id from f) limit 1),
+    'in_progress'::public.v2_post_status,
+    'Started in ENG-42'
+  ) ->> 'changed')::boolean));
+
+select pg_temp.expect('0065: post status is now in_progress',
+  (select status = 'in_progress'::public.v2_post_status
+     from public.post
+    where board_id = (select board_id from f)
+    limit 1));
 
 rollback;

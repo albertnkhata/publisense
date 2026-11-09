@@ -41,6 +41,8 @@ const teamsApi = vi.hoisted(() => ({
   saveScopeWebhook: vi.fn(),
   deleteScopeWebhook: vi.fn(),
   testScopeWebhook: vi.fn(),
+  fetchScopeInboundToken: vi.fn(),
+  rotateScopeInboundToken: vi.fn(),
 }));
 const boardsApi = vi.hoisted(() => ({
   fetchBoard: vi.fn(),
@@ -138,6 +140,8 @@ beforeEach(() => {
   teamsApi.saveScopeWebhook.mockResolvedValue({ kind: 'slack', url: 'https://hooks.slack.com/services/T00/B00/X00', enabled: true, updated_at: new Date().toISOString() });
   teamsApi.deleteScopeWebhook.mockResolvedValue(undefined);
   teamsApi.testScopeWebhook.mockResolvedValue({ queued: true });
+  teamsApi.fetchScopeInboundToken.mockResolvedValue('11111111-2222-4333-8444-555555555555');
+  teamsApi.rotateScopeInboundToken.mockResolvedValue('99999999-8888-4777-8666-555555555555');
 });
 
 function GenericClaimButton() {
@@ -824,7 +828,7 @@ describe('team management', () => {
     await waitFor(() => expect(teamsApi.updateBoardTagline).toHaveBeenCalledWith(CURSOR.id, 'The AI code editor for teams'));
   });
 
-  it('saves and tests a team webhook from Settings', async () => {
+  it('saves and tests a team webhook from Settings and rotates inbound sync token', async () => {
     teamsApi.fetchScopeRole.mockResolvedValue('admin');
     boardsApi.fetchBoard.mockResolvedValue({ ...makeBoard(), hub: null });
     renderAt('/b/cursor/manage?tab=settings');
@@ -835,6 +839,11 @@ describe('team management', () => {
     expect(await screen.findByText('Webhook saved')).toBeTruthy();
     fireEvent.click(await screen.findByRole('button', { name: 'Send test' }));
     await waitFor(() => expect(teamsApi.testScopeWebhook).toHaveBeenCalledWith('board', CURSOR.id));
+    const syncInput = (await screen.findByLabelText('Inbound issue sync URL')) as HTMLInputElement;
+    expect(syncInput.value).toBe('https://publisense.app/api/webhook?token=11111111-2222-4333-8444-555555555555');
+    fireEvent.click(screen.getByRole('button', { name: 'Rotate token' }));
+    await waitFor(() => expect(teamsApi.rotateScopeInboundToken).toHaveBeenCalledWith('board', CURSOR.id));
+    await waitFor(() => expect(syncInput.value).toBe('https://publisense.app/api/webhook?token=99999999-8888-4777-8666-555555555555'));
   });
 
   it('exports a triage post to Linear or GitHub Issues', async () => {

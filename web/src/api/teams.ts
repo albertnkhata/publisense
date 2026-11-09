@@ -497,3 +497,13 @@ export async function testScopeWebhook(scope: Scope, id: string): Promise<{ queu
   const res = await rpc<RpcResult & { queued?: boolean }>('test_scope_webhook', { p_scope: scope, p_scope_id: id });
   return { queued: Boolean(res.queued) };
 }
+
+export async function fetchScopeInboundToken(scope: Scope, id: string): Promise<string | null> {
+  const res = await rpc<RpcResult & { inbound_token?: string | null }>('get_scope_webhook', { p_scope: scope, p_scope_id: id });
+  return res.inbound_token ?? null;
+}
+
+export async function rotateScopeInboundToken(scope: Scope, id: string): Promise<string> {
+  const res = await rpc<RpcResult & { inbound_token: string }>('rotate_scope_inbound_token', { p_scope: scope, p_scope_id: id });
+  return res.inbound_token;
+}

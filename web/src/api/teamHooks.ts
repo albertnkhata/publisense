@@ -11,6 +11,7 @@ import {
   fetchManageStats,
   fetchMyRequests,
   fetchPendingDns,
+  fetchScopeInboundToken,
   fetchScopeRole,
   fetchScopeWebhook,
   fetchTeam,
@@ -19,6 +20,7 @@ import {
   removeBoardLogo,
   removeMember,
   requestJoin,
+  rotateScopeInboundToken,
   saveScopeWebhook,
   setMemberRole,
   setPostStatus,
@@ -44,6 +46,7 @@ export const teamKeys = {
   joinRequests: (ids: string[]) => ['join-requests', ids.join(',')] as const,
   stats: (ids: string[]) => ['manage-stats', ids.join(',')] as const,
   webhook: (scope: Scope, id: string) => ['scope-webhook', scope, id] as const,
+  inboundToken: (scope: Scope, id: string) => ['scope-inbound-token', scope, id] as const,
 };
 
 export function useVerifiedDomains(viewerId: string | null) {
@@ -269,6 +272,24 @@ export function useDeleteScopeWebhook() {
 export function useTestScopeWebhook() {
   return useMutation({
     mutationFn: (v: { scope: Scope; id: string }) => testScopeWebhook(v.scope, v.id),
+  });
+}
+
+export function useScopeInboundToken(scope: Scope, id: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: teamKeys.inboundToken(scope, id ?? ''),
+    queryFn: () => fetchScopeInboundToken(scope, id ?? ''),
+    enabled: enabled && Boolean(id),
+  });
+}
+
+export function useRotateScopeInboundToken() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { scope: Scope; id: string }) => rotateScopeInboundToken(v.scope, v.id),
+    onSuccess: (token, v) => {
+      qc.setQueryData(teamKeys.inboundToken(v.scope, v.id), token);
+    },
   });
 }
 

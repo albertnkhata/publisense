@@ -17,7 +17,9 @@ import {
   usePostList,
   useReleaseScope,
   useRemoveMember,
+  useRotateScopeInboundToken,
   useSaveScopeWebhook,
+  useScopeInboundToken,
   useScopeWebhook,
   useSetBlocked,
   useSetMemberRole,
@@ -623,10 +625,14 @@ const WEBHOOK_KINDS: WebhookKind[] = ['slack', 'discord', 'generic'];
 export function WebhookSection({ scope, scopeId }: { scope: Scope; scopeId: string }) {
   const { toast } = useToast();
   const query = useScopeWebhook(scope, scopeId);
+  const inboundQuery = useScopeInboundToken(scope, scopeId);
+  const rotateInbound = useRotateScopeInboundToken();
   const save = useSaveScopeWebhook();
   const del = useDeleteScopeWebhook();
   const test = useTestScopeWebhook();
   const existing = query.data ?? null;
+  const inboundToken = inboundQuery.data ?? null;
+  const inboundUrl = inboundToken ? `https://publisense.app/api/webhook?token=${inboundToken}` : '';
   const [kind, setKind] = useState<WebhookKind>('slack');
   const [url, setUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -671,6 +677,26 @@ export function WebhookSection({ scope, scopeId }: { scope: Scope; scopeId: stri
           toast('Webhook removed');
         },
         onError: (err) => setError(err instanceof Error ? err.message : 'We couldn’t remove the webhook.'),
+      },
+    );
+  };
+
+  const onCopyInbound = async () => {
+    if (!inboundUrl) return;
+    try {
+      await navigator.clipboard.writeText(inboundUrl);
+      toast('Copied inbound webhook URL');
+    } catch {
+      toast('Could not copy to clipboard');
+    }
+  };
+
+  const onRotateInbound = () => {
+    rotateInbound.mutate(
+      { scope, id: scopeId },
+      {
+        onSuccess: () => toast('Inbound webhook token rotated'),
+        onError: (err) => toast(err instanceof Error ? err.message : 'We couldn’t rotate the token.'),
       },
     );
   };
@@ -721,6 +747,30 @@ export function WebhookSection({ scope, scopeId }: { scope: Scope; scopeId: stri
           ) : null}
         </div>
       </form>
+      {inboundUrl ? (
+        <div className="mt-4 flex flex-col gap-2 border-t border-line pt-4">
+          <Field
+            label="Inbound issue sync (GitHub & Linear)"
+            hint="Paste this webhook URL in GitHub (Issues / Pull requests) or Linear (Issues) to mark exported posts In Progress or Shipped automatically."
+          >
+            <Input
+              readOnly
+              value={inboundUrl}
+              aria-label="Inbound issue sync URL"
+              onFocus={(e) => e.currentTarget.select()}
+              className="font-mono text-sm"
+            />
+          </Field>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant="secondary" onClick={() => void onCopyInbound()}>
+              Copy sync URL
+            </Button>
+            <Button type="button" variant="ghost" onClick={onRotateInbound} loading={rotateInbound.isPending}>
+              Rotate token
+            </Button>
+          </div>
+        </div>
+      ) : null}
     </Section>
   );
 }

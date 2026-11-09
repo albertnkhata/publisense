@@ -35,6 +35,7 @@ insert into anon_ok values
   ('v2_board_visible(uuid)'),
   ('v2_hub_visible(uuid)'),
   -- public client RPCs
+  ('apply_inbound_webhook(uuid,uuid,v2_post_status,text)'), -- token-authenticated inbound issue sync (0065)
   ('record_event(uuid,text,text,uuid,uuid,text,jsonb)'), -- anonymous first-party analytics (0054)
   ('resolve_hub_slug(text)'),
   ('unsubscribe(uuid,v2_notification_kind)'),
