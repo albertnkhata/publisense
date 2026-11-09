@@ -26,12 +26,12 @@ export function PostMenu({ post, onDeleted }: { post: Post; onDeleted?: () => vo
   const team = useIsBoardTeam(post.board_id, viewer?.id ?? null);
   const staff = useIsPlatformAdmin(viewer?.id ?? null);
   const hide = useHidePost();
-  const [statusOpen, setStatusOpen] = useState(false);
-  const [merging, setMerging] = useState(false);
-  const [reporting, setReporting] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [dialog, setDialog] = useState<'status' | 'merge' | 'report' | 'edit' | 'delete' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const openDialog = (next: 'status' | 'merge' | 'report' | 'edit' | 'delete' | null) => {
+    setError(null);
+    setDialog(next);
+  };
 
   const isAuthor = Boolean(viewer && post.author_id === viewer.id);
   // Staff look after seeded posts (no author, a source link): edit and delete them (0031).
@@ -69,7 +69,7 @@ export function PostMenu({ post, onDeleted }: { post: Post; onDeleted?: () => vo
     setError(null);
     del.mutate(staffSeeded && !isAuthor ? { id: post.id, seeded: true } : post.id, {
       onSuccess: () => {
-        setDeleting(false);
+        setDialog(null);
         toast('Post deleted');
         if (onDeleted) onDeleted();
         else void navigate('/');
@@ -89,12 +89,12 @@ export function PostMenu({ post, onDeleted }: { post: Post; onDeleted?: () => vo
           {post.following ? 'Unfollow post' : 'Follow post'}
         </MenuItem>
         {team.data && post.status !== 'merged' ? (
-          <MenuItem icon="status-planned" description="Set a status and add a timeline note" onSelect={() => setStatusOpen(true)}>
+          <MenuItem icon="status-planned" description="Set a status and add a timeline note" onSelect={() => openDialog('status')}>
             Update status
           </MenuItem>
         ) : null}
         {team.data && post.status !== 'merged' ? (
-          <MenuItem icon="status-merged" description="Move its votes to the original" onSelect={() => setMerging(true)}>
+          <MenuItem icon="status-merged" description="Move its votes to the original" onSelect={() => openDialog('merge')}>
             Merge duplicate
           </MenuItem>
         ) : null}
@@ -127,7 +127,7 @@ export function PostMenu({ post, onDeleted }: { post: Post; onDeleted?: () => vo
               danger
               onSelect={() => {
                 if (!requireAuth('report posts')) return;
-                setReporting(true);
+                openDialog('report');
               }}
             >
               Report
@@ -138,35 +138,32 @@ export function PostMenu({ post, onDeleted }: { post: Post; onDeleted?: () => vo
           <>
             <MenuSeparator />
             {showEdit ? (
-              <MenuItem icon="edit" disabled={Boolean(lock)} description={lock ?? undefined} onSelect={() => setEditing(true)}>
+              <MenuItem icon="edit" disabled={Boolean(lock)} description={lock ?? undefined} onSelect={() => openDialog('edit')}>
                 Edit post
               </MenuItem>
             ) : null}
             <MenuItem
               icon="trash"
               danger
-              onSelect={() => {
-                setError(null);
-                setDeleting(true);
-              }}
+              onSelect={() => openDialog('delete')}
             >
               Delete post
             </MenuItem>
           </>
         ) : null}
       </Menu>
-      {statusOpen ? <StatusDialog post={post} open onClose={() => setStatusOpen(false)} /> : null}
-      {merging ? <MergeDialog post={post} open onClose={() => setMerging(false)} /> : null}
-      {reporting ? <ReportDialog target="post" id={post.id} subject={post.title} open onClose={() => setReporting(false)} /> : null}
-      {editing ? <EditPostDialog post={post} seeded={staffSeeded} open onClose={() => setEditing(false)} /> : null}
+      {dialog === 'status' ? <StatusDialog post={post} open onClose={() => openDialog(null)} /> : null}
+      {dialog === 'merge' ? <MergeDialog post={post} open onClose={() => openDialog(null)} /> : null}
+      {dialog === 'report' ? <ReportDialog target="post" id={post.id} subject={post.title} open onClose={() => openDialog(null)} /> : null}
+      {dialog === 'edit' ? <EditPostDialog post={post} seeded={staffSeeded} open onClose={() => openDialog(null)} /> : null}
       <ConfirmDialog
-        open={deleting}
+        open={dialog === 'delete'}
         title="Delete this post?"
         confirmLabel="Delete post"
         busy={del.isPending}
         error={error}
         onConfirm={confirmDelete}
-        onClose={() => setDeleting(false)}
+        onClose={() => openDialog(null)}
       >
         This removes the post with its upvotes and replies. You can’t undo this.
       </ConfirmDialog>

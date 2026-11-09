@@ -292,13 +292,16 @@ function ReplyItem({
   const requireAuth = useRequireAuth();
   const { toast } = useToast();
   const [mode, setMode] = useState<'view' | 'edit' | 'reply'>('view');
-  const [confirming, setConfirming] = useState(false);
+  const [dialog, setDialog] = useState<'delete' | 'report' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const openDialog = (next: 'delete' | 'report' | null) => {
+    setError(null);
+    setDialog(next);
+  };
   const del = useDeleteReply(post.id);
   const hide = useHideReply(post.id);
   const team = useIsBoardTeam(post.board_id, viewer?.id ?? null);
   const staff = useIsPlatformAdmin(viewer?.id ?? null);
-  const [reporting, setReporting] = useState(false);
   const isAuthor = Boolean(viewer && reply.author_id === viewer.id);
   // Authors edit within the rules of 0051 (#181) and 0053 (official replies only while
   // still on the team; unknown until the team check answers); the DB enforces them too.
@@ -411,10 +414,7 @@ function ReplyItem({
               <button
                 type="button"
                 className={cx(actClass, 'hover:text-danger')}
-                onClick={() => {
-                  setError(null);
-                  setConfirming(true);
-                }}
+                onClick={() => openDialog('delete')}
               >
                 Delete
               </button>
@@ -431,7 +431,7 @@ function ReplyItem({
               className={cx(actClass, 'hover:text-danger')}
               onClick={() => {
                 if (!requireAuth('report replies')) return;
-                setReporting(true);
+                openDialog('report');
               }}
             >
               Report
@@ -439,7 +439,7 @@ function ReplyItem({
           ) : null}
         </div>
       ) : null}
-      {reporting ? <ReportDialog target="reply" id={reply.id} subject={reply.body} open onClose={() => setReporting(false)} /> : null}
+      {dialog === 'report' ? <ReportDialog target="reply" id={reply.id} subject={reply.body} open onClose={() => openDialog(null)} /> : null}
 
       {mode === 'reply' ? (
         <div className="mt-3">
@@ -453,16 +453,16 @@ function ReplyItem({
       ) : null}
 
       <ConfirmDialog
-        open={confirming}
+        open={dialog === 'delete'}
         title="Delete this reply?"
         confirmLabel="Delete reply"
         busy={del.isPending}
         error={error}
-        onClose={() => setConfirming(false)}
+        onClose={() => openDialog(null)}
         onConfirm={() =>
           del.mutate(reply.id, {
             onSuccess: () => {
-              setConfirming(false);
+              openDialog(null);
               toast('Reply deleted');
             },
             onError: (e) => setError(e instanceof Error ? e.message : 'We couldn’t delete this reply. Try again.'),

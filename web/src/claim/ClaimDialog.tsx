@@ -296,9 +296,17 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
 
   const changeBoard = () => {
     setTarget(null);
+    setPurpose('claim');
     setEmail('');
     setCode('');
+    setReason('');
+    setJoinMessage('');
+    setToken('');
+    setSentAt(null);
+    setResumed(false);
+    setCopied(false);
     setError(null);
+    setInviteError(null);
     setStep('pick');
   };
 
@@ -307,6 +315,12 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
     (t: Target, wantDns = false) => {
       setTarget(t);
       setError(null);
+      setInviteError(null);
+      setCopied(false);
+      setToken('');
+      setSentAt(null);
+      setResumed(false);
+      setCode('');
       setPurpose('claim');
       const taken = t.scope === 'hub' ? Boolean(t.hub?.claimed_at) : t.board ? isClaimed(t.board, hubs.data) : false;
       // #183: a code already sent for this board in the last 10 minutes can still be entered.

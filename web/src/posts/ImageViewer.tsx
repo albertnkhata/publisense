@@ -35,9 +35,7 @@ export function ImageViewer({
   const title = many ? `Screenshot ${index + 1} of ${count}` : 'Screenshot';
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
-  const [loaded, setLoaded] = useState<Record<string, boolean>>({});
-  const [failed, setFailed] = useState<Record<string, boolean>>({});
-  const [zoomable, setZoomable] = useState<Record<string, boolean>>({});
+  const [states, setStates] = useState<Record<string, { status: 'loaded'; zoomable: boolean } | { status: 'failed' }>>({});
   const [zoomed, setZoomed] = useState(false);
   const [drag, setDrag] = useState<{ x: number; y: number } | null>(null);
   const start = useRef<{ x: number; y: number } | null>(null);
@@ -121,9 +119,10 @@ export function ImageViewer({
     else if (many && d.x >= SWIPE) prev();
     else if (d.y >= SWIPE * 1.5) onClose();
   };
-  const isLoaded = loaded[url] === true;
-  const isFailed = failed[url] === true;
-  const canZoom = zoomable[url] === true;
+  const currentState = states[url];
+  const isLoaded = currentState?.status === 'loaded';
+  const isFailed = currentState?.status === 'failed';
+  const canZoom = currentState?.status === 'loaded' && currentState.zoomable;
 
   return createPortal(
     <div
@@ -145,7 +144,7 @@ export function ImageViewer({
         <span aria-hidden="true" className="flex-1 font-mono text-sm text-on-image-muted">
           {many ? `${index + 1} / ${count}` : null}
         </span>
-        {canZoom && !isFailed ? (
+        {canZoom ? (
           <ViewerButton
             icon={zoomed ? 'zoom-out' : 'zoom-in'}
             label={zoomed ? 'Fit to screen' : 'Zoom to actual size'}
@@ -198,13 +197,11 @@ export function ImageViewer({
               draggable={false}
               onLoad={(e) => {
                 const img = e.currentTarget;
-                setLoaded((m) => ({ ...m, [url]: true }));
                 const box = img.parentElement;
-                if (box) {
-                  setZoomable((m) => ({ ...m, [url]: img.naturalWidth > box.clientWidth || img.naturalHeight > box.clientHeight }));
-                }
+                const zoomable = box ? img.naturalWidth > box.clientWidth || img.naturalHeight > box.clientHeight : false;
+                setStates((m) => ({ ...m, [url]: { status: 'loaded', zoomable } }));
               }}
-              onError={() => setFailed((m) => ({ ...m, [url]: true }))}
+              onError={() => setStates((m) => ({ ...m, [url]: { status: 'failed' } }))}
               onClick={() => {
                 if (canZoom && !swiped.current) setZoomed((z) => !z);
               }}

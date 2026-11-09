@@ -530,6 +530,12 @@ function ChangeEmailDialog({ open, onClose, viewer }: { open: boolean; onClose: 
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
+  const close = () => {
+    setEmail('');
+    setError('');
+    onClose();
+  };
+
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!isEmail(email)) return setError(AUTH_COPY.invalidEmail);
@@ -538,13 +544,12 @@ function ChangeEmailDialog({ open, onClose, viewer }: { open: boolean; onClose: 
     const r = await changeEmail(email);
     setBusy(false);
     if (r.error) return setError(r.error);
-    onClose();
-    setEmail('');
+    close();
     toast('We sent a link to confirm the new address');
   }
 
   return (
-    <Dialog open={open} onClose={onClose} title="Change email">
+    <Dialog open={open} onClose={close} title="Change email">
       <form noValidate onSubmit={submit}>
         <Field label="New email" hint="We’ll send a link to confirm the new address. Nothing changes until you open it." error={error || undefined}>
           <Input
@@ -561,7 +566,7 @@ function ChangeEmailDialog({ open, onClose, viewer }: { open: boolean; onClose: 
           <Button type="submit" block loading={busy}>
             Send confirmation link
           </Button>
-          <Button variant="ghost" block onClick={onClose}>
+          <Button variant="ghost" block onClick={close}>
             Cancel
           </Button>
         </DialogActions>

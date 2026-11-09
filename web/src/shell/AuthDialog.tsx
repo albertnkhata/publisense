@@ -96,6 +96,7 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
     setKeepReason(false);
     setPassword('');
     setError('');
+    setResent(false);
   };
 
   // Resend unlocks a minute after the last email, with a visible countdown.
