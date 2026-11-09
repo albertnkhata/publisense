@@ -55,8 +55,8 @@ export function useHub(slug: string | undefined) {
   return useQuery({ queryKey: boardKeys.hub(slug ?? ''), queryFn: () => fetchHub(slug ?? ''), enabled: Boolean(slug) });
 }
 
-export function usePostCounts(boardIds: string[]) {
-  return useQuery({ queryKey: boardKeys.counts(boardIds), queryFn: () => fetchPostCounts(boardIds), enabled: boardIds.length > 0 });
+export function usePostCounts(boardIds: string[], enabled = true) {
+  return useQuery({ queryKey: boardKeys.counts(boardIds), queryFn: () => fetchPostCounts(boardIds), enabled: enabled && boardIds.length > 0 });
 }
 
 export function useRoadmap(boardIds: string[], enabled = true) {

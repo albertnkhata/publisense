@@ -178,7 +178,7 @@ function HubVoice({ hub, manages }: { hub: Hub; manages: boolean }) {
   const viewerId = viewer?.id ?? null;
   const { openClaim } = useClaim();
   const { toast } = useToast();
-  const verified = useVerifiedDomains(viewerId);
+  const verified = useVerifiedDomains(viewerId, !hub.claimed_at);
   const claimHub = useClaimHub();
   const mine = useMyRequests('hub', hub.id, viewerId, Boolean(hub.claimed_at) && !manages);
   if (hub.claimed_at) {

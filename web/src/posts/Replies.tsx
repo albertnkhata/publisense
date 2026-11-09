@@ -66,7 +66,10 @@ const lockedActClass =
   'cursor-default opacity-45';
 
 export function ReplySection({ post }: { post: Post }) {
+  const { viewer } = useViewer();
   const replies = useReplies(post.id);
+  const team = useIsBoardTeam(post.board_id, viewer?.id ?? null);
+  const staff = useIsPlatformAdmin(viewer?.id ?? null);
   const [sort, setSort] = useState<FeedSort>('top');
   const threads = useMemo(() => buildThreads(replies.data ?? [], sort), [replies.data, sort]);
   const current = REPLY_SORTS.find((s) => s.value === sort) ?? REPLY_SORTS[0];
@@ -189,7 +192,7 @@ export function ReplySection({ post }: { post: Post }) {
         <ul className="m-0 mt-2 flex list-none flex-col p-0">
           {shown.map((t) => (
             <li key={t.reply.id} className="border-t border-line py-4 first:border-t-0">
-              <ThreadNode post={post} node={t} depth={0} highlight={highlight} />
+              <ThreadNode post={post} node={t} depth={0} highlight={highlight} teamStatus={team.isSuccess ? Boolean(team.data) : undefined} isStaff={Boolean(staff.data)} />
             </li>
           ))}
         </ul>
@@ -199,16 +202,30 @@ export function ReplySection({ post }: { post: Post }) {
 }
 
 /** One reply and, up to MAX_DEPTH, the replies to it; deeper branches open on their own. */
-function ThreadNode({ post, node, depth, highlight }: { post: Post; node: ReplyThread; depth: number; highlight: string | null }) {
+function ThreadNode({
+  post,
+  node,
+  depth,
+  highlight,
+  teamStatus,
+  isStaff,
+}: {
+  post: Post;
+  node: ReplyThread;
+  depth: number;
+  highlight: string | null;
+  teamStatus: boolean | undefined;
+  isStaff: boolean;
+}) {
   return (
     <>
-      <ReplyItem post={post} reply={node.reply} nested={depth > 0} childCount={node.total} highlighted={highlight === node.reply.id} />
+      <ReplyItem post={post} reply={node.reply} nested={depth > 0} childCount={node.total} highlighted={highlight === node.reply.id} teamStatus={teamStatus} isStaff={isStaff} />
       {node.children.length ? (
         depth < MAX_DEPTH ? (
           <ul aria-label={`Replies to this reply`} className="m-0 mt-3 ml-3 flex list-none flex-col gap-3 border-0 border-l border-solid border-line p-0 pl-3 sm:ml-4 sm:pl-4">
             {node.children.map((c) => (
               <li key={c.reply.id}>
-                <ThreadNode post={post} node={c} depth={depth + 1} highlight={highlight} />
+                <ThreadNode post={post} node={c} depth={depth + 1} highlight={highlight} teamStatus={teamStatus} isStaff={isStaff} />
               </li>
             ))}
           </ul>
@@ -281,12 +298,16 @@ function ReplyItem({
   nested,
   childCount = 0,
   highlighted,
+  teamStatus,
+  isStaff,
 }: {
   post: Post;
   reply: Reply;
   nested?: boolean;
   childCount?: number;
   highlighted?: boolean;
+  teamStatus: boolean | undefined;
+  isStaff: boolean;
 }) {
   const { viewer } = useViewer();
   const requireAuth = useRequireAuth();
@@ -300,17 +321,13 @@ function ReplyItem({
   };
   const del = useDeleteReply(post.id);
   const hide = useHideReply(post.id);
-  const team = useIsBoardTeam(post.board_id, viewer?.id ?? null);
-  const staff = useIsPlatformAdmin(viewer?.id ?? null);
   const isAuthor = Boolean(viewer && reply.author_id === viewer.id);
   // Authors edit within the rules of 0051 (#181) and 0053 (official replies only while
   // still on the team; unknown until the team check answers); the DB enforces them too.
-  const editLock = isAuthor
-    ? replyEditLockReason(reply, post, undefined, team.isSuccess ? Boolean(team.data) : undefined)
-    : null;
+  const editLock = isAuthor ? replyEditLockReason(reply, post, undefined, teamStatus) : null;
   const lockId = useId();
   const closed = post.status === 'merged' || Boolean(post.hidden_at);
-  const canHide = Boolean(team.data || staff.data);
+  const canHide = Boolean(teamStatus || isStaff);
   const toggleHidden = () => {
     const hidden = !reply.hidden_at;
     hide.mutate(

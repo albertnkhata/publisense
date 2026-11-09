@@ -96,10 +96,14 @@ export function ExplorePage() {
 }
 
 function Filtered({ q, cat, boards, hubs }: { q: string; cat: Cat; boards: Board[]; hubs: Hub[] }) {
-  const inCat = (b: Board) => cat === 'all' || b.category === cat;
-  const matched = q ? matchCatalogue(q, boards, hubs) : { boards, hubs: [] as typeof hubs };
-  const list = matched.boards.filter(inCat);
-  const hubList = q ? matched.hubs.filter((h) => cat === 'all' || h.boards.some(inCat)) : hubs.filter((h) => h.boards.some(inCat));
+  const { list, hubList } = useMemo(() => {
+    const inCat = (b: Board) => cat === 'all' || b.category === cat;
+    const matched = q ? matchCatalogue(q, boards, hubs) : { boards, hubs: [] as typeof hubs };
+    return {
+      list: matched.boards.filter(inCat),
+      hubList: q ? matched.hubs.filter((h) => cat === 'all' || h.boards.some(inCat)) : hubs.filter((h) => h.boards.some(inCat)),
+    };
+  }, [q, cat, boards, hubs]);
   const title = q ? 'Results' : (CATEGORIES.find((c) => c.value === cat)?.label ?? 'Results');
   if (list.length === 0 && hubList.length === 0) {
     return <p className="m-0 px-3 py-9 text-center text-base text-ink-muted">{q ? `No products match “${q}”.` : 'No products in this category yet.'}</p>;
@@ -136,16 +140,25 @@ function Discover({ boards, hubs }: { boards: Board[]; hubs: Hub[] }) {
   const trending = useTrending(boards, 4);
   const wanted = useWanted();
   const now = useMemo(() => new Date(), []);
-  const mostWanted = (wanted.data ?? []).slice(0, 5);
-  const freshBugs = (wanted.data ?? [])
-    .filter((p) => p.type === 'bug')
-    .sort((a, b) => b.created_at.localeCompare(a.created_at))
-    .slice(0, 3);
-  const fresh = boards
-    .filter((b) => now.getTime() - new Date(b.created_at).getTime() <= 30 * 86400_000)
-    .sort((a, b) => b.created_at.localeCompare(a.created_at))
-    .slice(0, 4);
-  const all = [...boards].sort((a, b) => a.name.localeCompare(b.name));
+  const mostWanted = useMemo(() => (wanted.data ?? []).slice(0, 5), [wanted.data]);
+  const freshBugs = useMemo(
+    () =>
+      (wanted.data ?? [])
+        .filter((p) => p.type === 'bug')
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))
+        .slice(0, 3),
+    [wanted.data],
+  );
+  const { fresh, all } = useMemo(
+    () => ({
+      fresh: boards
+        .filter((b) => now.getTime() - new Date(b.created_at).getTime() <= 30 * 86400_000)
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))
+        .slice(0, 4),
+      all: [...boards].sort((a, b) => a.name.localeCompare(b.name)),
+    }),
+    [boards, now],
+  );
   // Requests rank by upvotes, then newest. With no upvotes yet that is just
   // newest, so the label says so (#156).
   const anyVotes = mostWanted.some((p) => p.vote_count > 0);

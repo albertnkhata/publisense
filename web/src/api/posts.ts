@@ -804,23 +804,25 @@ export function trigrams(text: string): Set<string> {
   return out;
 }
 
-/** Jaccard similarity (0..1) over character trigrams, matching Postgres pg_trgm similarity(). */
-export function trigramSimilarity(a: string, b: string): number {
-  const ta = trigrams(a);
-  const tb = trigrams(b);
+function trigramSetSimilarity(ta: Set<string>, tb: Set<string>): number {
   if (ta.size === 0 || tb.size === 0) return 0;
   let shared = 0;
   for (const g of ta) if (tb.has(g)) shared += 1;
   return shared / (ta.size + tb.size - shared);
 }
 
-function tokenMatchWeight(word: string, queryWords: Set<string>): number {
+/** Jaccard similarity (0..1) over character trigrams, matching Postgres pg_trgm similarity(). */
+export function trigramSimilarity(a: string, b: string): number {
+  return trigramSetSimilarity(trigrams(a), trigrams(b));
+}
+
+function tokenMatchWeight(word: string, queryWords: Set<string>, queryTrigrams: Array<Set<string>>): number {
   if (queryWords.has(word)) return 1;
-  if (word.length < 4) return 0;
+  if (word.length < 4 || queryTrigrams.length === 0) return 0;
+  const wordTrigrams = trigrams(word);
   let best = 0;
-  for (const q of queryWords) {
-    if (q.length < 4) continue;
-    const sim = trigramSimilarity(word, q);
+  for (const qTrigrams of queryTrigrams) {
+    const sim = trigramSetSimilarity(wordTrigrams, qTrigrams);
     if (sim > best) best = sim;
   }
   return best >= 0.45 ? 0.75 : 0;
@@ -834,12 +836,24 @@ function tokenMatchWeight(word: string, queryWords: Set<string>): number {
 export function similarityScore(query: string, candidate: { title: string; body?: string }): number {
   const q = new Set(simTokens(query));
   if (q.size === 0) return 0;
+  const queryTrigrams: Array<Set<string>> = [];
+  for (const qw of q) {
+    if (qw.length >= 4) queryTrigrams.push(trigrams(qw));
+  }
+  const weights = new Map<string, number>();
+  const weightOf = (w: string): number => {
+    const cached = weights.get(w);
+    if (cached !== undefined) return cached;
+    const val = tokenMatchWeight(w, q, queryTrigrams);
+    weights.set(w, val);
+    return val;
+  };
+  let inTitle = 0;
+  for (const w of simTokens(candidate.title)) inTitle += weightOf(w);
+  if (inTitle < 0.75) return 0;
   const all = [...new Set(simTokens(`${candidate.title} ${candidate.body ?? ''}`))];
   let hit = 0;
-  for (const w of all) hit += tokenMatchWeight(w, q);
-  let inTitle = 0;
-  for (const w of simTokens(candidate.title)) inTitle += tokenMatchWeight(w, q);
-  if (inTitle < 0.75) return 0;
+  for (const w of all) hit += weightOf(w);
   const titleTrgm = trigramSimilarity(query, candidate.title);
   const score = hit + inTitle * 1.5 + (titleTrgm >= 0.25 ? titleTrgm * 1.5 : 0);
   return score >= 2.25 ? score : 0;

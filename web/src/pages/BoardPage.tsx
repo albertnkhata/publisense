@@ -112,7 +112,7 @@ function Board({ board }: { board: BoardWithHub }) {
   const tabParam = params.get('tab');
   const tab: BoardTab = tabParam === 'roadmap' || tabParam === 'changelog' ? tabParam : 'feedback';
   const ids = useMemo(() => [board.id], [board.id]);
-  const counts = usePostCounts(ids);
+  const counts = usePostCounts(ids, SHOW_MORE_MENU);
   const team = useIsBoardTeam(board.id, viewer?.id ?? null);
   const { toast } = useToast();
 
@@ -445,9 +445,9 @@ function ClaimState({ board, team }: { board: BoardWithHub; team: boolean }) {
   const viewerId = viewer?.id ?? null;
   const claimed = Boolean(board.claimed_at || board.hub?.claimed_at);
   const hubTeam = Boolean(board.hub?.claimed_at);
-  const pendingDns = usePendingDns(viewerId);
-  const mine = useMyRequests(hubTeam && board.hub ? 'hub' : 'board', hubTeam && board.hub ? board.hub.id : board.id, viewerId, claimed && !team);
   const domain = siteDomain(board.site);
+  const pendingDns = usePendingDns(viewerId, !claimed && Boolean(domain));
+  const mine = useMyRequests(hubTeam && board.hub ? 'hub' : 'board', hubTeam && board.hub ? board.hub.id : board.id, viewerId, claimed && !team);
   const workPrompt = `Work at ${board.hub?.name ?? board.name}?`;
   if (claimed) {
     return (

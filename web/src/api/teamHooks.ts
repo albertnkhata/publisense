@@ -49,12 +49,12 @@ export const teamKeys = {
   inboundToken: (scope: Scope, id: string) => ['scope-inbound-token', scope, id] as const,
 };
 
-export function useVerifiedDomains(viewerId: string | null) {
-  return useQuery({ queryKey: teamKeys.verified(viewerId), queryFn: () => fetchVerifiedDomains(viewerId ?? ''), enabled: Boolean(viewerId), staleTime: 60_000 });
+export function useVerifiedDomains(viewerId: string | null, enabled = true) {
+  return useQuery({ queryKey: teamKeys.verified(viewerId), queryFn: () => fetchVerifiedDomains(viewerId ?? ''), enabled: enabled && Boolean(viewerId), staleTime: 60_000 });
 }
 
-export function usePendingDns(viewerId: string | null) {
-  return useQuery({ queryKey: teamKeys.pendingDns(viewerId), queryFn: fetchPendingDns, enabled: Boolean(viewerId), staleTime: 60_000 });
+export function usePendingDns(viewerId: string | null, enabled = true) {
+  return useQuery({ queryKey: teamKeys.pendingDns(viewerId), queryFn: fetchPendingDns, enabled: enabled && Boolean(viewerId), staleTime: 60_000 });
 }
 
 export function useMyRequests(scope: Scope, id: string | undefined, viewerId: string | null, enabled = true) {

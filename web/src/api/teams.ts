@@ -473,8 +473,24 @@ export const WEBHOOK_KIND_LABEL: Record<WebhookKind, string> = {
   generic: 'JSON webhook',
 };
 
+const inflightWebhook = new Map<string, Promise<RpcResult & { webhook?: ScopeWebhook | null; inbound_token?: string | null }>>();
+
+function loadScopeWebhookRpc(scope: Scope, id: string) {
+  const key = `${scope}:${id}`;
+  const existing = inflightWebhook.get(key);
+  if (existing) return existing;
+  const req = rpc<RpcResult & { webhook?: ScopeWebhook | null; inbound_token?: string | null }>('get_scope_webhook', {
+    p_scope: scope,
+    p_scope_id: id,
+  }).finally(() => {
+    inflightWebhook.delete(key);
+  });
+  inflightWebhook.set(key, req);
+  return req;
+}
+
 export async function fetchScopeWebhook(scope: Scope, id: string): Promise<ScopeWebhook | null> {
-  const res = await rpc<RpcResult & { webhook?: ScopeWebhook | null }>('get_scope_webhook', { p_scope: scope, p_scope_id: id });
+  const res = await loadScopeWebhookRpc(scope, id);
   return res.webhook ?? null;
 }
 
@@ -499,7 +515,7 @@ export async function testScopeWebhook(scope: Scope, id: string): Promise<{ queu
 }
 
 export async function fetchScopeInboundToken(scope: Scope, id: string): Promise<string | null> {
-  const res = await rpc<RpcResult & { inbound_token?: string | null }>('get_scope_webhook', { p_scope: scope, p_scope_id: id });
+  const res = await loadScopeWebhookRpc(scope, id);
   return res.inbound_token ?? null;
 }
 
