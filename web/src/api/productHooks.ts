@@ -70,7 +70,7 @@ export function useCreateBoard() {
     },
     onSuccess: ({ created, board }) => {
       if (board) {
-        qc.setQueryData(boardKeys.board(board.slug), board);
+        qc.setQueryData(boardKeys.board(board.slug, board.created_by), board);
         qc.setQueryData<Board[]>(boardKeys.boards, (list) => (list ? [...list.filter((b) => b.id !== board.id), board].sort((a, b) => a.name.localeCompare(b.name)) : list));
       }
       void qc.invalidateQueries({ queryKey: boardKeys.boards });

@@ -326,6 +326,23 @@ describe('claim a board', () => {
     expect(within(auth).getByText('Sign in to claim your product’s board. It takes a few seconds.')).toBeTruthy();
   });
 
+  it('recognises existing team membership on a claimed board and offers Manage instead of join/dispute (GAP-007)', async () => {
+    boardsApi.fetchBoard.mockResolvedValue(CLAIMED);
+    boardsApi.fetchBoards.mockResolvedValue([CLAIMED, FIGJAM, FIGMA]);
+    teamsApi.fetchScopeRole.mockResolvedValue('admin');
+    boardsApi.fetchIsBoardTeam.mockResolvedValue(true);
+    renderGeneric();
+    fireEvent.click(screen.getByRole('button', { name: 'Claim your board' }));
+    fireEvent.click(within(await screen.findByRole('dialog', { name: 'Claim your board' })).getByRole('button', { name: 'Get started' }));
+    const picker = await screen.findByRole('dialog', { name: 'Choose your board' });
+    fireEvent.click(await within(picker).findByRole('button', { name: /Cursor/ }));
+    const dialog = await screen.findByRole('dialog', { name: 'You manage Cursor' });
+    expect(within(dialog).getByText(/You’re already on the team for Cursor/)).toBeTruthy();
+    expect(within(dialog).getByRole('button', { name: 'Manage board' })).toBeTruthy();
+    expect(within(dialog).queryByRole('button', { name: /Request to join the team/ })).toBeNull();
+    expect(within(dialog).queryByRole('button', { name: /Report the wrong owner/ })).toBeNull();
+  });
+
   it('verifies a work email with a code, then claims the board', async () => {
     renderAt('/b/cursor');
     fireEvent.click(await screen.findByRole('button', { name: 'Work at Cursor?' }));

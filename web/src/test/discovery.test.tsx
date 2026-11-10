@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes } from 'react-router';
+import type { QueryClient } from '@tanstack/react-query';
 import { rememberSearch } from '../api/boards';
+import { boardKeys } from '../api';
+import { purgeUserQueryCache } from '../lib/viewer';
 import type { FeedPage, Post } from '../api/posts';
 import { BoardPage } from '../pages/BoardPage';
 import { ExplorePage } from '../pages/ExplorePage';
@@ -43,7 +46,7 @@ vi.mock('../api/posts', async (importOriginal) => ({ ...(await importOriginal<ty
 const page = (items: Post[], next: number | null = null): FeedPage => ({ items, next });
 const emptyRoadmap = { planned: [], in_progress: [], shipped: [] };
 
-function renderAt(path: string, signedIn = false) {
+function renderAt(path: string, signedIn = false, client?: QueryClient) {
   return renderWith(
     <ComposerProvider>
       <ClaimProvider>
@@ -59,7 +62,7 @@ function renderAt(path: string, signedIn = false) {
       </Routes>
       </ClaimProvider>
     </ComposerProvider>,
-    { viewer: signedIn ? TEST_VIEWER : null, path },
+    { viewer: signedIn ? TEST_VIEWER : null, path, client },
   );
 }
 
@@ -293,6 +296,41 @@ describe('board page', () => {
     renderAt('/b/nope');
     expect(await screen.findByRole('heading', { level: 1, name: 'Board not found' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Explore boards' }).getAttribute('href')).toBe('/explore');
+  });
+
+  it('does not leak pending board metadata to guests across identity changes (BUG-002)', async () => {
+    const PENDING_BOARD = {
+      ...CURSOR,
+      slug: 'pending-product',
+      name: 'Pending Product',
+      status: 'pending' as const,
+      created_by: TEST_VIEWER.id,
+    };
+    // Signed-in creator fetches their pending board:
+    boardsApi.fetchBoard.mockImplementation(async (slug: string) => (slug === 'pending-product' ? PENDING_BOARD : null));
+
+    const { client, unmount } = renderAt('/b/pending-product', true);
+    expect(await screen.findByRole('heading', { level: 1, name: /^Pending Product/ })).toBeTruthy();
+
+    // Guest cannot fetch pending board (RLS returns null):
+    boardsApi.fetchBoard.mockResolvedValue(null);
+
+    // Identity transitions / sign out purges user query cache:
+    purgeUserQueryCache(client);
+    unmount();
+
+    // Render as guest using the same query client:
+    renderAt('/b/pending-product', false, client);
+
+    // Guest view must immediately show Board not found, never cached private metadata:
+    expect(await screen.findByRole('heading', { level: 1, name: 'Board not found' })).toBeTruthy();
+    expect(screen.queryByText('Pending Product')).toBeNull();
+  });
+
+  it('scopes board cache query key by viewer identity (BUG-002)', () => {
+    expect(boardKeys.board('pending-product', 'u-123')).toEqual(['board', 'pending-product', 'u-123']);
+    expect(boardKeys.board('pending-product', null)).toEqual(['board', 'pending-product', 'anon']);
+    expect(boardKeys.board('pending-product')).toEqual(['board', 'pending-product']);
   });
 
   it('asks a signed-out visitor to sign in to follow', async () => {

@@ -123,7 +123,7 @@ function NotTeamGate({ kind, name, back, unclaimed, slug }: { kind: 'board' | 'h
 export function BoardManagePage() {
   const { board: slug } = useParams();
   const { viewer } = useViewer();
-  const query = useBoard(slug);
+  const query = useBoard(slug, viewer?.id ?? null);
   const board = query.data;
   const role = useScopeRole('board', board?.id, viewer?.id ?? null);
   usePageTitle(board ? `Manage ${board.name}` : query.isPending ? null : 'Board not found');

@@ -1,7 +1,17 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type { User } from '@supabase/supabase-js';
 import { avatarUrl, hasSupabaseConfig, profileKey, signOut as apiSignOut, useProfile, useSession, type ProfileRow } from '../api';
+
+/**
+ * Purge private queries on identity changes (sign out, user switch).
+ * Both removes inactive queries and resets active observers so guest views
+ * immediately re-evaluate without lingering creator-only metadata (BUG-002).
+ */
+export function purgeUserQueryCache(qc: QueryClient) {
+  qc.removeQueries({ predicate: (q) => q.queryKey[0] !== 'auth' });
+  void qc.resetQueries({ predicate: (q) => q.queryKey[0] !== 'auth' });
+}
 
 /**
  * Who is looking at the app: the Supabase session plus the v2 `profile` row.
@@ -90,10 +100,19 @@ export function ViewerProvider({ children, initial }: { children: ReactNode; ini
 
 /** A fixed viewer for tests and the kit. Sign out clears it. */
 export function StaticViewerProvider({ children, initial }: { children: ReactNode; initial: Viewer | null }) {
+  const qc = useQueryClient();
   const [viewer, setViewer] = useState<Viewer | null>(initial);
   const value = useMemo<ViewerContextValue>(
-    () => ({ viewer, ready: true, signOut: async () => setViewer(null), refresh: () => {} }),
-    [viewer],
+    () => ({
+      viewer,
+      ready: true,
+      signOut: async () => {
+        setViewer(null);
+        purgeUserQueryCache(qc);
+      },
+      refresh: () => {},
+    }),
+    [viewer, qc],
   );
   return <ViewerContext.Provider value={value}>{children}</ViewerContext.Provider>;
 }
@@ -107,6 +126,7 @@ function readPreview(): boolean {
 }
 
 function PreviewViewerProvider({ children }: { children: ReactNode }) {
+  const qc = useQueryClient();
   const [signedIn, setSignedIn] = useState(readPreview);
   const set = useCallback((next: boolean) => {
     try {
@@ -120,11 +140,14 @@ function PreviewViewerProvider({ children }: { children: ReactNode }) {
     () => ({
       viewer: signedIn ? PREVIEW_VIEWER : null,
       ready: true,
-      signOut: async () => set(false),
+      signOut: async () => {
+        set(false);
+        purgeUserQueryCache(qc);
+      },
       refresh: () => {},
       preview: { signedIn, set },
     }),
-    [signedIn, set],
+    [signedIn, set, qc],
   );
   return <ViewerContext.Provider value={value}>{children}</ViewerContext.Provider>;
 }
@@ -136,9 +159,21 @@ function SessionViewerProvider({ children }: { children: ReactNode }) {
   const profile = useProfile(user?.id);
   const ready = sessionReady && (!user || !profile.isPending);
   const viewer = useMemo(() => (user && !profile.isPending ? viewerFrom(user, profile.data) : null), [user, profile.isPending, profile.data]);
+
+  const prevUserIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prev = prevUserIdRef.current;
+    const current = user?.id ?? null;
+    if (prev && prev !== current) {
+      purgeUserQueryCache(qc);
+    }
+    prevUserIdRef.current = current;
+  }, [user?.id, qc]);
+
   const signOut = useCallback(async () => {
+    purgeUserQueryCache(qc);
     await apiSignOut();
-    qc.removeQueries({ predicate: (q) => q.queryKey[0] !== 'auth' });
+    purgeUserQueryCache(qc);
   }, [qc]);
   const refresh = useCallback(() => {
     if (user) void qc.invalidateQueries({ queryKey: profileKey(user.id) });

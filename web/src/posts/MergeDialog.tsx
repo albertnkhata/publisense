@@ -37,7 +37,7 @@ export function MergeDialog({ post, open, onClose, onMerged }: { post: Post; ope
   const navigate = useNavigate();
   const merge = useMergePost();
   const unmerge = useUnmergePost();
-  const board = useBoard(post.board?.slug);
+  const board = useBoard(post.board?.slug, viewer?.id ?? null);
   const hubRef = board.data?.hub ?? null;
   const hubRole = useScopeRole('hub', hubRef?.id, viewer?.id ?? null);
   const hub = useHub(hubRole.data ? hubRef?.slug : undefined);

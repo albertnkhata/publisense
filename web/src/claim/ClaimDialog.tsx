@@ -15,15 +15,18 @@ import {
   siteDomain,
   startDnsCheck,
   startEmailCode,
+  ROLE_LABEL,
   TeamError,
   useAddMember,
   useBoards,
   useClaimBoard,
   useClaimHub,
   useHubs,
+  useIsBoardTeam,
   useOpenDispute,
   usePendingDns,
   useRequestJoin,
+  useScopeRole,
   useVerifiedDomains,
   verifyEmailCode,
   workEmailError,
@@ -235,6 +238,9 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
   const addMember = useAddMember();
 
   const [target, setTarget] = useState<Target | null>(null);
+  const roleQuery = useScopeRole(target?.scope ?? 'board', target?.id, viewerId);
+  const isBoardTeamQuery = useIsBoardTeam(target?.scope === 'board' ? target?.id : undefined, viewerId);
+  const isOnTeam = Boolean(roleQuery.data || isBoardTeamQuery.data);
   const [step, setStep] = useState<Step>(opts.board || opts.hub ? 'intro' : opts.resume ? 'pick' : 'welcome');
   const [purpose, setPurpose] = useState<Purpose>('claim');
   const [query, setQuery] = useState('');
@@ -536,7 +542,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
     if (!target) return 'Claim your board';
     switch (step) {
       case 'taken':
-        return `${target.name} is already claimed`;
+        return isOnTeam ? `You manage ${target.name}` : `${target.name} is already claimed`;
       case 'join':
         return 'Request to join';
       case 'dispute':
@@ -887,22 +893,49 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
       </Actions>
     );
   } else if (target && step === 'taken') {
-    body = (
-      <>
-        {head}
-        <p className="mt-0 mb-4 text-sm text-ink-secondary">
-          A verified team manages this {target.scope}. If you work at {target.name}, ask them to add you. If you think the wrong people have it, tell us.
-        </p>
-        <div className="flex flex-col gap-2">
-          <Choice title="Request to join the team" onClick={() => chooseTakenStep('join')}>
-            We’ll check your @{domain} email, then ask the {target.scope === 'hub' ? 'hub' : 'board'}’s admins to approve you.
-          </Choice>
-          <Choice title="Report the wrong owner" onClick={() => chooseTakenStep('dispute')}>
-            Verify {domain} yourself and our team reviews it. The {target.scope} stays as is until then.
-          </Choice>
-        </div>
-      </>
-    );
+    if (isOnTeam) {
+      const managePath = target.scope === 'hub' ? `/h/${target.slug}/manage` : `/b/${target.slug}/manage`;
+      const roleLabel = roleQuery.data ? ROLE_LABEL[roleQuery.data] : 'Team member';
+      body = (
+        <>
+          {head}
+          <p className="mt-0 mb-4 text-sm text-ink-secondary">
+            You’re already on the team for {target.name} ({roleLabel.toLowerCase()}). You can manage settings, teammates, and triage feedback directly.
+          </p>
+        </>
+      );
+      footer = (
+        <Actions>
+          <Button
+            type="button"
+            onClick={() => {
+              onClose();
+              navigate(managePath);
+            }}
+          >
+            Manage {target.scope === 'hub' ? 'hub' : 'board'}
+          </Button>
+          {genericEntry ? <Alt onClick={changeBoard}>Choose another</Alt> : <Alt onClick={onClose}>Back to {target.scope === 'hub' ? 'hub' : 'board'}</Alt>}
+        </Actions>
+      );
+    } else {
+      body = (
+        <>
+          {head}
+          <p className="mt-0 mb-4 text-sm text-ink-secondary">
+            A verified team manages this {target.scope}. If you work at {target.name}, ask them to add you. If you think the wrong people have it, tell us.
+          </p>
+          <div className="flex flex-col gap-2">
+            <Choice title="Request to join the team" onClick={() => chooseTakenStep('join')}>
+              We’ll check your @{domain} email, then ask the {target.scope === 'hub' ? 'hub' : 'board'}’s admins to approve you.
+            </Choice>
+            <Choice title="Report the wrong owner" onClick={() => chooseTakenStep('dispute')}>
+              Verify {domain} yourself and our team reviews it. The {target.scope} stays as is until then.
+            </Choice>
+          </div>
+        </>
+      );
+    }
   } else if (target && (step === 'join' || step === 'dispute')) {
     const why: Purpose = step;
     body = (

@@ -27,7 +27,8 @@ import { postKeys } from './postHooks';
 
 export const boardKeys = {
   boards: ['boards'] as const,
-  board: (slug: string) => ['board', slug] as const,
+  board: (slug: string, viewerId?: string | null) =>
+    viewerId !== undefined ? (['board', slug, viewerId ?? 'anon'] as const) : (['board', slug] as const),
   hubs: ['hubs'] as const,
   hub: (slug: string) => ['hub', slug] as const,
   counts: (ids: string[]) => ['post-counts', ids.join(',')] as const,
@@ -43,8 +44,8 @@ export function useBoards() {
   return useQuery({ queryKey: boardKeys.boards, queryFn: fetchBoards, staleTime: 60_000 });
 }
 
-export function useBoard(slug: string | undefined) {
-  return useQuery({ queryKey: boardKeys.board(slug ?? ''), queryFn: () => fetchBoard(slug ?? ''), enabled: Boolean(slug) });
+export function useBoard(slug: string | undefined, viewerId: string | null = null) {
+  return useQuery({ queryKey: boardKeys.board(slug ?? '', viewerId), queryFn: () => fetchBoard(slug ?? ''), enabled: Boolean(slug) });
 }
 
 export function useHubs() {

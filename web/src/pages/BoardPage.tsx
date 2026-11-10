@@ -83,7 +83,8 @@ export const actionLink =
 
 export function BoardPage() {
   const { board: slug } = useParams();
-  const query = useBoard(slug);
+  const { viewer } = useViewer();
+  const query = useBoard(slug, viewer?.id ?? null);
   const board = query.data;
   usePageTitle(board ? board.name : query.isPending ? null : 'Board not found');
   useEffect(() => {

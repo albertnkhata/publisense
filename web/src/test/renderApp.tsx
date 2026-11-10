@@ -24,8 +24,8 @@ export const TEST_VIEWER: Viewer = {
  * Render `ui` at `path` with the app's providers, a fixed viewer (or none) and
  * the AuthDialog provider. No Supabase: tests mock the api layer.
  */
-export function renderWith(ui: ReactNode, { viewer = null, path = '/' }: { viewer?: Viewer | null; path?: string } = {}) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+export function renderWith(ui: ReactNode, { viewer = null, path = '/', client }: { viewer?: Viewer | null; path?: string; client?: QueryClient } = {}) {
+  const queryClient = client ?? new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   const router = createMemoryRouter(
     [
       { path: '*', element: <AuthProvider>{ui}</AuthProvider> },
@@ -33,7 +33,7 @@ export function renderWith(ui: ReactNode, { viewer = null, path = '/' }: { viewe
     { initialEntries: [path] },
   );
   const utils = render(
-    <QueryClientProvider client={client}>
+    <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <StaticViewerProvider initial={viewer}>
           <ToastProvider>
@@ -43,5 +43,5 @@ export function renderWith(ui: ReactNode, { viewer = null, path = '/' }: { viewe
       </ThemeProvider>
     </QueryClientProvider>,
   );
-  return { ...utils, router, client };
+  return { ...utils, router, client: queryClient };
 }
