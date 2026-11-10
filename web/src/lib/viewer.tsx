@@ -135,7 +135,7 @@ function SessionViewerProvider({ children }: { children: ReactNode }) {
   const user = session?.user ?? null;
   const profile = useProfile(user?.id);
   const ready = sessionReady && (!user || !profile.isPending);
-  const viewer = useMemo(() => (user ? viewerFrom(user, profile.data) : null), [user, profile.data]);
+  const viewer = useMemo(() => (user && !profile.isPending ? viewerFrom(user, profile.data) : null), [user, profile.isPending, profile.data]);
   const signOut = useCallback(async () => {
     await apiSignOut();
     qc.removeQueries({ predicate: (q) => q.queryKey[0] !== 'auth' });

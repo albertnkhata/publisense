@@ -750,7 +750,7 @@ function ReportCard({ g, open }: { g: ReportGroup; open: boolean }) {
   } else if (g.target === 'reply') {
     subject = g.reply ? (
       <>
-        <Link to={`/post/${g.reply.post_id}#replies`} className="line-clamp-3 text-base text-ink no-underline hover:underline">
+        <Link to={`/post/${g.reply.post_id}#reply-${g.reply.id}`} className="line-clamp-3 text-base text-ink no-underline hover:underline">
           {g.reply.body}
         </Link>
         <span className="text-sm text-ink-muted">
@@ -773,7 +773,7 @@ function ReportCard({ g, open }: { g: ReportGroup; open: boolean }) {
       <span className="text-base text-ink-muted italic">This account was deleted.</span>
     );
   }
-  const decided = g.reports[0];
+  const decided = g.reports.find((r) => r.decided_at || r.decider) ?? g.reports[0];
   return (
     <Card>
       <p className="mt-0 mb-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-ink-muted uppercase">
@@ -790,6 +790,23 @@ function ReportCard({ g, open }: { g: ReportGroup; open: boolean }) {
           </li>
         ))}
       </ul>
+      {!open && decided ? (
+        <p className="mt-3 mb-0 text-sm text-ink-muted" data-decision>
+          <span className="font-semibold text-ink-secondary">{decided.status === 'dismissed' ? 'Dismissed' : 'Resolved'}</span>
+          {decided.decider ? (
+            <>
+              {' '}
+              by <Person p={decided.decider} />
+            </>
+          ) : null}
+          {decided.decided_at ? (
+            <>
+              {' '}
+              · <time dateTime={decided.decided_at}>{formatDate(decided.decided_at, new Date(), true)}</time>
+            </>
+          ) : null}
+        </p>
+      ) : null}
       {open ? (
         <div className="mt-3 flex flex-wrap gap-2">
           {g.target !== 'user' && !hidden && (g.post || g.reply) ? (

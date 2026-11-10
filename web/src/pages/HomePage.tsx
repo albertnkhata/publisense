@@ -22,21 +22,43 @@ export const SORTS: Array<{ value: FeedSort; label: string; hint: string }> = [
 ];
 
 export function HomePage() {
-  usePageTitle(null);
-  const { viewer } = useViewer();
+  const { viewer, ready } = useViewer();
+  const { openAuth } = useAuthDialog();
   const [params] = useSearchParams();
   const setUrl = useSetUrlParams();
   const sort: FeedSort = params.get('sort') === 'new' ? 'new' : 'top';
-  const scope: FeedScope = viewer && params.get('scope') === 'following' ? 'following' : 'all';
+  const scope: FeedScope = params.get('scope') === 'following' ? 'following' : 'all';
+  usePageTitle(scope === 'following' ? 'Following' : null);
 
   const set = (key: 'sort' | 'scope', value: string, fallback: string) => setUrl([[key, value, fallback]]);
+
+  if (!viewer && scope === 'following') {
+    return (
+      <section aria-labelledby="page-title" className="flex flex-col gap-4">
+        <h1 id="page-title" className="m-0 text-2xl font-bold text-ink">
+          Following
+        </h1>
+        {ready ? (
+          <div className="rounded-md border border-line bg-card">
+            <EmptyState
+              icon="users"
+              title="Sign in to see what you follow"
+              action={<Button onClick={() => openAuth('signin', 'see what you follow')}>Sign in</Button>}
+            >
+              Follow people, boards and posts to keep up with them here.
+            </EmptyState>
+          </div>
+        ) : null}
+      </section>
+    );
+  }
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col gap-4">
       <h1 id="page-title" className="sr-only">
         Home
       </h1>
-      {viewer ? null : <HomePitch />}
+      {viewer || !ready ? null : <HomePitch />}
       {/* Phones post from the floating button (TabBar) instead. */}
       <ComposerTrigger />
       <div className={viewer ? 'flex items-center justify-between gap-3 border-b border-line' : 'flex items-center justify-end gap-3'}>

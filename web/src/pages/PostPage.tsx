@@ -53,8 +53,7 @@ export function PostPage() {
 function PostBody({ post }: { post: Post }) {
   const navigate = useNavigate();
   const { viewer } = useViewer();
-  const showTimeline = post.status !== 'open';
-  const events = useStatusEvents(post.id, showTimeline);
+  const events = useStatusEvents(post.id, true);
   return (
     <>
       {post.status === 'merged' && post.merged_into ? <MergedNotice post={post} targetId={post.merged_into} events={events.data} /> : null}
@@ -66,7 +65,7 @@ function PostBody({ post }: { post: Post }) {
         </p>
       ) : null}
       <PostCard post={post} variant="page" onDeleted={() => void navigate('/', { replace: true })} />
-      {showTimeline && events.data && events.data.length > 0 ? <StatusTimeline post={post} events={events.data} /> : null}
+      {events.data && events.data.length > 0 ? <StatusTimeline post={post} events={events.data} /> : null}
       <ReplySection post={post} />
       <Related post={post} viewerId={viewer?.id ?? null} />
     </>

@@ -23,7 +23,6 @@ import {
   useScopeWebhook,
   useSetBlocked,
   useSetMemberRole,
-  useSetPostStatus,
   useTeam,
   useTestScopeWebhook,
   WEBHOOK_KIND_LABEL,
@@ -44,7 +43,7 @@ import { useViewer } from '../lib/viewer';
 import { ConfirmDialog } from '../posts/dialogs';
 import { MergeDialog } from '../posts/MergeDialog';
 import { LoadError } from '../posts/PostList';
-import { statusToast, TEAM_STATUSES } from '../posts/StatusDialog';
+import { StatusDialog, TEAM_STATUSES } from '../posts/StatusDialog';
 import { Button, Dialog, Field, IconButton, Input, Menu, MenuItem, Select, SkeletonBlock, STATUS_META, TYPE_META, UserAvatar, useToast } from '../ui';
 
 /*
@@ -163,18 +162,12 @@ export function Inbox({
 
 export function InboxRow({ post, board, site }: { post: Post; board: Board | null; site?: string | null }) {
   const { toast } = useToast();
-  const setStatus = useSetPostStatus();
   const [merging, setMerging] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<PostStatus | null>(null);
   const ghRepo = resolveBoardGitHubRepo(post, board, site);
   const change = (to: PostStatus) => {
     if (to === post.status) return;
-    setStatus.mutate(
-      { postId: post.id, to },
-      {
-        onSuccess: () => toast(to === 'shipped' ? 'Marked Shipped · upvoters notified' : statusToast(to)),
-        onError: (e) => toast(e instanceof Error ? e.message : 'We couldn’t update the status. Try again.'),
-      },
-    );
+    setPendingStatus(to);
   };
   const copyIssue = () => {
     void navigator.clipboard?.writeText(formatIssueMarkdown(post)).then(
@@ -229,13 +222,20 @@ export function InboxRow({ post, board, site }: { post: Post; board: Board | nul
           </Button>
         ) : null}
         {merging ? <MergeDialog post={post} open onClose={() => setMerging(false)} onMerged={() => {}} /> : null}
+        {pendingStatus ? (
+          <StatusDialog
+            post={board && !post.board ? { ...post, board: { id: board.id, slug: board.slug, name: board.name, color: board.color, logo_path: board.logo_path } } : post}
+            initialStatus={pendingStatus}
+            open
+            onClose={() => setPendingStatus(null)}
+          />
+        ) : null}
         <span className="w-select shrink-0 max-sm:w-auto max-sm:flex-1">
           <Select
             value={post.status === 'merged' ? 'open' : post.status}
             onChange={(e) => change(e.target.value as PostStatus)}
-            disabled={setStatus.isPending || post.status === 'merged'}
+            disabled={post.status === 'merged'}
             aria-label={`Status for ${post.title}`}
-           
           >
             {TEAM_STATUSES.map((s) => (
               <option key={s} value={s}>

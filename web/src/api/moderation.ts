@@ -282,6 +282,7 @@ export interface ReportRow {
   status: 'open' | 'actioned' | 'dismissed';
   created_at: string;
   decided_at: string | null;
+  decider?: PersonRef | null;
   reporter: PersonRef | null;
 }
 
@@ -336,7 +337,7 @@ export function groupReports(rows: ReportRow[]): ReportGroup[] {
 /** The reports queue (RLS: platform admins only), grouped by target with what was reported. */
 export async function fetchReportQueue(status: 'open' | 'closed'): Promise<ReportGroup[]> {
   const sb = getSupabase();
-  let q = sb.from('report').select(`id, target, target_id, reason, status, created_at, decided_at, reporter:profile!reporter(${PERSON})`);
+  let q = sb.from('report').select(`id, target, target_id, reason, status, created_at, decided_at, decider:profile!decided_by(${PERSON}), reporter:profile!reporter(${PERSON})`);
   q = status === 'open' ? q.eq('status', 'open') : q.neq('status', 'open');
   const { data, error } = await q.order('created_at', { ascending: false }).limit(300);
   if (error) throw error;

@@ -178,6 +178,15 @@ describe('board page', () => {
     await waitFor(() => expect(router.state.location.search).toBe(''));
   });
 
+  it('offers Closed in the board status filter (GAP-004)', async () => {
+    const { router } = renderAt('/b/cursor');
+    await screen.findByText('Composer drops edits');
+    fireEvent.click(screen.getByRole('button', { name: 'Status: Status' }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Closed' }));
+    await waitFor(() => expect(postsApi.fetchPostList).toHaveBeenLastCalledWith(expect.objectContaining({ status: 'closed' })));
+    expect(router.state.location.search).toBe('?status=closed');
+  });
+
   it('says when filters match nothing, and offers to post on an empty board', async () => {
     postsApi.fetchPostList.mockResolvedValue(page([]));
     renderAt('/b/cursor?status=shipped', true);

@@ -111,6 +111,15 @@ describe('home feed', () => {
     );
   });
 
+  it('shows an explicit Following sign-in gate when a guest opens /?scope=following directly (GAP-001)', async () => {
+    renderHome({ signedIn: false, path: '/?scope=following' });
+    expect(await screen.findByRole('heading', { level: 1, name: 'Following' })).toBeTruthy();
+    expect(screen.getByText('Sign in to see what you follow')).toBeTruthy();
+    expect(api.fetchFeed).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(await screen.findByRole('dialog', { name: 'Sign in to Publisense' })).toBeTruthy();
+  });
+
   it('sorts by New from the sort menu', async () => {
     api.fetchFeed.mockResolvedValue(page([makePost()]));
     const { router } = renderHome();

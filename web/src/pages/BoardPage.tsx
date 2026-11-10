@@ -58,6 +58,7 @@ export const STATUS_CHOICES: Choice<StatusFilter>[] = [
   { value: 'planned', label: 'Planned' },
   { value: 'in_progress', label: 'In progress' },
   { value: 'shipped', label: 'Shipped' },
+  { value: 'closed', label: 'Closed' },
 ];
 
 export const PLATFORM_CHOICES: Choice<PlatformFilter>[] = [

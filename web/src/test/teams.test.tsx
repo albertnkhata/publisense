@@ -581,7 +581,7 @@ describe('Manage inbox', () => {
     expect(await screen.findByText('Sign in to manage Cursor')).toBeTruthy();
   });
 
-  it('triages: open posts, most upvoted first, status changed in place', async () => {
+  it('triages: open posts, most upvoted first, status changed via StatusDialog with note and notification context (GAP-003)', async () => {
     boardsApi.fetchBoard.mockResolvedValue(CLAIMED);
     teamsApi.fetchScopeRole.mockResolvedValue('admin');
     const post = makePost({ title: 'Indexing stalls on monorepos', vote_count: 33 });
@@ -592,6 +592,10 @@ describe('Manage inbox', () => {
     await screen.findByText('Indexing stalls on monorepos');
     expect(postsApi.fetchPostList).toHaveBeenCalledWith(expect.objectContaining({ boardIds: [CURSOR.id], status: 'open', sort: 'top' }));
     fireEvent.change(screen.getByLabelText('Status for Indexing stalls on monorepos'), { target: { value: 'planned' } });
+    const dialog = await screen.findByRole('dialog', { name: 'Update status' });
+    expect(within(dialog).getByRole('radio', { name: /Planned/ }).getAttribute('aria-checked')).toBe('true');
+    expect(within(dialog).getByText('Followers and upvoters get one notification with the new status and your note.')).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Update status' }));
     await waitFor(() => expect(teamsApi.setPostStatus).toHaveBeenCalledWith(post.id, 'planned'));
     expect(await screen.findByText('Marked Planned · followers notified')).toBeTruthy();
   });
@@ -603,6 +607,15 @@ describe('Manage inbox', () => {
     expect(await screen.findByText('Inbox zero')).toBeTruthy();
     // Members don't get Settings.
     expect(screen.queryByRole('tab', { name: 'Settings' })).toBeNull();
+  });
+
+  it('explains the permission limit and canonicalizes the URL when a Member opens ?tab=settings (GAP-002)', async () => {
+    teamsApi.fetchScopeRole.mockResolvedValue('member');
+    postsApi.fetchPostList.mockResolvedValue(page([]));
+    const { router } = renderAt('/b/cursor/manage?tab=settings');
+    expect(await screen.findByText('Only owners and admins can change board settings. Showing Triage instead.')).toBeTruthy();
+    expect(screen.queryByRole('tab', { name: 'Settings' })).toBeNull();
+    await waitFor(() => expect(router.state.location.search).toBe(''));
   });
 
   it('filters the hub inbox by board', async () => {

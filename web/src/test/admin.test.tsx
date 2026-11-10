@@ -184,6 +184,43 @@ describe('reports queue', () => {
     expect(await screen.findByText('No reports waiting')).toBeTruthy();
     expect(screen.getByText('Posts and replies people report wait here for a moderator.')).toBeTruthy();
   });
+
+  it('links a reported reply to its #reply-<id> anchor and shows who decided and when in Decided (GAP-005, GAP-006)', async () => {
+    const replyGroup: ReportGroup = {
+      key: 'reply:rep-1',
+      target: 'reply',
+      target_id: 'rep-1',
+      latest: iso(2),
+      reports: [
+        {
+          id: 'r-rep',
+          target: 'reply',
+          target_id: 'rep-1',
+          reason: 'Something else: QA report test',
+          status: 'dismissed',
+          created_at: iso(2),
+          decided_at: iso(1),
+          decider: ME,
+          reporter: OTHER,
+        },
+      ],
+      reply: {
+        id: 'rep-1',
+        post_id: 'post-99',
+        body: 'Personal reply under QA test',
+        hidden_at: null,
+        author: OTHER,
+        post: { id: 'post-99', title: 'QA fixture post' },
+      },
+    };
+    mod.fetchReportQueue.mockImplementation(async (status: 'open' | 'closed') => (status === 'closed' ? [replyGroup] : []));
+    renderAt('/admin/reports');
+    fireEvent.click(await screen.findByRole('tab', { name: 'Decided' }));
+    const link = await screen.findByRole('link', { name: 'Personal reply under QA test' });
+    expect(link.getAttribute('href')).toBe('/post/post-99#reply-rep-1');
+    const decision = document.querySelector('[data-decision]');
+    expect(decision?.textContent).toMatch(/Dismissed by @alice · /);
+  });
 });
 
 describe('disputes queue', () => {

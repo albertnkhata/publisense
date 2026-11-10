@@ -144,6 +144,24 @@ describe('post page', () => {
     expect(within(items[1]!).getByRole('button', { name: 'Edit' })).toBeTruthy();
   });
 
+  it('preserves status history and earlier notes when a post is reopened to Open (BUG-001)', async () => {
+    const post = makePost({ title: 'Reopened feedback post', status: 'open' });
+    renderPost(post, {
+      events: [
+        { id: 'e1', from: 'open', to: 'under_review', note: 'Looking into this regression.', actor_id: 'x', at: iso(3) },
+        { id: 'e2', from: 'under_review', to: 'open', note: null, actor_id: 'x', at: iso(1) },
+      ],
+    });
+    const timeline = await screen.findByRole('region', { name: 'Status' });
+    expect(within(timeline).getByText('Posted')).toBeTruthy();
+    expect(within(timeline).getByText('Under review')).toBeTruthy();
+    expect(within(timeline).getByText('Looking into this regression.')).toBeTruthy();
+    expect(within(timeline).getByText('Open')).toBeTruthy();
+    const steps = within(timeline).getAllByRole('listitem');
+    expect(steps).toHaveLength(3);
+    expect(steps[2]?.getAttribute('aria-current')).toBe('step');
+  });
+
   it('answers a non-id path with Post not found and no request', async () => {
     renderWith(
       <Routes>

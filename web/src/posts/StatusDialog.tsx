@@ -36,10 +36,20 @@ export function statusToast(to: PostStatus): string {
   return to === 'open' ? 'Status cleared' : `Marked ${STATUS_META[to].label} · followers notified`;
 }
 
-export function StatusDialog({ post, open, onClose }: { post: Post; open: boolean; onClose: () => void }) {
+export function StatusDialog({
+  post,
+  open,
+  onClose,
+  initialStatus,
+}: {
+  post: Post;
+  open: boolean;
+  onClose: () => void;
+  initialStatus?: PostStatus;
+}) {
   const { toast } = useToast();
   const setStatus = useSetPostStatus();
-  const [sel, setSel] = useState<PostStatus>(post.status === 'merged' ? 'open' : post.status);
+  const [sel, setSel] = useState<PostStatus>(initialStatus ?? (post.status === 'merged' ? 'open' : post.status));
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const busy = setStatus.isPending;

@@ -311,7 +311,7 @@ export function AdminOverview() {
 
       <Panel
         title="Traction & community activity"
-        note="Member posts and imported seed posts are always reported separately (D-011)."
+        note="Member posts and imported seed posts are always reported separately."
       >
         <div className="grid grid-cols-4 gap-3 max-md:grid-cols-2">
           <StatTile

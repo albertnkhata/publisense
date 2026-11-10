@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import {
   compactCount,
@@ -50,9 +50,20 @@ function useTabParam<T extends string>(allowed: readonly T[], fallback: T) {
   const [params] = useSearchParams();
   const setUrl = useSetUrlParams();
   const raw = params.get('tab');
+  const isDeniedSettings = raw === 'settings' && !(allowed as readonly string[]).includes('settings');
+  const [deniedSettings, setDeniedSettings] = useState(isDeniedSettings);
+  useEffect(() => {
+    if (isDeniedSettings) {
+      setDeniedSettings(true);
+      setUrl([['tab', fallback, fallback]], { replace: true });
+    }
+  }, [isDeniedSettings, fallback, setUrl]);
   const tab = (allowed as readonly string[]).includes(raw ?? '') ? (raw as T) : fallback;
-  const set = (key: string, value: string, def: string) => setUrl([[key, value, def]], { replace: key !== 'tab' });
-  return { tab, params, set };
+  const set = (key: string, value: string, def: string) => {
+    if (key === 'tab') setDeniedSettings(false);
+    setUrl([[key, value, def]], { replace: key !== 'tab' });
+  };
+  return { tab, params, set, deniedSettings };
 }
 
 const pickType = (v: string | null): TypeFilter => (v === 'bug' || v === 'friction' || v === 'feature' ? v : 'all');
@@ -131,7 +142,7 @@ function BoardManage({ board, role }: { board: BoardWithHub; role: Role }) {
   const viewerId = viewer?.id ?? null;
   const admin = canManage(role);
   const tabs = admin ? (['triage', 'posts', 'team', 'settings'] as const) : (['triage', 'posts', 'team'] as const);
-  const { tab, params, set } = useTabParam<BoardTab>(tabs, 'triage');
+  const { tab, params, set, deniedSettings } = useTabParam<BoardTab>(tabs, 'triage');
   const ids = useMemo(() => [board.id], [board.id]);
   const stats = useManageStats(ids);
   const counts = usePostCounts(ids);
@@ -169,6 +180,12 @@ function BoardManage({ board, role }: { board: BoardWithHub; role: Role }) {
         }
       />
       <StatTiles stats={stats.data} />
+      {deniedSettings ? (
+        <p role="status" className="mt-0 mb-4 flex items-center gap-2 rounded-md border border-line bg-subtle px-3 py-2 text-sm text-ink-secondary">
+          <Icon name="lock" size={14} className="shrink-0" />
+          Only owners and admins can change board settings. Showing Triage instead.
+        </p>
+      ) : null}
       <Tabs
         idBase="manage"
         label={`Manage ${board.name}`}
@@ -394,7 +411,7 @@ function HubManage({ hub, role }: { hub: Hub; role: Role }) {
   const { viewer } = useViewer();
   const admin = canManage(role);
   const tabs = admin ? (['inbox', 'boards', 'team', 'settings'] as const) : (['inbox', 'boards', 'team'] as const);
-  const { tab, params, set } = useTabParam<HubTab>(tabs, 'inbox');
+  const { tab, params, set, deniedSettings } = useTabParam<HubTab>(tabs, 'inbox');
   const ids = useMemo(() => hub.boards.map((b) => b.id), [hub.boards]);
   const stats = useManageStats(ids);
   const team = useTeam('hub', hub.id);
@@ -421,6 +438,12 @@ function HubManage({ hub, role }: { hub: Hub; role: Role }) {
         }
       />
       <StatTiles stats={stats.data} />
+      {deniedSettings ? (
+        <p role="status" className="mt-0 mb-4 flex items-center gap-2 rounded-md border border-line bg-subtle px-3 py-2 text-sm text-ink-secondary">
+          <Icon name="lock" size={14} className="shrink-0" />
+          Only owners and admins can change hub settings. Showing Inbox instead.
+        </p>
+      ) : null}
       <Tabs
         idBase="hub-manage"
         label={`Manage ${hub.name} hub`}
