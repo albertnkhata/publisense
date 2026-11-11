@@ -7,6 +7,7 @@ import { FEED_LIST } from '../posts/PostList';
 import { ReplySection } from '../posts/Replies';
 import { StatusTimeline } from '../posts/StatusTimeline';
 import { BackLink } from '../boards/parts';
+import { ProductStrip } from '../boards/ProductStrip';
 import { Button, EmptyState, Icon, Skeleton, useToast } from '../ui';
 
 /**
@@ -64,7 +65,8 @@ function PostBody({ post }: { post: Post }) {
           Hidden. Only its author, the {post.board?.name ?? 'board'} team and Publisense moderators can see it.
         </p>
       ) : null}
-      <PostCard post={post} variant="page" onDeleted={() => void navigate('/', { replace: true })} />
+      <ProductStrip post={post} />
+      <PostCard post={post} variant="page" hideBoard={Boolean(post.board)} onDeleted={() => void navigate('/', { replace: true })} />
       {events.data && events.data.length > 0 ? <StatusTimeline post={post} events={events.data} /> : null}
       <ReplySection post={post} />
       <Related post={post} viewerId={viewer?.id ?? null} />

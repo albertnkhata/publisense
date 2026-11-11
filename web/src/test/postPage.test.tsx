@@ -15,6 +15,7 @@ import {
 import { PostPage } from '../pages/PostPage';
 import { renderWith, TEST_VIEWER } from './renderApp';
 import { BOARD, iso, makePost, makeReply, ME, OTHER } from './postFixtures';
+import { CURSOR, makeBoard } from './boardFixtures';
 
 const api = vi.hoisted(() => ({
   fetchPost: vi.fn(),
@@ -35,7 +36,7 @@ const api = vi.hoisted(() => ({
 vi.mock('../api/posts', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/posts')>()), ...api }));
 const modApi = vi.hoisted(() => ({ fetchIsPlatformAdmin: vi.fn(async () => false) }));
 vi.mock('../api/moderation', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/moderation')>()), ...modApi }));
-const boardsApi = vi.hoisted(() => ({ fetchIsBoardTeam: vi.fn(async () => false) }));
+const boardsApi = vi.hoisted(() => ({ fetchIsBoardTeam: vi.fn(async () => false), fetchBoard: vi.fn(), fetchFollowedScopes: vi.fn(), setScopeFollow: vi.fn() }));
 vi.mock('../api/boards', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/boards')>()), ...boardsApi }));
 
 function renderPost(post: Post, { replies = [] as Reply[], events = [] as StatusEvent[], signedIn = true, found = true, at = '' } = {}) {
@@ -57,6 +58,9 @@ beforeEach(() => {
   api.setVote.mockResolvedValue(undefined);
   api.setPostFollow.mockResolvedValue(undefined);
   boardsApi.fetchIsBoardTeam.mockResolvedValue(false);
+  boardsApi.fetchBoard.mockResolvedValue(CURSOR);
+  boardsApi.fetchFollowedScopes.mockResolvedValue(new Set());
+  boardsApi.setScopeFollow.mockResolvedValue(undefined);
 });
 
 describe('post page', () => {
@@ -82,7 +86,7 @@ describe('post page', () => {
     await waitFor(() => expect(document.title).toBe('Ghost preview in split windows · Publisense'));
   });
 
-  it('shows product, category and time before the author on the post page', async () => {
+  it('names the product once, in the strip above the card, and leads the card with type, time and author', async () => {
     const post = makePost({ title: 'Keyboard shortcut is missing' });
     renderPost(post);
     const article = await screen.findByRole('article', { name: post.title });
@@ -90,20 +94,31 @@ describe('post page', () => {
     const headerText = header?.textContent ?? '';
     const time = article.querySelector('time');
     const timeText = time?.textContent ?? '';
-    const productAt = headerText.indexOf(post.board?.name ?? '');
     const categoryAt = headerText.indexOf('Bug');
     const timeAt = headerText.indexOf(timeText);
     const authorAt = headerText.indexOf(`@${post.author?.handle}`);
     expect(header).not.toBeNull();
     expect(header?.className).not.toContain('pl-gutter');
-    const productIcon = header?.querySelector('.bg-board');
-    expect(productIcon?.parentElement?.parentElement).toBe(header);
     expect(article.querySelector('h1')?.parentElement).toBe(header);
     expect(time?.getAttribute('datetime')).toBe(post.created_at);
-    expect(productAt).toBeGreaterThanOrEqual(0);
-    expect(productAt).toBeLessThan(categoryAt);
+    // The strip owns the product, so the card head does not repeat its name or tile.
+    expect(headerText).not.toContain(post.board?.name ?? 'Cursor');
+    expect(header?.querySelector('.bg-board')).toBeNull();
+    expect(categoryAt).toBeGreaterThanOrEqual(0);
     expect(categoryAt).toBeLessThan(timeAt);
     expect(timeAt).toBeLessThan(authorAt);
+    // ...and the product is named immediately above the card, not lost.
+    const strip = screen.getByRole('region', { name: 'Product' });
+    expect(strip.textContent).toContain(post.board?.name ?? 'Cursor');
+    expect(strip.compareDocumentPosition(article) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('keeps the board row in the card head when the post has no board to strip', async () => {
+    const post = makePost({ title: 'Detached post', board: null });
+    renderPost(post);
+    const article = await screen.findByRole('article', { name: 'Detached post' });
+    expect(screen.queryByRole('region', { name: 'Product' })).toBeNull();
+    expect(article.textContent).toContain('Unknown board');
   });
 
   it('shows the post, its status timeline, the official reply unpinned and threads', async () => {
@@ -684,5 +699,47 @@ describe('platform on a post (0033)', () => {
   it('labels friction posts (0034)', async () => {
     renderPost(makePost({ type: 'friction' }));
     expect((await screen.findAllByText('Friction')).length).toBeGreaterThan(0);
+  });
+});
+
+describe('product strip (post page header)', () => {
+  it('names the product, its team state and its size above the post', async () => {
+    boardsApi.fetchBoard.mockResolvedValue(makeBoard({ claimed_at: iso(30), post_count: 92, follower_count: 4100 }));
+    renderPost(makePost({ title: 'Keyboard shortcut is missing' }));
+    const strip = await screen.findByRole('region', { name: 'Product' });
+    await waitFor(() => expect(strip.textContent).toContain('The AI code editor'));
+    expect(strip.textContent).toContain('Cursor');
+    expect(strip.textContent).toContain('92 posts');
+    expect(strip.textContent).toContain('4.1k followers');
+    expect(strip.textContent).toContain('Verified team');
+  });
+
+  it('says No verified team when no team has claimed the product', async () => {
+    boardsApi.fetchBoard.mockResolvedValue(makeBoard({ claimed_at: null }));
+    renderPost(makePost({ title: 'Keyboard shortcut is missing' }));
+    const strip = await screen.findByRole('region', { name: 'Product' });
+    await waitFor(() => expect(strip.textContent).toContain('No verified team'));
+    expect(strip.textContent).not.toContain('Verified team');
+  });
+
+  it('follows the product from the strip and the follower count moves with it', async () => {
+    boardsApi.fetchBoard.mockResolvedValue(makeBoard({ follower_count: 12, post_count: 3 }));
+    renderPost(makePost({ title: 'Keyboard shortcut is missing' }));
+    const strip = await screen.findByRole('region', { name: 'Product' });
+    await waitFor(() => expect(strip.textContent).toContain('12 followers'));
+    const follow = within(strip).getByRole('button', { name: 'Follow Cursor' });
+    expect(follow.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(follow);
+    await waitFor(() => expect(boardsApi.setScopeFollow).toHaveBeenCalledWith('board', BOARD.id, TEST_VIEWER.id, true));
+    await waitFor(() => expect(within(strip).getByRole('button', { name: 'Following Cursor' }).getAttribute('aria-pressed')).toBe('true'));
+    expect(strip.textContent).toContain('13 followers');
+  });
+
+  it('shows the name and logo before the board record lands, never a spinner', async () => {
+    boardsApi.fetchBoard.mockReturnValue(new Promise(() => {}));
+    renderPost(makePost({ title: 'Keyboard shortcut is missing' }));
+    const strip = await screen.findByRole('region', { name: 'Product' });
+    expect(strip.textContent).toContain('Cursor');
+    expect(within(strip).queryByRole('button', { name: /Follow/ })).toBeNull();
   });
 });

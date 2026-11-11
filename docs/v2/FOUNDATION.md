@@ -92,7 +92,7 @@ Each primitive owns its keyboard and ARIA behaviour once, so screens never re-im
 
 ## 5. Composites
 
-`AppShell` (NavRail, TopBar, RightRail, TabBar) · `PostCard` (community and seeded variants, footer with `VoteButton` and share) · `Composer` (dialog: board picker, product picker for hubs, type, title with similar-post suggestions, body) · `PostPage` (official response, `StatusTimeline`, replies one level deep, related) · `BoardHeader` / `HubHeader` (follow, post, Manage when permitted, hub chip) · `Roadmap` · `Changelog` · `ManageInbox` (triage rows, status change, merge) · `TeamPanel` · `ClaimFlow` (email code or DNS, then hub prompt) · `AuthDialog` (sign in, sign up, forgot, sent, reset) · `AccountDialog` (password, connected logins, notifications, export, delete) · `SearchPopover` · `NotificationList` · `ReportDialog`.
+`AppShell` (NavRail, TopBar, RightRail, TabBar) · `PostCard` (community and seeded variants, footer with `VoteButton` and share) · `Composer` (dialog: board picker, product picker for hubs, type, title with similar-post suggestions, body) · `PostPage` (official response, `StatusTimeline`, replies one level deep, related) · `ProductStrip` (the product a post is about: logo, verified team, size, follow) · `BoardHeader` / `HubHeader` (follow, post, Manage when permitted, hub chip) · `Roadmap` · `Changelog` · `ManageInbox` (triage rows, status change, merge) · `TeamPanel` · `ClaimFlow` (email code or DNS, then hub prompt) · `AuthDialog` (sign in, sign up, forgot, sent, reset) · `AccountDialog` (password, connected logins, notifications, export, delete) · `SearchPopover` · `NotificationList` · `ReportDialog`.
 
 ## 6. Domain model
 

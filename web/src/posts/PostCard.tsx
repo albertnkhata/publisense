@@ -98,7 +98,7 @@ export function PostCard({ post, variant = 'feed', onDeleted, hideBoard = false 
  * post leads with its author instead and a seeded post leads with its source.
  */
 function PostHead({ post, hideBoard, page }: { post: Post; hideBoard: boolean; page: boolean }) {
-  if (page) return <PagePostHead post={post} />;
+  if (page) return <PagePostHead post={post} hideBoard={hideBoard} />;
 
   const kind = postKind(post);
   const board = post.board;
@@ -225,7 +225,7 @@ function PostHead({ post, hideBoard, page }: { post: Post; hideBoard: boolean; p
 }
 
 /** The detail-page header has no avatar rail: its product icon and post text share the same left edge. */
-function PagePostHead({ post }: { post: Post }) {
+function PagePostHead({ post, hideBoard }: { post: Post; hideBoard: boolean }) {
   const board = post.board;
   const boardName = board?.name ?? 'Unknown board';
   const kind = postKind(post);
@@ -259,6 +259,22 @@ function PagePostHead({ post }: { post: Post }) {
       handle
     );
   const row = 'flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-muted';
+
+  // The product strip above the card already names the product, so the card leads
+  // with what the strip cannot say: the type, when it was posted, and who wrote it.
+  if (hideBoard) {
+    return (
+      <div className="min-w-0">
+        <div className={cx(row, 'min-h-4')}>
+          <TypePill type={post.type} />
+          {platform}
+          {time}
+          {edited}
+        </div>
+        {credit ? <div className={cx(row, 'mt-1')}>{credit}</div> : null}
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-w-0 items-start gap-3">
