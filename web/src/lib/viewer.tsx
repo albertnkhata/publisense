@@ -9,8 +9,9 @@ import { avatarUrl, hasSupabaseConfig, profileKey, signOut as apiSignOut, usePro
  * immediately re-evaluate without lingering creator-only metadata (BUG-002).
  */
 export function purgeUserQueryCache(qc: QueryClient) {
-  qc.removeQueries({ predicate: (q) => q.queryKey[0] !== 'auth' });
-  void qc.resetQueries({ predicate: (q) => q.queryKey[0] !== 'auth' });
+  const userQueries = (q: { queryKey: readonly unknown[] }) => q.queryKey[0] !== 'auth';
+  qc.removeQueries({ predicate: userQueries, type: 'inactive' });
+  void qc.resetQueries({ predicate: userQueries, type: 'active' });
 }
 
 /**
