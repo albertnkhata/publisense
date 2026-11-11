@@ -1,7 +1,13 @@
 {
   "generatedAt": null,
   "repo": {
-    "openDecisions": [],
+    "openDecisions": [
+      {
+        "id": "D-016",
+        "title": "A post page says nothing about the product beyond its name",
+        "revisit": "when product context on the post page comes up from users or a design pass, or when the next post-page change lands"
+      }
+    ],
     "resolved": [
       "D-003",
       "D-007",

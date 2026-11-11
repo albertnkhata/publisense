@@ -33,7 +33,7 @@ _derived from `docs/v2/BUILD.md` checkbox state · one PR per step, see `docs/v2
 
 _derived from `docs/deferred.md` · the ids link to the entry, which is canonical_
 
-None open.
+- **D-016** · A post page says nothing about the product beyond its name — revisit: when product context on the post page comes up from users or a design pass, or when the next post-page change lands
 
 ### Resolved (15)
 

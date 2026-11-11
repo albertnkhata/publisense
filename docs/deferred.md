@@ -21,7 +21,33 @@
 
 ## Open
 
-Nothing open.
+### D-016 · A post page says nothing about the product beyond its name
+
+**Status:** 🟢 cosmetic/minor · **Deferred:** 2026-11-11 (owner: not worth changing production for now — "doesn't cause undue damage to the user experience") · **Work parked:** PR #287 closed, branch `feat/post-page-product-strip` at `e61bb68` · **Revisit:** when product context on the post page comes up from users or a design pass, or when the next post-page change lands
+
+Open a post from a shared link and the page names its product only as a crumb on the card. Nothing
+says whether the team behind the product is here, how big its board is, or how to follow it — the only
+follow control belongs to the post. The parked work adds one strip above the card (logo, name,
+`✓ Verified team` / `No verified team`, `tagline · N posts · N followers`, and a board follow wired to
+the existing `FollowScopeButton`) and drops the duplicated logo and name from the card head, which then
+leads with type · time · author. Feed cards are untouched.
+
+**Why deferred.** The page is not broken without it: identity is present, the board is one click away,
+and no flow depends on the missing facts. The owner wants to circle back rather than change production
+now. The strip is also an addition to the reference mockup, so it wants a render round, not a merge.
+
+**Revisit note.** The one design question left is unchanged: the strip is an addition to the reference
+mockup, so the render worth doing first is the alternative that folds the same four facts into the
+existing header row instead of a framed card. That has not been rendered yet.
+
+**To revive.** `git fetch origin && git checkout feat/post-page-product-strip` (or cherry-pick `e61bb68`
+onto current `main`), then re-run `ci-standin.sh <repo> full` and regenerate the ledger
+(`node scripts/status.mjs`), because the declared test-case count moves with every change to `main`.
+Files: new `web/src/boards/ProductStrip.tsx`; `web/src/pages/PostPage.tsx`; `web/src/posts/PostCard.tsx`
+(`PagePostHead` honouring `hideBoard`); `web/src/test/postPage.test.tsx` (7 tests); `docs/v2/FOUNDATION.md` §5.
+The branch head also carries two corrections worth keeping: a board whose **hub** is claimed counts as a
+verified team (0026, matching `ClaimState` on the board page), and the strip carries no `mb-4` because
+the post page's wrapper is already `gap-4`.
 
 ---
 
