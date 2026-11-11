@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import { boardLogoSrc, compactCount, plural, useBoard, type Post } from '../api';
+import { boardLogoSrc, compactCount, useBoard, type Post } from '../api';
 import { useViewer } from '../lib/viewer';
 import { BoardAvatar, Icon } from '../ui';
 import { FollowScopeButton } from './parts';
@@ -24,18 +24,19 @@ export function ProductStrip({ post }: { post: Post }) {
   if (!board) return null;
 
   const b = detail.data;
+  const claimed = Boolean(b?.claimed_at || b?.hub?.claimed_at);
   const facts = b
     ? [
         b.tagline,
-        plural(b.post_count, 'post'),
-        `${compactCount(b.follower_count)} ${b.follower_count === 1 ? 'follower' : 'followers'}`,
+        b.post_count > 0 ? `${compactCount(b.post_count)} ${b.post_count === 1 ? 'post' : 'posts'}` : null,
+        b.follower_count > 0 ? `${compactCount(b.follower_count)} ${b.follower_count === 1 ? 'follower' : 'followers'}` : null,
       ]
         .filter(Boolean)
         .join(' · ')
     : null;
 
   return (
-    <section aria-label="Product" className="mb-4 flex min-w-0 items-center gap-3 rounded-md border border-line bg-card px-4 py-3">
+    <section aria-label="Product" className="flex min-w-0 items-center gap-3 rounded-md border border-line bg-card px-4 py-3">
       <Link to={`/b/${board.slug}`} tabIndex={-1} aria-hidden="true" className="shrink-0">
         <BoardAvatar name={board.name} color={board.color} logoSrc={boardLogoSrc(board)} size="xl" decorative />
       </Link>
@@ -45,7 +46,7 @@ export function ProductStrip({ post }: { post: Post }) {
             {board.name}
           </Link>
           {/* 0026: same wording as the board page, so "verified team" means one thing app-wide. */}
-          {b?.claimed_at ? (
+          {claimed ? (
             <span className="inline-flex h-6 shrink-0 items-center gap-1 rounded-pill border border-line px-2 text-xs font-medium text-ink-secondary">
               <span className="text-success">
                 <Icon name="check" size={12} strokeWidth={2.2} />

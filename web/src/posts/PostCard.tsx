@@ -254,7 +254,9 @@ function PagePostHead({ post, hideBoard }: { post: Post; hideBoard: boolean }) {
           {sourceCredit(post)}
           <Icon name="arrow-up-right" size={11} />
         </a>
-      ) : null
+      ) : (
+        <span className="font-medium text-ink-secondary">{sourceCredit(post)}</span>
+      )
     ) : (
       handle
     );

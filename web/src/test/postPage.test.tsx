@@ -735,6 +735,24 @@ describe('product strip (post page header)', () => {
     expect(strip.textContent).toContain('13 followers');
   });
 
+  it('says Verified team when the product is claimed through its company hub (0026)', async () => {
+    boardsApi.fetchBoard.mockResolvedValue({
+      ...makeBoard({ claimed_at: null }),
+      hub: { id: 'h1', slug: 'company', name: 'Company', claimed_at: iso(10) },
+    });
+    renderPost(makePost({ title: 'Keyboard shortcut is missing' }));
+    const strip = await screen.findByRole('region', { name: 'Product' });
+    await waitFor(() => expect(strip.textContent).toContain('Verified team'));
+  });
+
+  it('omits 0 followers from the product strip facts', async () => {
+    boardsApi.fetchBoard.mockResolvedValue(makeBoard({ follower_count: 0, post_count: 1 }));
+    renderPost(makePost({ title: 'Keyboard shortcut is missing' }));
+    const strip = await screen.findByRole('region', { name: 'Product' });
+    await waitFor(() => expect(strip.textContent).toContain('1 post'));
+    expect(strip.textContent).not.toContain('follower');
+  });
+
   it('shows the name and logo before the board record lands, never a spinner', async () => {
     boardsApi.fetchBoard.mockReturnValue(new Promise(() => {}));
     renderPost(makePost({ title: 'Keyboard shortcut is missing' }));
