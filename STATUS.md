@@ -27,7 +27,7 @@ _derived from `docs/v2/BUILD.md` checkbox state · one PR per step, see `docs/v2
 - [x] 8. Moderation and people
 - [x] 9. Cutover
 
-- v2 web tests (`web/src/**/*.test.ts(x)`): **52** files, **654** declared cases
+- v2 web tests (`web/src/**/*.test.ts(x)`): **52** files, **657** declared cases
 
 ### Open decisions and risks
 
@@ -97,29 +97,33 @@ _CI steps read from `.github/workflows/ci.yml`; v2 test counts are under v2 buil
 
 <!-- status:live:start — refreshed by `node scripts/status.mjs --live`; may lag until the next scheduled refresh -->
 
-_probed never — run `node scripts/status.mjs --live` · anything that could not be read says `unknown` rather than guessing_
+_probed 2026-11-12T06:00:42Z · anything that could not be read says `unknown` rather than guessing_
 
 ### Production
 
-- https://publisense.app → **unknown** · served entry bundle `unknown`
-- www → unknown
-- production deployment commit: unknown _(`VERCEL_TOKEN` not set)_
+- https://publisense.app → **200** · served entry bundle `/assets/index-CNaExeCy.js`
+- www → 308 → https://publisense.app/
+- production deployment: `85cdcf9` (READY, 2026-11-12T05:23:23.590Z)
 
 ### Data
 
-- table counts: unknown
-- counted as an anonymous visitor only — tables behind RLS read `hidden by RLS`, never 0
-- auth users: unknown _(`SUPABASE_SERVICE_ROLE` not set)_
+- board **32** · hub **21** · post **191** · reply **0** · vote **0** · follow **13** · profile **11** · status_event **0**
+- counted with an authenticated probe; as an anonymous visitor these read: follow = restricted
+- post: **191** total = **191 imported** (no author, sourced elsewhere) + **0 from members**
+- auth users: **11**
+
+> ⚠️ Imported posts carry no author — each one links to the source it came from (`D-011`). Printed so traction is never claimed without the split.
 
 ### Auth surface
 
-- enabled providers: unknown
-- email confirmation: unknown · SMTP sender: `unknown`
-- Google consent screen: unknown
+- enabled providers: **google, email**
+- email confirmation: **required** (mailer_autoconfirm=false) · SMTP sender: `auth@publisense.app`
+- Google consent screen: "to continue to **Publisense**" · terms ✓ · privacy ✓ · support `support@publisense.app` · unverified banner: no
 
 ### Work queue
 
-- open issues/PRs: unknown _(`gh` unavailable or unauthenticated)_
+- open issues: none
+- open PRs: #286 chore: refresh the live status block
 
 <!-- status:live:end -->
 
