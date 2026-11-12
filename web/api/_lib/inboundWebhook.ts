@@ -1,4 +1,4 @@
-export type InboundStatus = 'open' | 'under_review' | 'planned' | 'in_progress' | 'shipped' | 'declined';
+export type InboundStatus = 'open' | 'under_review' | 'planned' | 'in_progress' | 'shipped' | 'closed';
 
 export interface InboundTransition {
   postId: string;
@@ -6,13 +6,14 @@ export interface InboundTransition {
   note: string | null;
 }
 
-const VALID_STATUSES = new Set<InboundStatus>([
+const VALID_STATUSES = new Set<string>([
   'open',
   'under_review',
   'planned',
   'in_progress',
   'shipped',
-  'declined',
+  'closed',
+  'declined', // alias for 'closed'
 ]);
 
 const POST_URL_RE = /\/post\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/gi;
@@ -48,8 +49,9 @@ export function parseInboundWebhook(payload: unknown, githubEvent?: string): Inb
 
   // 1. Direct JSON payload: { post_id, status, note? }
   const directPostId = asString(root.post_id || root.postId);
-  const directStatus = asString(root.status).toLowerCase() as InboundStatus;
-  if (UUID_RE.test(directPostId) && VALID_STATUSES.has(directStatus)) {
+  const rawStatus = asString(root.status).toLowerCase();
+  if (UUID_RE.test(directPostId) && VALID_STATUSES.has(rawStatus)) {
+    const directStatus: InboundStatus = rawStatus === 'declined' ? 'closed' : (rawStatus as InboundStatus);
     const note = asString(root.note) || null;
     return [{ postId: directPostId.toLowerCase(), to: directStatus, note }];
   }
@@ -68,8 +70,8 @@ export function parseInboundWebhook(payload: unknown, githubEvent?: string): Inb
     const stateReason = asString(issue.state_reason).toLowerCase();
 
     if (action === 'closed') {
-      const to: InboundStatus = stateReason === 'not_planned' ? 'declined' : 'shipped';
-      const note = to === 'declined' ? `Closed as not planned in ${ref}` : `Resolved in ${ref}`;
+      const to: InboundStatus = stateReason === 'not_planned' ? 'closed' : 'shipped';
+      const note = to === 'closed' ? `Closed as not planned in ${ref}` : `Resolved in ${ref}`;
       return ids.map((postId) => ({ postId, to, note }));
     }
     if (action === 'reopened') {
@@ -104,7 +106,7 @@ export function parseInboundWebhook(payload: unknown, githubEvent?: string): Inb
     let to: InboundStatus | null = null;
     if (stateType === 'completed') to = 'shipped';
     else if (stateType === 'started') to = 'in_progress';
-    else if (stateType === 'canceled') to = 'declined';
+    else if (stateType === 'canceled') to = 'closed';
     else if (stateType === 'unstarted' && stateName.toLowerCase().includes('plan')) to = 'planned';
 
     if (!to) return [];
@@ -113,7 +115,7 @@ export function parseInboundWebhook(payload: unknown, githubEvent?: string): Inb
         ? `Completed in ${identifier}`
         : to === 'in_progress'
           ? `Started in ${identifier}`
-          : to === 'declined'
+          : to === 'closed'
             ? `Canceled in ${identifier}`
             : `Planned in ${identifier}`;
     return ids.map((postId) => ({ postId, to, note: label }));

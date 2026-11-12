@@ -62,7 +62,8 @@ describe('inboundWebhook parser & handler (0065)', () => {
       },
       'issues',
     );
-    expect(notPlanned).toEqual([{ postId: POST_A, to: 'declined', note: 'Closed as not planned in getcursor/cursor#43' }]);
+    // Must map to valid DB status 'closed', not non-existent 'declined'
+    expect(notPlanned).toEqual([{ postId: POST_A, to: 'closed', note: 'Closed as not planned in getcursor/cursor#43' }]);
 
     const prMerged = parseInboundWebhook(
       {
@@ -97,6 +98,34 @@ describe('inboundWebhook parser & handler (0065)', () => {
       },
     });
     expect(completed).toEqual([{ postId: POST_A, to: 'shipped', note: 'Completed in ENG-108' }]);
+
+    const canceled = parseInboundWebhook({
+      type: 'Issue',
+      action: 'update',
+      data: {
+        identifier: 'ENG-108',
+        description: `**Publisense:** [Dark mode](https://publisense.app/post/${POST_A})`,
+        state: { type: 'canceled', name: 'Canceled' },
+      },
+    });
+    // Must map to valid DB status 'closed', not non-existent 'declined'
+    expect(canceled).toEqual([{ postId: POST_A, to: 'closed', note: 'Canceled in ENG-108' }]);
+  });
+
+  it('accepts direct JSON payloads with valid DB status closed and aliases declined to closed', () => {
+    const directClosed = parseInboundWebhook({
+      post_id: POST_A,
+      status: 'closed',
+      note: 'Wont do',
+    });
+    expect(directClosed).toEqual([{ postId: POST_A, to: 'closed', note: 'Wont do' }]);
+
+    const directDeclined = parseInboundWebhook({
+      post_id: POST_B,
+      status: 'declined',
+      note: 'Declined feature',
+    });
+    expect(directDeclined).toEqual([{ postId: POST_B, to: 'closed', note: 'Declined feature' }]);
   });
 
   it('calls apply_inbound_webhook RPC on POST /api/webhook?token=...', async () => {
@@ -136,4 +165,69 @@ describe('inboundWebhook parser & handler (0065)', () => {
       }),
     );
   });
+
+  it('returns upstream_error when all transition RPC calls fail with 5xx/4xx', async () => {
+    process.env.VITE_SUPABASE_URL = 'https://example.supabase.co';
+    process.env.VITE_SUPABASE_ANON_KEY = 'anon-key';
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response('Internal Server Error', { status: 500 }),
+    );
+
+    const res = makeRes();
+    await handler(
+      {
+        method: 'POST',
+        headers: { 'x-github-event': 'issues' },
+        query: { token: TOKEN },
+        body: {
+          action: 'closed',
+          repository: { full_name: 'getcursor/cursor' },
+          issue: { number: 12, state_reason: 'completed', body: `https://publisense.app/post/${POST_A}` },
+        },
+      },
+      res,
+    );
+
+    expect(res.statusCode).toBe(502);
+    expect(JSON.parse(res.body)).toEqual({ ok: false, error: 'upstream_error' });
+  });
+
+  it('dispatches multiple transitions concurrently rather than in serial', async () => {
+    process.env.VITE_SUPABASE_URL = 'https://example.supabase.co';
+    process.env.VITE_SUPABASE_ANON_KEY = 'anon-key';
+
+    let activeConcurrent = 0;
+    let maxConcurrent = 0;
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+      activeConcurrent++;
+      if (activeConcurrent > maxConcurrent) maxConcurrent = activeConcurrent;
+      await new Promise((r) => setTimeout(r, 20));
+      activeConcurrent--;
+      return new Response(JSON.stringify({ ok: true, changed: true }), { status: 200 });
+    });
+
+    const res = makeRes();
+    await handler(
+      {
+        method: 'POST',
+        headers: { 'x-github-event': 'issues' },
+        query: { token: TOKEN },
+        body: {
+          action: 'closed',
+          repository: { full_name: 'getcursor/cursor' },
+          issue: {
+            number: 12,
+            state_reason: 'completed',
+            body: `https://publisense.app/post/${POST_A} https://publisense.app/post/${POST_B}`,
+          },
+        },
+      },
+      res,
+    );
+
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toEqual({ ok: true, matched: 2, updated: 2 });
+    expect(maxConcurrent).toBeGreaterThan(1);
+  });
 });
+

@@ -68,9 +68,9 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     return;
   }
 
-  let updated = 0;
-  for (const t of transitions.slice(0, 10)) {
-    try {
+  const targets = transitions.slice(0, 10);
+  const results = await Promise.allSettled(
+    targets.map(async (t) => {
       const r = await fetch(`${base}/rest/v1/rpc/apply_inbound_webhook`, {
         method: 'POST',
         headers: {
@@ -86,18 +86,40 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         }),
         signal: AbortSignal.timeout(5000),
       });
-      if (r.ok) {
-        const resJson = (await r.json()) as { ok?: boolean; changed?: boolean; error?: string };
-        if (resJson.error === 'invalid_token') {
-          res.status(401);
-          res.send(JSON.stringify({ ok: false, error: 'invalid_token' }));
-          return;
-        }
-        if (resJson.changed) updated++;
+      if (!r.ok) {
+        throw new Error(`upstream_${r.status}`);
       }
-    } catch {
-      // Continue processing remaining transitions
+      return (await r.json()) as { ok?: boolean; changed?: boolean; error?: string };
+    }),
+  );
+
+  let hasInvalidToken = false;
+  let fulfilledCount = 0;
+  let updated = 0;
+
+  for (const resItem of results) {
+    if (resItem.status === 'fulfilled') {
+      fulfilledCount++;
+      const val = resItem.value;
+      if (val.error === 'invalid_token') {
+        hasInvalidToken = true;
+      }
+      if (val.changed) {
+        updated++;
+      }
     }
+  }
+
+  if (hasInvalidToken) {
+    res.status(401);
+    res.send(JSON.stringify({ ok: false, error: 'invalid_token' }));
+    return;
+  }
+
+  if (targets.length > 0 && fulfilledCount === 0) {
+    res.status(502);
+    res.send(JSON.stringify({ ok: false, error: 'upstream_error' }));
+    return;
   }
 
   res.status(200);
