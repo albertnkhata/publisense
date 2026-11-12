@@ -4,7 +4,7 @@ import { Route, Routes } from 'react-router';
 import type { QueryClient } from '@tanstack/react-query';
 import { rememberSearch } from '../api/boards';
 import { boardKeys } from '../api';
-import { purgeUserQueryCache } from '../lib/viewer';
+import { purgeUserQueryCache, useViewer } from '../lib/viewer';
 import type { FeedPage, Post } from '../api/posts';
 import { BoardPage } from '../pages/BoardPage';
 import { ExplorePage } from '../pages/ExplorePage';
@@ -64,6 +64,11 @@ function renderAt(path: string, signedIn = false, client?: QueryClient) {
     </ComposerProvider>,
     { viewer: signedIn ? TEST_VIEWER : null, path, client },
   );
+}
+
+function TestSignOutButton() {
+  const { signOut } = useViewer();
+  return <button type="button" onClick={() => void signOut()}>Test sign out</button>;
 }
 
 beforeEach(() => {
@@ -325,6 +330,48 @@ describe('board page', () => {
     // Guest view must immediately show Board not found, never cached private metadata:
     expect(await screen.findByRole('heading', { level: 1, name: 'Board not found' })).toBeTruthy();
     expect(screen.queryByText('Pending Product')).toBeNull();
+  });
+
+  it('finishes the guest lookup after logout purges the cache again while the page stays mounted', async () => {
+    const PRIVATE_BOARD = {
+      ...CURSOR,
+      slug: 'rejected-private-product',
+      name: 'Rejected private product',
+      status: 'rejected' as const,
+      created_by: TEST_VIEWER.id,
+    };
+    let resolveGuest!: (board: null) => void;
+    const guestLookup = new Promise<null>((resolve) => {
+      resolveGuest = resolve;
+    });
+    boardsApi.fetchBoard.mockResolvedValueOnce(PRIVATE_BOARD).mockImplementation(() => guestLookup);
+    const { client } = renderWith(
+      <ComposerProvider>
+        <ClaimProvider>
+          <TestSignOutButton />
+          <Routes>
+            <Route path="/b/:board" element={<BoardPage />} />
+          </Routes>
+        </ClaimProvider>
+      </ComposerProvider>,
+      { viewer: TEST_VIEWER, path: '/b/rejected-private-product' },
+    );
+
+    expect(await screen.findByRole('heading', { level: 1, name: /^Rejected private product/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Test sign out' }));
+    await waitFor(() => expect(boardsApi.fetchBoard.mock.calls.length).toBeGreaterThan(1));
+    expect(screen.getByRole('heading', { level: 1, name: 'Loading board' })).toBeTruthy();
+
+    // Session identity changes can trigger a second purge while the guest request is in flight.
+    act(() => purgeUserQueryCache(client));
+    expect(screen.getByRole('heading', { level: 1, name: 'Loading board' })).toBeTruthy();
+    await act(async () => {
+      resolveGuest(null);
+      await guestLookup;
+    });
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Board not found' })).toBeTruthy();
+    expect(screen.queryByText('Rejected private product')).toBeNull();
   });
 
   it('scopes board cache query key by viewer identity (BUG-002)', () => {
