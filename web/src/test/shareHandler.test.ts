@@ -2,14 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import handler from '../../api/share';
 
 /* The crawler-only link-preview function: real meta for a page that exists, a real 404 for one that doesn't. */
-function call(kind: string, key: string) {
+function call(kind: string, key: string, headers: Record<string, string> = { host: 'publisense.app' }) {
   const out = { status: 0, body: '', headers: {} as Record<string, string> };
   const res = {
     status(code: number) { out.status = code; return res; },
     setHeader(k: string, v: string) { out.headers[k] = v; },
     send(body: string) { out.body = body; },
   };
-  return handler({ query: { kind, key }, headers: { host: 'publisense.app' } }, res).then(() => out);
+  return handler({ query: { kind, key }, headers }, res).then(() => out);
 }
 
 const INDEX = '<html><head><title>Publisense</title></head><body></body></html>';
@@ -119,3 +119,29 @@ describe('share_unfurl logging (0054)', () => {
     expect(rpcBodies()).toHaveLength(0);
   });
 });
+
+describe('host header validation & SSRF prevention', () => {
+  it('rejects untrusted x-forwarded-host and falls back to SITE', async () => {
+    mockFetch([{ slug: 'cursor', name: 'Cursor', tagline: 'AI code editor' }]);
+    await call('board', 'cursor', { 'x-forwarded-host': 'evil.com', host: 'publisense.app' });
+    const fetchedUrls = vi.mocked(fetch).mock.calls.map(([u]) => String(u));
+    expect(fetchedUrls.some((u) => u.startsWith('https://evil.com'))).toBe(false);
+    expect(fetchedUrls.some((u) => u === 'https://publisense.app/index.html')).toBe(true);
+  });
+
+  it('rejects private/cloud metadata IPs in host header and falls back to SITE', async () => {
+    mockFetch([{ slug: 'cursor', name: 'Cursor', tagline: 'AI code editor' }]);
+    await call('board', 'cursor', { host: '169.254.169.254' });
+    const fetchedUrls = vi.mocked(fetch).mock.calls.map(([u]) => String(u));
+    expect(fetchedUrls.some((u) => u.includes('169.254.169.254'))).toBe(false);
+    expect(fetchedUrls.some((u) => u === 'https://publisense.app/index.html')).toBe(true);
+  });
+
+  it('allows trusted Vercel preview and localhost hosts', async () => {
+    mockFetch([{ slug: 'cursor', name: 'Cursor', tagline: 'AI code editor' }]);
+    await call('board', 'cursor', { host: 'preview-branch.vercel.app' });
+    const fetchedUrls = vi.mocked(fetch).mock.calls.map(([u]) => String(u));
+    expect(fetchedUrls.some((u) => u === 'https://preview-branch.vercel.app/index.html')).toBe(true);
+  });
+});
+

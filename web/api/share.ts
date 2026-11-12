@@ -69,9 +69,22 @@ export async function recordUnfurl(base: string, anon: string, path: string): Pr
   }
 }
 
+const TRUSTED_HOST_RE =
+  /^(?:publisense\.app|(?:[a-z0-9-]+\.)*publisense\.app|(?:[a-z0-9-]+\.)*vercel\.app|localhost(?::\d+)?|127\.0\.0\.1(?::\d+)?)$/i;
+
+/** Validate host header against trusted domains to prevent SSRF and response poisoning. */
+export function safeOrigin(host: string | null | undefined): string {
+  const h = (host ?? '').trim();
+  if (h && TRUSTED_HOST_RE.test(h)) {
+    const proto = /^(?:localhost|127\.0\.0\.1)(?::\d+)?$/i.test(h) ? 'http' : 'https';
+    return `${proto}://${h}`;
+  }
+  return SITE;
+}
+
 export default async function handler(req: Req, res: Res): Promise<void> {
   const host = one(req.headers['x-forwarded-host']) || one(req.headers.host);
-  const origin = host ? `https://${host}` : SITE;
+  const origin = safeOrigin(host);
   let html = '';
   let missing = false;
   try {
