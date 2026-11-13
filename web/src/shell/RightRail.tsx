@@ -4,6 +4,7 @@ import { BoardAvatar, Card, SkeletonBlock } from '../ui';
 import { useClaim } from '../claim/ClaimDialog';
 import { LegalLinks } from './LegalLinks';
 import { SearchWell } from './SearchWell';
+import { trendingTitle } from '../lib/trendingCopy';
 
 /**
  * Right rail above lg: search, the boards cards and the claim line.
@@ -72,7 +73,8 @@ export function ClaimLine() {
   );
 }
 
-export const RAIL = { trending: 'Trending this week', recent: 'Recently added', empty: 'Boards', emptyText: 'Boards with new posts this week will show here.' };
+// The activity card's heading is trendingTitle(count): one or two rows are not a ranking.
+export const RAIL = { recent: 'Recently added', empty: 'Boards', emptyText: 'Boards with new posts this week will show here.' };
 
 function RailHeading({ children }: { children: string }) {
   return <h2 className="mt-0 mb-3 text-sm font-bold text-ink">{children}</h2>;
@@ -118,9 +120,9 @@ export function RailBoards() {
     <>
       {hot.length ? (
         <Card padding="md">
-          <RailHeading>{RAIL.trending}</RailHeading>
+          <RailHeading>{trendingTitle(hot.length)}</RailHeading>
           <RailList
-            label="Trending boards"
+            label="Boards with new posts this week"
             boards={hot}
             meta={(b) => {
               const n = (b as Board & { recent: number }).recent;

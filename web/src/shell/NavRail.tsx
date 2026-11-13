@@ -270,12 +270,14 @@ function NavRow({
 }) {
   const tip = count > 0 ? `${label} · ${count} new` : tipSuffix ? `${label} · ${tipSuffix}` : label;
   return (
-    <Tooltip content={tip} side="right" disabled={!collapsed}>
+    // Collapsed, this tip is the row's only visible label, so it opens with no delay; the
+    // accessible name is explicit at every width rather than relying on the hidden text.
+    <Tooltip content={tip} side="right" disabled={!collapsed} delay={0}>
       <NavLink
         to={to}
         end={end}
         onClick={onClick}
-        aria-label={count > 0 ? `${label}, ${count} new` : undefined}
+        aria-label={count > 0 ? `${label}, ${count} new` : label}
         className={({ isActive }) => {
           const isRowActive = active !== undefined ? active : isActive;
           return cx(

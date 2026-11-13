@@ -220,7 +220,9 @@ export function PostRow({ post }: { post: PostSummary }) {
     <Link to={`/post/${post.id}`} className={rowLink}>
       <BoardAvatar name={b?.name ?? '?'} color={b?.color} logoSrc={logoSrc(b)} size="sm" decorative />
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="text-base font-semibold">{post.title}</span>
+        {/* Long titles/tokens must break inside the row: with no wrap rule the
+            title can run past the vote count and be cut at the card edge. */}
+        <span className="text-base font-semibold wrap-anywhere">{post.title}</span>
         <span className="text-sm text-ink-muted">
           {b?.name ?? 'Unknown board'} · {TYPE_META[post.type].label} · {shortAge(post.created_at)}
         </span>
@@ -256,7 +258,10 @@ export function BoardCard({ board, now = new Date() }: { board: Board; now?: Dat
           >
             {board.name}
           </Link>
-          <span className="truncate text-sm text-ink-muted">{board.tagline}</span>
+          {/* Two lines, not one: the board page shows the tagline in full, and a one-line cut hid
+              the second half of most of them (median 35 characters). Only very long marketing
+              copy still clamps, so cards in a row keep a common height. */}
+          <span className="line-clamp-2 text-sm text-ink-muted wrap-anywhere">{board.tagline}</span>
         </span>
         <FollowScopeButton target="board" id={board.id} name={board.name} size="sm" className="relative z-1" />
       </div>
@@ -285,15 +290,29 @@ export function BoardCard({ board, now = new Date() }: { board: Board; now?: Dat
   );
 }
 
-/** Section with the mockup's heading row (title left, note right). */
-export function Section({ title, note, children, id }: { title: string; note?: ReactNode; children: ReactNode; id: string }) {
+/** Section with the mockup's heading row (title left, note/action right). */
+export function Section({
+  title,
+  note,
+  action,
+  children,
+  id,
+}: {
+  title: string;
+  note?: ReactNode;
+  action?: ReactNode;
+  children: ReactNode;
+  id: string;
+}) {
   return (
     <section aria-labelledby={id} className="mb-6">
       <div className="mb-3 flex items-baseline justify-between gap-3">
         <h2 id={id} className="m-0 text-md font-semibold text-ink">
           {title}
         </h2>
-        {note ? <span className="text-sm text-ink-muted">{note}</span> : null}
+        {/* max-sm: descriptive notes yield on phones so they don't crowd headings or sit under the floating button. */}
+        {note ? <span className="text-sm text-ink-muted max-sm:hidden">{note}</span> : null}
+        {action ? <div className="text-sm text-ink-muted">{action}</div> : null}
       </div>
       {children}
     </section>

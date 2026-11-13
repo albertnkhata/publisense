@@ -13,12 +13,14 @@ export interface TooltipProps {
   side?: 'right' | 'top' | 'bottom';
   /** Render nothing (e.g. nav labels are visible, so no tip is needed). */
   disabled?: boolean;
+  /** Milliseconds before a pointer shows the tip. 0 where the tip is the only visible label. */
+  delay?: number;
   children: ReactElement<Record<string, unknown>>;
 }
 
 const GAP = 8;
 
-export function Tooltip({ content, kbd, side = 'top', disabled, children }: TooltipProps) {
+export function Tooltip({ content, kbd, side = 'top', disabled, delay = 250, children }: TooltipProps) {
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const id = useId();
   const timer = useRef<number | undefined>(undefined);
@@ -44,7 +46,7 @@ export function Tooltip({ content, kbd, side = 'top', disabled, children }: Tool
     'aria-describedby': pos ? id : undefined,
     onPointerEnter: (e: { currentTarget: HTMLElement }) => {
       childProps.onPointerEnter?.(e);
-      show(e.currentTarget, 250);
+      show(e.currentTarget, delay);
     },
     onPointerLeave: (e: unknown) => {
       childProps.onPointerLeave?.(e);
