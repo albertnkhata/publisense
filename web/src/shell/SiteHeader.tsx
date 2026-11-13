@@ -21,8 +21,8 @@ export function SiteHeader() {
   const { openAuth } = useAuthDialog();
 
   return (
-    <header className="sticky top-0 z-20 border-b border-line bg-glass backdrop-blur-md">
-      <div className="flex h-9 w-full items-center gap-6 px-7 max-sm:gap-3 max-sm:px-3">
+    <header className="sticky top-0 z-20 border-b border-line bg-glass px-7 backdrop-blur-md max-sm:px-3">
+      <div className="mx-auto flex h-9 w-full max-w-content items-center gap-6 max-sm:gap-3">
         <Link to="/" aria-label="Publisense home" className="flex items-center gap-2 text-md font-bold text-ink no-underline">
           <BrandSymbol />
           <span className="max-sm:hidden">Publisense</span>
@@ -49,7 +49,7 @@ export function SiteHeader() {
               <Icon name="chevron-right" size={14} strokeWidth={2} />
             </Link>
           ) : ready ? (
-            <Button size="sm" onClick={() => openAuth('signin')}>
+            <Button size="sm" variant="secondary" onClick={() => openAuth('signin')}>
               Sign in
             </Button>
           ) : null}
@@ -62,8 +62,8 @@ export function SiteHeader() {
 /** The site frame's footer: navigation links above the centered © line. */
 export function SiteFooter() {
   return (
-    <footer aria-label="Site footer" className="border-t border-line">
-      <div className="mx-auto flex w-full max-w-wide flex-col items-center gap-2 px-7 py-5 max-sm:px-3">
+    <footer aria-label="Site footer" className="border-t border-line px-7 max-sm:px-3">
+      <div className="mx-auto flex w-full max-w-content flex-col items-center gap-2 py-5">
         <nav aria-label="Footer links" className="flex flex-wrap justify-center gap-x-5 gap-y-1">
           <Link to="/about" className="text-xs text-ink-muted no-underline hover:text-ink">
             About

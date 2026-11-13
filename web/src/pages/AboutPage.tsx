@@ -80,22 +80,24 @@ export function AboutPage() {
         </p>
       </Card>
 
-      <section aria-labelledby="about-how">
-        <h2 id="about-how" className="mt-0 mb-3 text-lg font-semibold text-ink">
+      <Card>
+        <h2 id="about-how" className="mt-0 mb-4 text-lg font-semibold text-ink">
           How it works
         </h2>
-        <div className="grid grid-cols-3 gap-3 max-md:grid-cols-1">
+        <div className="flex flex-col gap-4 divide-y divide-line">
           {STEPS.map((step) => (
-            <Card key={step.title} padding="md" className="flex flex-col gap-2">
-              <span className="inline-grid size-8 place-items-center rounded-sm bg-subtle text-brand">
+            <div key={step.title} className="flex items-start gap-4 pt-4 first:pt-0">
+              <span className="inline-grid size-8 shrink-0 place-items-center rounded-sm border border-line bg-subtle text-brand">
                 <Icon name={step.icon} size={18} strokeWidth={1.8} />
               </span>
-              <h3 className="m-0 text-md font-semibold text-ink">{step.title}</h3>
-              <p className="m-0 text-sm text-ink-secondary">{step.body}</p>
-            </Card>
+              <div className="min-w-0 flex-1">
+                <h3 className="mt-0 mb-1 text-base font-semibold text-ink">{step.title}</h3>
+                <p className="m-0 text-base text-ink-secondary">{step.body}</p>
+              </div>
+            </div>
           ))}
         </div>
-      </section>
+      </Card>
 
       <Card>
         <h2 className="mt-0 mb-4 text-lg font-semibold text-ink">Built in the open</h2>
