@@ -35,10 +35,11 @@ import {
   type Scope,
 } from '../api';
 import { useQueryClient } from '@tanstack/react-query';
+import { cx } from '../lib/cx';
 import { copyText } from '../lib/share';
 import { useViewer } from '../lib/viewer';
 import { useAuthDialog } from '../shell/auth';
-import { BoardAvatar, Button, Dialog, Field, HubAvatar, Icon, Input, Textarea, useToast } from '../ui';
+import { BoardAvatar, Button, Dialog, EmptyState, Field, HubAvatar, Icon, Input, Spinner, Textarea, useToast } from '../ui';
 
 const RESEND_CODE_COOLDOWN_MS = 60_000;
 
@@ -594,49 +595,68 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
       <Button onClick={() => setStep('pick')} block>Get started</Button>
     );
   } else if (boards.isError || hubs.isError) {
-    body = <p role="alert" className="m-0 text-sm text-danger">We couldn’t load the boards. Try again.</p>;
+    body = (
+      <div role="alert" className="flex items-start gap-3 rounded-md border border-line bg-subtle px-4 py-3 text-sm text-danger">
+        <Icon name="flag" size={16} className="mt-1 shrink-0" />
+        <p className="m-0">We couldn’t load the boards. Check your connection and try again.</p>
+      </div>
+    );
     footer = <Button onClick={() => { void boards.refetch(); void hubs.refetch(); }}>Try again</Button>;
   } else if (!boards.data || !hubs.data || (step !== 'pick' && !target)) {
-    body = <p className="m-0 py-6 text-center text-sm text-ink-muted">Loading…</p>;
+    body = (
+      <div role="status" aria-label="Loading boards" className="flex flex-col items-center gap-2 py-8 text-sm text-ink-muted">
+        <Spinner />
+        <span>Loading boards…</span>
+      </div>
+    );
   } else if (step === 'pick') {
     const q = query.trim().toLowerCase();
     const list = boards.data.filter((b) => isPostable(b, viewerId) && (!q || b.name.toLowerCase().includes(q)));
     body = (
       <>
+        <StepProgress step={step} purpose={purpose} />
         <p ref={(el) => { stepHeading.current = el; }} tabIndex={-1} className="mt-0 mb-3 text-sm text-ink-secondary outline-none">Find your product to see its verification options. Choosing a board does not claim it.</p>
         <Input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Enter product name" aria-label="Product" autoComplete="off" />
-        <ul className="m-0 mt-3 flex list-none flex-col p-0" aria-label="Products">
-          {list.map((b) => {
-            const taken = isClaimed(b, hubs.data);
-            const d = siteDomain(b.site);
-            return (
-              <li key={b.id}>
-                <button
-                  type="button"
-                  onClick={() => { recordEvent('claim_board_picked', { boardId: b.id }); enter(boardTarget(b, hubs.data)); }}
-                  className="flex w-full items-center gap-3 rounded-md border-0 bg-transparent px-2 py-2 text-left text-ink hover:bg-subtle"
-                >
-                  <BoardAvatar name={b.name} color={b.color} logoSrc={logoSrc(b)} size="sm" decorative />
-                  <span className="flex min-w-0 flex-col">
-                    <span className="truncate text-base font-semibold">{b.name}</span>
-                    <span className="truncate text-sm text-ink-muted">
-                      {taken ? (
-                        <>
-                          <b className="font-semibold text-ink-secondary">Claimed</b> · verified team
-                        </>
-                      ) : d && pendingDns.data?.includes(d) ? (
-                        'Claim pending'
-                      ) : (
-                        (b.site ?? '')
-                      )}
+        {list.length > 0 ? (
+          <ul className="m-0 mt-3 flex max-h-list list-none flex-col divide-y divide-line overflow-y-auto rounded-md border border-line bg-card p-0" aria-label="Products">
+            {list.map((b) => {
+              const taken = isClaimed(b, hubs.data);
+              const d = siteDomain(b.site);
+              return (
+                <li key={b.id}>
+                  <button
+                    type="button"
+                    onClick={() => { recordEvent('claim_board_picked', { boardId: b.id }); enter(boardTarget(b, hubs.data)); }}
+                    className="flex w-full items-center gap-3 border-0 bg-transparent px-3 py-2 text-left text-ink transition-colors duration-120 hover:bg-subtle"
+                  >
+                    <BoardAvatar name={b.name} color={b.color} logoSrc={logoSrc(b)} size="sm" decorative />
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate text-base font-semibold">{b.name}</span>
+                      <span className="truncate text-sm text-ink-muted">
+                        {taken ? (
+                          <>
+                            <b className="font-semibold text-ink-secondary">Claimed</b> · verified team
+                          </>
+                        ) : d && pendingDns.data?.includes(d) ? (
+                          'Claim pending'
+                        ) : (
+                          (b.site ?? '')
+                        )}
+                      </span>
                     </span>
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-          {list.length === 0 ? <li className="px-2 py-3 text-sm text-ink-muted">No board for that product yet. Anyone can start one by posting about it.</li> : null}
-        </ul>
+                    <Icon name="chevron-right" size={14} className="shrink-0 text-ink-muted" />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <div className="mt-3 rounded-md border border-line bg-card">
+            <EmptyState icon="search" title="No board for that product yet">
+              Anyone can start one by posting about it.
+            </EmptyState>
+          </div>
+        )}
       </>
     );
     footer = <Button variant="secondary" onClick={() => { setTarget(null); setStep('welcome'); }}>Back to overview</Button>;
@@ -645,6 +665,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
     const offersHub = target.scope === 'board' && target.hub && !target.hub.claimed_at && onHubDomain(target.hub, target.domain);
     body = (
       <form ref={(el) => { stepHeading.current = el; }} tabIndex={-1} className="outline-none" id="claim-form" onSubmit={submit(() => (isVerified ? void run(() => finish(target, 'claim')) : void sendCode('claim')))}>
+        <StepProgress step={step} purpose={purpose} />
         {head}
         <ul className="m-0 mb-4 flex list-none flex-col gap-2 p-0 text-base text-ink">
           <Perk>Get a verified badge on your board and your team’s replies</Perk>
@@ -712,6 +733,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
   } else if (target && step === 'code') {
     body = (
       <form id="claim-form" onSubmit={submit(() => void verify())}>
+        <StepProgress step={step} purpose={purpose} />
         {head}
         <Field
           label="Enter the 6-digit code"
@@ -774,11 +796,16 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
   } else if (target && step === 'dns') {
     body = (
       <>
+        <StepProgress step={step} purpose={purpose} />
         {head}
         <p className="mt-0 mb-3 text-sm text-ink-secondary">
           Add this TXT record to <b className="font-semibold text-ink">{domain}</b>, then check. DNS changes can take a few minutes to show up.
         </p>
         <div className="flex flex-col gap-2 rounded-md border border-line bg-subtle px-3 py-3 text-sm">
+          <div className="flex items-center justify-between border-b border-line pb-2 text-xs font-semibold text-ink-muted uppercase">
+            <span>DNS TXT record</span>
+            <span className="font-mono font-normal normal-case">{domain}</span>
+          </div>
           <RecordRow label="Type">TXT</RecordRow>
           <RecordRow label="Host">@</RecordRow>
           <RecordRow
@@ -795,6 +822,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
                   });
                 }}
               >
+                <Icon name={copied ? 'check' : 'link'} size={13} />
                 {copied ? 'Copied' : 'Copy'}
               </Button>
             }
@@ -803,9 +831,14 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
           </RecordRow>
         </div>
         {error ? (
-          <p role="alert" className="m-0 mt-3 text-sm text-danger">
-            {error}
-          </p>
+          <div role="alert" className="mt-3 flex flex-col gap-2 rounded-md border border-line bg-subtle px-3 py-3 text-sm">
+            <p className="m-0 font-medium text-danger">{error}</p>
+            <ul className="m-0 flex list-disc flex-col gap-1 pl-4 text-xs text-ink-secondary">
+              <li>Set Host to <code className="font-mono text-ink">@</code> (or leave it blank if your DNS provider fills in the root domain).</li>
+              <li>Paste the exact TXT value without adding extra quotes around it.</li>
+              <li>Wait a couple of minutes for DNS propagation, then click Check now again.</li>
+            </ul>
+          </div>
         ) : null}
       </>
     );
@@ -836,6 +869,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
     const h = target.hub;
     body = (
       <>
+        <StepProgress step={step} purpose={purpose} />
         <p className="mt-0 mb-3 text-sm text-ink-secondary">
           {provedHubDomain(h, verified.data)} is verified, so you can take over the {h.name} hub and every product in it in one go. Your team is shared across them.
         </p>
@@ -874,8 +908,10 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
     const names = claimed.names.length ? claimed.names : [target.name];
     const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0];
     const inviteDomain = claimed.hub && target.hub ? provedHubDomain(target.hub, verified.data) : target.domain;
+    const managePath = claimed.hub && target.hub ? `/h/${target.hub.slug}/manage` : target.scope === 'hub' ? `/h/${target.slug}/manage` : `/b/${target.slug}/manage`;
     body = (
       <form id="claim-form" onSubmit={submit(() => void addTeammates())}>
+        <StepProgress step={step} purpose={purpose} />
         <Done title={`You manage ${list} now`}>
           {claimed.hub && claimed.hub !== target.name ? `You also manage the ${claimed.hub} hub. ` : ''}Your replies get the verified badge, and you can set statuses and run the roadmap. Add teammates so they can help.
         </Done>
@@ -890,6 +926,14 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
           Add to team
         </Button>
         <Alt onClick={goToBoard}>Skip for now</Alt>
+        <Alt
+          onClick={() => {
+            onClose();
+            void navigate(managePath);
+          }}
+        >
+          Open dashboard
+        </Alt>
       </Actions>
     );
   } else if (target && step === 'taken') {
@@ -1132,5 +1176,39 @@ function Done({ title, children }: { title: string; children: ReactNode }) {
       <h3 className="m-0 mb-1 text-md font-semibold text-ink">{title}</h3>
       <p className="m-0 text-sm text-ink-secondary">{children}</p>
     </div>
+  );
+}
+
+const CLAIM_STEPS = ['Product', 'Verify', 'Team'] as const;
+
+function StepProgress({ step, purpose }: { step: Step; purpose: Purpose }) {
+  if (purpose !== 'claim') return null;
+  const active = step === 'pick' ? 0 : step === 'done' ? 2 : 1;
+  return (
+    <nav aria-label="Claim steps" className="mb-4 rounded-md border border-line bg-subtle px-3 py-2">
+      <ol className="m-0 flex list-none items-center justify-between gap-2 p-0">
+        {CLAIM_STEPS.map((label, idx) => {
+          const done = idx < active;
+          const current = idx === active;
+          return (
+            <li
+              key={label}
+              aria-current={current ? 'step' : undefined}
+              className={cx('flex items-center gap-2 text-xs font-medium', current ? 'text-ink' : done ? 'text-success' : 'text-ink-muted')}
+            >
+              <span
+                className={cx(
+                  'grid size-5 shrink-0 place-items-center rounded-pill font-mono text-xs font-semibold',
+                  current ? 'bg-ink text-card' : done ? 'bg-card text-success' : 'bg-card text-ink-muted',
+                )}
+              >
+                {done ? <Icon name="check" size={11} strokeWidth={2.5} /> : idx + 1}
+              </span>
+              <span>{label}</span>
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
   );
 }

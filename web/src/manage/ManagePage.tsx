@@ -31,6 +31,7 @@ import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { badgeSnippets } from '../lib/badge';
 import { HeaderSkeleton, ScopeNotFound, actionLink } from '../pages/BoardPage';
+import { LoadError } from '../posts/PostList';
 import { useAuthDialog } from '../shell/auth';
 import { BoardAvatar, Button, EmptyState, Field, Icon, Input, TabPanel, Tabs, Textarea, useToast } from '../ui';
 import { AddTeammate, BlockedList, canManage, Chips, Inbox, JoinRequests, ReleaseSection, Section, TeamList, Tiles, TYPE_OPTIONS, WebhookSection } from './parts';
@@ -126,13 +127,33 @@ export function BoardManagePage() {
   const query = useBoard(slug, viewer?.id ?? null);
   const board = query.data;
   const role = useScopeRole('board', board?.id, viewer?.id ?? null);
-  usePageTitle(board ? `Manage ${board.name}` : query.isPending ? null : 'Board not found');
+  usePageTitle(board ? `Manage ${board.name}` : query.isPending ? null : query.isError ? 'Manage board' : 'Board not found');
 
   if (query.isPending) return <HeaderSkeleton label="Loading board" />;
+  if (query.isError) {
+    return (
+      <section aria-labelledby="page-title" className="flex flex-col gap-4">
+        <h1 id="page-title" className="sr-only">
+          Manage board
+        </h1>
+        <BackLink to="/explore">All boards</BackLink>
+        <LoadError title="We couldn’t load this board" onRetry={() => void query.refetch()} retrying={query.isRefetching} />
+      </section>
+    );
+  }
   if (!board) return <ScopeNotFound kind="board" />;
   const back = `/b/${board.slug}`;
   if (!viewer) return <SignInGate kind="board" name={board.name} back={back} />;
   if (role.isPending) return <HeaderSkeleton label={`Manage ${board.name}`} />;
+  if (role.isError) {
+    return (
+      <Gate kind="board" name={board.name} back={back}>
+        <div className="p-4">
+          <LoadError title="We couldn’t check your team access" onRetry={() => void role.refetch()} retrying={role.isRefetching} />
+        </div>
+      </Gate>
+    );
+  }
   if (!role.data) return <NotTeamGate kind="board" name={board.name} back={back} slug={board.slug} unclaimed={!board.claimed_at && !board.hub?.claimed_at} />;
   return <BoardManage board={board} role={role.data} />;
 }
@@ -330,14 +351,16 @@ function BoardSettings({ board, owner }: { board: Board; owner: boolean }) {
     );
   };
 
+  const dirty = tagline.trim() !== board.tagline;
+
   return (
     <>
       <Section title="Board profile" note="Shown at the top of your board.">
         <form onSubmit={submit} className="flex flex-col gap-4">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 max-sm:flex-wrap max-sm:items-start">
             <BoardAvatar name={board.name} color={board.color} logoSrc={logoSrc(board)} size="xl" decorative />
-            <div className="flex flex-col gap-2">
-              <div className="flex gap-2">
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button size="sm" variant="secondary" onClick={() => file.current?.click()} loading={logo.isPending}>
                   {board.logo_path ? 'Change logo' : 'Upload logo'}
                 </Button>
@@ -374,10 +397,13 @@ function BoardSettings({ board, owner }: { board: Board; owner: boolean }) {
           <Field label="Website" hint="Locked to the verified domain.">
             <Input value={board.site ?? ''} disabled readOnly />
           </Field>
-          <div>
-            <Button type="submit" variant="secondary" loading={save.isPending} disabled={tagline.trim() === board.tagline}>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="submit" variant="secondary" loading={save.isPending} disabled={!dirty}>
               Save
             </Button>
+            <span className="text-sm text-ink-muted" aria-live="polite">
+              {dirty ? 'Unsaved changes' : save.isSuccess ? 'Saved' : 'Up to date'}
+            </span>
           </div>
         </form>
       </Section>
@@ -396,13 +422,33 @@ export function HubManagePage() {
   const query = useHub(slug);
   const hub = query.data;
   const role = useScopeRole('hub', hub?.id, viewer?.id ?? null);
-  usePageTitle(hub ? `Manage ${hub.name} hub` : query.isPending ? null : 'Hub not found');
+  usePageTitle(hub ? `Manage ${hub.name} hub` : query.isPending ? null : query.isError ? 'Manage hub' : 'Hub not found');
 
   if (query.isPending) return <HeaderSkeleton label="Loading hub" />;
+  if (query.isError) {
+    return (
+      <section aria-labelledby="page-title" className="flex flex-col gap-4">
+        <h1 id="page-title" className="sr-only">
+          Manage hub
+        </h1>
+        <BackLink to="/explore">All boards</BackLink>
+        <LoadError title="We couldn’t load this hub" onRetry={() => void query.refetch()} retrying={query.isRefetching} />
+      </section>
+    );
+  }
   if (!hub) return <ScopeNotFound kind="hub" />;
   const back = `/h/${hub.slug}`;
   if (!viewer) return <SignInGate kind="hub" name={hub.name} back={back} />;
   if (role.isPending) return <HeaderSkeleton label={`Manage ${hub.name} hub`} />;
+  if (role.isError) {
+    return (
+      <Gate kind="hub" name={hub.name} back={back}>
+        <div className="p-4">
+          <LoadError title="We couldn’t check your team access" onRetry={() => void role.refetch()} retrying={role.isRefetching} />
+        </div>
+      </Gate>
+    );
+  }
   if (!role.data) return <NotTeamGate kind="hub" name={hub.name} back={back} slug={hub.slug} unclaimed={!hub.claimed_at} />;
   return <HubManage hub={hub} role={role.data} />;
 }
@@ -540,6 +586,7 @@ function HubSettings({ hub, owner }: { hub: Hub; owner: boolean }) {
     setError(null);
     save.mutate({ id: hub.id, name, description }, { onSuccess: () => toast('Saved'), onError: (err) => setError(err instanceof Error ? err.message : 'We couldn’t save.') });
   };
+  const dirty = name.trim() !== hub.name || description.trim() !== hub.description;
   return (
     <>
       <Section title="Hub" note="Shown on the public hub page.">
@@ -550,10 +597,13 @@ function HubSettings({ hub, owner }: { hub: Hub; owner: boolean }) {
           <Field label="Description" aside={`${description.length}/${HUB_DESC_MAX}`}>
             <Textarea rows={2} value={description} maxLength={HUB_DESC_MAX} onChange={(e) => setDescription(e.target.value)} />
           </Field>
-          <div>
-            <Button type="submit" variant="secondary" loading={save.isPending} disabled={name.trim() === hub.name && description.trim() === hub.description}>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="submit" variant="secondary" loading={save.isPending} disabled={!dirty}>
               Save
             </Button>
+            <span className="text-sm text-ink-muted" aria-live="polite">
+              {dirty ? 'Unsaved changes' : save.isSuccess ? 'Saved' : 'Up to date'}
+            </span>
           </div>
         </form>
       </Section>
@@ -564,7 +614,7 @@ function HubSettings({ hub, owner }: { hub: Hub; owner: boolean }) {
         >
           <ul className="m-0 flex list-none flex-col gap-2 p-0">
             {hub.domains.map((d) => (
-              <li key={d} className="m-0 flex items-center gap-3 text-base">
+              <li key={d} className="m-0 flex flex-wrap items-center gap-3 text-base">
                 <code className="font-mono text-ink">{d}</code>
                 {covered(verified.data, d) ? (
                   <span className="inline-flex items-center gap-1 text-sm text-success">

@@ -441,4 +441,30 @@ describe('command centre (/admin)', () => {
     expect(externalReferrerHost('https://localhost:3001/b/cursor', 'localhost')).toBeNull();
     expect(externalReferrerHost('not-a-url', 'publisense.app')).toBeNull();
   });
+
+  it('shows a structured loading skeleton for the command centre while pending', async () => {
+    mod.fetchCommandCentre.mockReturnValue(new Promise(() => {}));
+    renderAt('/admin');
+    expect(await screen.findByRole('status', { name: 'Loading command centre' })).toBeTruthy();
+  });
 });
+
+describe('admin queue loading, recovery & empty states', () => {
+  it('shows QueueSkeleton while reports are pending and recovers from LoadError on retry', async () => {
+    let resolveReports!: (v: ReportGroup[]) => void;
+    mod.fetchReportQueue.mockReturnValueOnce(new Promise((r) => { resolveReports = r; }));
+    renderAt('/admin/reports');
+    expect(await screen.findByRole('status', { name: 'Loading reports' })).toBeTruthy();
+    resolveReports([GROUP]);
+    expect(await screen.findByText('Buy followers cheap')).toBeTruthy();
+  });
+
+  it('offers LoadError retry recovery and renders framed EmptyQueue when clear', async () => {
+    mod.fetchReportQueue.mockRejectedValueOnce(new Error('network error')).mockResolvedValue([]);
+    renderAt('/admin/reports');
+    expect(await screen.findByText('We couldn’t load the reports')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByText('No reports waiting')).toBeTruthy();
+  });
+});
+

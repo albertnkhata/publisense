@@ -21,7 +21,7 @@ import { parseLink } from '../lib/link';
 import { useViewer } from '../lib/viewer';
 import { useAuthDialog } from '../shell/auth';
 import { useComposer } from '../shell/composer';
-import { BoardAvatar, Button, Dialog, Field, Icon, Input, useToast } from '../ui';
+import { BoardAvatar, Button, Dialog, Field, Icon, Input, Spinner, useToast } from '../ui';
 import { useDebounced } from '../lib/useDebounced';
 
 /**
@@ -247,12 +247,22 @@ function AddProductDialog({ opts, onClose }: { opts: AddProductOptions; onClose:
           <>
             <div className="flex items-center gap-3">
               <BoardAvatar name={name.trim() || '?'} color={null} logoSrc={icon} size="xl" decorative />
-              <p className="m-0 text-sm text-ink-muted" aria-live="polite">
-                {parsed && preview.isFetching
-                  ? 'Looking up the product…'
-                  : icon
-                    ? 'Logo from the product’s site. Its team can change it after claiming the board.'
-                    : 'Its first letter stands in until the team adds a logo.'}
+              <p className="m-0 flex items-center gap-2 text-sm text-ink-muted" aria-live="polite">
+                {checking ? (
+                  <>
+                    <Spinner />
+                    <span>Checking if it’s already here…</span>
+                  </>
+                ) : parsed && preview.isFetching ? (
+                  <>
+                    <Spinner />
+                    <span>Looking up the product…</span>
+                  </>
+                ) : icon ? (
+                  'Logo from the product’s site. Its team can change it after claiming the board.'
+                ) : (
+                  'Its first letter stands in until the team adds a logo.'
+                )}
               </p>
             </div>
 

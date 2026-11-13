@@ -222,10 +222,41 @@ export function AdminOverview() {
 
   if (query.isPending) {
     return (
-      <div className="flex flex-col gap-4">
-        <SkeletonBlock className="h-9 w-full" />
-        <SkeletonBlock className="h-9 w-full" />
-        <SkeletonBlock className="h-9 w-full" />
+      <div role="status" aria-label="Loading command centre" aria-busy="true" className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <SkeletonBlock className="h-4 w-1/3" />
+          <SkeletonBlock className="h-7 w-10" />
+        </div>
+        <div className="flex gap-6 rounded-md border border-line bg-card px-5 py-4 max-md:flex-col max-md:gap-3 max-sm:p-4">
+          <div className="flex shrink-0 flex-col gap-2">
+            <SkeletonBlock className="h-3 w-9" />
+            <SkeletonBlock className="h-7 w-10" />
+            <SkeletonBlock className="h-3 w-10" />
+          </div>
+          <SkeletonBlock className="h-9 min-w-0 flex-1" />
+        </div>
+        <div className="grid grid-cols-4 gap-3 max-md:grid-cols-2">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="flex flex-col gap-2 rounded-md border border-line bg-card px-4 py-3">
+              <SkeletonBlock className="h-3 w-2/3" />
+              <SkeletonBlock className="h-6 w-1/3" />
+            </div>
+          ))}
+        </div>
+        {[0, 1].map((i) => (
+          <div key={i} className="flex flex-col gap-3 rounded-md border border-line bg-card px-5 py-4 max-sm:p-4">
+            <SkeletonBlock className="h-5 w-1/3" />
+            <SkeletonBlock className="h-3 w-1/2" />
+            <div className="grid grid-cols-4 gap-3 max-md:grid-cols-2">
+              {[0, 1, 2, 3].map((j) => (
+                <div key={j} className="flex flex-col gap-2 rounded-md border border-line bg-subtle px-4 py-3">
+                  <SkeletonBlock className="h-3 w-2/3" />
+                  <SkeletonBlock className="h-5 w-1/2" />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     );
   }
@@ -259,6 +290,12 @@ export function AdminOverview() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-sm text-ink-muted">
           Window: last <strong className="font-mono font-semibold text-ink">{days}</strong> days
+          {d.generated_at ? (
+            <>
+              {' '}
+              · Updated <time dateTime={d.generated_at}>{shortAge(d.generated_at)}</time> ago
+            </>
+          ) : null}
           {queues.pending_joins > 0 ? ` · ${plural(queues.pending_joins, 'team join request')} waiting on boards` : ''}
         </span>
         <div className="flex items-center gap-2">
@@ -490,7 +527,7 @@ export function AdminOverview() {
           ) : (
             <ul className="m-0 flex list-none flex-col p-0" aria-label="Hot unclaimed boards">
               {hot_unclaimed_boards.map((b) => (
-                <li key={b.id} className="flex items-center gap-3 border-t border-line py-2 first:border-t-0">
+                <li key={b.id} className="flex items-center gap-3 border-t border-line py-2 first:border-t-0 max-sm:flex-wrap">
                   <BoardAvatar name={b.name} color={b.color} logoSrc={logoSrc(b)} size="sm" decorative />
                   <div className="flex min-w-0 flex-1 flex-col">
                     <Link to={`/b/${b.slug}`} className="truncate text-sm font-semibold text-ink no-underline hover:underline">
@@ -526,7 +563,7 @@ export function AdminOverview() {
           ) : (
             <ul className="m-0 flex list-none flex-col p-0" aria-label="Unmet search demand">
               {empty_searches.map((row) => (
-                <li key={row.query} className="flex items-center justify-between gap-3 border-t border-line py-2 first:border-t-0">
+                <li key={row.query} className="flex items-center justify-between gap-3 border-t border-line py-2 first:border-t-0 max-sm:flex-wrap">
                   <div className="flex min-w-0 flex-1 flex-col">
                     <strong className="truncate font-mono text-sm font-semibold text-ink">“{row.query}”</strong>
                     <span className="text-xs text-ink-muted">

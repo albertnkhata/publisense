@@ -891,5 +891,66 @@ describe('team management', () => {
     expect(openSpy).toHaveBeenCalledWith(expect.stringContaining('https://linear.app/new?'), '_blank', 'noopener,noreferrer');
     openSpy.mockRestore();
   });
+
+  it('tracks claim step progress, shows DNS troubleshooting tips on error, and offers Open dashboard after claiming', async () => {
+    localStorage.clear();
+    teamsApi.startDnsCheck.mockResolvedValue('publisense-verify=abc123');
+    teamsApi.checkDns.mockRejectedValueOnce(new TeamError('dns_slow', 'We didn’t see the TXT record yet.'));
+    renderGeneric();
+    fireEvent.click(screen.getByRole('button', { name: 'Claim your board' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Get started' }));
+
+    const picker = await screen.findByRole('dialog', { name: 'Choose your board' });
+    const stepsOnPick = within(picker).getByRole('navigation', { name: 'Claim steps' });
+    expect(within(stepsOnPick).getByText('Product').closest('li')?.getAttribute('aria-current')).toBe('step');
+
+    fireEvent.click(within(picker).getByRole('button', { name: /Cursor/ }));
+    const intro = await screen.findByRole('dialog', { name: 'Claim Cursor' });
+    const stepsOnIntro = within(intro).getByRole('navigation', { name: 'Claim steps' });
+    expect(within(stepsOnIntro).getByText('Verify').closest('li')?.getAttribute('aria-current')).toBe('step');
+
+    fireEvent.click(within(intro).getByRole('button', { name: 'No company email? Verify with a DNS record' }));
+    expect(await within(intro).findByText('DNS TXT record')).toBeTruthy();
+    const checkBtn = await within(intro).findByRole('button', { name: 'Check now' });
+    await waitFor(() => expect((checkBtn as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(checkBtn);
+
+    const alert = await within(intro).findByRole('alert');
+    expect(within(alert).getByText('We didn’t see the TXT record yet.')).toBeTruthy();
+    expect(within(alert).getByText(/Paste the exact TXT value/)).toBeTruthy();
+
+    // Switch back to email verification and reach the Team step
+    fireEvent.click(within(intro).getByRole('button', { name: 'Use work email instead' }));
+    fireEvent.change(within(intro).getByLabelText('Your work email'), { target: { value: 'carol@cursor.com' } });
+    fireEvent.click(within(intro).getByRole('button', { name: 'Send code' }));
+    fireEvent.change(await within(intro).findByLabelText('Enter the 6-digit code'), { target: { value: '123456' } });
+
+    const doneDialog = await screen.findByRole('dialog', { name: 'Board claimed' });
+    const stepsOnDone = within(doneDialog).getByRole('navigation', { name: 'Claim steps' });
+    expect(within(stepsOnDone).getByText('Team').closest('li')?.getAttribute('aria-current')).toBe('step');
+    expect(within(doneDialog).getByRole('button', { name: 'Open dashboard' })).toBeTruthy();
+  });
+
+  it('recovers from board fetch failure on BoardManagePage and shows Settings dirty/saved indicator', async () => {
+    boardsApi.fetchBoard.mockRejectedValueOnce(new Error('network down'));
+    teamsApi.fetchScopeRole.mockResolvedValue('owner');
+    teamsApi.updateBoardTagline.mockResolvedValue(undefined);
+
+    renderAt('/b/cursor/manage?tab=settings');
+    expect(await screen.findByText('We couldn’t load this board')).toBeTruthy();
+
+    const updatedBoard = { ...makeBoard({ tagline: 'The AI code editor for teams' }), hub: null };
+    boardsApi.fetchBoard.mockResolvedValueOnce({ ...makeBoard(), hub: null }).mockResolvedValue(updatedBoard);
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+    const desc = await screen.findByLabelText('Description');
+    expect(screen.getByText('Up to date')).toBeTruthy();
+    fireEvent.change(desc, { target: { value: 'The AI code editor for teams' } });
+    expect(screen.getByText('Unsaved changes')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('Saved')).toBeTruthy();
+  });
 });
+
 

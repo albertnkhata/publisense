@@ -44,7 +44,7 @@ import { ConfirmDialog } from '../posts/dialogs';
 import { MergeDialog } from '../posts/MergeDialog';
 import { LoadError } from '../posts/PostList';
 import { StatusDialog, TEAM_STATUSES } from '../posts/StatusDialog';
-import { Button, Dialog, Field, IconButton, Input, Menu, MenuItem, Select, SkeletonBlock, STATUS_META, TYPE_META, UserAvatar, useToast } from '../ui';
+import { Button, Dialog, Field, Icon, IconButton, Input, Menu, MenuItem, Select, SkeletonBlock, STATUS_META, TYPE_META, UserAvatar, useToast } from '../ui';
 
 /*
  * Pieces of the Manage screens (FOUNDATION §5 ManageInbox, TeamPanel): stat
@@ -131,15 +131,34 @@ export function Inbox({
 
   if (list.isPending) {
     return (
-      <div className="flex flex-col gap-2 rounded-md border border-line bg-card p-4" aria-busy="true">
-        <SkeletonBlock className="h-4 w-3/4" />
-        <SkeletonBlock className="h-4 w-2/3" />
-        <SkeletonBlock className="h-4 w-1/2" />
+      <div role="status" aria-label="Loading posts" aria-busy="true" className="divide-y divide-line rounded-md border border-line bg-card">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="flex items-center gap-3 px-4 py-3 max-sm:flex-wrap max-sm:px-3">
+            <SkeletonBlock className="size-8 shrink-0 rounded-sm" />
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <SkeletonBlock className="h-4 w-2/3" />
+              <SkeletonBlock className="h-3 w-1/2" />
+            </div>
+            <div className="flex shrink-0 items-center gap-2 max-sm:w-full max-sm:justify-end">
+              <SkeletonBlock className="h-7 w-9" />
+              <SkeletonBlock className="h-7 w-select max-sm:flex-1" />
+            </div>
+          </div>
+        ))}
       </div>
     );
   }
   if (list.isError && posts.length === 0) return <LoadError title="We couldn’t load the posts" onRetry={() => void list.refetch()} retrying={list.isRefetching} />;
-  if (posts.length === 0) return <div className="rounded-md border border-line bg-card px-4 py-9 text-center text-base text-ink-muted">{empty}</div>;
+  if (posts.length === 0) {
+    return (
+      <div className="flex flex-col items-center rounded-md border border-line bg-card px-4 py-9 text-center text-base text-ink-muted">
+        <span className="mb-3 grid size-9 place-items-center rounded-pill bg-subtle text-ink-muted">
+          <Icon name="check-circle" size={20} strokeWidth={1.8} />
+        </span>
+        {empty}
+      </div>
+    );
+  }
   return (
     <>
       <ul className="m-0 list-none rounded-md border border-line bg-card p-0" aria-label="Posts">
@@ -191,10 +210,11 @@ export function InboxRow({ post, board, site }: { post: Post; board: Board | nul
             <circle cx="3" cy="3" r="3" fill="currentColor" />
           </svg>
           {TYPE_META[post.type].label}
-          {board ? <> · {board.name}</> : null} · {post.author ? `@${post.author.handle}` : post.source_url ? 'Imported' : 'Deleted user'} · {shortAge(post.created_at)} · {plural(post.reply_count, 'reply', 'replies')}
+          {board ? <> · {board.name}</> : null} · {post.author ? `@${post.author.handle}` : post.source_url ? 'Imported' : 'Deleted user'} ·{' '}
+          <time dateTime={post.created_at}>{shortAge(post.created_at)}</time> · {plural(post.reply_count, 'reply', 'replies')}
         </span>
       </Link>
-      <span className="flex shrink-0 items-center gap-2 max-sm:w-full">
+      <span className="flex shrink-0 items-center gap-2 max-sm:w-full max-sm:border-t max-sm:border-line max-sm:pt-2">
         <Menu
           align="end"
           label={`Export ${post.title}`}
@@ -260,7 +280,22 @@ export function TeamList({ scope, scopeId, myRole, scopeName }: { scope: Scope; 
   const { viewer } = useViewer();
   const team = useTeam(scope, scopeId);
   const members = useMemo(() => sortMembers(team.data ?? [], viewer?.id ?? null), [team.data, viewer?.id]);
-  if (team.isPending) return <SkeletonBlock className="h-8 w-full" />;
+  if (team.isPending) {
+    return (
+      <div role="status" aria-label="Loading team" aria-busy="true" className="divide-y divide-line">
+        {[0, 1].map((i) => (
+          <div key={i} className="flex items-center gap-3 py-3">
+            <SkeletonBlock className="size-8 shrink-0 rounded-pill" />
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <SkeletonBlock className="h-4 w-1/3" />
+              <SkeletonBlock className="h-3 w-1/4" />
+            </div>
+            <SkeletonBlock className="h-7 w-select shrink-0" />
+          </div>
+        ))}
+      </div>
+    );
+  }
   if (team.isError) return <LoadError title="We couldn’t load the team" onRetry={() => void team.refetch()} retrying={team.isRefetching} />;
   if (members.length === 0) return <p className="m-0 text-sm text-ink-muted">Nobody here yet.</p>;
   return (
@@ -311,7 +346,7 @@ function MemberRow({ member, myRole }: { member: Member; myRole: Role | null }) 
     );
 
   return (
-    <div className="flex items-center gap-3 py-3">
+    <div className="flex items-center gap-3 py-3 max-sm:flex-wrap">
       <UserAvatar src={avatarSrc(p)} size="md" />
       <span className="flex min-w-0 flex-1 flex-col">
         <b className="truncate text-base font-semibold text-ink">
@@ -321,8 +356,8 @@ function MemberRow({ member, myRole }: { member: Member; myRole: Role | null }) 
         <span className="truncate text-sm text-ink-muted">{p ? `@${p.handle}` : ''}</span>
       </span>
       {editable ? (
-        <>
-          <span className="w-select shrink-0">
+        <span className="flex shrink-0 items-center gap-2 max-sm:w-full max-sm:justify-end">
+          <span className="w-select shrink-0 max-sm:flex-1">
             <Select value={member.role} onChange={(e) => onRole(e.target.value as Role)} disabled={setRole.isPending} aria-label={`Role for ${name}`}>
               {roles.map((r) => (
                 <option key={r} value={r}>
@@ -343,9 +378,9 @@ function MemberRow({ member, myRole }: { member: Member; myRole: Role | null }) 
           >
             {`${name} loses team access straight away. You can add them back later.`}
           </ConfirmDialog>
-        </>
+        </span>
       ) : (
-        <span className="rounded-pill bg-subtle px-2 text-xs font-medium text-ink-secondary">{ROLE_LABEL[member.role]}</span>
+        <span className="inline-flex h-5 items-center rounded-pill border border-line bg-subtle px-2 text-xs font-medium text-ink-secondary">{ROLE_LABEL[member.role]}</span>
       )}
     </div>
   );
@@ -464,31 +499,33 @@ function JoinRequestRow({ request: r, scopeName }: { request: JoinRequest; scope
           </span>
         ) : null}
       </span>
-      <span className="w-select shrink-0">
-        <Select value={role} onChange={(e) => setRole(e.target.value as ApproveRole)} disabled={busy} aria-label={`Role for ${name}`}>
-          {APPROVE_ROLES.map((x) => (
-            <option key={x} value={x}>
-              {ROLE_LABEL[x]}
-            </option>
-          ))}
-        </Select>
+      <span className="flex shrink-0 items-center gap-2 max-sm:w-full max-sm:justify-end">
+        <span className="w-select shrink-0 max-sm:flex-1">
+          <Select value={role} onChange={(e) => setRole(e.target.value as ApproveRole)} disabled={busy} aria-label={`Role for ${name}`}>
+            {APPROVE_ROLES.map((x) => (
+              <option key={x} value={x}>
+                {ROLE_LABEL[x]}
+              </option>
+            ))}
+          </Select>
+        </span>
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={busy}
+          onClick={() =>
+            decide.mutate(
+              { id: r.id, approve: false },
+              { onSuccess: () => toast(`Declined ${name}`), onError: (e) => toast(e instanceof Error ? e.message : 'Something went wrong.') },
+            )
+          }
+        >
+          Deny
+        </Button>
+        <Button size="sm" disabled={busy} onClick={onApprove}>
+          Approve
+        </Button>
       </span>
-      <Button
-        size="sm"
-        variant="secondary"
-        disabled={busy}
-        onClick={() =>
-          decide.mutate(
-            { id: r.id, approve: false },
-            { onSuccess: () => toast(`Declined ${name}`), onError: (e) => toast(e instanceof Error ? e.message : 'Something went wrong.') },
-          )
-        }
-      >
-        Deny
-      </Button>
-      <Button size="sm" disabled={busy} onClick={onApprove}>
-        Approve
-      </Button>
     </li>
   );
 }
@@ -500,6 +537,13 @@ export function BlockedList({ scope, scopeId }: { scope: Scope; scopeId: string 
   const { toast } = useToast();
   const blocked = useBlocked(scope, scopeId);
   const unblock = useSetBlocked();
+  if (blocked.isError) {
+    return (
+      <Section title="Blocked" note="Blocked people can still read, but can’t post, vote or reply here. Block someone from their profile.">
+        <LoadError title="We couldn’t load blocked people" onRetry={() => void blocked.refetch()} retrying={blocked.isRefetching} />
+      </Section>
+    );
+  }
   const list = blocked.data ?? [];
   if (list.length === 0) return null;
   return (
@@ -508,7 +552,7 @@ export function BlockedList({ scope, scopeId }: { scope: Scope; scopeId: string 
         {list.map((b) => {
           const name = b.profile?.name || b.profile?.handle || 'Deleted user';
           return (
-            <li key={b.user_id} className="flex items-center gap-3 border-t border-line py-3 first:border-t-0">
+            <li key={b.user_id} className="flex items-center gap-3 border-t border-line py-3 first:border-t-0 max-sm:flex-wrap">
               <UserAvatar src={avatarSrc(b.profile)} size="md" />
               <span className="flex min-w-0 flex-1 flex-col">
                 {b.profile ? (
@@ -519,7 +563,7 @@ export function BlockedList({ scope, scopeId }: { scope: Scope; scopeId: string 
                   <b className="truncate text-base font-semibold text-ink">{name}</b>
                 )}
                 <span className="truncate text-sm text-ink-muted">
-                  {b.profile ? `@${b.profile.handle} · ` : ''}blocked {shortAge(b.created_at)}
+                  {b.profile ? `@${b.profile.handle} · ` : ''}blocked <time dateTime={b.created_at}>{shortAge(b.created_at)}</time>
                 </span>
               </span>
               <Button
@@ -743,7 +787,12 @@ export function WebhookSection({ scope, scopeId }: { scope: Scope; scopeId: stri
               <Button type="button" variant="ghost" onClick={onDelete} loading={del.isPending}>
                 Remove
               </Button>
+              <span className="text-sm text-ink-muted" aria-live="polite">
+                {unchanged ? 'Active' : 'Unsaved changes'}
+              </span>
             </>
+          ) : url.trim() ? (
+            <span className="text-sm text-ink-muted">Not saved yet</span>
           ) : null}
         </div>
       </form>

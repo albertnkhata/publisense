@@ -43,7 +43,7 @@ import { ConfirmDialog } from '../posts/dialogs';
 import { LoadError } from '../posts/PostList';
 import { useAuthDialog } from '../shell/auth';
 import { CompanyPicker } from '../products/CompanyPicker';
-import { BoardAvatar, Button, Dialog, EmptyState, Field, Icon, IconButton, Input, Select, SkeletonBlock, Tabs, Textarea, UserAvatar, useToast } from '../ui';
+import { BoardAvatar, Button, Dialog, EmptyState, Field, Icon, IconButton, Input, Select, SkeletonBlock, Tabs, Textarea, UserAvatar, useToast, type IconName } from '../ui';
 import { AdminOverview } from './AdminOverview';
 import { NotFound } from './NotFound';
 
@@ -54,12 +54,45 @@ import { NotFound } from './NotFound';
  * the 0022 RPCs are the real guard.
  */
 
+function QueueSkeleton({ cards = 2, label = 'Loading queue' }: { cards?: number; label?: string }) {
+  return (
+    <div role="status" aria-label={label} aria-busy="true" className="flex flex-col gap-3">
+      {Array.from({ length: cards }, (_, i) => (
+        <div key={i} className="flex flex-col gap-3 rounded-md border border-line bg-card px-5 py-4 max-sm:p-4">
+          <div className="flex items-center gap-2">
+            <SkeletonBlock className="h-4 w-10" />
+            <SkeletonBlock className="h-4 w-9 rounded-pill" />
+          </div>
+          <div className="flex items-center gap-3">
+            <SkeletonBlock className="size-8 shrink-0 rounded-md" />
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <SkeletonBlock className="h-4 w-1/2" />
+              <SkeletonBlock className="h-3 w-3/4" />
+            </div>
+          </div>
+          <div className="flex gap-2 border-t border-line pt-3">
+            <SkeletonBlock className="h-7 w-10" />
+            <SkeletonBlock className="h-7 w-9" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function AdminGate({ title, children }: { title: string; children: ReactNode }) {
   const { viewer, ready } = useViewer();
   const { openAuth } = useAuthDialog();
   const admin = useIsPlatformAdmin(viewer?.id ?? null);
   usePageTitle(viewer && admin.data ? title : ready && (!viewer || admin.isSuccess) ? 'Page not found' : null);
-  if (!ready || (viewer && admin.isPending)) return <SkeletonBlock className="h-8 w-1/2" />;
+  if (!ready || (viewer && admin.isPending)) {
+    return (
+      <div className="flex flex-col gap-4">
+        <SkeletonBlock className="h-8 w-1/3" />
+        <QueueSkeleton label="Loading admin section" />
+      </div>
+    );
+  }
   if (!viewer) {
     return (
       <section aria-labelledby="page-title" className="rounded-md border border-line bg-card">
@@ -86,7 +119,7 @@ function AdminGate({ title, children }: { title: string; children: ReactNode }) 
 function AdminNav() {
   const item = ({ isActive }: { isActive: boolean }) =>
     cx(
-      'h-7 shrink-0 rounded-pill border px-3 text-sm leading-7 font-medium no-underline transition-colors duration-120',
+      'inline-flex h-8 shrink-0 items-center rounded-pill border px-3 text-sm font-medium no-underline transition-colors duration-120',
       isActive ? 'border-ink bg-ink text-card' : 'border-line bg-card text-ink-secondary hover:border-line-strong hover:text-ink',
     );
   return (
@@ -127,17 +160,14 @@ function Person({ p, fallback = 'Deleted user' }: { p: PersonRef | null | undefi
   );
 }
 
-function Quiet({ children }: { children: ReactNode }) {
-  return <div className="rounded-md border border-line bg-card px-4 py-9 text-center text-base text-ink-muted">{children}</div>;
-}
-
 /** An empty admin queue: a headline and one sentence on what lands here. Same shape on every admin page. */
-function EmptyQueue({ title, children }: { title: string; children: ReactNode }) {
+function EmptyQueue({ icon = 'check-circle', title, children }: { icon?: IconName; title: string; children: ReactNode }) {
   return (
-    <Quiet>
-      <b className="mb-1 block font-semibold text-ink">{title}</b>
-      {children}
-    </Quiet>
+    <div className="rounded-md border border-line bg-card">
+      <EmptyState icon={icon} title={title}>
+        {children}
+      </EmptyState>
+    </div>
   );
 }
 
@@ -177,11 +207,11 @@ function ProductQueue() {
         ]}
       />
       {queue.isPending ? (
-        <SkeletonBlock className="h-8 w-full" />
+        <QueueSkeleton label="Loading new products" />
       ) : queue.isError ? (
         <LoadError title="We couldn’t load new products" onRetry={() => void queue.refetch()} retrying={queue.isRefetching} />
       ) : list.length === 0 ? (
-        <EmptyQueue title={status === 'pending' ? 'No products waiting' : 'No decisions yet'}>
+        <EmptyQueue icon={status === 'pending' ? 'box' : 'check-circle'} title={status === 'pending' ? 'No products waiting' : 'No decisions yet'}>
           {status === 'pending'
             ? 'Products people add wait here for review before they go public.'
             : 'Products you approve or reject show here, with who decided and why.'}
@@ -206,8 +236,8 @@ function ProductCard({ b }: { b: QueuedBoard }) {
     <Card>
       <p className="mt-0 mb-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-ink-muted uppercase">
         {b.site?.startsWith('github.com/') ? 'GitHub repo' : 'Website'}
-        <span className="rounded-pill bg-subtle px-2 font-medium normal-case">{categoryLabel(b.category)}</span>
-        {!pending ? <span className="rounded-pill bg-subtle px-2 font-medium normal-case">{b.status === 'live' ? 'Approved' : 'Rejected'}</span> : null}
+        <span className="inline-flex h-5 items-center rounded-pill border border-line bg-subtle px-2 font-medium normal-case">{categoryLabel(b.category)}</span>
+        {!pending ? <span className="inline-flex h-5 items-center rounded-pill border border-line bg-subtle px-2 font-medium normal-case">{b.status === 'live' ? 'Approved' : 'Rejected'}</span> : null}
       </p>
       <div className="flex items-center gap-3">
         <BoardAvatar name={b.name} color={b.color} logoSrc={logoSrc(b)} size="lg" decorative />
@@ -226,7 +256,7 @@ function ProductCard({ b }: { b: QueuedBoard }) {
         ) : (
           'No link'
         )}{' '}
-        · added by <Person p={b.creator} /> · {shortAge(b.created_at)}
+        · added by <Person p={b.creator} /> · <time dateTime={b.created_at}>{shortAge(b.created_at)}</time>
         {b.post_count ? ` · ${plural(b.post_count, 'post', 'posts')}` : ''}
       </p>
       <p className="mt-1 mb-0 flex flex-wrap items-center gap-2 text-sm text-ink-muted" data-company>
@@ -234,7 +264,7 @@ function ProductCard({ b }: { b: QueuedBoard }) {
         {b.hub ? (
           <>
             <span className="font-semibold text-ink-secondary">{b.hub.name}</span>
-            {b.hub.status === 'pending' ? <span className="rounded-pill bg-subtle px-2 text-xs font-medium">New company</span> : null}
+            {b.hub.status === 'pending' ? <span className="inline-flex h-5 items-center rounded-pill border border-line bg-subtle px-2 text-xs font-medium">New company</span> : null}
             {b.hub.domains?.length ? <span>{b.hub.domains.join(', ')}</span> : null}
           </>
         ) : (
@@ -243,7 +273,7 @@ function ProductCard({ b }: { b: QueuedBoard }) {
       </p>
       {!pending ? <DecisionLine b={b} /> : null}
       {pending ? (
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-3 flex flex-wrap gap-2 border-t border-line pt-3">
           <Button size="sm" onClick={() => setDeciding('approve')}>
             Review and approve
           </Button>
@@ -449,7 +479,7 @@ function DomainEditor({ hubId, name, domains }: { hubId: string; name: string; d
       ) : (
         <p className="m-0 text-sm text-ink-muted">No domains yet. Products on a company’s domains join it automatically.</p>
       )}
-      <div className="flex gap-2">
+      <div className="flex gap-2 max-sm:flex-col max-sm:items-stretch">
         <Input
           aria-label={`Add a domain to ${name}`}
           value={draft}
@@ -489,12 +519,12 @@ export function AdminCompaniesPage() {
 
 function CompanyList() {
   const list = useAdminCompanies();
-  if (list.isPending) return <SkeletonBlock className="h-8 w-full" />;
+  if (list.isPending) return <QueueSkeleton label="Loading companies" />;
   if (list.isError) return <LoadError title="We couldn’t load companies" onRetry={() => void list.refetch()} retrying={list.isRefetching} />;
   const rows = list.data ?? [];
   if (rows.length === 0) {
     return (
-      <EmptyQueue title="No companies yet">Companies show here when someone adds a product with one, or when you approve one with a product.</EmptyQueue>
+      <EmptyQueue icon="building" title="No companies yet">Companies show here when someone adds a product with one, or when you approve one with a product.</EmptyQueue>
     );
   }
   return (
@@ -519,7 +549,7 @@ function CompanyCard({ h }: { h: AdminCompany }) {
         ) : (
           <span className="text-base font-semibold text-ink">{h.name}</span>
         )}
-        {h.status === 'pending' ? <span className="rounded-pill bg-subtle px-2 text-xs font-medium text-ink-muted">Waiting for review</span> : null}
+        {h.status === 'pending' ? <span className="inline-flex h-5 items-center rounded-pill border border-line bg-subtle px-2 text-xs font-medium text-ink-muted">Waiting for review</span> : null}
         <span className="text-sm text-ink-muted">{plural(h.board_count, 'product')}</span>
       </p>
       {h.former_names.length ? (
@@ -698,11 +728,11 @@ function ReportsQueue() {
         ]}
       />
       {queue.isPending ? (
-        <SkeletonBlock className="h-8 w-full" />
+        <QueueSkeleton label="Loading reports" />
       ) : queue.isError ? (
         <LoadError title="We couldn’t load the reports" onRetry={() => void queue.refetch()} retrying={queue.isRefetching} />
       ) : list.length === 0 ? (
-        <EmptyQueue title={status === 'open' ? 'No reports waiting' : 'No decisions yet'}>
+        <EmptyQueue icon={status === 'open' ? 'flag' : 'check-circle'} title={status === 'open' ? 'No reports waiting' : 'No decisions yet'}>
           {status === 'open' ? 'Posts and replies people report wait here for a moderator.' : 'Reports you dismiss or act on show here.'}
         </EmptyQueue>
       ) : (
@@ -778,15 +808,19 @@ function ReportCard({ g, open }: { g: ReportGroup; open: boolean }) {
     <Card>
       <p className="mt-0 mb-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-ink-muted uppercase">
         {TARGET_LABEL[g.target]}
-        <span className="rounded-pill bg-subtle px-2 font-medium normal-case">{plural(g.reports.length, 'report', 'reports')}</span>
-        {hidden ? <span className="rounded-pill bg-subtle px-2 font-medium normal-case">Hidden</span> : null}
-        {!open && decided ? <span className="rounded-pill bg-subtle px-2 font-medium normal-case">{decided.status === 'dismissed' ? 'Dismissed' : 'Resolved'}</span> : null}
+        <span className="inline-flex h-5 items-center rounded-pill border border-line bg-subtle px-2 font-medium normal-case">{plural(g.reports.length, 'report', 'reports')}</span>
+        {hidden ? <span className="inline-flex h-5 items-center rounded-pill border border-line bg-subtle px-2 font-medium normal-case">Hidden</span> : null}
+        {!open && decided ? (
+          <span className="inline-flex h-5 items-center rounded-pill border border-line bg-subtle px-2 font-medium normal-case">
+            {decided.status === 'dismissed' ? 'Dismissed' : 'Resolved'}
+          </span>
+        ) : null}
       </p>
       <div className="flex flex-col gap-1">{subject}</div>
       <ul className="mt-3 mb-0 flex list-none flex-col gap-1 border-0 border-t border-solid border-line p-0 pt-3" aria-label="Reasons">
         {g.reports.map((r) => (
           <li key={r.id} className="text-sm text-ink-secondary">
-            <span className="text-ink">{r.reason}</span> · <Person p={r.reporter} /> · {shortAge(r.created_at)}
+            <span className="text-ink">{r.reason}</span> · <Person p={r.reporter} /> · <time dateTime={r.created_at}>{shortAge(r.created_at)}</time>
           </li>
         ))}
       </ul>
@@ -808,7 +842,7 @@ function ReportCard({ g, open }: { g: ReportGroup; open: boolean }) {
         </p>
       ) : null}
       {open ? (
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-3 flex flex-wrap gap-2 border-t border-line pt-3">
           {g.target !== 'user' && !hidden && (g.post || g.reply) ? (
             <Button size="sm" variant="danger" disabled={decide.isPending} onClick={() => act('hide')}>
               Hide and resolve
@@ -854,11 +888,11 @@ function DisputesQueue() {
         ]}
       />
       {disputes.isPending ? (
-        <SkeletonBlock className="h-8 w-full" />
+        <QueueSkeleton label="Loading disputes" />
       ) : disputes.isError ? (
         <LoadError title="We couldn’t load the disputes" onRetry={() => void disputes.refetch()} retrying={disputes.isRefetching} />
       ) : list.length === 0 ? (
-        <EmptyQueue title={status === 'pending' ? 'No disputes waiting' : 'No decisions yet'}>
+        <EmptyQueue icon={status === 'pending' ? 'scale' : 'check-circle'} title={status === 'pending' ? 'No disputes waiting' : 'No decisions yet'}>
           {status === 'pending' ? '“Report the wrong owner” requests wait here, and the board’s team never sees them.' : 'Disputes you settle show here.'}
         </EmptyQueue>
       ) : (
@@ -901,20 +935,24 @@ function DisputeCard({ d }: { d: DisputeRow }) {
     <Card>
       <p className="mt-0 mb-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-ink-muted uppercase">
         {d.scope === 'hub' ? 'Hub' : 'Board'}
-        {d.status !== 'pending' ? <span className="rounded-pill bg-subtle px-2 font-medium normal-case">{DISPUTE_STATUS[d.status]}</span> : null}
+        {d.status !== 'pending' ? (
+          <span className="inline-flex h-5 items-center rounded-pill border border-line bg-subtle px-2 font-medium normal-case">
+            {DISPUTE_STATUS[d.status]}
+          </span>
+        ) : null}
       </p>
       <Link to={where} className="text-base font-semibold text-ink no-underline hover:underline">
         {d.name}
       </Link>
       <p className="mt-1 mb-0 text-sm text-ink-muted">
-        Filed by <Person p={d.filer} /> · {d.work_email} (verified) · {shortAge(d.created_at)}
+        Filed by <Person p={d.filer} /> · {d.work_email} (verified) · <time dateTime={d.created_at}>{shortAge(d.created_at)}</time>
       </p>
       <p className="mt-1 mb-0 text-sm text-ink-muted">
         Current owners: {d.owners.length ? d.owners.map((o, i) => <span key={o.id}>{i ? ', ' : ''}<Person p={o} /></span>) : 'none'}
       </p>
-      <p className="mt-3 mb-0 rounded-md bg-subtle px-3 py-2 text-base text-ink whitespace-pre-line wrap-break-word">{d.reason}</p>
+      <p className="mt-3 mb-0 rounded-md border border-line bg-subtle px-3 py-2 text-base text-ink whitespace-pre-line wrap-break-word">{d.reason}</p>
       {d.status === 'pending' ? (
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-3 flex flex-wrap gap-2 border-t border-line pt-3">
           <Button size="sm" variant="danger" onClick={() => setConfirm(true)}>
             Transfer ownership
           </Button>
@@ -966,7 +1004,18 @@ function AdminList() {
       <h2 className="mt-0 mb-1 text-md font-semibold text-ink">Admins</h2>
       <p className="mt-0 mb-3 text-sm text-ink-muted">Admins work the reports and disputes queues and appoint other admins. There is always at least one.</p>
       {admins.isPending ? (
-        <SkeletonBlock className="h-8 w-full" />
+        <div role="status" aria-label="Loading admins" aria-busy="true" className="flex flex-col">
+          {[0, 1].map((i) => (
+            <div key={i} className="flex items-center gap-3 border-t border-line py-3 first:border-t-0">
+              <SkeletonBlock className="size-9 shrink-0 rounded-full" />
+              <div className="flex min-w-0 flex-1 flex-col gap-2">
+                <SkeletonBlock className="h-4 w-1/3" />
+                <SkeletonBlock className="h-3 w-1/2" />
+              </div>
+              <SkeletonBlock className="h-7 w-9" />
+            </div>
+          ))}
+        </div>
       ) : admins.isError ? (
         <LoadError title="We couldn’t load the admins" onRetry={() => void admins.refetch()} retrying={admins.isRefetching} />
       ) : (
@@ -975,7 +1024,7 @@ function AdminList() {
             const you = a.user_id === viewer?.id;
             const name = a.profile?.name || (a.profile ? `@${a.profile.handle}` : 'Deleted user');
             return (
-              <li key={a.user_id} className="flex items-center gap-3 border-t border-line py-3 first:border-t-0">
+              <li key={a.user_id} className="flex items-center gap-3 border-t border-line py-3 first:border-t-0 max-sm:flex-wrap">
                 <UserAvatar src={avatarSrc(a.profile)} size="md" />
                 <span className="flex min-w-0 flex-1 flex-col">
                   <b className="truncate text-base font-semibold text-ink">
@@ -1117,7 +1166,14 @@ function AdminLog() {
       <h2 className="mt-0 mb-1 text-md font-semibold text-ink">Log</h2>
       <p className="mt-0 mb-3 text-sm text-ink-muted">Every appointment and removal.</p>
       {events.isPending ? (
-        <SkeletonBlock className="h-8 w-full" />
+        <div role="status" aria-label="Loading admin log" aria-busy="true" className="flex flex-col">
+          {[0, 1].map((i) => (
+            <div key={i} className="flex items-center justify-between gap-3 border-t border-line py-2 first:border-t-0">
+              <SkeletonBlock className="h-4 w-1/2" />
+              <SkeletonBlock className="h-3 w-10" />
+            </div>
+          ))}
+        </div>
       ) : events.isError ? (
         <LoadError title="We couldn’t load the log" onRetry={() => void events.refetch()} retrying={events.isRefetching} />
       ) : list.length === 0 ? (
