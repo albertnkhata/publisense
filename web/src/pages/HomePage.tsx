@@ -61,7 +61,7 @@ export function HomePage() {
       {viewer || !ready ? null : <HomePitch />}
       {/* Phones post from the floating button (TabBar) instead. */}
       <ComposerTrigger />
-      <div className={viewer ? 'flex items-center justify-between gap-3 border-b border-line' : 'flex items-center justify-end gap-3'}>
+      <div className="flex items-center justify-between gap-3 border-b border-line">
         {viewer ? (
           <Tabs
             idBase="feed"
@@ -74,7 +74,9 @@ export function HomePage() {
               { value: 'following', label: 'Following' },
             ]}
           />
-        ) : null}
+        ) : (
+          <span className="py-2 text-sm font-semibold text-ink">{sort === 'new' ? 'Recent feedback' : 'Top feedback'}</span>
+        )}
         <SortMenu sort={sort} onChange={(v) => set('sort', v, 'top')} />
       </div>
       <div role="tabpanel" id={`feed-panel-${scope}`} aria-labelledby={viewer ? `feed-tab-${scope}` : undefined} aria-label={viewer ? undefined : 'Feed'}>

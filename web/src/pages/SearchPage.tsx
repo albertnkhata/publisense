@@ -9,7 +9,7 @@ import { PostCard } from '../posts/PostCard';
 import { FEED_LIST, LoadError, PostListSkeleton } from '../posts/PostList';
 import { useComposer } from '../shell/composer';
 import { AddProductLink } from '../products/AddProductDialog';
-import { Button, Icon, IconButton, TabPanel, Tabs, UserAvatar } from '../ui';
+import { Button, EmptyState, Icon, IconButton, TabPanel, Tabs, UserAvatar } from '../ui';
 import { useSetUrlParams } from '../lib/useUrlParam';
 
 /**
@@ -46,25 +46,23 @@ export function SearchPage() {
     if (!urlQ) inputRef.current?.focus();
   }, [urlQ]);
 
-  // Results follow the typing (debounced), replacing the history entry.
+  // Results follow the typing (debounced), replacing the history entry while preserving the active tab.
   useEffect(() => {
-    if (q.trim() === urlQ.trim()) return;
+    const term = q.trim();
+    if (term === urlQ.trim()) return;
     const t = setTimeout(() => {
-      const next = new URLSearchParams();
-      if (q.trim()) next.set('q', q.trim());
-      pushed.current = q.trim();
-      setParams(next, { replace: true });
+      pushed.current = term;
+      setUrl(term ? [['q', term, '']] : [['q', '', ''], ['tab', 'top', 'top']]);
     }, 250);
     return () => clearTimeout(t);
-  }, [q, urlQ, setParams]);
+  }, [q, urlQ, setUrl]);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     const term = q.trim();
     if (term) rememberSearch(term);
-    const next = new URLSearchParams();
-    if (term) next.set('q', term);
-    setParams(next);
+    pushed.current = term;
+    setUrl(term ? [['q', term, '']] : [['q', '', ''], ['tab', 'top', 'top']], { replace: false });
     inputRef.current?.blur();
   };
 
@@ -96,7 +94,8 @@ export function SearchPage() {
               size="sm"
               onClick={() => {
                 setQ('');
-                setParams(new URLSearchParams(), { replace: true });
+                pushed.current = '';
+                setUrl([['q', '', ''], ['tab', 'top', 'top']]);
                 inputRef.current?.focus();
               }}
             />
@@ -106,7 +105,11 @@ export function SearchPage() {
       {urlQ.trim().length >= SEARCH_MIN ? (
         <Results q={urlQ.trim()} tab={tab} setTab={setTab} />
       ) : urlQ.trim() ? (
-        <p className="m-0 px-3 py-9 text-center text-base text-ink-muted">Keep typing to search.</p>
+        <div className="rounded-md border border-line bg-card">
+          <EmptyState icon="search" title="Keep typing to search.">
+            Enter at least {SEARCH_MIN} characters to search products, posts and hubs.
+          </EmptyState>
+        </div>
       ) : (
         <Recent onPick={(term) => setParams(new URLSearchParams({ q: term }))} />
       )}
@@ -117,7 +120,13 @@ export function SearchPage() {
 function Recent({ onPick }: { onPick: (q: string) => void }) {
   const [recent, setRecent] = useState(readRecentSearches);
   if (recent.length === 0) {
-    return <p className="m-0 px-3 py-9 text-center text-base text-ink-muted">Search for a product, a hub, or what’s bugging you.</p>;
+    return (
+      <div className="rounded-md border border-line bg-card">
+        <EmptyState icon="search" title="Search Publisense">
+          Search for a product, a hub, or what’s bugging you.
+        </EmptyState>
+      </div>
+    );
   }
   return (
     <section aria-labelledby="sr-recent" className="mt-2">
@@ -174,16 +183,20 @@ function Results({ q, tab, setTab }: { q: string; tab: SearchTab; setTab: (t: Se
   if (boards.length === 0 && hubs.length === 0 && posts.length === 0 && people.length === 0) {
     return (
       <div className="rounded-md border border-line bg-card">
-        <div className="px-4 py-9 text-center text-base text-ink-muted">
-          <b className="mb-1 block text-md text-ink">No results for “{q}”</b>
+        <EmptyState
+          icon="search"
+          title={`No results for “${q}”`}
+          action={
+            <div className="flex flex-col items-center gap-3">
+              <Button onClick={() => openComposer({ title: q.charAt(0).toUpperCase() + q.slice(1) })}>Post about it</Button>
+              <p className="m-0 text-sm text-ink-muted">
+                Can’t find the product? <AddProductLink prefill={q}>Add it</AddProductLink>
+              </p>
+            </div>
+          }
+        >
           Nobody has posted about this yet. If it’s bugging you, be the first.
-          <div className="mt-4">
-            <Button onClick={() => openComposer({ title: q.charAt(0).toUpperCase() + q.slice(1) })}>Post about it</Button>
-          </div>
-          <p className="mt-4 mb-0 text-sm">
-            Can’t find the product? <AddProductLink prefill={q}>Add it</AddProductLink>
-          </p>
-        </div>
+        </EmptyState>
       </div>
     );
   }
@@ -198,7 +211,19 @@ function Results({ q, tab, setTab }: { q: string; tab: SearchTab; setTab: (t: Se
         ))}
       </ul>
     ) : (
-      <p className="m-0 px-3 py-9 text-center text-base text-ink-muted">No posts match.</p>
+      <div className="rounded-md border border-line bg-card">
+        <EmptyState
+          icon="reply"
+          title="No posts match."
+          action={
+            <Button size="sm" onClick={() => openComposer({ title: q.charAt(0).toUpperCase() + q.slice(1) })}>
+              Post about it
+            </Button>
+          }
+        >
+          Nobody has posted about “{q}” yet.
+        </EmptyState>
+      </div>
     );
 
   const boardList = (list: typeof boards) => (
@@ -232,9 +257,11 @@ function Results({ q, tab, setTab }: { q: string; tab: SearchTab; setTab: (t: Se
           boards.length ? (
             boardList(boards)
           ) : (
-            <p className="m-0 px-3 py-9 text-center text-base text-ink-muted">
-              No products match. <AddProductLink prefill={q}>Add it</AddProductLink>
-            </p>
+            <div className="rounded-md border border-line bg-card">
+              <EmptyState icon="explore" title="No products match.">
+                Can’t find it? <AddProductLink prefill={q}>Add it</AddProductLink>
+              </EmptyState>
+            </div>
           )
         ) : (
           <div className="flex flex-col gap-6">

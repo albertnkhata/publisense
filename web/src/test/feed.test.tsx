@@ -120,15 +120,17 @@ describe('home feed', () => {
     expect(await screen.findByRole('dialog', { name: 'Sign in to Publisense' })).toBeTruthy();
   });
 
-  it('sorts by New from the sort menu', async () => {
+  it('sorts by New from the sort menu and labels the signed-out toolbar', async () => {
     api.fetchFeed.mockResolvedValue(page([makePost()]));
     const { router } = renderHome();
     await screen.findByRole('list', { name: 'Posts' });
+    expect(screen.getByText('Top feedback')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Sort feed: Top' }));
     fireEvent.click(screen.getByRole('menuitemradio', { name: /New/ }));
     await waitFor(() => expect(api.fetchFeed).toHaveBeenLastCalledWith(expect.objectContaining({ sort: 'new', offset: 0 })));
     expect(router.state.location.search).toBe('?sort=new');
     expect(screen.getByRole('button', { name: 'Sort feed: New' })).toBeTruthy();
+    expect(screen.getByText('Recent feedback')).toBeTruthy();
   });
 
   it('loads the next page and says when it is caught up', async () => {

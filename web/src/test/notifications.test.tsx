@@ -189,10 +189,15 @@ describe('notifications page', () => {
     await waitFor(() => expect(people.setUserFollow).toHaveBeenCalledWith(OTHER.id, TEST_VIEWER.id, true));
   });
 
-  it('nothing yet', async () => {
+  it('nothing yet shows tailored empty states per tab', async () => {
     renderPage([]);
     expect(await screen.findByText('You’re all caught up')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Mark all as read' }).hasAttribute('disabled')).toBe(true);
+    const tabs = screen.getByRole('tablist', { name: 'Notifications' });
+    fireEvent.click(within(tabs).getByRole('tab', { name: 'Replies' }));
+    expect(await screen.findByText('No replies or mentions yet')).toBeTruthy();
+    fireEvent.click(within(tabs).getByRole('tab', { name: 'Activity' }));
+    expect(await screen.findByText('No activity yet')).toBeTruthy();
   });
 
   it('signed out asks you to sign in', async () => {

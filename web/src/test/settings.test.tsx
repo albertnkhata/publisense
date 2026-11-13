@@ -13,6 +13,7 @@ const db = vi.hoisted(() => ({
   rows: {} as Record<string, Array<Record<string, unknown>>>,
   upserts: [] as Array<Record<string, unknown>>,
   failUpsert: false,
+  failSelectTable: null as string | null,
 }));
 
 vi.mock('../api/supabase', () => {
@@ -30,7 +31,11 @@ vi.mock('../api/supabase', () => {
         return Promise.resolve({ error: null });
       },
       then: (resolve: (v: unknown) => unknown) =>
-        Promise.resolve({ data: (db.rows[table] ?? []).filter((r) => filters.every((f) => f(r))), error: null }).then(resolve),
+        Promise.resolve(
+          db.failSelectTable === table
+            ? { data: null, error: { message: 'unavailable' } }
+            : { data: (db.rows[table] ?? []).filter((r) => filters.every((f) => f(r))), error: null },
+        ).then(resolve),
     };
     return b;
   }
@@ -47,6 +52,7 @@ beforeEach(() => {
   db.rows = {};
   db.upserts = [];
   db.failUpsert = false;
+  db.failSelectTable = null;
 });
 
 describe('notification preferences', () => {
@@ -160,5 +166,27 @@ describe('settings', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Delete account?' });
     await waitFor(() => expect(within(dialog).queryByText(/Checking boards/)).toBeNull());
     expect(within(dialog).queryByText(/only owner/)).toBeNull();
+  });
+
+  it('shows section jump links and unsaved-changes indicator for profile edits', async () => {
+    renderWith(<SettingsPage />, { viewer: TEST_VIEWER, path: '/settings' });
+    const nav = screen.getByRole('navigation', { name: 'Settings sections' });
+    expect(within(nav).getByRole('link', { name: 'Profile' }).getAttribute('href')).toBe('#profile');
+    expect(within(nav).getByRole('link', { name: 'Notifications' }).getAttribute('href')).toBe('#notifications');
+    expect(within(nav).getByRole('link', { name: 'Account' }).getAttribute('href')).toBe('#account');
+    expect(screen.getByText('All changes saved')).toBeTruthy();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), { target: { value: 'Alice B.' } });
+    expect(screen.getByText('You have unsaved changes')).toBeTruthy();
+  });
+
+  it('offers Try again when notification preferences fail to load', async () => {
+    db.failSelectTable = 'notification_pref';
+    renderWith(<SettingsPage />, { viewer: TEST_VIEWER, path: '/settings' });
+    const notifications = screen.getByRole('region', { name: 'Notifications' });
+    const alert = await within(notifications).findByRole('alert');
+    expect(within(alert).getByText('We couldn’t load your notification settings.')).toBeTruthy();
+    db.failSelectTable = null;
+    fireEvent.click(within(alert).getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('checkbox', { name: 'Replies: Email' })).toBeTruthy();
   });
 });

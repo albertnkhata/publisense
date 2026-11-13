@@ -1,6 +1,7 @@
 import type { MouseEvent, ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { ago, avatarSrc, boardLogoSrc, platformLabel, postKind, sourceCredit, useFollowPost, type Post } from '../api';
+import { ago, avatarSrc, boardLogoSrc, compactCount, platformLabel, postKind, sourceCredit, useFollowPost, type BoardWithHub, type Post } from '../api';
+import { FollowScopeButton } from '../boards/parts';
 import { cx } from '../lib/cx';
 import { sharePost } from '../lib/share';
 import { useViewer } from '../lib/viewer';
@@ -24,11 +25,13 @@ export interface PostCardProps {
   onDeleted?: () => void;
   /** On a board page the board is already named, so the crumb is left out (mockup). */
   hideBoard?: boolean;
+  /** Optional enriched board record on PostPage for verified team badge, stats, and follow button (D-016). */
+  boardDetail?: BoardWithHub | null;
 }
 
 const linkClass = 'text-inherit no-underline hover:underline hover:underline-offset-2';
 
-export function PostCard({ post, variant = 'feed', onDeleted, hideBoard = false }: PostCardProps) {
+export function PostCard({ post, variant = 'feed', onDeleted, hideBoard = false, boardDetail = null }: PostCardProps) {
   const navigate = useNavigate();
   const page = variant === 'page';
   const href = `/post/${post.id}`;
@@ -53,11 +56,11 @@ export function PostCard({ post, variant = 'feed', onDeleted, hideBoard = false 
         // on its own page a hairline under the post separates it from what follows.
         // Feed cards reserve an avatar gutter; the page variant keeps the post text flush with its icon.
         'pt-4 pb-5',
-        page ? 'border-b border-line' : 'cursor-pointer',
+        page ? 'border-b border-line' : 'group -mx-3 cursor-pointer rounded-md px-3 transition-colors duration-120 hover:bg-subtle',
       )}
     >
       <div className={cx('relative min-w-0', !page && 'pl-gutter')}>
-        <PostHead post={post} hideBoard={hideBoard} page={page} />
+        <PostHead post={post} hideBoard={hideBoard} page={page} boardDetail={boardDetail} />
         <div className="absolute -top-1 -right-2">
           <PostMenu post={post} {...(onDeleted ? { onDeleted } : {})} />
         </div>
@@ -68,7 +71,7 @@ export function PostCard({ post, variant = 'feed', onDeleted, hideBoard = false 
           </h1>
         ) : (
           <h2 id={`post-title-${post.id}`} className={cx(titleClass, 'mt-2')}>
-            <Link to={href} className="text-inherit no-underline focus-visible:underline">
+            <Link to={href} className="text-inherit no-underline transition-colors duration-120 group-hover:text-brand focus-visible:underline">
               {post.title}
             </Link>
           </h2>
@@ -97,8 +100,18 @@ export function PostCard({ post, variant = 'feed', onDeleted, hideBoard = false 
  * was found on. On a board page the board is already named, so a community
  * post leads with its author instead and a seeded post leads with its source.
  */
-function PostHead({ post, hideBoard, page }: { post: Post; hideBoard: boolean; page: boolean }) {
-  if (page) return <PagePostHead post={post} />;
+function PostHead({
+  post,
+  hideBoard,
+  page,
+  boardDetail,
+}: {
+  post: Post;
+  hideBoard: boolean;
+  page: boolean;
+  boardDetail: BoardWithHub | null;
+}) {
+  if (page) return <PagePostHead post={post} boardDetail={boardDetail} />;
 
   const kind = postKind(post);
   const board = post.board;
@@ -225,7 +238,7 @@ function PostHead({ post, hideBoard, page }: { post: Post; hideBoard: boolean; p
 }
 
 /** The detail-page header has no avatar rail: its product icon and post text share the same left edge. */
-function PagePostHead({ post }: { post: Post }) {
+function PagePostHead({ post, boardDetail }: { post: Post; boardDetail: BoardWithHub | null }) {
   const board = post.board;
   const boardName = board?.name ?? 'Unknown board';
   const kind = postKind(post);
@@ -258,12 +271,22 @@ function PagePostHead({ post }: { post: Post }) {
     ) : (
       handle
     );
+  const verified = Boolean(boardDetail && (boardDetail.claimed_at || boardDetail.hub?.claimed_at));
+  const stats = boardDetail
+    ? [
+        boardDetail.post_count > 0 ? `${compactCount(boardDetail.post_count)} ${boardDetail.post_count === 1 ? 'post' : 'posts'}` : '',
+        boardDetail.follower_count > 0 ? `${compactCount(boardDetail.follower_count)} ${boardDetail.follower_count === 1 ? 'follower' : 'followers'}` : '',
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : '';
+  const canFollowBoard = Boolean(board && (boardDetail ? boardDetail.status === 'live' : board.status !== 'pending' && board.status !== 'rejected'));
   const row = 'flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-muted';
 
   return (
-    <div className="flex min-w-0 items-start gap-3">
+    <div className="flex min-w-0 flex-wrap items-start gap-3 pr-8">
       <BoardAvatar name={boardName} color={board?.color} logoSrc={boardLogoSrc(board)} size="md" decorative />
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <div className={cx(row, 'min-h-4')}>
           {board ? (
             <Link to={`/b/${board.slug}`} className={cx(linkClass, 'font-semibold text-ink')}>
@@ -272,6 +295,14 @@ function PagePostHead({ post }: { post: Post }) {
           ) : (
             <span className="font-semibold text-ink">{boardName}</span>
           )}
+          {verified ? (
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-ink-secondary">
+              <span className="text-success" aria-hidden="true">
+                <Icon name="check" size={12} strokeWidth={2.2} />
+              </span>
+              Verified team
+            </span>
+          ) : null}
           <Dot>
             <TypePill type={post.type} />
           </Dot>
@@ -279,8 +310,14 @@ function PagePostHead({ post }: { post: Post }) {
           {time}
           {edited}
         </div>
-        {credit ? <div className={cx(row, 'mt-1')}>{credit}</div> : null}
+        {credit || stats ? (
+          <div className={cx(row, 'mt-1')}>
+            {credit}
+            {credit && stats ? <Dot>{stats}</Dot> : stats ? <span>{stats}</span> : null}
+          </div>
+        ) : null}
       </div>
+      {canFollowBoard && board ? <FollowScopeButton target="board" id={board.id} name={board.name} size="sm" className="shrink-0" /> : null}
     </div>
   );
 }

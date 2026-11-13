@@ -164,6 +164,17 @@ describe('user page', () => {
     renderAt('/u/nobody_here');
     expect(await screen.findByText('No one goes by that name')).toBeTruthy();
   });
+
+  it('shows Your profile pill, Account settings menu link, and Explore boards CTA on empty self posts', async () => {
+    posts.fetchUserPosts.mockResolvedValue({ items: [], next: null });
+    renderAt(`/u/${ME.handle}`);
+    expect(await screen.findByText('Your profile')).toBeTruthy();
+    expect(await screen.findByText('You haven’t posted yet.')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Explore boards' }).getAttribute('href')).toBe('/explore');
+    fireEvent.click(screen.getByRole('button', { name: 'Profile options' }));
+    const settingsItem = await within(await screen.findByRole('menu')).findByRole('menuitem', { name: /Account settings/ });
+    expect(settingsItem.getAttribute('href')).toBe('/settings');
+  });
 });
 
 describe('people in search', () => {

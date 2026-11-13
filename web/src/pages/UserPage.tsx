@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import {
   avatarSrc,
@@ -27,6 +27,7 @@ import {
   type PublicProfile,
 } from '../api';
 import { BackLink } from '../boards/parts';
+import { cx } from '../lib/cx';
 import { shareLink } from '../lib/share';
 import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
@@ -35,7 +36,7 @@ import { PostCard } from '../posts/PostCard';
 import { FEED_LIST, LoadError, PostList, PostListSkeleton } from '../posts/PostList';
 import { ReportDialog } from '../posts/ReportDialog';
 import { useRequireAuth } from '../shell/auth';
-import { BoardAvatar, Button, EmptyState, HubAvatar, Icon, IconButton, Menu, MenuItem, MenuLabel, MenuSeparator, Skeleton, TabPanel, Tabs, UserAvatar, useToast } from '../ui';
+import { BoardAvatar, Button, Card, EmptyState, HubAvatar, Icon, IconButton, Menu, MenuItem, MenuLabel, MenuSeparator, Skeleton, TabPanel, Tabs, UserAvatar, useToast, type IconName } from '../ui';
 import { actionLink } from './BoardPage';
 import { useSetUrlParams } from '../lib/useUrlParam';
 
@@ -64,7 +65,10 @@ export function UserPage() {
       <div className="flex flex-col gap-4">
         <h1 className="sr-only">@{handle}</h1>
         <BackLink />
-        <Skeleton />
+        <Card>
+          <Skeleton variant="header" className="pb-0" />
+        </Card>
+        <PostListSkeleton count={2} />
       </div>
     );
   }
@@ -98,19 +102,30 @@ function Profile({ person }: { person: PublicProfile }) {
       <div className="mb-4">
         <BackLink />
       </div>
-      <header className="mb-4 flex flex-wrap items-center gap-4 max-md:gap-3">
-        <UserAvatar src={avatarSrc(person)} size="2xl" />
-        <div className="min-w-0 flex-1">
-          <h1 id="page-title" className="m-0 text-2xl font-bold text-ink wrap-break-word">
-            {person.name || `@${person.handle}`}
-          </h1>
-          <p className="m-0 text-base text-ink-muted">@{person.handle}</p>
-        </div>
-        <ProfileActions person={person} self={self} />
-        {person.bio ? <p className="m-0 basis-full text-base text-ink whitespace-pre-line wrap-break-word">{person.bio}</p> : null}
-        <ProfileStats person={person} stats={stats.data} self={self} />
-        {self ? <Manages /> : null}
-      </header>
+      <Card className="mb-5">
+        <header className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center gap-4 max-md:gap-3">
+            <UserAvatar src={avatarSrc(person)} size="2xl" />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 id="page-title" className="m-0 text-2xl font-bold text-ink wrap-break-word">
+                  {person.name || `@${person.handle}`}
+                </h1>
+                {self ? (
+                  <span className="inline-flex h-5 items-center rounded-pill border border-line bg-subtle px-2 text-xs font-medium text-ink-muted">
+                    Your profile
+                  </span>
+                ) : null}
+              </div>
+              <p className="m-0 text-base text-ink-muted">@{person.handle}</p>
+            </div>
+            <ProfileActions person={person} self={self} />
+          </div>
+          {person.bio ? <p className="m-0 text-base text-ink whitespace-pre-line wrap-break-word">{person.bio}</p> : null}
+          <ProfileStats person={person} stats={stats.data} self={self} />
+          {self ? <Manages /> : null}
+        </header>
+      </Card>
       <Tabs
         idBase="user"
         label="Profile sections"
@@ -134,7 +149,7 @@ function ProfileStats({ person, stats, self }: { person: PublicProfile; stats: {
   const { viewer } = useViewer();
   const followed = useFollowedUsers(self ? (viewer?.id ?? null) : null);
   return (
-    <p className="m-0 flex basis-full flex-wrap gap-x-4 gap-y-1 text-sm text-ink-muted">
+    <p className="m-0 flex flex-wrap gap-x-4 gap-y-1 border-t border-line pt-3 text-sm text-ink-muted">
       <span>
         <b className="font-semibold text-ink">{compactCount(person.follower_count)}</b> {person.follower_count === 1 ? 'follower' : 'followers'}
       </span>
@@ -168,7 +183,7 @@ function ProfileActions({ person, self }: { person: PublicProfile; self: boolean
   };
   if (self) {
     return (
-      <div className="flex shrink-0 items-center gap-2 max-md:order-3 max-md:w-full">
+      <div className="flex shrink-0 items-center gap-2 max-md:w-full">
         <Button variant="secondary" onClick={() => void navigate('/settings')} className="max-md:flex-1">
           Edit profile
         </Button>
@@ -176,13 +191,16 @@ function ProfileActions({ person, self }: { person: PublicProfile; self: boolean
           <MenuItem icon="share" description="Copy or send your profile link" onSelect={share}>
             Share profile
           </MenuItem>
+          <MenuItem icon="settings" to="/settings">
+            Account settings
+          </MenuItem>
         </Menu>
       </div>
     );
   }
   return (
-    <div className="flex shrink-0 items-center gap-2 max-md:order-3 max-md:w-full">
-      <FollowPersonButton person={person} />
+    <div className="flex shrink-0 items-center gap-2 max-md:w-full">
+      <FollowPersonButton person={person} className="max-md:flex-1" />
       <MessagePersonButton person={person} />
       <PersonMenu person={person} onShare={share} />
     </div>
@@ -198,10 +216,18 @@ function MessagePersonButton({ person }: { person: PublicProfile }) {
   // Hidden on your own profile and for people who take no messages. "People they follow"
   // is left to the server, which says so clearly if you can't message them.
   if (!enabled || viewer?.id === person.id || policy.data === 'nobody') return null;
-  return <IconButton icon="mail" label={`Message @${person.handle}`} onClick={() => void navigate(`/messages/to/${person.handle}`)} />;
+  return <IconButton icon="mail" variant="secondary" label={`Message @${person.handle}`} onClick={() => void navigate(`/messages/to/${person.handle}`)} />;
 }
 
-export function FollowPersonButton({ person, size = 'md' }: { person: { id: string; handle: string }; size?: 'sm' | 'md' }) {
+export function FollowPersonButton({
+  person,
+  size = 'md',
+  className,
+}: {
+  person: { id: string; handle: string };
+  size?: 'sm' | 'md';
+  className?: string;
+}) {
   const { viewer } = useViewer();
   const requireAuth = useRequireAuth();
   const { toast } = useToast();
@@ -213,7 +239,7 @@ export function FollowPersonButton({ person, size = 'md' }: { person: { id: stri
       size={size}
       variant={on ? 'secondary' : 'primary'}
       aria-pressed={on}
-      className="max-md:flex-1"
+      className={cx(className)}
       onClick={() => {
         if (!requireAuth('follow people')) return;
         follow.mutate(
@@ -329,8 +355,8 @@ function Manages() {
   // No claim prompt on profiles: claiming lives on boards and the right rail.
   if (list.length === 0) return null;
   return (
-    <div className="basis-full">
-      <p className="mt-1 mb-2 text-xs font-semibold text-ink-muted uppercase">Manages</p>
+    <div className="basis-full border-t border-line pt-3">
+      <p className="mt-0 mb-2 text-xs font-semibold text-ink-muted uppercase">Manages</p>
       <ul className="m-0 flex list-none flex-col gap-2 p-0" aria-label="Boards you manage">
         {list.map((m) => (
           <li key={`${m.scope}:${m.scope_id}`}>
@@ -347,7 +373,7 @@ function ManagedRow({ m }: { m: Managed }) {
   const home = hub ? `/h/${m.slug}` : `/b/${m.slug}`;
   const logo = logoSrc({ logo_path: m.logo_path });
   return (
-    <div className="flex items-center gap-3 rounded-md border border-line bg-card px-3 py-2">
+    <div className="flex items-center gap-3 rounded-md border border-line bg-subtle px-3 py-2">
       {hub ? <HubAvatar name={m.name} boards={m.boards.map((b) => ({ name: b.name, color: b.color, logoSrc: logoSrc(b) }))} size="md" /> : <BoardAvatar name={m.name} color={m.color} logoSrc={logo} size="lg" decorative />}
       <Link to={home} className="flex min-w-0 flex-1 flex-col text-ink no-underline hover:text-brand">
         <b className="flex items-center gap-2 truncate text-base font-semibold">
@@ -373,7 +399,22 @@ function UserPosts({ person, self }: { person: PublicProfile; self: boolean }) {
   const posts = useMemo(() => dedupePosts(list.data?.pages ?? []), [list.data]);
   if (list.isPending) return <PostListSkeleton />;
   if (list.isError && posts.length === 0) return <LoadError title="We couldn’t load the posts" onRetry={() => void list.refetch()} retrying={list.isRefetching} />;
-  if (posts.length === 0) return <Empty>{self ? 'You haven’t posted yet.' : 'No posts yet.'}</Empty>;
+  if (posts.length === 0) {
+    return (
+      <Empty
+        icon="edit"
+        action={
+          self ? (
+            <Link to="/explore" className={actionLink}>
+              Explore boards
+            </Link>
+          ) : undefined
+        }
+      >
+        {self ? 'You haven’t posted yet.' : 'No posts yet.'}
+      </Empty>
+    );
+  }
   return (
     <PostList
       posts={posts}
@@ -391,7 +432,7 @@ function UserReplies({ replies, self }: { replies: ReturnType<typeof useUserRepl
   if (replies.isPending) return <PostListSkeleton count={2} />;
   if (replies.isError) return <LoadError title="We couldn’t load the replies" onRetry={() => void replies.refetch()} retrying={replies.isRefetching} />;
   const list = replies.data ?? [];
-  if (list.length === 0) return <Empty>{self ? 'You haven’t replied to anything yet.' : 'No replies yet.'}</Empty>;
+  if (list.length === 0) return <Empty icon="reply">{self ? 'You haven’t replied to anything yet.' : 'No replies yet.'}</Empty>;
   return (
     <ul className="m-0 flex list-none flex-col gap-4 p-0" aria-label="Replies">
       {list.map((r) => (
@@ -427,7 +468,7 @@ function Upvoted({ query }: { query: ReturnType<typeof useUpvotedPosts> }) {
       ) : query.isError ? (
         <LoadError title="We couldn’t load your upvotes" onRetry={() => void query.refetch()} retrying={query.isRefetching} />
       ) : (query.data ?? []).length === 0 ? (
-        <Empty>Nothing here yet.</Empty>
+        <Empty icon="arrow-up">Nothing here yet.</Empty>
       ) : (
         <ul className={FEED_LIST} aria-label="Posts you upvoted">
           {(query.data ?? []).map((p) => (
@@ -441,8 +482,12 @@ function Upvoted({ query }: { query: ReturnType<typeof useUpvotedPosts> }) {
   );
 }
 
-function Empty({ children }: { children: string }) {
-  return <p className="m-0 rounded-md border border-line bg-card px-4 py-9 text-center text-base text-ink-muted">{children}</p>;
+function Empty({ icon, action, children }: { icon: IconName; action?: ReactNode; children: string }) {
+  return (
+    <Card padding="none">
+      <EmptyState icon={icon} title={children} action={action} />
+    </Card>
+  );
 }
 
 function PersonNotFound() {

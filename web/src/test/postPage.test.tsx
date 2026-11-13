@@ -35,7 +35,12 @@ const api = vi.hoisted(() => ({
 vi.mock('../api/posts', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/posts')>()), ...api }));
 const modApi = vi.hoisted(() => ({ fetchIsPlatformAdmin: vi.fn(async () => false) }));
 vi.mock('../api/moderation', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/moderation')>()), ...modApi }));
-const boardsApi = vi.hoisted(() => ({ fetchIsBoardTeam: vi.fn(async () => false) }));
+const boardsApi = vi.hoisted(() => ({
+  fetchIsBoardTeam: vi.fn(async () => false),
+  fetchBoard: vi.fn<() => Promise<import('../api/boards').BoardWithHub | null>>(async () => null),
+  fetchFollowedScopes: vi.fn(async () => new Set<string>()),
+  setScopeFollow: vi.fn(async () => undefined),
+}));
 vi.mock('../api/boards', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/boards')>()), ...boardsApi }));
 
 function renderPost(post: Post, { replies = [] as Reply[], events = [] as StatusEvent[], signedIn = true, found = true, at = '' } = {}) {
@@ -57,6 +62,9 @@ beforeEach(() => {
   api.setVote.mockResolvedValue(undefined);
   api.setPostFollow.mockResolvedValue(undefined);
   boardsApi.fetchIsBoardTeam.mockResolvedValue(false);
+  boardsApi.fetchBoard.mockResolvedValue(null);
+  boardsApi.fetchFollowedScopes.mockResolvedValue(new Set<string>());
+  boardsApi.setScopeFollow.mockResolvedValue(undefined);
 });
 
 describe('post page', () => {
@@ -104,6 +112,64 @@ describe('post page', () => {
     expect(productAt).toBeLessThan(categoryAt);
     expect(categoryAt).toBeLessThan(timeAt);
     expect(timeAt).toBeLessThan(authorAt);
+  });
+
+  it('folds verified team, board stats (> 0) and board Follow into PagePostHead (D-016)', async () => {
+    boardsApi.fetchBoard.mockResolvedValue({
+      id: BOARD.id,
+      slug: BOARD.slug,
+      name: BOARD.name,
+      tagline: 'The AI code editor',
+      site: 'cursor.com',
+      color: BOARD.color,
+      logo_path: null,
+      category: 'code',
+      hub_id: 'h1',
+      claimed_at: null,
+      created_at: iso(240),
+      follower_count: 4100,
+      post_count: 92,
+      status: 'live',
+      created_by: null,
+      hub: { id: 'h1', slug: 'anysphere', name: 'Anysphere', claimed_at: iso(100) },
+    });
+    const post = makePost({ title: 'Inline context test' });
+    renderPost(post);
+    const article = await screen.findByRole('article', { name: post.title });
+    expect(await within(article).findByText('Verified team')).toBeTruthy();
+    expect(within(article).getByText(/92 posts · 4\.1k followers/)).toBeTruthy();
+    // Board name appears once in the header rather than duplicated in a separate card.
+    expect(within(article).getAllByRole('link', { name: BOARD.name })).toHaveLength(1);
+    const followBoard = within(article).getByRole('button', { name: `Follow ${BOARD.name}` });
+    fireEvent.click(followBoard);
+    await waitFor(() => expect(boardsApi.setScopeFollow).toHaveBeenCalledWith('board', BOARD.id, TEST_VIEWER.id, true));
+  });
+
+  it('omits zero stats and hides board Follow on pending boards', async () => {
+    boardsApi.fetchBoard.mockResolvedValue({
+      id: BOARD.id,
+      slug: BOARD.slug,
+      name: 'Muse',
+      tagline: 'Quiet board',
+      site: null,
+      color: BOARD.color,
+      logo_path: null,
+      category: null,
+      hub_id: null,
+      claimed_at: null,
+      created_at: iso(24),
+      follower_count: 0,
+      post_count: 0,
+      status: 'pending',
+      created_by: TEST_VIEWER.id,
+      hub: null,
+    });
+    const post = makePost({ title: 'Pending quiet board post', author_id: TEST_VIEWER.id, board: { ...BOARD, name: 'Muse', status: 'pending' } });
+    renderPost(post);
+    const article = await screen.findByRole('article', { name: post.title });
+    expect(within(article).queryByText(/Verified team/)).toBeNull();
+    expect(within(article).queryByText(/0 posts|0 followers/)).toBeNull();
+    expect(within(article).queryByRole('button', { name: /Follow Muse/ })).toBeNull();
   });
 
   it('shows the post, its status timeline, the official reply unpinned and threads', async () => {

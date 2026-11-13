@@ -22,6 +22,7 @@ import {
 import { cx } from '../lib/cx';
 import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
+import { LoadError } from '../posts/PostList';
 import { useAuthDialog } from '../shell/auth';
 import { Button, EmptyState, Icon, IconButton, Menu, MenuItem, MenuSeparator, Spinner, Tabs, Textarea, UserAvatar, useToast } from '../ui';
 import { NotFound } from './NotFound';
@@ -67,15 +68,22 @@ export function MessagesPage() {
   const open = Boolean(id || handle);
   usePageTitle(open ? null : 'Messages');
   if (ready && viewer && !enabled) return <NotFound />;
+  if (!ready) {
+    return (
+      <div className="grid flex-1 place-items-center">
+        <Spinner />
+      </div>
+    );
+  }
   if (!viewer) {
-    return ready ? (
+    return (
       <section aria-labelledby="page-title" className="pt-6 max-sm:px-3 max-sm:pt-4">
         <h1 id="page-title" className="mt-0 mb-4 text-2xl font-bold text-ink">
           Messages
         </h1>
         <SignedOut />
       </section>
-    ) : null;
+    );
   }
   if (!enabled) return null;
   return (
@@ -142,9 +150,9 @@ function ConversationList({ viewerId, activeId }: { viewerId: string; activeId: 
             <Spinner />
           </div>
         ) : list.isError ? (
-          <p role="alert" className="px-4 text-sm text-danger">
-            We couldn’t load your messages. Try again.
-          </p>
+          <div className="p-4">
+            <LoadError title="We couldn’t load your messages" onRetry={() => void list.refetch()} retrying={list.isRefetching} />
+          </div>
         ) : shown.length === 0 ? (
           tab === 'inbox' ? (
             <EmptyState icon="mail" title="No messages yet">
@@ -200,7 +208,17 @@ function ConversationRow({ c, viewerId }: { c: Conversation; viewerId: string })
         </span>
       </span>
       {c.muted ? <span role="img" aria-label="Muted" className="flex shrink-0 text-ink-muted"><Icon name="bell-off" size={16} /></span> : null}
-      {unread ? <span className="sr-only">{c.unread === 1 ? '1 unread message' : `${c.unread} unread messages`}</span> : null}
+      {unread ? (
+        <>
+          <span
+            aria-hidden="true"
+            className="min-w-5 shrink-0 rounded-pill bg-brand px-2 text-center font-mono text-xs leading-4 font-semibold text-on-brand tabular-nums"
+          >
+            {c.unread > 99 ? '99+' : c.unread}
+          </span>
+          <span className="sr-only">{c.unread === 1 ? '1 unread message' : `${c.unread} unread messages`}</span>
+        </>
+      ) : null}
     </NavLink>
   );
 }
@@ -213,7 +231,13 @@ export function ConversationPage() {
   const list = useConversations(viewer?.id ?? null, enabled);
   const conv = useMemo(() => (list.data ?? []).find((c) => c.id === id) ?? null, [list.data, id]);
   usePageTitle(conv ? conv.other.name || `@${conv.other.handle}` : 'Messages');
-  if (!ready || !viewer || !enabled || list.isPending) return null;
+  if (!ready || !viewer || !enabled || list.isPending) {
+    return (
+      <div className="grid flex-1 place-items-center">
+        <Spinner />
+      </div>
+    );
+  }
   if (!conv) return <MissingConversation />;
   return <Thread key={conv.id} conv={conv} viewerId={viewer.id} />;
 }
@@ -225,7 +249,13 @@ export function NewConversationPage() {
   const person = usePerson(handle);
   const list = useConversations(viewer?.id ?? null, enabled);
   usePageTitle('New message');
-  if (!ready || !viewer || !enabled || person.isPending || list.isPending) return null;
+  if (!ready || !viewer || !enabled || person.isPending || list.isPending) {
+    return (
+      <div className="grid flex-1 place-items-center">
+        <Spinner />
+      </div>
+    );
+  }
   const p = person.data;
   if (!p || p.id === viewer.id) return <MissingConversation />;
   const existing = (list.data ?? []).find((c) => c.other.id === p.id);
@@ -247,29 +277,48 @@ export function NewConversationPage() {
 
 function MissingConversation() {
   return (
-    <div className="grid flex-1 place-items-center">
-      <EmptyState icon="mail" title="This conversation isn’t available" action={<Link to="/messages">Back to messages</Link>}>
+    <div className="grid flex-1 place-items-center p-4">
+      <EmptyState
+        icon="mail"
+        title="This conversation isn’t available"
+        action={
+          <Link
+            to="/messages"
+            className="inline-flex h-8 items-center rounded-md border border-line-strong bg-card px-4 text-base font-semibold text-ink no-underline transition-colors duration-120 hover:bg-subtle"
+          >
+            Back to messages
+          </Link>
+        }
+      >
         It may have been deleted.
       </EmptyState>
     </div>
   );
 }
 
-function ThreadHeader({ person, menu }: { person: PersonRef; menu?: ReactNode }) {
+function ThreadHeader({ person, muted = false, menu }: { person: PersonRef; muted?: boolean; menu?: ReactNode }) {
   const name = person.name || `@${person.handle}`;
   return (
     <header className="flex h-10 shrink-0 items-center gap-3 border-b border-line px-4 max-sm:px-3">
       <Link
         to="/messages"
         aria-label="Back to messages"
-        className="grid size-7 place-items-center rounded-md text-ink-secondary no-underline hover:bg-subtle hover:text-ink lg:hidden"
+        className="grid size-8 place-items-center rounded-md text-ink-secondary no-underline transition-colors duration-120 hover:bg-subtle hover:text-ink lg:hidden"
       >
         <Icon name="arrow-left" size={18} />
       </Link>
       <Link to={`/u/${person.handle}`} className="flex min-w-0 flex-1 items-center gap-2 text-ink no-underline">
         <UserAvatar size="md" name={name} src={avatarSrc(person)} />
         <span className="flex min-w-0 flex-col">
-          <h1 className="m-0 truncate text-md font-bold">{name}</h1>
+          <span className="flex items-center gap-2">
+            <h1 className="m-0 truncate text-md font-bold">{name}</h1>
+            {muted ? (
+              <span className="inline-flex h-5 shrink-0 items-center gap-1 rounded-pill border border-line bg-subtle px-2 text-xs text-ink-muted">
+                <Icon name="bell-off" size={11} />
+                Muted
+              </span>
+            ) : null}
+          </span>
           <span className="truncate text-sm text-ink-muted">@{person.handle}</span>
         </span>
       </Link>
@@ -350,11 +399,15 @@ function Thread({ conv, viewerId }: { conv: Conversation; viewerId: string }) {
 
   return (
     <section aria-label={`Conversation with @${handle}`} className="flex min-h-0 flex-1 flex-col">
-      <ThreadHeader person={conv.other} menu={menu} />
+      <ThreadHeader person={conv.other} muted={conv.muted} menu={menu} />
       <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 max-sm:px-3">
         {messages.isPending ? (
           <div className="grid flex-1 place-items-center">
             <Spinner />
+          </div>
+        ) : messages.isError ? (
+          <div className="grid flex-1 place-items-center py-4">
+            <LoadError title="We couldn’t load these messages" onRetry={() => void messages.refetch()} retrying={messages.isRefetching} />
           </div>
         ) : (
           // mt-auto: a short conversation sits at the bottom, by the composer, as in any chat app.
@@ -407,7 +460,11 @@ function showTime(items: DmMessage[], i: number): boolean {
 function Bubble({ m, mine, showTime: time }: { m: DmMessage; mine: boolean; showTime: boolean }) {
   return (
     <li className={cx('flex flex-col', mine ? 'items-end' : 'items-start')}>
-      {time ? <span className="my-2 self-center text-xs text-ink-muted">{shortAge(m.created_at)}</span> : null}
+      {time ? (
+        <time dateTime={m.created_at} className="my-2 self-center text-xs text-ink-muted">
+          {shortAge(m.created_at)}
+        </time>
+      ) : null}
       <p
         className={cx(
           'm-0 max-w-4/5 rounded-lg px-3 py-2 text-base whitespace-pre-line wrap-break-word',
@@ -426,6 +483,7 @@ function ComposerForm({ onSend, pending }: { onSend: (body: string, clear: () =>
   const [body, setBody] = useState('');
   const trimmed = body.trim();
   const over = trimmed.length > DM_MAX;
+  const showCount = trimmed.length >= DM_MAX - 200;
   const submit = (e?: FormEvent) => {
     e?.preventDefault();
     if (!trimmed || over || pending) return;
@@ -439,20 +497,30 @@ function ComposerForm({ onSend, pending }: { onSend: (body: string, clear: () =>
     }
   };
   return (
-    <form onSubmit={submit} className="mx-auto flex w-full max-w-wide items-end gap-2 py-3">
-      <Textarea
-        aria-label="Message"
-        placeholder="Write a message"
-        rows={1}
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        onKeyDown={onKeyDown}
-        className="max-h-list flex-1 resize-none"
-        {...(over ? { 'aria-invalid': true } : {})}
-      />
-      <Button type="submit" disabled={!trimmed || over} loading={pending} aria-label="Send">
-        Send
-      </Button>
+    <form onSubmit={submit} className="mx-auto flex w-full max-w-wide flex-col gap-1 py-3">
+      <div className="flex items-end gap-2">
+        <Textarea
+          aria-label="Message"
+          placeholder="Write a message"
+          rows={body.includes('\n') ? 3 : 1}
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          onKeyDown={onKeyDown}
+          className="max-h-list flex-1 resize-none"
+          {...(over ? { 'aria-invalid': true } : {})}
+        />
+        <Button type="submit" disabled={!trimmed || over} loading={pending} aria-label="Send">
+          Send
+        </Button>
+      </div>
+      <div className={cx('items-center justify-between gap-2 text-xs text-ink-muted', showCount ? 'flex' : 'hidden sm:flex')}>
+        <span className="max-sm:hidden">Enter to send · Shift+Enter for new line</span>
+        {showCount ? (
+          <span className={cx('ml-auto font-mono tabular-nums', over && 'font-semibold text-danger')}>
+            {trimmed.length} / {DM_MAX}
+          </span>
+        ) : null}
+      </div>
     </form>
   );
 }

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes } from 'react-router';
-import { dmErrorMessage, type Conversation, type DmMessage } from '../api/messages';
+import { DM_MAX, dmErrorMessage, type Conversation, type DmMessage } from '../api/messages';
 import { ConversationPage, MessagesPage, NewConversationPage, NoConversationPage } from '../pages/MessagesPage';
 import { resetDmLiveForTests } from '../api/messageHooks';
 import { ComposerProvider } from '../shell/composer';
@@ -170,6 +170,33 @@ describe('a conversation', () => {
     fireEvent.change(box, { target: { value: 'hello?' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     expect(await screen.findByText('You can send more once they accept your request.')).toBeTruthy();
+  });
+
+  it('shows a Muted pill in the thread header, unread count pill in inbox, and retries failed message loads', async () => {
+    dm.fetchConversations.mockResolvedValue([conv({ muted: true, unread: 0 }), conv({ id: 'c2', other: STRANGER, unread: 3 })]);
+    dm.fetchMessages.mockRejectedValueOnce(new Error('network down')).mockResolvedValueOnce([msg('m1', OTHER.id, 'Back online')]);
+    renderAt('/messages/c1');
+    const inbox = await screen.findByRole('list', { name: 'Inbox' });
+    expect(within(inbox).getByText('3 unread messages')).toBeTruthy();
+    const thread = await screen.findByRole('region', { name: 'Conversation with @jmwamba' });
+    expect(within(thread).getByText('Muted')).toBeTruthy();
+    expect(await screen.findByText('We couldn’t load these messages')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByText('Back online')).toBeTruthy();
+  });
+
+  it('shows the DM_MAX counter near and over the limit and disables Send when over', async () => {
+    dm.fetchConversations.mockResolvedValue([conv({ unread: 0 })]);
+    renderAt('/messages/c1');
+    const box = await screen.findByRole('textbox', { name: 'Message' });
+    const nearLimit = 'a'.repeat(DM_MAX - 150);
+    fireEvent.change(box, { target: { value: nearLimit } });
+    expect(screen.getByText(`${DM_MAX - 150} / ${DM_MAX}`)).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Send' }) as HTMLButtonElement).disabled).toBe(false);
+
+    fireEvent.change(box, { target: { value: 'a'.repeat(DM_MAX + 5) } });
+    expect(screen.getByText(`${DM_MAX + 5} / ${DM_MAX}`)).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Send' }) as HTMLButtonElement).disabled).toBe(true);
   });
 });
 

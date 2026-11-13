@@ -312,13 +312,15 @@ export function NotificationsPage() {
         <h1 id="page-title" className="mt-0 mb-4 text-2xl font-bold text-ink">
           Notifications
         </h1>
-        {ready ? (
+        {!ready ? (
+          <PostListSkeleton count={2} />
+        ) : (
           <div className="rounded-md border border-line bg-card">
             <EmptyState icon="bell" title="Sign in to see notifications" action={<Button onClick={() => openAuth('signin', 'see notifications')}>Sign in</Button>}>
               Replies, upvotes and new followers will show up here.
             </EmptyState>
           </div>
-        ) : null}
+        )}
       </section>
     );
   }
@@ -335,15 +337,17 @@ function NotificationList({ viewerId }: { viewerId: string }) {
   const items = useMemo(() => (list.data ?? []).filter((n) => tab === 'all' || notificationTab(n.kind) === tab), [list.data, tab]);
   const unread = (t: Tab) => (list.data ?? []).filter((n) => !n.read_at && (t === 'all' || notificationTab(n.kind) === t)).length;
   const anyUnread = unread('all') > 0;
+  const emptyTitle =
+    tab === 'replies' ? 'No replies or mentions yet' : tab === 'activity' ? 'No activity yet' : 'You’re all caught up';
 
   return (
     <section aria-labelledby="page-title">
-      <header className="mb-2 flex items-center gap-2">
+      <header className="mb-2 flex flex-wrap items-center gap-2">
         <h1 id="page-title" className="m-0 flex-1 text-2xl font-bold text-ink">
           Notifications
         </h1>
         <Button
-          variant="ghost"
+          variant={anyUnread ? 'secondary' : 'ghost'}
           size="sm"
           disabled={!anyUnread || markRead.isPending}
           onClick={() => markRead.mutate('all', { onSuccess: () => toast('All caught up'), onError: () => toast('Something went wrong. Try again.') })}
@@ -354,9 +358,9 @@ function NotificationList({ viewerId }: { viewerId: string }) {
           to="/settings#notifications"
           aria-label="Notification settings"
           title="Notification settings"
-          className="grid size-7 place-items-center rounded-md text-ink-secondary no-underline hover:bg-subtle hover:text-ink"
+          className="grid size-8 place-items-center rounded-md border border-transparent text-ink-secondary no-underline transition-colors duration-120 hover:border-line hover:bg-subtle hover:text-ink"
         >
-          <Icon name="settings" size={16} />
+          <Icon name="settings" size={18} />
         </Link>
       </header>
       <Tabs
@@ -380,7 +384,7 @@ function NotificationList({ viewerId }: { viewerId: string }) {
           </div>
         ) : items.length === 0 ? (
           <div className="mt-4 rounded-md border border-line bg-card">
-            <EmptyState icon="bell" title="You’re all caught up">
+            <EmptyState icon="bell" title={emptyTitle}>
               Replies, upvotes and new followers will show up here.
             </EmptyState>
           </div>
@@ -425,7 +429,7 @@ function NotificationItem({ n, viewerId, onOpen }: { n: AppNotification; viewerI
           <span
             aria-hidden="true"
             className={cx(
-              'absolute -right-1 -bottom-1 grid size-5 place-items-center rounded-pill bg-card ring-1 ring-line',
+              'absolute -right-1 -bottom-1 grid size-5 place-items-center rounded-pill border border-line-strong bg-card',
               d.badge === 'up' ? 'text-brand' : d.badge === 'ship' ? 'text-success' : 'text-ink-secondary',
             )}
           >
@@ -437,7 +441,7 @@ function NotificationItem({ n, viewerId, onOpen }: { n: AppNotification; viewerI
             {unread ? <span className="sr-only">Unread: </span> : null}
             {d.text}
           </span>
-          {d.quote ? <span className="mt-1 line-clamp-2 border-0 border-l-2 border-solid border-line pl-3 text-base text-ink">{d.quote}</span> : null}
+          {d.quote ? <span className="mt-1 line-clamp-2 border-0 border-l-2 border-solid border-line-strong pl-3 text-base text-ink">{d.quote}</span> : null}
           <time dateTime={n.created_at} className="mt-1 text-sm text-ink-muted">
             {shortAge(n.created_at)}
           </time>

@@ -1,5 +1,5 @@
 import { Link, useNavigate, useParams } from 'react-router';
-import { canUnmerge, isPostId, useIsBoardTeam, usePost, usePostTitle, useRelated, useStatusEvents, useUnmergePost, type Post, type StatusEvent } from '../api';
+import { canUnmerge, isPostId, useBoard, useIsBoardTeam, usePost, usePostTitle, useRelated, useStatusEvents, useUnmergePost, type Post, type StatusEvent } from '../api';
 import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { PostCard } from '../posts/PostCard';
@@ -54,6 +54,7 @@ function PostBody({ post }: { post: Post }) {
   const navigate = useNavigate();
   const { viewer } = useViewer();
   const events = useStatusEvents(post.id, true);
+  const board = useBoard(post.board?.slug, viewer?.id ?? null);
   return (
     <>
       {post.status === 'merged' && post.merged_into ? <MergedNotice post={post} targetId={post.merged_into} events={events.data} /> : null}
@@ -64,7 +65,7 @@ function PostBody({ post }: { post: Post }) {
           Hidden. Only its author, the {post.board?.name ?? 'board'} team and Publisense moderators can see it.
         </p>
       ) : null}
-      <PostCard post={post} variant="page" onDeleted={() => void navigate('/', { replace: true })} />
+      <PostCard post={post} variant="page" boardDetail={board.data ?? null} onDeleted={() => void navigate('/', { replace: true })} />
       {events.data && events.data.length > 0 ? <StatusTimeline post={post} events={events.data} /> : null}
       <ReplySection post={post} />
       <Related post={post} viewerId={viewer?.id ?? null} />

@@ -54,19 +54,52 @@ export function SettingsPage() {
   const { viewer, ready } = useViewer();
   const { openAuth } = useAuthDialog();
   const location = useLocation();
+  const messagesEnabled = useMessagesEnabled(viewer?.id ?? null);
 
   useEffect(() => {
     if (!ready || !location.hash) return;
     const target = document.getElementById(location.hash.slice(1));
     target?.scrollIntoView({ behavior: 'smooth' });
   }, [ready, location.hash]);
+
+  const navSections = [
+    { id: 'profile', label: 'Profile' },
+    { id: 'notifications', label: 'Notifications' },
+    ...(messagesEnabled ? [{ id: 'messages', label: 'Messages' }] : []),
+    { id: 'account', label: 'Account' },
+  ];
+
   return (
     <div className="flex flex-col gap-7">
-      <h1 id="page-title" className="m-0 text-2xl font-bold text-ink">
-        Settings
-      </h1>
+      <div>
+        <h1 id="page-title" className="m-0 text-2xl font-bold text-ink">
+          Settings
+        </h1>
+        {viewer ? (
+          <nav aria-label="Settings sections" className="mt-3 flex flex-wrap gap-2">
+            {navSections.map((s) => (
+              <a
+                key={s.id}
+                href={`#${s.id}`}
+                className="rounded-pill border border-line bg-subtle px-3 py-1 text-xs font-medium text-ink-secondary no-underline transition-colors duration-120 hover:border-line-strong hover:text-ink"
+              >
+                {s.label}
+              </a>
+            ))}
+          </nav>
+        ) : null}
+      </div>
       {!ready ? (
-        <Skeleton variant="header" />
+        <div className="flex flex-col gap-5">
+          <Card>
+            <Skeleton variant="header" className="pb-0" />
+          </Card>
+          <Card>
+            <Skeleton variant="row" />
+            <Skeleton variant="row" />
+            <Skeleton variant="row" />
+          </Card>
+        </div>
       ) : !viewer ? (
         <Card padding="none">
           <EmptyState
@@ -103,7 +136,7 @@ function Section({
   // The section takes the anchor id (#notifications); the heading keeps its own, so ids stay unique.
   const id = useId();
   return (
-    <section id={explicitId} aria-labelledby={id} className="flex flex-col gap-3">
+    <section id={explicitId} aria-labelledby={id} className="flex scroll-mt-10 flex-col gap-3">
       <div>
         <h2 id={id} className="m-0 text-lg font-semibold text-ink">
           {title}
@@ -186,7 +219,7 @@ function ProfileSection({ viewer }: { viewer: Viewer }) {
     <Section id="profile" title="Profile" description="Shown next to everything you post.">
       <Card>
         <form noValidate onSubmit={save} className="flex flex-col gap-5">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 max-sm:items-start">
             <UserAvatar size="xl" src={viewer.avatarUrl ?? null} name={`${viewer.name}’s photo`} />
             <div className="flex min-w-0 flex-col gap-2">
               <div className="flex flex-wrap gap-2">
@@ -251,7 +284,10 @@ function ProfileSection({ viewer }: { viewer: Viewer }) {
               }}
             />
           </Field>
-          <div className="flex justify-end">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+            <span className={dirty ? 'text-sm font-medium text-brand' : 'text-sm text-ink-muted'}>
+              {dirty ? 'You have unsaved changes' : 'All changes saved'}
+            </span>
             <Button type="submit" disabled={!dirty} loading={saving}>
               Save profile
             </Button>
@@ -283,9 +319,12 @@ function NotificationsSection({ viewer }: { viewer: Viewer }) {
             <Skeleton variant="row" />
           </div>
         ) : prefs.isError ? (
-          <p role="alert" className="m-0 px-5 py-4 text-sm text-danger">
-            We couldn’t load your notification settings.
-          </p>
+          <div role="alert" className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+            <p className="m-0 text-sm text-danger">We couldn’t load your notification settings.</p>
+            <Button size="sm" variant="secondary" loading={prefs.isRefetching} onClick={() => void prefs.refetch()}>
+              Try again
+            </Button>
+          </div>
         ) : (
           <table className="w-full border-collapse text-left">
             <thead>
@@ -308,14 +347,16 @@ function NotificationsSection({ viewer }: { viewer: Viewer }) {
                     <span className="block text-sm text-ink-muted">{KIND_COPY[k].hint}</span>
                   </th>
                   {CHANNELS.map((c) => (
-                    <td key={c} className="px-3 py-3 text-center">
-                      <input
-                        type="checkbox"
-                        className="size-4 cursor-pointer accent-brand"
-                        aria-label={`${KIND_COPY[k].label}: ${channelLabel[c]}`}
-                        checked={prefs.data[`${k}:${c}`]}
-                        onChange={(e) => toggle(k, c, e.target.checked)}
-                      />
+                    <td key={c} className="px-3 py-2 text-center">
+                      <label className="inline-grid size-8 cursor-pointer place-items-center rounded-md transition-colors duration-120 hover:bg-subtle">
+                        <input
+                          type="checkbox"
+                          className="size-4 cursor-pointer accent-brand"
+                          aria-label={`${KIND_COPY[k].label}: ${channelLabel[c]}`}
+                          checked={prefs.data[`${k}:${c}`]}
+                          onChange={(e) => toggle(k, c, e.target.checked)}
+                        />
+                      </label>
                     </td>
                   ))}
                 </tr>
@@ -365,7 +406,7 @@ export function MessagesSettings({ viewer }: { viewer: Viewer }) {
           ) : (
             <div className="flex flex-col pb-2">
               {DM_POLICY_OPTIONS.map((o) => (
-                <label key={o.value} className="flex cursor-pointer items-center gap-3 px-5 py-2 max-sm:px-4">
+                <label key={o.value} className="flex cursor-pointer items-center gap-3 px-5 py-2 transition-colors duration-120 hover:bg-subtle max-sm:px-4">
                   <input
                     type="radio"
                     name="dm-policy"
@@ -381,7 +422,7 @@ export function MessagesSettings({ viewer }: { viewer: Viewer }) {
             </div>
           )}
         </fieldset>
-        <label className="flex cursor-pointer items-center gap-3 border-t border-line px-5 py-3 max-sm:px-4">
+        <label className="flex cursor-pointer items-center gap-3 border-t border-line px-5 py-3 transition-colors duration-120 hover:bg-subtle max-sm:px-4">
           <input
             type="checkbox"
             className="size-4 cursor-pointer accent-brand"
@@ -400,6 +441,13 @@ export function MessagesSettings({ viewer }: { viewer: Viewer }) {
           <h3 className="m-0 text-base font-medium text-ink">Blocked people</h3>
           {blocked.isPending ? (
             <Skeleton variant="row" />
+          ) : blocked.isError ? (
+            <div role="alert" className="mt-2 flex flex-wrap items-center justify-between gap-3">
+              <p className="m-0 text-sm text-danger">We couldn’t load blocked people.</p>
+              <Button size="sm" variant="secondary" loading={blocked.isRefetching} onClick={() => void blocked.refetch()}>
+                Try again
+              </Button>
+            </div>
           ) : blockedList.length === 0 ? (
             <p className="mt-1 mb-0 text-sm text-ink-muted">You haven’t blocked anyone.</p>
           ) : (
@@ -437,10 +485,10 @@ export function MessagesSettings({ viewer }: { viewer: Viewer }) {
 
 function AccountRow({ title, detail, action }: { title: string; detail: ReactNode; action?: ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-t border-line py-3 first:border-t-0">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line py-3 first:border-t-0">
       <span className="min-w-0 text-base">
         <b className="font-semibold text-ink">{title}</b>
-        <small className="mt-1 block text-sm break-words text-ink-muted">{detail}</small>
+        <small className="mt-1 block text-sm wrap-break-word text-ink-muted">{detail}</small>
       </span>
       {action}
     </div>
@@ -505,10 +553,12 @@ function AccountSection({ viewer }: { viewer: Viewer }) {
             </Button>
           }
         />
-        <div className="mt-4 rounded-md border border-danger p-4">
-          <h3 className="mt-0 mb-1 text-base font-semibold text-danger">Delete account</h3>
-          <p className="mt-0 mb-3 text-sm text-ink-secondary">Removes your profile, votes and follows. Posts stay, shown as from a deleted user.</p>
-          <Button variant="secondary" size="sm" onClick={() => setDialog('delete')}>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-danger p-4">
+          <div className="min-w-0 flex-1">
+            <h3 className="mt-0 mb-1 text-base font-semibold text-danger">Delete account</h3>
+            <p className="m-0 text-sm text-ink-secondary">Removes your profile, votes and follows. Posts stay, shown as from a deleted user.</p>
+          </div>
+          <Button variant="danger" size="sm" onClick={() => setDialog('delete')}>
             Delete account…
           </Button>
         </div>

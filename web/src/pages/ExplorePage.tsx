@@ -1,14 +1,14 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { CATEGORIES, isLive, isProductFamily, matchCatalogue, useBoards, useHubs, useTrending, useWanted, type Board, type BoardCategory, type Hub } from '../api';
-import { BoardCard, CardGrid, HubRow, PostRow, RowItem, RowList, Section } from '../boards/parts';
+import { BoardCard, CardGrid, ChoiceMenu, HubRow, PostRow, RowItem, RowList, Section, type Choice } from '../boards/parts';
 import { cx } from '../lib/cx';
 import { usePageTitle } from '../lib/usePageTitle';
 import { useSetUrlParams, useUrlTextParam } from '../lib/useUrlParam';
 import { LoadError } from '../posts/PostList';
 import { AddProductLink } from '../products/AddProductDialog';
 import { SearchWell } from '../shell/SearchWell';
-import { Icon, ScrollRow, SkeletonBlock } from '../ui';
+import { Button, EmptyState, Icon, ScrollRow, SkeletonBlock } from '../ui';
 
 /**
  * Explore (FOUNDATION §9 `/explore`): find products and follow their boards.
@@ -20,6 +20,13 @@ import { Icon, ScrollRow, SkeletonBlock } from '../ui';
  * survives for old links.
  */
 type Cat = 'all' | BoardCategory;
+type ProductSort = 'name' | 'followers' | 'posts';
+
+const PRODUCT_SORTS: Choice<ProductSort>[] = [
+  { value: 'name', label: 'A–Z', hint: 'Alphabetical' },
+  { value: 'followers', label: 'Most followed', hint: 'Highest follower count' },
+  { value: 'posts', label: 'Most posts', hint: 'Most feedback shared' },
+];
 
 export function ExplorePage() {
   usePageTitle('Explore');
@@ -86,7 +93,16 @@ export function ExplorePage() {
           retrying={boards.isRefetching || hubs.isRefetching}
         />
       ) : q.trim() || cat !== 'all' ? (
-        <Filtered q={q.trim()} cat={cat} boards={boards.data.filter(isLive)} hubs={hubs.data.filter((h) => isProductFamily(h.boards.length))} />
+        <Filtered
+          q={q.trim()}
+          cat={cat}
+          boards={boards.data.filter(isLive)}
+          hubs={hubs.data.filter((h) => isProductFamily(h.boards.length))}
+          onClear={() => {
+            setQ('');
+            setUrl([['q', '', ''], ['cat', 'all', 'all']]);
+          }}
+        />
       ) : (
         <Discover boards={boards.data.filter(isLive)} hubs={hubs.data.filter((h) => isProductFamily(h.boards.length))} />
       )}
@@ -95,7 +111,7 @@ export function ExplorePage() {
   );
 }
 
-function Filtered({ q, cat, boards, hubs }: { q: string; cat: Cat; boards: Board[]; hubs: Hub[] }) {
+function Filtered({ q, cat, boards, hubs, onClear }: { q: string; cat: Cat; boards: Board[]; hubs: Hub[]; onClear: () => void }) {
   const { list, hubList } = useMemo(() => {
     const inCat = (b: Board) => cat === 'all' || b.category === cat;
     const matched = q ? matchCatalogue(q, boards, hubs) : { boards, hubs: [] as typeof hubs };
@@ -106,7 +122,21 @@ function Filtered({ q, cat, boards, hubs }: { q: string; cat: Cat; boards: Board
   }, [q, cat, boards, hubs]);
   const title = q ? 'Results' : (CATEGORIES.find((c) => c.value === cat)?.label ?? 'Results');
   if (list.length === 0 && hubList.length === 0) {
-    return <p className="m-0 px-3 py-9 text-center text-base text-ink-muted">{q ? `No products match “${q}”.` : 'No products in this category yet.'}</p>;
+    return (
+      <div className="mb-6 rounded-md border border-line bg-card">
+        <EmptyState
+          icon="explore"
+          title={q ? `No products match “${q}”.` : 'No products in this category yet.'}
+          action={
+            <Button size="sm" variant="secondary" onClick={onClear}>
+              {q ? 'Clear filters' : 'Show all products'}
+            </Button>
+          }
+        >
+          {q ? 'Try a different spelling or browse all categories.' : 'Browse another category or add the product you use below.'}
+        </EmptyState>
+      </div>
+    );
   }
   return (
     <>
@@ -139,6 +169,7 @@ function Filtered({ q, cat, boards, hubs }: { q: string; cat: Cat; boards: Board
 function Discover({ boards, hubs }: { boards: Board[]; hubs: Hub[] }) {
   const trending = useTrending(boards, 4);
   const wanted = useWanted();
+  const [productSort, setProductSort] = useState<ProductSort>('name');
   const now = useMemo(() => new Date(), []);
   const mostWanted = useMemo(() => (wanted.data ?? []).slice(0, 5), [wanted.data]);
   const freshBugs = useMemo(
@@ -155,9 +186,13 @@ function Discover({ boards, hubs }: { boards: Board[]; hubs: Hub[] }) {
         .filter((b) => now.getTime() - new Date(b.created_at).getTime() <= 30 * 86400_000)
         .sort((a, b) => b.created_at.localeCompare(a.created_at))
         .slice(0, 4),
-      all: [...boards].sort((a, b) => a.name.localeCompare(b.name)),
+      all: [...boards].sort((a, b) => {
+        if (productSort === 'followers') return b.follower_count - a.follower_count || a.name.localeCompare(b.name);
+        if (productSort === 'posts') return b.post_count - a.post_count || a.name.localeCompare(b.name);
+        return a.name.localeCompare(b.name);
+      }),
     }),
-    [boards, now],
+    [boards, now, productSort],
   );
   // Requests rank by upvotes, then newest. With no upvotes yet that is just
   // newest, so the label says so (#156).
@@ -221,7 +256,16 @@ function Discover({ boards, hubs }: { boards: Board[]; hubs: Hub[] }) {
           </CardGrid>
         </Section>
       ) : null}
-      <Section id="ex-all" title="All products" note={String(all.length)}>
+      <Section
+        id="ex-all"
+        title="All products"
+        note={
+          <span className="inline-flex items-center gap-2">
+            <span>{all.length}</span>
+            <ChoiceMenu label="Sort products" heading="Sort by" align="end" value={productSort} choices={PRODUCT_SORTS} onChange={setProductSort} />
+          </span>
+        }
+      >
         <CardGrid label="All products">
           {all.map((b) => (
             <li key={b.id} className="min-w-0">
@@ -245,19 +289,44 @@ function MissingProduct({ q }: { q: string }) {
 
 function ExploreSkeleton() {
   return (
-    <div className="grid grid-cols-2 gap-3 max-md:grid-cols-1" aria-busy="true">
-      {[0, 1, 2, 3].map((i) => (
-        <div key={i} className="flex flex-col gap-3 rounded-md border border-line bg-card p-4">
-          <div className="flex items-center gap-3">
-            <SkeletonBlock className="size-9 rounded-lg" />
-            <div className="flex flex-1 flex-col gap-2">
-              <SkeletonBlock className="h-3 w-1/2" />
-              <SkeletonBlock className="h-3 w-3/4" />
-            </div>
-          </div>
-          <SkeletonBlock className="h-3 w-1/3" />
+    <div className="flex flex-col gap-6" aria-busy="true">
+      <div>
+        <div className="mb-3 flex items-baseline justify-between gap-3">
+          <SkeletonBlock className="h-4 w-1/3" />
+          <SkeletonBlock className="h-3 w-1/5" />
         </div>
-      ))}
+        <div className="grid grid-cols-2 gap-3 max-md:grid-cols-1">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="flex flex-col gap-3 rounded-md border border-line bg-card p-4">
+              <div className="flex items-center gap-3">
+                <SkeletonBlock className="size-9 rounded-lg" />
+                <div className="flex flex-1 flex-col gap-2">
+                  <SkeletonBlock className="h-3 w-1/2" />
+                  <SkeletonBlock className="h-3 w-3/4" />
+                </div>
+              </div>
+              <SkeletonBlock className="h-3 w-1/3" />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div>
+        <div className="mb-3 flex items-baseline justify-between gap-3">
+          <SkeletonBlock className="h-4 w-1/4" />
+          <SkeletonBlock className="h-3 w-1/4" />
+        </div>
+        <div className="divide-y divide-line rounded-md border border-line bg-card px-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="flex items-center gap-3 px-1 py-3">
+              <SkeletonBlock className="size-7 rounded-sm" />
+              <div className="flex flex-1 flex-col gap-2">
+                <SkeletonBlock className="h-3 w-2/5" />
+                <SkeletonBlock className="h-3 w-1/3" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
