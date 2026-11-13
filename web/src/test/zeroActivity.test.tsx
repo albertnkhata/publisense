@@ -47,19 +47,32 @@ describe('right rail boards card', () => {
     expect(rows.map((a) => a.textContent?.slice(-2))).toEqual(['2d', '2w']);
   });
 
-  it('reads "Trending this week" with each board’s new-post count when there is activity', async () => {
+  it('reads "New this week" with each board’s new-post count when only one board is active', async () => {
     boardsApi.fetchTrending.mockResolvedValue([{ ...SUPABASE, recent: 3 }]);
     boardsApi.fetchBoards.mockResolvedValue([SUPABASE, QUIET_OLD]);
     renderWith(<RailBoards />);
-    expect(await screen.findByRole('heading', { name: 'Trending this week' })).toBeTruthy();
+    // One row is not a ranking, so the card does not claim to rank (look-and-feel item 5b).
+    expect(await screen.findByRole('heading', { name: 'New this week' })).toBeTruthy();
     expect(screen.getByText('3 new').getAttribute('title')).toBe('3 new posts this week');
   });
 
-  it('shows Recently added beside Trending, without repeating a trending board', async () => {
-    boardsApi.fetchTrending.mockResolvedValue([{ ...SUPABASE, recent: 3 }]);
+  it('reads "Trending this week" once there are enough rows to be a ranking', async () => {
+    boardsApi.fetchTrending.mockResolvedValue([
+      { ...SUPABASE, recent: 3 },
+      { ...QUIET_OLD, recent: 2 },
+      { ...QUIET_NEW, recent: 1 },
+    ]);
     boardsApi.fetchBoards.mockResolvedValue([SUPABASE, QUIET_OLD, QUIET_NEW]);
     renderWith(<RailBoards />);
     expect(await screen.findByRole('heading', { name: 'Trending this week' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'New this week' })).toBeNull();
+  });
+
+  it('shows Recently added beside the activity card, without repeating a trending board', async () => {
+    boardsApi.fetchTrending.mockResolvedValue([{ ...SUPABASE, recent: 3 }]);
+    boardsApi.fetchBoards.mockResolvedValue([SUPABASE, QUIET_OLD, QUIET_NEW]);
+    renderWith(<RailBoards />);
+    expect(await screen.findByRole('heading', { name: 'New this week' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Recently added' })).toBeTruthy();
     const recent = within(screen.getByRole('list', { name: 'Recently added boards' })).getAllByRole('link');
     expect(recent.map((a) => a.getAttribute('href'))).toEqual(['/b/notion', '/b/linear']);
