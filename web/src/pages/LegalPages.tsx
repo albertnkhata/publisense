@@ -34,15 +34,6 @@ function LegalShell({
   usePageTitle(title);
   return (
     <article aria-labelledby="page-title">
-      <nav aria-label="Breadcrumb" className="mb-3 flex items-center gap-2 text-sm text-ink-muted">
-        <Link to="/" className="text-ink-secondary no-underline hover:text-ink hover:underline hover:underline-offset-2">
-          Publisense
-        </Link>
-        <span aria-hidden="true">/</span>
-        <span aria-current="page" className="text-ink-secondary">
-          {title}
-        </span>
-      </nav>
       <h1 id="page-title" className="mt-0 mb-1 text-2xl font-bold text-ink">
         {title}
       </h1>
@@ -75,18 +66,6 @@ function LegalShell({
           <a className={linkClass} href={`mailto:${CONTACT}`}>
             {CONTACT}
           </a>
-          . See also{' '}
-          <Link className={linkClass} to="/about">
-            About Publisense
-          </Link>
-          , our{' '}
-          <Link className={linkClass} to="/terms">
-            Terms
-          </Link>
-          , and our{' '}
-          <Link className={linkClass} to="/privacy">
-            Privacy Policy
-          </Link>
           .
         </p>
       </Card>

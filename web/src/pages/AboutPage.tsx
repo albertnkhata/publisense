@@ -53,15 +53,6 @@ export function AboutPage() {
   return (
     <article aria-labelledby="page-title" className="flex flex-col gap-6">
       <div>
-        <nav aria-label="Breadcrumb" className="mb-3 flex items-center gap-2 text-sm text-ink-muted">
-          <Link to="/" className="text-ink-secondary no-underline hover:text-ink hover:underline hover:underline-offset-2">
-            Publisense
-          </Link>
-          <span aria-hidden="true">/</span>
-          <span aria-current="page" className="text-ink-secondary">
-            About
-          </span>
-        </nav>
         <p className="mt-0 mb-1 font-mono text-xs text-ink-muted uppercase">How Publisense works</p>
         <h1 id="page-title" className="mt-0 mb-2 text-2xl font-bold text-ink">
           About Publisense
@@ -140,15 +131,7 @@ export function AboutPage() {
         Questions or feedback about Publisense itself? Write to{' '}
         <a href={`mailto:${CONTACT}`} className="font-semibold text-ink underline underline-offset-2 hover:text-brand">
           {CONTACT}
-        </a>{' '}
-        or read our{' '}
-        <Link to="/terms" className="font-semibold text-ink underline underline-offset-2 hover:text-brand">
-          Terms
-        </Link>{' '}
-        and{' '}
-        <Link to="/privacy" className="font-semibold text-ink underline underline-offset-2 hover:text-brand">
-          Privacy Policy
-        </Link>
+        </a>
         .
       </p>
     </article>

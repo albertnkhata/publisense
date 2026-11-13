@@ -15,7 +15,7 @@ describe('AboutPage', () => {
       { path: '/about', viewer: null },
     );
 
-    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toBeTruthy();
+    expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).toBeNull();
     expect(screen.getByRole('heading', { level: 1, name: 'About Publisense' })).toBeTruthy();
     expect(screen.getByRole('heading', { level: 3, name: 'Share & rank feedback' })).toBeTruthy();
     expect(screen.getByRole('heading', { level: 3, name: 'Teams prove ownership' })).toBeTruthy();
@@ -46,9 +46,9 @@ describe('LegalPages navigation', () => {
   it.each([
     ['Privacy Policy', '/privacy', PrivacyPage],
     ['Terms of Service', '/terms', TermsPage],
-  ])('%s renders a breadcrumb and working On this page section anchors', (_title, path, Page) => {
+  ])('%s renders working On this page section anchors without duplicate breadcrumbs', (_title, path, Page) => {
     renderWith(<Page />, { path });
-    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toBeTruthy();
+    expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).toBeNull();
     const toc = screen.getByRole('navigation', { name: 'On this page' });
     const links = within(toc).getAllByRole('link');
     expect(links.length).toBeGreaterThanOrEqual(8);
@@ -62,10 +62,10 @@ describe('LegalPages navigation', () => {
 });
 
 describe('AuthResetPage', () => {
-  it('renders breadcrumb and both Send a new link and Sign in actions when expired or signed out', async () => {
+  it('renders both Send a new link and Sign in actions when expired or signed out', async () => {
     renderWith(<AuthResetPage />, { path: '/auth/reset', viewer: null });
 
-    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toBeTruthy();
+    expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).toBeNull();
     expect(screen.getByRole('heading', { level: 1, name: 'Set a new password' })).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Send a new link' }));
