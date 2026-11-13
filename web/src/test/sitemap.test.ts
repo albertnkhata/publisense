@@ -11,6 +11,7 @@ describe('sitemap', () => {
       }),
     );
     expect(xml).toContain('<loc>https://publisense.app/</loc>');
+    expect(xml).toContain('<loc>https://publisense.app/about</loc>');
     expect(xml).toContain('<loc>https://publisense.app/explore</loc>');
     expect(xml).toContain('<loc>https://publisense.app/b/cursor</loc><lastmod>2026-10-01</lastmod>');
     expect(xml).toContain('<loc>https://publisense.app/h/figma</loc></url>');

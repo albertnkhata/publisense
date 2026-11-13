@@ -4,6 +4,7 @@ import { AppShell } from './shell/AppShell';
 import { MESSAGES_PAGE, NO_RAIL_NARROW, NO_RAIL_WIDE, SITE_PAGE, STAFF_PAGE } from './shell/layout';
 import { NotFound } from './pages/NotFound';
 import {
+  AboutPage,
   AdminDisputesPage,
   AdminOverviewPage,
   AdminProductsPage,
@@ -38,8 +39,8 @@ const DevKit = lazy(() => import('./pages/DevKit'));
  * The right rail shows on browsing pages (home, explore, search, boards, hubs, posts,
  * profiles, 404). Task pages drop it (shell/layout.ts): Manage and /admin go wide;
  * settings and notifications keep the reading width. Pages people land on from a
- * link or an email (terms, privacy, password reset, unsubscribe) swap the app frame
- * for a plain website header (SITE_PAGE).
+ * link or an email (about, terms, privacy, password reset, unsubscribe) swap the app
+ * frame for a plain website header (SITE_PAGE).
  */
 export const routes = [
   {
@@ -67,6 +68,7 @@ export const routes = [
         ],
       },
       { path: 'settings', handle: NO_RAIL_NARROW, element: <SettingsPage /> },
+      { path: 'about', handle: SITE_PAGE, element: <AboutPage /> },
       { path: 'privacy', handle: SITE_PAGE, element: <PrivacyPage /> },
       { path: 'terms', handle: SITE_PAGE, element: <TermsPage /> },
       { path: 'auth/reset', handle: SITE_PAGE, element: <AuthResetPage /> },

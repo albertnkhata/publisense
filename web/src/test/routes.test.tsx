@@ -19,6 +19,7 @@ const CASES: Array<[string, string]> = [
   ['/u/alex', '@alex'],
   ['/notifications', 'Notifications'],
   ['/settings', 'Settings'],
+  ['/about', 'About Publisense'],
   ['/privacy', 'Privacy Policy'],
   ['/terms', 'Terms of Service'],
   ['/auth/reset', 'Set a new password'],
@@ -58,7 +59,7 @@ describe('routes', () => {
   const paths = CASES.map(([p]) => p);
   const WIDE = [...paths.filter((p) => p.startsWith('/admin')), '/b/supabase/manage', '/h/acme/manage'];
   const NARROW = ['/notifications', '/settings'];
-  const SITE = ['/privacy', '/terms', '/auth/reset', '/unsubscribe?token=abc'];
+  const SITE = ['/about', '/privacy', '/terms', '/auth/reset', '/unsubscribe?token=abc'];
   const RAIL = ['/', '/explore', '/search?q=dark%20mode', '/b/supabase', '/b/supabase?tab=roadmap', '/h/acme', '/post/123', '/u/alex', '/no/such/page'];
 
   it('every route case is classified', () => {
@@ -94,8 +95,8 @@ describe('routes', () => {
     expect(main.className).not.toContain('max-w-wide');
   });
 
-  // The legal pages are standalone website pages: a header with brand, Terms · Privacy and
-  // Sign in, no nav rail, no tab bar, no right rail, the reading column and a © footer.
+  // The site pages are standalone website pages: a header with brand, About · Terms · Privacy
+  // and Sign in, no nav rail, no tab bar, no right rail, the reading column and a footer.
   it.each(SITE)('%s uses the website header instead of the app nav', (path) => {
     renderAt(path);
     expect(screen.queryByRole('complementary', { name: 'Main navigation' })).toBeNull();
@@ -104,9 +105,10 @@ describe('routes', () => {
     const header = screen.getByRole('banner');
     expect(within(header).getByRole('link', { name: 'Publisense home' }).getAttribute('href')).toBe('/');
     const legal = within(header).getByRole('navigation', { name: 'Legal links' });
+    expect(within(legal).getByRole('link', { name: 'About' }).getAttribute('href')).toBe('/about');
     expect(within(legal).getByRole('link', { name: 'Terms' }).getAttribute('href')).toBe('/terms');
     expect(within(legal).getByRole('link', { name: 'Privacy' }).getAttribute('href')).toBe('/privacy');
-    if (path === '/terms' || path === '/privacy') {
+    if (path === '/about' || path === '/terms' || path === '/privacy') {
       expect(within(legal).getByRole('link', { current: 'page' }).getAttribute('href')).toBe(path);
     }
     expect(screen.getAllByRole('navigation', { name: 'Legal links' })).toHaveLength(1);
@@ -123,13 +125,14 @@ describe('routes', () => {
     expect(screen.getAllByRole('banner')[0]!.className).toContain('max-lg:flex');
   });
 
-  // Terms · Privacy live at the foot of the right rail on desktop, and are omitted from the left nav.
-  it.each(RAIL)('%s has Terms and Privacy in the right rail', (path) => {
+  // About · Terms · Privacy live at the foot of the right rail on desktop, and are omitted from the left nav.
+  it.each(RAIL)('%s has About, Terms and Privacy in the right rail', (path) => {
     renderAt(path);
     const nav = screen.getByRole('complementary', { name: 'Main navigation' });
     expect(within(nav).queryByRole('navigation', { name: 'Legal links' })).toBeNull();
     const rail = screen.getByRole('complementary', { name: 'Sidebar' });
     const legal = within(rail).getByRole('navigation', { name: 'Legal links' });
+    expect(within(legal).getByRole('link', { name: 'About' }).getAttribute('href')).toBe('/about');
     expect(within(legal).getByRole('link', { name: 'Terms' }).getAttribute('href')).toBe('/terms');
     expect(within(legal).getByRole('link', { name: 'Privacy' }).getAttribute('href')).toBe('/privacy');
     expect(within(rail).getByText('© 2026 Publisense')).toBeTruthy();

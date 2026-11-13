@@ -39,9 +39,19 @@ export function UnsubscribePage() {
 
   return (
     <section aria-labelledby="page-title" className="mx-auto max-w-dialog">
-      <h1 id="page-title" className="mt-0 mb-4 text-2xl font-bold text-ink">
+      <nav aria-label="Breadcrumb" className="mb-3 flex items-center gap-2 text-sm text-ink-muted">
+        <Link to="/" className="text-ink-secondary no-underline hover:text-ink hover:underline hover:underline-offset-2">
+          Publisense
+        </Link>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page" className="text-ink-secondary">
+          Unsubscribe
+        </span>
+      </nav>
+      <h1 id="page-title" className="mt-0 mb-2 text-2xl font-bold text-ink">
         Unsubscribe
       </h1>
+      <p className="mt-0 mb-5 text-base text-ink-secondary">Manage your email updates without signing in.</p>
       <Card padding="none" aria-live="polite">
         {outcome === 'working' ? (
           <div role="status" className="flex items-center justify-center gap-2 px-4 py-9 text-base text-ink-muted">

@@ -13,7 +13,7 @@ const legalLink = ({ isActive }: { isActive: boolean }) =>
 
 /**
  * The website header for `chrome: 'site'` pages (shell/layout.ts), in place of
- * the app's nav rail, top bar and tab bar: brand home link, Terms · Privacy,
+ * the app's nav rail, top bar and tab bar: brand home link, About · Terms · Privacy,
  * and Sign in (signed out) or a way back into the app (signed in).
  */
 export function SiteHeader() {
@@ -22,12 +22,15 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-glass backdrop-blur-md">
-      <div className="flex h-9 w-full items-center gap-6 px-7 max-sm:gap-4 max-sm:px-3">
+      <div className="flex h-9 w-full items-center gap-6 px-7 max-sm:gap-3 max-sm:px-3">
         <Link to="/" aria-label="Publisense home" className="flex items-center gap-2 text-md font-bold text-ink no-underline">
           <BrandSymbol />
           <span className="max-sm:hidden">Publisense</span>
         </Link>
-        <nav aria-label="Legal links" className="flex items-center gap-4">
+        <nav aria-label="Legal links" className="flex items-center gap-4 max-sm:gap-3">
+          <NavLink to="/about" className={legalLink}>
+            About
+          </NavLink>
           <NavLink to="/terms" className={legalLink}>
             Terms
           </NavLink>
@@ -56,11 +59,27 @@ export function SiteHeader() {
   );
 }
 
-/** The site frame's footer: the © line under the page (Terms · Privacy are in the header). */
+/** The site frame's footer: navigation links above the centered © line. */
 export function SiteFooter() {
   return (
     <footer aria-label="Site footer" className="border-t border-line">
-      <p className="mx-auto my-0 w-full max-w-wide px-7 py-5 text-center text-xs text-ink-muted max-sm:px-3">© 2026 Publisense</p>
+      <div className="mx-auto flex w-full max-w-wide flex-col items-center gap-2 px-7 py-5 max-sm:px-3">
+        <nav aria-label="Footer links" className="flex flex-wrap justify-center gap-x-5 gap-y-1">
+          <Link to="/about" className="text-xs text-ink-muted no-underline hover:text-ink">
+            About
+          </Link>
+          <Link to="/terms" className="text-xs text-ink-muted no-underline hover:text-ink">
+            Terms
+          </Link>
+          <Link to="/privacy" className="text-xs text-ink-muted no-underline hover:text-ink">
+            Privacy
+          </Link>
+          <Link to="/explore" className="text-xs text-ink-muted no-underline hover:text-ink">
+            Explore
+          </Link>
+        </nav>
+        <p className="m-0 text-center text-xs text-ink-muted">© 2026 Publisense</p>
+      </div>
     </footer>
   );
 }

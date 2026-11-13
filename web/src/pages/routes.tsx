@@ -26,7 +26,8 @@ export { AdminProductsPage } from './AdminPages';
 // Companies (0026): hubs and their domains.
 export { AdminCompaniesPage } from './AdminPages';
 
-// Step 4: account screens.
+// Step 4: account and site screens.
+export { AboutPage } from './AboutPage';
 export { SettingsPage } from './SettingsPage';
 export { PrivacyPage, TermsPage } from './LegalPages';
 export { AuthResetPage } from './AuthResetPage';

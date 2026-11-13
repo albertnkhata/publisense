@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { AUTH_COPY, MIN_PASSWORD, completePasswordReset, recoverySignal } from '../api';
 import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
@@ -45,6 +45,15 @@ export function AuthResetPage() {
 
   return (
     <section aria-labelledby="page-title" className="mx-auto max-w-dialog">
+      <nav aria-label="Breadcrumb" className="mb-3 flex items-center gap-2 text-sm text-ink-muted">
+        <Link to="/" className="text-ink-secondary no-underline hover:text-ink hover:underline hover:underline-offset-2">
+          Publisense
+        </Link>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page" className="text-ink-secondary">
+          Reset password
+        </span>
+      </nav>
       <h1 id="page-title" className="mt-0 mb-2 text-2xl font-bold text-ink">
         Set a new password
       </h1>
@@ -57,7 +66,14 @@ export function AuthResetPage() {
           <EmptyState
             icon="lock"
             title="This reset link has expired or was already used"
-            action={<Button onClick={() => openAuth('forgot')}>Send a new link</Button>}
+            action={
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button onClick={() => openAuth('forgot')}>Send a new link</Button>
+                <Button variant="secondary" onClick={() => openAuth('signin')}>
+                  Sign in
+                </Button>
+              </div>
+            }
           >
             Links work once and expire after an hour. Ask for a new one and open it from the same browser.
           </EmptyState>
