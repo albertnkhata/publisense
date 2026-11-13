@@ -174,3 +174,13 @@ describe('shellLayoutFor', () => {
     expect(shellLayoutFor([{ chrome: 'web' }])).toEqual({ rail: true, width: 'narrow', chrome: 'app', topBar: true, fill: false });
   });
 });
+
+describe('vercel.json SPA rewrites', () => {
+  it('rewrites public site and app entry paths to /index.html', async () => {
+    const { default: vercel } = await import('../../vercel.json');
+    const spaSources = new Set(vercel.rewrites.filter((r) => r.destination === '/index.html').map((r) => r.source));
+    for (const path of ['/explore', '/search', '/notifications', '/messages', '/settings', '/about', '/privacy', '/terms', '/unsubscribe', '/auth/reset']) {
+      expect(spaSources.has(path)).toBe(true);
+    }
+  });
+});
