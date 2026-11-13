@@ -209,5 +209,11 @@
     "api/og.ts": {
       "includeFiles": "api/_fonts/**"
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/keepalive",
+      "schedule": "41 4 * * *"
+    }
+  ]
 }
