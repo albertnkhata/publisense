@@ -1,5 +1,5 @@
 /*
- * Publisense v2 design tokens: the locked theme (docs/v2/FOUNDATION.md §3).
+ * Publisense design tokens: the locked theme (docs/foundation.md §3).
  *
  * `--*: initial` clears every Tailwind default (palette, type scale, radii,
  * spacing, breakpoints), so utilities exist only for the values below. There
@@ -61,15 +61,15 @@
 }
 
 [data-theme='dark'] {
-  --bg-page: #141414;
-  --bg-card: #1B1B1C;
-  --bg-subtle: #212123;
-  --bg-elevated: #262628;
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.16);
+  --bg-page: #121213;
+  --bg-card: #1C1C1F;
+  --bg-subtle: #242428;
+  --bg-elevated: #2C2C31;
+  --border-subtle: rgba(255, 255, 255, 0.11);
+  --border-strong: rgba(255, 255, 255, 0.22);
   --ink-primary: #F2F2F3;
-  --ink-secondary: #A1A1A8;
-  --ink-muted: #858A93;
+  --ink-secondary: #A7A7B0;
+  --ink-muted: #8E939C;
   --brand: #4D8DFF;
   --brand-hover: #7AAAFF;
   --brand-soft: rgba(77, 141, 255, 0.14);
@@ -78,7 +78,7 @@
   --danger: #F87171;
 
   --on-brand: #FFFFFF;
-  --bg-glass: rgba(20, 20, 20, 0.88);
+  --bg-glass: rgba(18, 18, 19, 0.88);
   --overlay: rgba(0, 0, 0, 0.5);
   --shadow-overlay-value: 0 16px 40px -12px rgba(0, 0, 0, 0.6);
 

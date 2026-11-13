@@ -257,7 +257,14 @@ describe('board page', () => {
     postsApi.fetchPostList.mockResolvedValue(page([]));
     renderAt('/b/cursor', true);
     expect(await screen.findByText('No posts yet')).toBeTruthy();
-    fireEvent.click(screen.getAllByRole('button', { name: 'Post feedback' })[0]!);
+    expect(screen.queryByRole('button', { name: 'Type: Feedback' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Status: Status' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Platform: Platform' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Sort: Top' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Search Cursor posts' })).toBeNull();
+    const postButtons = screen.getAllByRole('button', { name: 'Post feedback' });
+    expect(postButtons).toHaveLength(1);
+    fireEvent.click(postButtons[0]!);
     const dialog = await screen.findByRole('dialog', { name: 'Post feedback' });
     expect(await within(dialog).findByText('Cursor')).toBeTruthy();
     expect(within(dialog).getByRole('button', { name: 'Change' })).toBeTruthy();
@@ -496,12 +503,11 @@ describe('hub page', () => {
     expect(postsApi.fetchPostList).toHaveBeenCalledWith(expect.objectContaining({ boardIds: [FIGJAM.id, FIGMA.id], excludeClosed: true }));
   });
 
-  it('shares the hub from the ⋯ menu, like boards and profiles', async () => {
+  it('offers Share directly in the hub header, matching boards', async () => {
     renderAt('/h/figma');
     await screen.findByRole('heading', { level: 1, name: /Figma/ });
-    expect(screen.queryByRole('button', { name: /^Share / })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'More' }));
-    expect(await screen.findByRole('menuitem', { name: /Share hub/ })).toBeTruthy();
+    expect(within(document.querySelector('header')!).getByRole('button', { name: 'Share' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'More' })).toBeNull();
   });
 
   it('lists its boards with Follow buttons', async () => {
@@ -651,9 +657,33 @@ describe('explore', () => {
     expect(screen.queryByRole('heading', { name: 'Hubs' })).toBeNull();
   });
 
-  it('says when nothing matches', async () => {
-    renderAt('/explore?q=zzz');
+  it('says when nothing matches and offers a way back to all products', async () => {
+    const { router } = renderAt('/explore?q=zzz');
     expect(await screen.findByText('No products match “zzz”.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+    await waitFor(() => expect(router.state.location.search).toBe(''));
+    expect(await screen.findByRole('list', { name: 'All products' })).toBeTruthy();
+  });
+
+  it('sorts All products by A–Z, Most followed, and Most posts', async () => {
+    boardsApi.fetchBoards.mockResolvedValue([
+      { ...CURSOR, follower_count: 100, post_count: 10 },
+      { ...SUPABASE, follower_count: 500, post_count: 5 },
+      { ...FIGMA, follower_count: 50, post_count: 90 },
+      { ...FIGJAM, follower_count: 12, post_count: 2 },
+    ]);
+    renderAt('/explore');
+    const all = await screen.findByRole('list', { name: 'All products' });
+    const names = () => within(all).getAllByRole('article').map((a) => within(a).getAllByRole('link')[0]?.textContent);
+    expect(names()).toEqual(['Cursor', 'FigJam', 'Figma', 'Supabase']);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sort products: A–Z' }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: /Most followed/ }));
+    expect(names()).toEqual(['Supabase', 'Cursor', 'Figma', 'FigJam']);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sort products: Most followed' }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: /Most posts/ }));
+    expect(names()).toEqual(['Figma', 'Cursor', 'Supabase', 'FigJam']);
   });
 });
 
@@ -678,6 +708,18 @@ describe('search', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Products/ }));
     expect(router.state.location.search).toContain('tab=products');
     expect(await screen.findByRole('link', { name: /FigJam/ })).toBeTruthy();
+  });
+
+  it('preserves the active tab when refining the search query', async () => {
+    boardsApi.searchAll.mockResolvedValue({ boards: [FIGMA], hubs: [], posts: [] });
+    const { router } = renderAt('/search?q=fig&tab=posts', true);
+    expect(await screen.findByText('No posts match.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Post about it' })).toBeTruthy();
+
+    const input = screen.getByRole('searchbox', { name: 'Search products, posts and hubs' });
+    fireEvent.change(input, { target: { value: 'figma' } });
+    await waitFor(() => expect(router.state.location.search).toContain('q=figma'));
+    expect(router.state.location.search).toContain('tab=posts');
   });
 
   it('offers to post about a search with no results', async () => {

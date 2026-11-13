@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useParams, useSearchParams } from 'react-router';
 import {
   covered,
@@ -22,7 +22,7 @@ import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { LoadError, PostList, PostListSkeleton } from '../posts/PostList';
 import { useComposer } from '../shell/composer';
-import { BoardAvatar, Button, EmptyState, HubAvatar, Icon, IconButton, Menu, MenuItem, TabPanel, Tabs, useToast } from '../ui';
+import { BoardAvatar, Button, EmptyState, HubAvatar, Icon, TabPanel, Tabs, useToast } from '../ui';
 import { shareLink } from '../lib/share';
 import { useClaim } from '../claim/ClaimDialog';
 import { actionLink, ClaimLink, HeaderSkeleton, RoadmapTab, ScopeNotFound, SORT_CHOICES } from './BoardPage';
@@ -81,6 +81,7 @@ function HubView({ hub }: { hub: Hub }) {
   const ids = useMemo(() => hub.boards.map((b) => b.id), [hub.boards]);
   const counts = usePostCounts(ids);
   const first = hub.boards[0];
+  const [emptyFeed, setEmptyFeed] = useState(() => hub.boards.every((b) => b.post_count === 0));
 
   const setParam = (key: string, value: string, fallback: string) => setUrl([[key, value, fallback]], { replace: key !== 'tab' });
 
@@ -88,15 +89,6 @@ function HubView({ hub }: { hub: Hub }) {
     <section aria-labelledby="page-title" className="flex flex-col">
       <div className="mb-4 flex items-center justify-between gap-2">
         <BackLink />
-        <Menu label={`More from ${hub.name}`} align="end" trigger={(p) => <IconButton {...p} icon="more" label="More" />}>
-          <MenuItem
-            icon="share"
-            description="Copy or send the company link"
-            onSelect={() => void shareLink(`/h/${hub.slug}`, `${hub.name} feedback`, 'Hub link copied').then((msg) => msg && toast(msg))}
-          >
-            Share hub
-          </MenuItem>
-        </Menu>
       </div>
       <ScopeHeader
         logo={<BoardAvatar name={hub.name} color={first?.color} logoSrc={logoSrc(first)} size="xl" decorative />}
@@ -123,9 +115,19 @@ function HubView({ hub }: { hub: Hub }) {
               </Link>
             ) : null}
             <FollowScopeButton target="hub" id={hub.id} name={hub.name} boardCount={hub.boards.length} size="sm" />
-            <Button size="sm" onClick={() => openComposer({ hub: hub.slug })}>
-              Post feedback
+            <Button
+              size="sm"
+              variant="secondary"
+              icon="share"
+              onClick={() => void shareLink(`/h/${hub.slug}`, `${hub.name} feedback`, 'Hub link copied').then((msg) => msg && toast(msg))}
+            >
+              Share
             </Button>
+            {tab === 'feedback' && emptyFeed ? null : (
+              <Button size="sm" onClick={() => openComposer({ hub: hub.slug })}>
+                Post feedback
+              </Button>
+            )}
           </>
         }
       />
@@ -136,9 +138,9 @@ function HubView({ hub }: { hub: Hub }) {
           {hub.legal_name ? <>Legal entity: {hub.legal_name}.</> : null}
         </p>
       ) : null}
-      <p className="mt-0 mb-4 flex flex-wrap items-center gap-2 text-sm text-ink-secondary">
+      <div className="mb-3 flex flex-wrap items-center gap-2 text-sm text-ink-secondary">
         <HubVoice hub={hub} manages={Boolean(role.data)} />
-      </p>
+      </div>
       <Tabs
         idBase="hub"
         label={`${hub.name} hub`}
@@ -155,7 +157,7 @@ function HubView({ hub }: { hub: Hub }) {
       />
       <TabPanel idBase="hub" value={tab}>
         {tab === 'feedback' ? (
-          <HubFeedback hub={hub} ids={ids} sortParam={params.get('sort')} onSort={(v) => setParam('sort', v, 'top')} />
+          <HubFeedback hub={hub} ids={ids} sortParam={params.get('sort')} onSort={(v) => setParam('sort', v, 'top')} onEmptyChange={setEmptyFeed} />
         ) : tab === 'boards' ? (
           <RowList label={`${hub.name} boards`}>
             {hub.boards.map((b) => (
@@ -226,20 +228,38 @@ function HubVoice({ hub, manages }: { hub: Hub; manages: boolean }) {
   );
 }
 
-function HubFeedback({ hub, ids, sortParam, onSort }: { hub: Hub; ids: string[]; sortParam: string | null; onSort: (v: string) => void }) {
+function HubFeedback({
+  hub,
+  ids,
+  sortParam,
+  onSort,
+  onEmptyChange,
+}: {
+  hub: Hub;
+  ids: string[];
+  sortParam: string | null;
+  onSort: (v: string) => void;
+  onEmptyChange: (empty: boolean) => void;
+}) {
   const { viewer } = useViewer();
   const { openComposer } = useComposer();
   const sort = sortParam === 'new' ? 'new' : 'top';
   const list = usePostList({ boardIds: ids, sort, viewerId: viewer?.id ?? null, excludeClosed: true });
   const posts = useMemo(() => dedupePosts(list.data?.pages ?? []), [list.data]);
+  const showBar = !list.isError && (list.isPending ? !hub.boards.every((b) => b.post_count === 0) : posts.length > 0);
+  useEffect(() => {
+    if (!list.isPending) onEmptyChange(!list.isError && posts.length === 0);
+  }, [list.isPending, list.isError, posts.length, onEmptyChange]);
   return (
     <>
-      <div className="mb-4 flex items-center gap-2">
-        <span className="text-sm text-ink-muted">Posts from every {hub.name} board</span>
-        <span className="ml-auto">
-          <ChoiceMenu label="Sort" heading="Sort by" align="end" value={sort} choices={SORT_CHOICES} onChange={onSort} />
-        </span>
-      </div>
+      {showBar ? (
+        <div className="mb-4 flex items-center gap-2">
+          <span className="text-sm text-ink-muted">Posts from every {hub.name} board</span>
+          <span className="ml-auto">
+            <ChoiceMenu label="Sort" heading="Sort by" align="end" value={sort} choices={SORT_CHOICES} onChange={onSort} />
+          </span>
+        </div>
+      ) : null}
       {list.isPending ? (
         <PostListSkeleton />
       ) : list.isError && posts.length === 0 ? (

@@ -77,7 +77,7 @@ export function AppShell() {
         <div className={cx('flex bg-page text-ink', fill ? 'h-dvh overflow-hidden' : 'min-h-dvh')}>
           <NavRail />
           <div className={cx('flex min-w-0 flex-1 flex-col', fill && 'min-h-0')}>
-            <TopBar always={!rail && topBar} />
+            <TopBar always={!rail && topBar} width={width} fill={fill} />
             <div
               className={cx(
                 'mx-auto flex w-full justify-center gap-rail-gap',

@@ -67,12 +67,12 @@ export function NavRail() {
       aria-label="Main navigation"
       data-collapsed={collapsed || undefined}
       className={cx(
-        'group sticky top-0 z-30 flex h-dvh shrink-0 flex-col bg-transparent px-3 pt-4 pb-3 select-none',
+        'group sticky top-0 z-30 flex h-dvh shrink-0 flex-col border-r border-line bg-transparent px-3 pt-0 pb-3 select-none',
         'transition-all duration-180 ease-out max-sm:hidden',
         collapsed ? 'w-nav-collapsed' : 'w-nav',
       )}
     >
-      <div className="relative mb-5">
+      <div className="relative mb-4 flex h-9 shrink-0 items-center">
         {collapsed && !belowXl ? (
           <Tooltip content="Expand sidebar" kbd="[" side="right">
             <button
@@ -103,12 +103,15 @@ export function NavRail() {
       <nav aria-label="Primary" className="mb-4 flex flex-col gap-1">
         <NavRow to="/" icon="home" label="Home" collapsed={collapsed} active={isHome} end />
         <NavRow to="/explore" icon="search" label="Explore" collapsed={collapsed} />
+        {!viewer ? <div aria-hidden="true" className="my-1 border-t border-line" /> : null}
         <NavRow
           to="/?scope=following"
           icon="users"
           label="Following"
           collapsed={collapsed}
           active={isFollowing}
+          muted={!viewer}
+          tipSuffix={!viewer ? 'Sign in' : undefined}
           onClick={(e) => {
             if (!viewer) {
               e.preventDefault();
@@ -122,6 +125,8 @@ export function NavRail() {
           label="Notifications"
           collapsed={collapsed}
           count={unread}
+          muted={!viewer}
+          tipSuffix={!viewer ? 'Sign in' : undefined}
           onClick={(e) => {
             if (!viewer) {
               e.preventDefault();
@@ -136,6 +141,8 @@ export function NavRail() {
             label="Messages"
             collapsed={collapsed}
             count={dmUnread}
+            muted={!viewer}
+            tipSuffix={!viewer ? 'Sign in' : undefined}
             onClick={(e) => {
               if (!viewer) {
                 e.preventDefault();
@@ -152,7 +159,7 @@ export function NavRail() {
           user's first stop in the nav is Home, not a control that only appears on hover
           (#141). It shows on hover, and whenever it has keyboard focus. */}
       {!collapsed ? (
-        <div className="absolute top-4 right-4 grid h-8 place-items-center">
+        <div className="absolute top-2 right-4 grid h-8 place-items-center">
           <button
             type="button"
             onClick={toggle}
@@ -187,7 +194,7 @@ export function NavRail() {
       {viewer ? (
         <UserMenu viewer={viewer} collapsed={collapsed} />
       ) : !ready ? null : (
-        <div className="border-t border-line pt-3">
+        <div className="border-t border-line pt-3 max-lg:hidden">
           <Tooltip content="Sign in" side="right" disabled={!collapsed}>
             <button
               type="button"
@@ -246,6 +253,8 @@ function NavRow({
   end,
   count = 0,
   active,
+  muted,
+  tipSuffix,
   onClick,
 }: {
   to: string;
@@ -255,9 +264,11 @@ function NavRow({
   end?: boolean;
   count?: number;
   active?: boolean;
+  muted?: boolean;
+  tipSuffix?: string;
   onClick?: (e: MouseEvent<HTMLAnchorElement>) => void;
 }) {
-  const tip = count > 0 ? `${label} · ${count} new` : label;
+  const tip = count > 0 ? `${label} · ${count} new` : tipSuffix ? `${label} · ${tipSuffix}` : label;
   return (
     <Tooltip content={tip} side="right" disabled={!collapsed}>
       <NavLink
@@ -269,7 +280,11 @@ function NavRow({
           const isRowActive = active !== undefined ? active : isActive;
           return cx(
             'relative flex h-row w-full items-center overflow-hidden rounded-md text-sm font-medium whitespace-nowrap no-underline transition-colors duration-120',
-            isRowActive ? 'bg-brand-soft font-semibold text-brand' : 'text-ink-secondary hover:bg-subtle hover:text-ink',
+            isRowActive
+              ? 'bg-brand-soft font-semibold text-brand'
+              : muted
+                ? 'text-ink-muted hover:bg-subtle hover:text-ink'
+                : 'text-ink-secondary hover:bg-subtle hover:text-ink',
           );
         }}
       >
@@ -279,7 +294,10 @@ function NavRow({
         </span>
         <Label collapsed={collapsed}>{label}</Label>
         {count > 0 && !collapsed ? (
-          <span aria-hidden="true" className="mr-2 rounded-sm border border-line bg-subtle px-1 font-mono text-xs font-semibold text-ink-muted tabular-nums">
+          <span
+            aria-hidden="true"
+            className="mr-2 min-w-5 rounded-pill bg-brand px-2 text-center font-mono text-xs leading-4 font-semibold text-on-brand tabular-nums"
+          >
             {count > 99 ? '99+' : count}
           </span>
         ) : null}

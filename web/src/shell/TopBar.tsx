@@ -6,6 +6,7 @@ import { Button, Icon } from '../ui';
 import { BrandSymbol } from './BrandMark';
 import { SearchWell } from './SearchWell';
 import { useAuthDialog } from './auth';
+import type { ShellWidth } from './layout';
 
 /**
  * Top bar below lg, where the right rail (and its search) is hidden.
@@ -16,7 +17,15 @@ import { useAuthDialog } from './auth';
  * (shell/layout.ts), so search is still visible there. Above lg the nav rail
  * already has Notifications and Sign in, so the bell and button stay below lg.
  */
-export function TopBar({ always = false }: { always?: boolean }) {
+export function TopBar({
+  always = false,
+  width = 'narrow',
+  fill = false,
+}: {
+  always?: boolean;
+  width?: ShellWidth;
+  fill?: boolean;
+}) {
   const { viewer, ready } = useViewer();
   const { openAuth } = useAuthDialog();
   const unread = useUnreadCount(viewer?.id ?? null).data ?? 0;
@@ -24,29 +33,32 @@ export function TopBar({ always = false }: { always?: boolean }) {
   return (
     <header
       className={cx(
-        'sticky top-0 z-20 h-9 items-center gap-3 border-b border-line bg-glass px-5 backdrop-blur-md max-sm:px-3',
-        always ? 'flex' : 'hidden max-lg:flex',
+        'sticky top-0 z-20 h-9 border-b border-line bg-glass backdrop-blur-md',
+        fill ? 'px-5 max-sm:px-3' : 'px-7 max-sm:px-3',
+        always ? 'flex items-center' : 'hidden items-center max-lg:flex',
       )}
     >
-      <Link
-        to="/"
-        aria-label="Publisense home"
-        className="hidden items-center gap-2 text-md font-bold text-ink no-underline max-sm:flex"
-      >
-        <BrandSymbol />
-        <span>Publisense</span>
-      </Link>
-      <SearchWell className="max-w-dialog flex-1 max-sm:hidden" />
-      <span className="ml-auto flex items-center gap-2">
-        {viewer ? <NotificationBell count={unread} /> : null}
-        {!viewer && ready ? (
-          <span className="contents lg:hidden">
-            <Button size="sm" onClick={() => openAuth('signin')}>
-              Sign in
-            </Button>
-          </span>
-        ) : null}
-      </span>
+      <div className={cx('mx-auto flex w-full items-center gap-3', !fill && (width === 'narrow' ? 'max-w-content' : 'max-w-wide'))}>
+        <Link
+          to="/"
+          aria-label="Publisense home"
+          className="hidden items-center gap-2 text-md font-bold text-ink no-underline max-sm:flex"
+        >
+          <BrandSymbol />
+          <span>Publisense</span>
+        </Link>
+        <SearchWell className="max-w-dialog flex-1 max-sm:hidden" />
+        <span className="ml-auto flex items-center gap-2">
+          {viewer ? <NotificationBell count={unread} /> : null}
+          {!viewer && ready ? (
+            <span className="contents lg:hidden">
+              <Button size="sm" variant="secondary" onClick={() => openAuth('signin')}>
+                Sign in
+              </Button>
+            </span>
+          ) : null}
+        </span>
+      </div>
     </header>
   );
 }

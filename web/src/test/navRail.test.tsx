@@ -94,9 +94,10 @@ describe('NavRail links and layout', () => {
       </ComposerProvider>,
       { viewer: null },
     );
-    expect(screen.getByRole('link', { name: 'Following' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Notifications' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Messages' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Following' }).className).toContain('text-ink-muted');
+    expect(screen.getByRole('link', { name: 'Notifications' }).className).toContain('text-ink-muted');
+    expect(screen.getByRole('link', { name: 'Messages' }).className).toContain('text-ink-muted');
+    expect(screen.getByRole('link', { name: 'Explore' }).className).toContain('text-ink-secondary');
     expect(screen.getByRole('button', { name: 'Post feedback' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Sign in' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Create account' })).toBeNull();

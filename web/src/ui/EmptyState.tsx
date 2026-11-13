@@ -16,7 +16,7 @@ export function EmptyState({ icon, title, children, action, className }: EmptySt
   return (
     <div className={cx('flex flex-col items-center px-4 py-9 text-center', className)}>
       {icon ? (
-        <span className="mb-3 grid size-9 place-items-center rounded-pill bg-subtle text-ink-muted">
+        <span className="mb-3 grid size-9 place-items-center rounded-pill border border-line bg-subtle text-ink-secondary">
           <Icon name={icon} size={20} strokeWidth={1.8} />
         </span>
       ) : null}

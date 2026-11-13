@@ -117,6 +117,7 @@ function Board({ board }: { board: BoardWithHub }) {
   const counts = usePostCounts(ids, SHOW_MORE_MENU);
   const team = useIsBoardTeam(board.id, viewer?.id ?? null);
   const { toast } = useToast();
+  const [emptyFeed, setEmptyFeed] = useState(board.post_count === 0);
 
   /** Set URL params; a value equal to its default is removed. Tab changes add a history entry. */
   const update = (changes: Array<[key: string, value: string, fallback: string]>) =>
@@ -150,6 +151,7 @@ function Board({ board }: { board: BoardWithHub }) {
         tag={<ReviewPill board={board} />}
         description={board.tagline || null}
         meta={boardMeta(board)}
+        bordered={tab === 'feedback' && board.status !== 'rejected'}
         stats={
           <>
             <FollowerStat count={board.follower_count} />
@@ -169,12 +171,13 @@ function Board({ board }: { board: BoardWithHub }) {
               <Button
                 size="sm"
                 variant="secondary"
+                icon="share"
                 onClick={() => void shareLink(`/b/${board.slug}`, `${board.name} feedback`).then((msg) => msg && toast(msg))}
               >
                 Share
               </Button>
             ) : null}
-            {board.status === 'rejected' ? null : (
+            {board.status === 'rejected' || (tab === 'feedback' && emptyFeed) ? null : (
               <Button size="sm" onClick={() => openComposer({ board: board.slug })}>
                 Post feedback
               </Button>
@@ -183,12 +186,14 @@ function Board({ board }: { board: BoardWithHub }) {
         }
       />
       {board.status === 'rejected' ? (
-        <p className="mt-0 mb-4 rounded-md border border-line bg-subtle px-3 py-2 text-sm text-ink-secondary">
-          This product wasn’t approved{board.review_note ? `: ${board.review_note}` : '.'} Only you can see this board.
-        </p>
+        <div className="mb-2 border-b border-line pb-4">
+          <p className="m-0 rounded-md border border-line bg-subtle px-3 py-2 text-sm text-ink-secondary">
+            This product wasn’t approved{board.review_note ? `: ${board.review_note}` : '.'} Only you can see this board.
+          </p>
+        </div>
       ) : null}
       {tab === 'feedback' ? (
-        <Feedback board={board} params={params} setParam={setParam} update={update} clear={() => update([['q', '', ''], ['type', 'all', 'all'], ['status', 'all', 'all'], ['platform', 'all', 'all'], ['device', 'all', 'all']])} />
+        <Feedback board={board} params={params} setParam={setParam} update={update} onEmptyChange={setEmptyFeed} clear={() => update([['q', '', ''], ['type', 'all', 'all'], ['status', 'all', 'all'], ['platform', 'all', 'all'], ['device', 'all', 'all']])} />
       ) : (
         <div className="flex flex-col">
           <div className="mb-4 flex items-center justify-between gap-3 border-b border-line pb-3">
@@ -226,12 +231,14 @@ function Feedback({
   params,
   setParam,
   update,
+  onEmptyChange,
   clear,
 }: {
   board: BoardWithHub;
   params: URLSearchParams;
   setParam: (key: string, value: string, fallback: string) => void;
   update: (changes: Array<[key: string, value: string, fallback: string]>) => void;
+  onEmptyChange: (empty: boolean) => void;
   clear: () => void;
 }) {
   const { viewer } = useViewer();
@@ -270,83 +277,102 @@ function Feedback({
   const list = usePostList({ boardIds: [board.id], type, status, platform, sort, viewerId: viewer?.id ?? null, q });
   const posts = useMemo(() => dedupePosts(list.data?.pages ?? []), [list.data]);
   const filtered = Boolean(q) || type !== 'all' || status !== 'all' || platform !== 'all';
+  const showControls = filtered || searchOpen || (!list.isError && (list.isPending ? board.post_count > 0 : posts.length > 0));
+  useEffect(() => {
+    if (!list.isPending) onEmptyChange(!list.isError && !filtered && posts.length === 0);
+  }, [list.isPending, list.isError, filtered, posts.length, onEmptyChange]);
 
   return (
     <>
-      {/* Board search stays out of the way: a search button in the filter row opens the field
-          (it starts open when the link already carries ?q=). Close clears the query and tucks it away;
-          an empty field also closes on blur. */}
-      {searchOpen ? (
-        <div role="search" className="mt-2 flex items-center gap-1">
-          <Input
-            ref={searchRef}
-            type="search"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onBlur={() => {
-              if (!text.trim()) setSearchOpen(false);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape' && !text) setSearchOpen(false);
-            }}
-            placeholder={`Search ${board.name} posts`}
-            aria-label={`Search ${board.name} posts`}
-            autoComplete="off"
-            enterKeyHint="search"
-            className="w-full min-w-0 flex-1"
-          />
-          <IconButton
-            icon="close"
-            size="sm"
-            label="Close search"
-            // Keep focus off the field so its blur doesn't race this click.
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => {
-              setText('');
-              setParam('q', '', '');
-              setSearchOpen(false);
-            }}
-          />
-        </div>
+      {showControls ? (
+        <>
+          {/* Board search stays out of the way: a search button in the filter row opens the field
+              (it starts open when the link already carries ?q=). Close clears the query and tucks it away;
+              an empty field also closes on blur. */}
+          {searchOpen ? (
+            <div role="search" className="mt-2 flex items-center gap-1">
+              <Input
+                ref={searchRef}
+                type="search"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onBlur={() => {
+                  if (!text.trim()) setSearchOpen(false);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape' && !text) setSearchOpen(false);
+                }}
+                placeholder={`Search ${board.name} posts`}
+                aria-label={`Search ${board.name} posts`}
+                autoComplete="off"
+                enterKeyHint="search"
+                className="w-full min-w-0 flex-1"
+              />
+              <IconButton
+                icon="close"
+                size="sm"
+                label="Close search"
+                // Keep focus off the field so its blur doesn't race this click.
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  setText('');
+                  setParam('q', '', '');
+                  setSearchOpen(false);
+                }}
+              />
+            </div>
+          ) : null}
+          <div className="mt-3 mb-4 flex flex-wrap items-center gap-1">
+            <ChoiceMenu label="Type" value={type} choices={TYPE_CHOICES} onChange={(v) => setParam('type', v, 'all')} set={type !== 'all'} />
+            <ChoiceMenu label="Status" value={status} choices={STATUS_CHOICES} onChange={(v) => setParam('status', v, 'all')} set={status !== 'all'} />
+            <ChoiceMenu label="Platform" value={platform} choices={PLATFORM_CHOICES} onChange={(v) => update([['platform', v, 'all'], ['device', 'all', 'all']])} set={platform !== 'all'} />
+            {filtered ? (
+              <button
+                type="button"
+                onClick={clear}
+                className="rounded-sm border-0 bg-transparent px-2 py-1 text-sm font-medium text-ink-muted hover:text-ink"
+              >
+                Clear
+              </button>
+            ) : null}
+            <span className="ml-auto flex items-center gap-1">
+              {searchOpen ? null : (
+                <IconButton icon="search" size="sm" label={`Search ${board.name} posts`} onClick={() => setSearchOpen(true)} />
+              )}
+              <ChoiceMenu label="Sort" heading="Sort by" align="end" value={sort} choices={SORT_CHOICES} onChange={(v) => setParam('sort', v, 'top')} />
+            </span>
+          </div>
+        </>
       ) : null}
-      <div className="mt-3 mb-4 flex flex-wrap items-center gap-1">
-        <ChoiceMenu label="Type" value={type} choices={TYPE_CHOICES} onChange={(v) => setParam('type', v, 'all')} set={type !== 'all'} />
-        <ChoiceMenu label="Status" value={status} choices={STATUS_CHOICES} onChange={(v) => setParam('status', v, 'all')} set={status !== 'all'} />
-        <ChoiceMenu label="Platform" value={platform} choices={PLATFORM_CHOICES} onChange={(v) => update([['platform', v, 'all'], ['device', 'all', 'all']])} set={platform !== 'all'} />
-        {filtered ? (
-          <button
-            type="button"
-            onClick={clear}
-            className="rounded-sm border-0 bg-transparent px-2 py-1 text-sm font-medium text-ink-muted hover:text-ink"
-          >
-            Clear
-          </button>
-        ) : null}
-        <span className="ml-auto flex items-center gap-1">
-          {searchOpen ? null : (
-            <IconButton icon="search" size="sm" label={`Search ${board.name} posts`} onClick={() => setSearchOpen(true)} />
-          )}
-          <ChoiceMenu label="Sort" heading="Sort by" align="end" value={sort} choices={SORT_CHOICES} onChange={(v) => setParam('sort', v, 'top')} />
-        </span>
-      </div>
       {list.isPending ? (
         <PostListSkeleton />
       ) : list.isError && posts.length === 0 ? (
         <LoadError title="We couldn’t load this board’s posts" onRetry={() => void list.refetch()} retrying={list.isRefetching} />
       ) : posts.length === 0 ? (
         filtered ? (
-          <div className="flex flex-col items-center gap-3 px-3 py-9 text-center">
-            <p className="m-0 text-base text-ink-muted">{q ? `No posts match “${q}”${type !== 'all' || status !== 'all' || platform !== 'all' ? ' with these filters' : ''}.` : 'No posts match these filters.'}</p>
-            <div className="flex flex-wrap justify-center gap-2">
-              <Button size="sm" variant="secondary" onClick={clear}>
-                Clear filters
-              </Button>
-              {q && board.status !== 'rejected' ? (
-                <Button size="sm" onClick={() => openComposer({ board: board.slug, title: q })}>
-                  Post about it
-                </Button>
-              ) : null}
-            </div>
+          <div className="rounded-md border border-line bg-card">
+            <EmptyState
+              icon="search"
+              title={
+                q
+                  ? `No posts match “${q}”${type !== 'all' || status !== 'all' || platform !== 'all' ? ' with these filters' : ''}.`
+                  : 'No posts match these filters.'
+              }
+              action={
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button size="sm" variant="secondary" onClick={clear}>
+                    Clear filters
+                  </Button>
+                  {q && board.status !== 'rejected' ? (
+                    <Button size="sm" onClick={() => openComposer({ board: board.slug, title: q })}>
+                      Post about it
+                    </Button>
+                  ) : null}
+                </div>
+              }
+            >
+              Try adjusting your filters or clearing your search.
+            </EmptyState>
           </div>
         ) : (
           <div className="rounded-md border border-line bg-card">
@@ -485,7 +511,7 @@ export function ClaimLink({ children, onClick, pending }: { children: ReactNode;
       onClick={onClick}
       className={cx(
         'border-0 bg-transparent p-0 text-sm underline decoration-line-strong underline-offset-3 hover:decoration-current',
-        pending ? 'font-medium text-warning' : 'text-ink-secondary hover:text-ink',
+        pending ? 'font-medium text-warning' : 'text-ink-muted hover:text-ink',
       )}
     >
       {children}
