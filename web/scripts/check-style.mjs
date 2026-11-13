@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Style gate for web/src (docs/v2/FOUNDATION.md §3). Fails on:
+ * Style gate for web/src (docs/foundation.md §3). Fails on:
  *
  *   1. arbitrary-value   Tailwind arbitrary values with a literal inside, e.g.
  *                        text-[13px], bg-[#0047AB], rounded-[7px], data-[state=open]:,

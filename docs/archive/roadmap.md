@@ -1,6 +1,6 @@
 > **Archived 2026-10-24.** This is the v1 roadmap, frozen as history. v1 was retired at the v2 cutover
-> (see [`docs/v2/CUTOVER.md`](../v2/CUTOVER.md)) and its code removed from the repo; source links point at
-> commit `279a1da`, the last commit with v1 in it. Current progress: [`docs/v2/BUILD.md`](../v2/BUILD.md).
+> (see [`CUTOVER.md`](./CUTOVER.md)) and its code removed from the repo; source links point at
+> commit `279a1da`, the last commit with v1 in it. Historical progress: [`BUILD.md`](./BUILD.md).
 
 # Publisense — Product & Engineering Roadmap
 
@@ -180,4 +180,4 @@ What is left before an **announce** is no longer engineering:
 - **AI Signal Clustering & Deduplication**: Group related friction reports into thematic clusters on `/p/:slug` using embeddings.
 - **Embeddable "Public Sense" Badge**: 1-script high-craft widget (`[▲ 92 Signals on Publisense]`) for product documentation and SaaS footers.
 - **Linear / GitHub / Slack Sync (Pro Tier)**: 1-click issue export with bidirectional status synchronization when tickets are completed.
-- **Admin Command Centre & First-Party Analytics** ([docs/v2/COMMAND_CENTRE.md](../v2/COMMAND_CENTRE.md)): Staff-only /admin operational dashboard combining relational feedback-loop metrics (D-011 honest split) with cookieless first-party traffic, search demand, and builder claiming funnels.
+- **Admin Command Centre & First-Party Analytics** ([docs/specs/command-centre.md](../specs/command-centre.md)): Staff-only /admin operational dashboard combining relational feedback-loop metrics (D-011 honest split) with cookieless first-party traffic, search demand, and builder claiming funnels.

@@ -1,6 +1,6 @@
-# Publisense v2: build checklist
+# Publisense v2: build checklist (completed)
 
-One PR per step; see [FOUNDATION.md](./FOUNDATION.md) section 11.
+One PR per step; see [foundation.md](../foundation.md) section 11.
 
 - [x] 1. Foundation: spec and reference mockup
 - [x] 2. Scaffold: app, locked Tailwind theme, primitives and kit page, AppShell, routes, style gates in CI
@@ -13,4 +13,4 @@ One PR per step; see [FOUNDATION.md](./FOUNDATION.md) section 11.
 - [x] 9. Cutover: smoke tests, pg_dump, drop v1, deploy (done 2026-10-24: domains moved to v2, v1 tables dropped, v1 code removed)
 
 Step 9 runbook and what was actually done: [CUTOVER.md](./CUTOVER.md) (applied 2026-10-24).
-Post-cutover `/admin` command centre and first-party analytics (shipped): [COMMAND_CENTRE.md](./COMMAND_CENTRE.md).
+Post-cutover `/admin` command centre and first-party analytics (shipped): [command-centre.md](../specs/command-centre.md).

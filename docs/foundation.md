@@ -3,7 +3,7 @@
 > **Status:** proposed, 2026-10-24. This is the contract for the v2 rebuild.
 >
 > **Precedence.** For how things look, what they say and how they behave, the reference mockup
-> ([`reference-mockup.html`](./reference-mockup.html), v80) wins. For structure (tokens, primitives,
+> ([`reference-mockup.html`](./archive/reference-mockup.html), v80) wins. For structure (tokens, primitives,
 > data model, permissions), this document wins. The mockup was built by iteration, so its *code* is
 > not a template: it is a picture of the product. The current `src/` is discounted. v2 replaces it,
 > and nothing in it is a constraint unless this document keeps it on purpose.
@@ -162,7 +162,7 @@ Enforced in RLS and `security definer` RPCs; the UI mirrors it but is never the 
 
 ## 11. Build order (one PR each, CI green before merge)
 
-CI runs on GitHub Actions once the repo is public; until then the gates are run locally. The scaffold PR adds the three style gates from section 3 to `ci.yml`. Progress is tracked in [`BUILD.md`](./BUILD.md).
+CI runs on GitHub Actions once the repo is public; until then the gates are run locally. The scaffold PR adds the three style gates from section 3 to `ci.yml`. Progress was tracked in [`BUILD.md`](./archive/BUILD.md).
 
 1. **Foundation**: this document plus the reference mockup *(this PR)*
 2. **Scaffold**: fresh `src/`, tokens, primitives with a `/dev/kit` page, the arbitrary-value check in CI, AppShell with real routes, theme
@@ -176,6 +176,6 @@ CI runs on GitHub Actions once the repo is public; until then the gates are run 
 
 ## 12. Registers
 
-- `roadmap.md` is frozen as v1 history (moved to `docs/archive/roadmap.md` when v1 code was removed) and points here; `STATUS.md` reads `BUILD.md` for v2 progress.
+- `roadmap.md` is frozen as v1 history (moved to `docs/archive/roadmap.md` when v1 code was removed) and points here; `STATUS.md` reads `docs/archive/BUILD.md` for v2 progress.
 - `docs/deferred.md` entries get a status: *carried into v2*, *void at cutover* or *resolved*. Nothing is deleted. D-002 resolves in step 4, when the delete-account Edge Function becomes the first server-side user of `service_role`.
 - D-012 (consent-screen logo) now means "design one distinctive mark, then resubmit", not "resubmit the speech bubble".

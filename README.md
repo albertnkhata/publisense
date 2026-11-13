@@ -13,9 +13,9 @@ Live at **https://publisense.app** (v2, since the cutover on 2026-10-24).
 | :-- | :-- |
 | [`web/`](./web) | **The app (v2).** Vite SPA with its own `package.json`. See [`web/README.md`](./web/README.md) for its layout and token naming |
 | [`supabase/`](./supabase) | `schema.sql` plus every migration in `migrations/` (the applied history, in order), the `delete-account` Edge Function in `functions/`, and the SQL tests and local stubs in `tests/` |
-| [`docs/v2/`](./docs/v2) | The v2 contract ([`FOUNDATION.md`](./docs/v2/FOUNDATION.md)), reference mockup, build checklist ([`BUILD.md`](./docs/v2/BUILD.md)) and cutover record ([`CUTOVER.md`](./docs/v2/CUTOVER.md)) |
+| [`docs/`](./docs) | Architecture & design contract ([`foundation.md`](./docs/foundation.md)), design specs ([`design/`](./docs/design)), feature specs ([`specs/`](./docs/specs)), decisions ([`deferred.md`](./docs/deferred.md)), and historical archive ([`archive/`](./docs/archive)) |
+| [`docs/backup.md`](./docs/backup.md) | Database backup schedules, encryption and restore procedures |
 | [`docs/deferred.md`](./docs/deferred.md) | Every decision to *not* do something, with the reason and the revisit trigger (`D-xxx`); entries are never deleted |
-| [`docs/archive/`](./docs/archive) | v1 history: the frozen roadmap and MVP definition |
 | [`scripts/status.mjs`](./scripts/status.mjs) | Generates [`STATUS.md`](./STATUS.md) and `status.json` |
 | [`scripts/cutover/`](./scripts/cutover) | Backup, restore, verify and smoke tools used for the cutover (CUTOVER.md section 6) |
 | [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) | CI: v2 web gates, status ledger check, migrations and RLS gates |
@@ -46,7 +46,7 @@ node scripts/status.mjs --check  # what CI runs: fails if STATUS.md is stale
 ```
 
 `STATUS.md` is generated. Do not hand-edit it: CI fails if the committed copy disagrees with
-its sources (`docs/v2/BUILD.md`, `docs/deferred.md`, `docs/archive/roadmap.md`, `ci.yml`).
+its sources (`docs/archive/BUILD.md`, `docs/deferred.md`, `docs/archive/roadmap.md`, `ci.yml`).
 
 ## Deploy
 

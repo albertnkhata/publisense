@@ -1,9 +1,9 @@
-# Publisense v2 (`web/`)
+# Publisense web client (`web/`)
 
-The v2 rebuild. Contract: [`docs/v2/FOUNDATION.md`](../docs/v2/FOUNDATION.md); look and behaviour:
-[`docs/v2/reference-mockup.html`](../docs/v2/reference-mockup.html); progress: [`docs/v2/BUILD.md`](../docs/v2/BUILD.md).
+Architecture contract: [`docs/foundation.md`](../docs/foundation.md); historical mockup:
+[`docs/archive/reference-mockup.html`](../docs/archive/reference-mockup.html); rebuild checklist: [`docs/archive/BUILD.md`](../docs/archive/BUILD.md).
 
-v2 serves publisense.app since the cutover on 2026-10-24 (Vercel project `publisense-v2`, Root Directory `web`). v1 is retired and its code removed; the last commit with it is `279a1da`.
+Serves publisense.app (Vercel project `publisense-v2`, Root Directory `web`). v1 is retired and its code removed.
 
 ```bash
 cd web

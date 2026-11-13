@@ -7,7 +7,7 @@ import { getSupabase, hasSupabaseConfig } from './supabase';
 
 /*
  * First-party usage events & the /admin Command Centre (0054,
- * docs/v2/COMMAND_CENTRE.md).
+ * docs/specs/command-centre.md).
  *
  * Events carry a temporary per-visit UUID kept in sessionStorage (cleared when
  * the tab closes), never a user_id, email or IP address. recordEvent is

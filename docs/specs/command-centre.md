@@ -1,6 +1,6 @@
 # Publisense v2: admin command centre & first-party analytics
 
-> **Status:** shipped (`0054_v2_command_centre.sql`–`0056_v2_visits_exclude_unfurls.sql`, [`web/src/pages/AdminPages.tsx`](../../web/src/pages/AdminPages.tsx), and [`web/src/pages/LegalPages.tsx`](../../web/src/pages/LegalPages.tsx)). Linked from [`BUILD.md`](./BUILD.md) and [`docs/archive/roadmap.md`](../archive/roadmap.md).
+> **Status:** shipped (`0054_v2_command_centre.sql`–`0056_v2_visits_exclude_unfurls.sql`, [`web/src/pages/AdminPages.tsx`](../../web/src/pages/AdminPages.tsx), and [`web/src/pages/LegalPages.tsx`](../../web/src/pages/LegalPages.tsx)). Linked from [`docs/archive/BUILD.md`](../archive/BUILD.md) and [`docs/archive/roadmap.md`](../archive/roadmap.md).
 
 ---
 
@@ -8,7 +8,7 @@
 
 Publisense needs an operational command centre inside `/admin` so staff can see traffic, funnel conversion, catalog gaps, and feedback-loop health in one place without relying on third-party analytics dashboards.
 
-Three constraints from [`FOUNDATION.md`](./FOUNDATION.md) and [`STATUS.md`](../../STATUS.md) shape the design:
+Three constraints from [`foundation.md`](../foundation.md) and [`STATUS.md`](../../STATUS.md) shape the design:
 
 1. **No advertising cookies, no consent banner, no ad-blocker blind spots.** Developer and product audiences block external trackers (e.g. `googletagmanager.com`) by default (Sentry already goes through the same-origin `/api/monitoring` tunnel since #182). Recording first-party events to our own Supabase project (EU Frankfurt) keeps data on our existing processor, requires no cookie banner, and cannot be silently dropped by third-party filter lists.
 2. **Honest numbers (`D-011`).** Seeded/imported posts (`author_id IS NULL`) and member-authored posts (`author_id IS NOT NULL`) are never summed into a single headline traction counter without showing the split. Any external probe that is unconfigured degrades to `unknown`, never `0`.
@@ -110,7 +110,7 @@ A lightweight append-only table in the `private` schema (never directly readable
 
 ## 4. `/admin` UI layout
 
-Added to [`web/src/pages/AdminPages.tsx`](../../web/src/pages/AdminPages.tsx) inside `AdminGate` as the first pill in `AdminNav` (`/admin`, or `/admin/pulse`), using only the locked tokens in [`FOUNDATION.md`](./FOUNDATION.md) §3 (`font-mono` for all numbers, `--brand` cobalt for series bars, `--success` green strictly for *Shipped*, and inline SVG sparklines with no chart library).
+Added to [`web/src/pages/AdminPages.tsx`](../../web/src/pages/AdminPages.tsx) inside `AdminGate` as the first pill in `AdminNav` (`/admin`, or `/admin/pulse`), using only the locked tokens in [`foundation.md`](../foundation.md) §3 (`font-mono` for all numbers, `--brand` cobalt for series bars, `--success` green strictly for *Shipped*, and inline SVG sparklines with no chart library).
 
 1. **Window selector**: `7d` · `30d` · `90d` pill toggle in the header.
 2. **Action queues strip**: 4 compact cards (*New products*, *Companies*, *Reports*, *Ownership disputes*) linking straight to their tabs; highlighted with `--border-strong` when count `> 0`.

@@ -1,7 +1,7 @@
 # Publisense — status
 
 > **Generated file.** `STATUS.md` is written by `scripts/status.mjs`; hand edits are overwritten and
-> the CI drift check fails on them. Edit the sources instead: v2 build progress lives in [`docs/v2/BUILD.md`](./docs/v2/BUILD.md),
+> the CI drift check fails on them. Edit the sources instead: v2 build progress lives in [`docs/archive/BUILD.md`](./docs/archive/BUILD.md),
 > v1 intent in [`docs/archive/roadmap.md`](./docs/archive/roadmap.md) (frozen; v1 retired 2026-10-24),
 > decisions in [`docs/deferred.md`](./docs/deferred.md) (ids like `D-011`), work items in GitHub issues.
 >
@@ -13,7 +13,7 @@
 
 ### v2 build
 
-_derived from `docs/v2/BUILD.md` checkbox state · one PR per step, see `docs/v2/FOUNDATION.md` section 11_
+_derived from `docs/archive/BUILD.md` checkbox state · one PR per step, see `docs/foundation.md` section 11_
 
 **9/9 steps done** · complete
 
@@ -33,11 +33,11 @@ _derived from `docs/v2/BUILD.md` checkbox state · one PR per step, see `docs/v2
 
 _derived from `docs/deferred.md` · the ids link to the entry, which is canonical_
 
-- **D-016** · A post page says nothing about the product beyond its name — revisit: when product context on the post page comes up from users or a design pass, or when the next post-page change lands
+None open.
 
-### Resolved (15)
+### Resolved (16)
 
-**D-003** · **D-007** · **D-012** · **D-015** · **D-011** · **D-002** · **D-014** · **D-013** · **D-010** · **D-005** · **D-009** · **D-008** · **D-006** · **D-004** · **D-001**
+**D-016** · **D-003** · **D-007** · **D-012** · **D-015** · **D-011** · **D-002** · **D-014** · **D-013** · **D-010** · **D-005** · **D-009** · **D-008** · **D-006** · **D-004** · **D-001**
 
 ### Roadmap phases (v1, frozen)
 
