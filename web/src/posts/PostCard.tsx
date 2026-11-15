@@ -346,7 +346,11 @@ function OfficialQuote({ post }: { post: Post }) {
         ) : null}
         <TeamByline name={post.board?.name ?? 'Board'} />
       </p>
-      <p className="mt-1 mb-0 line-clamp-3 text-base text-ink">{o.body}</p>
+      {/* The one clamped paragraph in the card that carried no wrap utility: a single
+          unbreakable token in an official reply was measured 244px past this box in
+          Chromium at 390px, cut off by the clamp's overflow:hidden. Feeding the reply
+          through the same rule the body already uses brings it to 0. */}
+      <p className="mt-1 mb-0 line-clamp-3 text-base text-ink wrap-anywhere">{o.body}</p>
     </div>
   );
 }

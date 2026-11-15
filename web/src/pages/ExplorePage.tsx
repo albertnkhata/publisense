@@ -4,6 +4,7 @@ import { CATEGORIES, isLive, isProductFamily, matchCatalogue, useBoards, useHubs
 import { BoardCard, CardGrid, ChoiceMenu, HubRow, PostRow, RowItem, RowList, Section, type Choice } from '../boards/parts';
 import { cx } from '../lib/cx';
 import { usePageTitle } from '../lib/usePageTitle';
+import { trendingNote, trendingTitle } from '../lib/trendingCopy';
 import { useSetUrlParams, useUrlTextParam } from '../lib/useUrlParam';
 import { LoadError } from '../posts/PostList';
 import { AddProductLink } from '../products/AddProductDialog';
@@ -152,7 +153,7 @@ function Filtered({ q, cat, boards, hubs, onClear }: { q: string; cat: Cat; boar
         </Section>
       ) : null}
       {list.length ? (
-        <Section id="ex-results" title={title} note={`${list.length} ${list.length === 1 ? 'product' : 'products'}`}>
+        <Section id="ex-results" title={title} action={`${list.length} ${list.length === 1 ? 'product' : 'products'}`}>
           <CardGrid label={title}>
             {list.map((b) => (
               <li key={b.id} className="min-w-0">
@@ -202,8 +203,9 @@ function Discover({ boards, hubs }: { boards: Board[]; hubs: Hub[] }) {
   return (
     <>
       {trending.data && trending.data.length ? (
-        <Section id="ex-trending" title="Trending this week" note="Most new posts this week">
-          <CardGrid label="Trending this week">
+        // Same rule as the rail: under three rows this is not a ranking, so it says what it is.
+        <Section id="ex-trending" title={trendingTitle(trending.data.length)} note={trendingNote(trending.data.length)}>
+          <CardGrid label="Boards with new posts this week">
             {trending.data.map((b) => (
               <li key={b.id} className="min-w-0">
                 <BoardCard board={b} now={now} />
@@ -259,7 +261,7 @@ function Discover({ boards, hubs }: { boards: Board[]; hubs: Hub[] }) {
       <Section
         id="ex-all"
         title="All products"
-        note={
+        action={
           <span className="inline-flex items-center gap-2">
             <span>{all.length}</span>
             <ChoiceMenu label="Sort products" heading="Sort by" align="end" value={productSort} choices={PRODUCT_SORTS} onChange={setProductSort} />

@@ -612,7 +612,8 @@ describe('explore', () => {
     boardsApi.fetchTrending.mockResolvedValue([{ ...SUPABASE, recent: 3 }]);
     postsApi.fetchWanted.mockResolvedValue([makeSummary({ title: 'Branching for preview databases', status: 'open', type: 'feature', vote_count: 80 })]);
     renderAt('/explore');
-    expect(await screen.findByRole('heading', { name: 'Trending this week' })).toBeTruthy();
+    // One board of activity: the section says what the rows are instead of claiming a ranking.
+    expect(await screen.findByRole('heading', { name: 'New this week' })).toBeTruthy();
     expect(screen.getByRole('link', { name: /Figma hub/ }).getAttribute('href')).toBe('/h/figma');
     expect(await screen.findByText('Branching for preview databases')).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'Fresh bugs' })).toBeNull(); // no bugs to show
