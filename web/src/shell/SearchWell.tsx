@@ -6,6 +6,7 @@ import {
   CATEGORIES,
   compactCount,
   isLive,
+  isProductFamily,
   logoSrc,
   loggableSearchTerm,
   recordEvent,
@@ -15,6 +16,7 @@ import {
   shortAge,
   useBoards,
   useFollowedScopes,
+  useHubs,
   usePeopleSearch,
   useSearch,
   useTrending,
@@ -58,7 +60,12 @@ interface PopItem {
   layout?: 'pill' | 'card' | 'row' | 'callout';
 }
 
-type SearchScope = 'all' | 'boards' | 'posts' | 'hubs' | 'people';
+export type SearchScope = 'all' | 'boards' | 'posts' | 'hubs' | 'people';
+
+export interface OpenSearchOptions {
+  query?: string;
+  scope?: SearchScope;
+}
 
 const CATEGORY_LABEL = new Map<BoardCategory, string>(
   CATEGORIES.filter((c): c is { value: BoardCategory; label: string } => c.value !== 'all').map((c) => [c.value, c.label]),
@@ -90,7 +97,8 @@ function isRendered(el: HTMLElement | null): boolean {
 
 interface ModalController {
   isOpen: () => boolean;
-  setOpen: (open: boolean) => void;
+  open: (opts?: OpenSearchOptions) => void;
+  close: () => void;
   isVisible: () => boolean;
 }
 
@@ -102,30 +110,44 @@ function pickController(): ModalController | undefined {
   return all.find((c) => c.isVisible()) ?? all[0];
 }
 
-/** Programmatically open the search modal from anywhere in the shell (e.g. mobile TopBar icon). */
-export function openSearchModal(): void {
+/** Programmatically open the search modal from anywhere in the shell (e.g. mobile TopBar icon or section links). */
+export function openSearchModal(opts?: OpenSearchOptions): void {
   for (const c of modalControllers.values()) {
-    if (c.isOpen()) return;
+    if (c.isOpen()) {
+      if (opts) c.open(opts);
+      return;
+    }
   }
-  pickController()?.setOpen(true);
+  pickController()?.open(opts);
 }
 
 function toggleSearchModal(): void {
   for (const c of modalControllers.values()) {
     if (c.isOpen()) {
-      c.setOpen(false);
+      c.close();
       return;
     }
   }
-  pickController()?.setOpen(true);
+  pickController()?.open();
 }
 
-export function SearchWell({ className, onSubmitted }: { className?: string; onSubmitted?: () => void }) {
+export function SearchWell({
+  className,
+  triggerClassName,
+  placeholder = TRIGGER_LABEL,
+  onSubmitted,
+}: {
+  className?: string;
+  triggerClassName?: string;
+  placeholder?: string;
+  onSubmitted?: () => void;
+}) {
   const navigate = useNavigate();
   const location = useLocation();
   const locationRef = useRef(location.pathname);
   locationRef.current = location.pathname;
   const [q, setQ] = useState('');
+  const [scope, setScope] = useState<SearchScope>('all');
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const [itemCount, setItemCount] = useState(0);
@@ -147,6 +169,7 @@ export function SearchWell({ className, onSubmitted }: { className?: string; onS
   useEffect(() => {
     if (open) return;
     setQ('');
+    setScope('all');
     setActive(-1);
   }, [open]);
 
@@ -158,12 +181,17 @@ export function SearchWell({ className, onSubmitted }: { className?: string; onS
     setOpen(false);
   }, [location.key]);
 
-  const openExclusive = () => {
+  const openExclusive = (opts?: OpenSearchOptions) => {
     for (const [id, c] of modalControllers.entries()) {
-      if (id !== instanceId && c.isOpen()) c.setOpen(false);
+      if (id !== instanceId && c.isOpen()) c.close();
     }
+    if (opts?.query !== undefined) setQ(opts.query);
+    setScope(opts?.scope ?? 'all');
+    setActive(-1);
     setOpen(true);
   };
+  const openExclusiveRef = useRef(openExclusive);
+  openExclusiveRef.current = openExclusive;
 
   // Register with the singleton controller map so Cmd/Ctrl+K or `/` only opens one modal
   // even when both TopBar and RightRail mount a SearchWell in AppShell.
@@ -171,7 +199,8 @@ export function SearchWell({ className, onSubmitted }: { className?: string; onS
     const id = instanceId;
     modalControllers.set(id, {
       isOpen: () => openRef.current,
-      setOpen: (next) => setOpen(next),
+      open: (opts) => openExclusiveRef.current(opts),
+      close: () => setOpen(false),
       isVisible: () => isRendered(triggerRef.current),
     });
 
@@ -288,9 +317,7 @@ export function SearchWell({ className, onSubmitted }: { className?: string; onS
   const onTriggerKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
     if (e.key.length === 1 && e.key !== ' ' && !e.metaKey && !e.ctrlKey && !e.altKey) {
       e.preventDefault();
-      setQ(e.key);
-      setActive(-1);
-      openExclusive();
+      openExclusive({ query: e.key });
     }
   };
 
@@ -307,10 +334,13 @@ export function SearchWell({ className, onSubmitted }: { className?: string; onS
           aria-keyshortcuts={shortcut}
           onClick={() => openExclusive()}
           onKeyDown={onTriggerKeyDown}
-          className="flex h-8 w-full cursor-pointer items-center gap-3 rounded-md border border-line bg-card px-3 text-left text-base text-ink-muted transition-colors duration-120 hover:border-line-strong focus-visible:border-line-strong max-md:text-md"
+          className={cx(
+            'flex w-full cursor-pointer items-center gap-3 rounded-md border border-line bg-card px-3 text-left text-base text-ink-muted transition-colors duration-120 hover:border-line-strong focus-visible:border-line-strong max-md:text-md',
+            triggerClassName ?? 'h-8',
+          )}
         >
           <Icon name="search" size={15} />
-          <span className="min-w-0 flex-1 truncate">{TRIGGER_LABEL}</span>
+          <span className="min-w-0 flex-1 truncate">{placeholder}</span>
         </button>
       </div>
 
@@ -379,6 +409,8 @@ export function SearchWell({ className, onSubmitted }: { className?: string; onS
 
                 <SearchModalBody
                   q={q}
+                  scope={scope}
+                  setScope={setScope}
                   listId={listId}
                   active={active}
                   setActive={setActive}
@@ -409,6 +441,8 @@ export function SearchWell({ className, onSubmitted }: { className?: string; onS
 
 function SearchModalBody({
   q,
+  scope,
+  setScope,
   listId,
   active,
   setActive,
@@ -421,6 +455,8 @@ function SearchModalBody({
 }: {
   close: () => void;
   q: string;
+  scope: SearchScope;
+  setScope: (s: SearchScope) => void;
   listId: string;
   active: number;
   setActive: (i: number) => void;
@@ -433,7 +469,6 @@ function SearchModalBody({
   const { viewer } = useViewer();
   const term = q.trim();
   const [debounced, setDebounced] = useState(term);
-  const [scope, setScope] = useState<SearchScope>('all');
   const [catFilter, setCatFilter] = useState<'all' | BoardCategory>('all');
 
   useEffect(() => {
@@ -441,11 +476,8 @@ function SearchModalBody({
     return () => clearTimeout(t);
   }, [term]);
 
-  useEffect(() => {
-    if (!term) setScope('all');
-  }, [term]);
-
   const boardsQuery = useBoards();
+  const hubsQuery = useHubs();
   const live = (boardsQuery.data ?? []).filter(isLive);
   const trendingQuery = useTrending(live, 4);
   const wantedQuery = useWanted(!term);
@@ -489,8 +521,9 @@ function SearchModalBody({
     featuredGroupNote = 'Active product boards on Publisense';
   }
 
-  const wantedPosts = (wantedQuery.data ?? []).slice(0, 3);
+  const wantedPosts = (wantedQuery.data ?? []).slice(0, scope === 'posts' ? 8 : 3);
   const wantedHasVotes = wantedPosts.some((p) => p.vote_count > 0);
+  const liveHubs = (hubsQuery.data ?? []).filter((h) => isProductFamily(h.boards.length));
 
   const items: PopItem[] = [];
   const hasQuery = term.length >= SEARCH_MIN;
@@ -516,36 +549,122 @@ function SearchModalBody({
   }, [noResults, debounced]);
 
   if (!term) {
-    // Recent searches are parked until the broad layout is finished, so the empty state starts with boards.
-    for (const b of featuredBoards) {
-      items.push({
-        key: `featured-${b.id}`,
-        group: featuredGroupTitle,
-        groupNote: featuredGroupNote,
-        layout: 'card',
-        go: () => go(`/b/${b.slug}`),
-        render: () => <BoardSpotlightCard board={b} />,
-      });
-    }
-    for (const p of wantedPosts) {
-      items.push({
-        key: `wanted-${p.id}`,
-        group: wantedHasVotes ? 'Most wanted across boards' : 'Latest feedback & bugs',
-        groupNote: wantedHasVotes ? 'Top upvoted requests' : 'Newest across boards',
-        layout: 'row',
-        go: () => go(`/post/${p.id}`),
-        render: () => (
-          <>
-            <BoardAvatar name={p.board?.name ?? '?'} color={p.board?.color} logoSrc={logoSrc(p.board)} size="sm" decorative />
-            <Text
-              title={p.title}
-              sub={[p.board?.name ?? 'Unknown board', TYPE_META[p.type].label, shortAge(p.created_at)].filter(Boolean).join(' · ')}
-            />
-            {p.status !== 'open' ? <StatusPill status={p.status} /> : null}
-            <VoteBadge count={p.vote_count} />
-          </>
-        ),
-      });
+    if (scope === 'boards') {
+      const scopedBoards = (catFilter === 'all' ? byFollowers : byFollowers.filter((b) => b.category === catFilter)).slice(0, 8);
+      for (const b of scopedBoards) {
+        items.push({
+          key: `board-${b.id}`,
+          group: 'Product boards',
+          groupNote: 'Most followed boards on Publisense',
+          layout: 'row',
+          go: () => go(`/b/${b.slug}`),
+          render: () => (
+            <>
+              <BoardAvatar name={b.name} color={b.color} logoSrc={logoSrc(b)} size="md" decorative />
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="flex items-center gap-1">
+                  <span className="truncate font-semibold text-ink">{b.name}</span>
+                  {b.claimed_at ? (
+                    <span className="inline-flex shrink-0 items-center text-success" title="Verified team">
+                      <Icon name="check" size={12} strokeWidth={2.5} />
+                    </span>
+                  ) : null}
+                </span>
+                <span className="truncate text-xs text-ink-muted">{b.tagline}</span>
+              </span>
+              {b.follower_count > 0 || b.post_count > 0 ? (
+                <span className="flex shrink-0 items-center gap-2 font-mono text-xs text-ink-muted tabular-nums max-sm:hidden">
+                  {b.follower_count > 0 ? (
+                    <span>
+                      {compactCount(b.follower_count)} {b.follower_count === 1 ? 'follower' : 'followers'}
+                    </span>
+                  ) : null}
+                  {b.post_count > 0 ? (
+                    <span>
+                      {compactCount(b.post_count)} {b.post_count === 1 ? 'post' : 'posts'}
+                    </span>
+                  ) : null}
+                </span>
+              ) : null}
+            </>
+          ),
+        });
+      }
+    } else if (scope === 'posts') {
+      for (const p of wantedPosts) {
+        items.push({
+          key: `wanted-${p.id}`,
+          group: wantedHasVotes ? 'Popular feedback & bugs' : 'Latest feedback & bugs',
+          groupNote: wantedHasVotes ? 'Top upvoted requests' : 'Newest across boards',
+          layout: 'row',
+          go: () => go(`/post/${p.id}`),
+          render: () => (
+            <>
+              <BoardAvatar name={p.board?.name ?? '?'} color={p.board?.color} logoSrc={logoSrc(p.board)} size="sm" decorative />
+              <Text
+                title={p.title}
+                sub={[p.board?.name ?? 'Unknown board', TYPE_META[p.type].label, shortAge(p.created_at)].filter(Boolean).join(' · ')}
+              />
+              {p.status !== 'open' ? <StatusPill status={p.status} /> : null}
+              <VoteBadge count={p.vote_count} />
+            </>
+          ),
+        });
+      }
+    } else if (scope === 'hubs') {
+      for (const h of liveHubs.slice(0, 8)) {
+        items.push({
+          key: `hub-${h.id}`,
+          group: 'Company hubs',
+          groupNote: 'Product families',
+          layout: 'row',
+          go: () => go(`/h/${h.slug}`),
+          render: () => (
+            <>
+              {h.boards.length > 0 ? (
+                <HubAvatar name={`${h.name} hub`} size="xs" boards={h.boards.map((b) => ({ name: b.name, color: b.color, logoSrc: logoSrc(b) }))} />
+              ) : (
+                <IconCell>
+                  <Icon name="hub" size={15} />
+                </IconCell>
+              )}
+              <Text title={`${h.name} hub`} sub={h.boards.map((b) => b.name).join(', ') || h.description} />
+            </>
+          ),
+        });
+      }
+    } else if (scope === 'all') {
+      // Recent searches are parked until the broad layout is finished, so the empty state starts with boards.
+      for (const b of featuredBoards) {
+        items.push({
+          key: `featured-${b.id}`,
+          group: featuredGroupTitle,
+          groupNote: featuredGroupNote,
+          layout: 'card',
+          go: () => go(`/b/${b.slug}`),
+          render: () => <BoardSpotlightCard board={b} />,
+        });
+      }
+      for (const p of wantedPosts) {
+        items.push({
+          key: `wanted-${p.id}`,
+          group: wantedHasVotes ? 'Most wanted across boards' : 'Latest feedback & bugs',
+          groupNote: wantedHasVotes ? 'Top upvoted requests' : 'Newest across boards',
+          layout: 'row',
+          go: () => go(`/post/${p.id}`),
+          render: () => (
+            <>
+              <BoardAvatar name={p.board?.name ?? '?'} color={p.board?.color} logoSrc={logoSrc(p.board)} size="sm" decorative />
+              <Text
+                title={p.title}
+                sub={[p.board?.name ?? 'Unknown board', TYPE_META[p.type].label, shortAge(p.created_at)].filter(Boolean).join(' · ')}
+              />
+              {p.status !== 'open' ? <StatusPill status={p.status} /> : null}
+              <VoteBadge count={p.vote_count} />
+            </>
+          ),
+        });
+      }
     }
   } else if (hasQuery && search.data && debounced === term) {
     const showBoards = scope === 'all' || scope === 'boards';
@@ -807,7 +926,7 @@ function SearchModalBody({
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      {hasQuery ? (
+      {hasQuery || scope !== 'all' ? (
         <div role="group" aria-label="Filter search results" className="flex flex-wrap items-center gap-1 border-b border-line bg-subtle px-4 py-2">
           {scopes.map((s) => {
             const selected = scope === s.id;

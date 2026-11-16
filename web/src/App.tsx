@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { AppShell } from './shell/AppShell';
-import { MESSAGES_PAGE, NO_RAIL_NARROW, NO_RAIL_WIDE, SITE_PAGE, STAFF_PAGE } from './shell/layout';
+import { EXPLORE_PAGE, MESSAGES_PAGE, NO_RAIL_NARROW, NO_RAIL_WIDE, SITE_PAGE, STAFF_PAGE } from './shell/layout';
 import { NotFound } from './pages/NotFound';
 import {
   AboutPage,
@@ -36,11 +36,11 @@ const DevKit = lazy(() => import('./pages/DevKit'));
 
 /**
  * FOUNDATION §9 route table. Real paths; the mockup's #hash routes do not carry over.
- * The right rail shows on browsing pages (home, explore, search, boards, hubs, posts,
- * profiles, 404). Task pages drop it (shell/layout.ts): Manage and /admin go wide;
- * settings and notifications keep the reading width. Pages people land on from a
- * link or an email (about, terms, privacy, password reset, unsubscribe) swap the app
- * frame for a plain website header (SITE_PAGE).
+ * The right rail shows on browsing pages (home, search, boards, hubs, posts,
+ * profiles, 404). Explore and task pages drop it (shell/layout.ts): Explore,
+ * Manage and /admin go wide; settings and notifications keep the reading width.
+ * Pages people land on from a link or an email (about, terms, privacy, password
+ * reset, unsubscribe) swap the app frame for a plain website header (SITE_PAGE).
  */
 export const routes = [
   {
@@ -48,7 +48,7 @@ export const routes = [
     element: <AppShell />,
     children: [
       { index: true, element: <HomePage /> },
-      { path: 'explore', element: <ExplorePage /> },
+      { path: 'explore', handle: EXPLORE_PAGE, element: <ExplorePage /> },
       { path: 'search', element: <SearchPage /> },
       { path: 'b/:board', element: <BoardPage /> },
       { path: 'b/:board/manage', handle: NO_RAIL_WIDE, element: <BoardManagePage /> },

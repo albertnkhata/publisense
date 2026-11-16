@@ -40,7 +40,10 @@ export const postKeys = {
   status: (postId: string) => ['status_events', postId] as const,
 };
 
-type PostCache = InfiniteData<FeedPage, number> | Post | Post[] | { posts: Post[] } | null | undefined;
+/** Any voteable post summary or full post cached under ['posts', …]. */
+export type VotablePost = Pick<Post, 'id' | 'vote_count' | 'voted'> & Partial<Pick<Post, 'following' | 'status' | 'hidden_at'>>;
+
+type PostCache = InfiniteData<FeedPage, number> | Post | VotablePost | Post[] | VotablePost[] | { posts: Post[] } | null | undefined;
 
 function isInfinite(v: PostCache): v is InfiniteData<FeedPage, number> {
   return Boolean(v && typeof v === 'object' && 'pages' in v);
@@ -75,13 +78,13 @@ export function patchPost(qc: QueryClient, id: string, fn: (p: Post) => Post | n
             return next ? [next] : [];
           })
         : list;
-    // Plain lists (the composer's similar posts) and search results ({ posts }).
-    if (Array.isArray(old)) return patchList(old);
+    // Plain lists (the composer's similar posts, popular posts) and search results ({ posts }).
+    if (Array.isArray(old)) return patchList(old as Post[]);
     if ('posts' in old && Array.isArray(old.posts)) {
       const posts = patchList(old.posts);
       return posts === old.posts ? old : { ...old, posts };
     }
-    if ('id' in old && old.id === id) return fn(old);
+    if ('id' in old && old.id === id) return fn(old as Post);
     return old;
   });
 }
@@ -151,7 +154,7 @@ export function useStatusEvents(postId: string | undefined, enabled: boolean) {
 export function useVote(viewerId: string | null) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ post, on }: { post: Post; on: boolean }) => setVote(post.id, viewerId ?? '', on),
+    mutationFn: ({ post, on }: { post: Pick<Post, 'id'>; on: boolean }) => setVote(post.id, viewerId ?? '', on),
     onMutate: async ({ post, on }) => {
       const snap = await snapshotPosts(qc);
       patchPost(qc, post.id, (p) => ({

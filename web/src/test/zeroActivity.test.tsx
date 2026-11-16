@@ -18,7 +18,10 @@ const boardsApi = vi.hoisted(() => ({
   fetchTrending: vi.fn(),
   fetchFollowedScopes: vi.fn(),
 }));
-const postsApi = vi.hoisted(() => ({ fetchWanted: vi.fn() }));
+const postsApi = vi.hoisted(() => ({
+  fetchWanted: vi.fn(),
+  fetchPopularByStatus: vi.fn(),
+}));
 vi.mock('../api/boards', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/boards')>()), ...boardsApi }));
 vi.mock('../api/posts', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/posts')>()), ...postsApi }));
 
@@ -34,6 +37,7 @@ beforeEach(() => {
   boardsApi.fetchTrending.mockResolvedValue([]);
   boardsApi.fetchFollowedScopes.mockResolvedValue(new Set());
   postsApi.fetchWanted.mockResolvedValue([]);
+  postsApi.fetchPopularByStatus.mockResolvedValue([]);
 });
 
 describe('right rail boards card', () => {
@@ -80,37 +84,42 @@ describe('right rail boards card', () => {
 });
 
 describe('explore while quiet', () => {
-  const renderExplore = () =>
+  const renderExplore = (path = '/explore') =>
     renderWith(
       <Routes>
         <Route path="/explore" element={<ExplorePage />} />
       </Routes>,
-      { path: '/explore' },
+      { path },
     );
 
-  it('has no Trending section and no zero counters on cards', async () => {
+  it('has no Trending section, summarises categories, and shows empty status tab cleanly', async () => {
     renderExplore();
-    const all = await screen.findByRole('list', { name: 'All products' });
+    const cats = await screen.findByRole('list', { name: 'Categories' });
     expect(screen.queryByRole('heading', { name: /Trending/ })).toBeNull();
-    expect(all.textContent).not.toMatch(/\b0 (posts|followers)\b/);
-    expect(within(all).getByText('Added 2w ago')).toBeTruthy();
-    expect(within(all).getByText('Added 2d ago')).toBeTruthy();
+    expect(within(cats).getByText('Code editors')).toBeTruthy();
+    expect(within(cats).getByText('2 boards')).toBeTruthy();
+    expect(within(cats).getByText('Linear, Notion')).toBeTruthy();
+    expect(cats.textContent).not.toMatch(/\b0 (posts|followers)\b/);
+    expect(await screen.findByText('No posts under review yet')).toBeTruthy();
   });
 
-  it('labels unvoted requests "Latest requests", not "Most wanted"', async () => {
-    postsApi.fetchWanted.mockResolvedValue([makeSummary({ title: 'Offline mode', vote_count: 0 })]);
-    renderExplore();
-    expect(await screen.findByRole('heading', { name: 'Latest requests' })).toBeTruthy();
-    expect(screen.getByText('Newest across all boards')).toBeTruthy();
-    expect(screen.queryByRole('heading', { name: 'Most wanted' })).toBeNull();
-    expect(screen.queryByLabelText('0 upvotes')).toBeNull();
+  it('shows Added recency instead of zero counters on quiet category results', async () => {
+    renderExplore('/explore?cat=code');
+    const results = await screen.findByRole('list', { name: 'Code editors' });
+    expect(results.textContent).not.toMatch(/\b0 (posts|followers)\b/);
+    expect(within(results).getByText('Added 2w ago')).toBeTruthy();
+    expect(within(results).getByText('Added 2d ago')).toBeTruthy();
   });
 
-  it('keeps "Most wanted" once requests have upvotes', async () => {
-    postsApi.fetchWanted.mockResolvedValue([makeSummary({ title: 'Offline mode', vote_count: 4 })]);
+  it('hides zero vote numbers in Popular posts and shows counts once upvoted', async () => {
+    postsApi.fetchPopularByStatus.mockResolvedValue([
+      { ...makeSummary({ title: 'Offline mode', status: 'under_review', vote_count: 0 }), has_official_reply: false, voted: false, following: false },
+      { ...makeSummary({ title: 'Keyboard nav', status: 'under_review', vote_count: 4 }), has_official_reply: false, voted: false, following: false },
+    ]);
     renderExplore();
-    expect(await screen.findByRole('heading', { name: 'Most wanted' })).toBeTruthy();
-    expect(screen.getByLabelText('4 upvotes')).toBeTruthy();
+    expect(await screen.findByText('Offline mode')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Upvote, 0 votes' }).textContent).toBe('');
+    expect(screen.getByRole('button', { name: 'Upvote, 4 votes' }).textContent).toBe('4');
   });
 });
 

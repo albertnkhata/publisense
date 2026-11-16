@@ -1,20 +1,19 @@
 import { useMemo } from 'react';
-import pitchGradient from '../assets/pitch-gradient.webp';
 import { useSearchParams } from 'react-router';
 import { dedupePosts, useFeed, type FeedScope, type FeedSort } from '../api';
-import { useClaim } from '../claim/ClaimDialog';
 import { usePageTitle } from '../lib/usePageTitle';
+import { useSetUrlParams } from '../lib/useUrlParam';
 import { useViewer } from '../lib/viewer';
 import { LoadError, PostList, PostListSkeleton } from '../posts/PostList';
-import { useAuthDialog, useRequireAuth } from '../shell/auth';
+import { useAuthDialog } from '../shell/auth';
 import { useComposer } from '../shell/composer';
-import { Button, Card, EmptyState, Icon, Menu, MenuItemRadio, MenuLabel, Tabs } from '../ui';
-import { useSetUrlParams } from '../lib/useUrlParam';
+import { Button, EmptyState, Icon, Menu, MenuItemRadio, MenuLabel, Tabs } from '../ui';
+import { LandingPage } from './LandingPage';
 
 /**
- * Home feed (FOUNDATION §11 step 5). Scope (All / Following, signed in only) and
- * sort (Top / New) as in the mockup's feed bar; both live in the URL so Back
- * returns to the same view. Pages load as the end of the list nears.
+ * Home: signed-out visitors see LandingPage; signed-in members see the Home feed
+ * with All / Following scope and Top / New sort. Direct visits to `/?scope=following`
+ * while signed out render the explicit Following sign-in gate (GAP-001).
  */
 export const SORTS: Array<{ value: FeedSort; label: string; hint: string }> = [
   { value: 'top', label: 'Top', hint: 'Most upvoted' },
@@ -53,94 +52,35 @@ export function HomePage() {
     );
   }
 
+  if (!viewer) {
+    return ready ? <LandingPage /> : null;
+  }
+
   return (
     <section aria-labelledby="page-title" className="flex flex-col gap-4">
       <h1 id="page-title" className="sr-only">
         Home
       </h1>
-      {viewer || !ready ? null : <HomePitch />}
       {/* Phones post from the floating button (TabBar) instead. */}
       <ComposerTrigger />
       <div className="flex items-center justify-between gap-3 border-b border-line">
-        {viewer ? (
-          <Tabs
-            idBase="feed"
-            label="Feed"
-            value={scope}
-            onChange={(v) => set('scope', v, 'all')}
-            bordered={false}
-            items={[
-              { value: 'all', label: 'All' },
-              { value: 'following', label: 'Following' },
-            ]}
-          />
-        ) : (
-          <span className="py-2 text-sm font-semibold text-ink">{sort === 'new' ? 'Recent feedback' : 'Top feedback'}</span>
-        )}
+        <Tabs
+          idBase="feed"
+          label="Feed"
+          value={scope}
+          onChange={(v) => set('scope', v, 'all')}
+          bordered={false}
+          items={[
+            { value: 'all', label: 'All' },
+            { value: 'following', label: 'Following' },
+          ]}
+        />
         <SortMenu sort={sort} onChange={(v) => set('sort', v, 'top')} />
       </div>
-      <div role="tabpanel" id={`feed-panel-${scope}`} aria-labelledby={viewer ? `feed-tab-${scope}` : undefined} aria-label={viewer ? undefined : 'Feed'}>
-        <Feed scope={scope} sort={sort} viewerId={viewer?.id ?? null} />
+      <div role="tabpanel" id={`feed-panel-${scope}`} aria-labelledby={`feed-tab-${scope}`}>
+        <Feed scope={scope} sort={sort} viewerId={viewer.id} />
       </div>
     </section>
-  );
-}
-
-/** Pitch copy for signed-out visitors, kept here so tests and docs quote one source. */
-export const PITCH = {
-  title: 'Make your voice heard',
-  body: 'Feedback on products, ranked by the people who use them.',
-  join: 'Join Publisense',
-  claim: 'Claim your board',
-  claimReason: 'claim your product’s board',
-};
-
-/**
- * Signed-out pitch above the composer, after Substack's signed-out home: the
- * visitor lands in the real feed with one card saying what this is. Not
- * dismissible; signed-in viewers never see it. The secondary action opens the
- * claim dialog so visitors can pick their product and read how verification
- * works before signing up.
- *
- * The card sits on a decorative gradient image under a dark scrim and uses the
- * theme-independent on-image tokens, so it reads the same (light text on a
- * dark card) in both themes. It deliberately does not set data-theme: dialogs
- * inherit the opener's theme scope, and sign-up should follow the page. The
- * secondary action is a translucent outline button made for the image.
- */
-function HomePitch() {
-  const { openAuth } = useAuthDialog();
-  const { openClaim } = useClaim();
-  return (
-    <Card
-      as="section"
-      padding="none"
-      aria-labelledby="home-pitch-title"
-      className="relative isolate overflow-hidden px-5 py-6 text-center max-md:px-4 max-md:py-5"
-    >
-      <img src={pitchGradient} alt="" aria-hidden="true" className="absolute inset-0 -z-10 size-full object-cover" />
-      <div aria-hidden="true" className="absolute inset-0 -z-10 bg-linear-to-b from-scrim/40 to-scrim" />
-      <div className="flex flex-col items-center gap-4 max-md:gap-3">
-        <div className="flex flex-col items-center gap-1">
-          <h2 id="home-pitch-title" className="m-0 text-xl font-bold text-balance text-on-image max-md:text-lg">
-            {PITCH.title}
-          </h2>
-          <p className="m-0 text-base text-balance text-on-image-muted">{PITCH.body}</p>
-        </div>
-        <div className="flex items-center justify-center gap-2">
-          <Button size="sm" onClick={() => openAuth('signup')}>
-            {PITCH.join}
-          </Button>
-          <button
-            type="button"
-            onClick={() => openClaim()}
-            className="inline-flex h-7 items-center justify-center rounded-md border border-on-image-line bg-on-image/10 px-3 text-sm font-semibold whitespace-nowrap text-on-image backdrop-blur-md transition-colors duration-120 ease-out select-none hover:bg-on-image/20"
-          >
-            {PITCH.claim}
-          </button>
-        </div>
-      </div>
-    </Card>
   );
 }
 
@@ -179,14 +119,11 @@ function SortMenu({ sort, onChange }: { sort: FeedSort; onChange: (s: FeedSort) 
  * the post content's width, so the rule reads as the field's underline.
  */
 function ComposerTrigger() {
-  const requireAuth = useRequireAuth();
   const { openComposer } = useComposer();
   return (
     <button
       type="button"
-      onClick={() => {
-        if (requireAuth('post feedback')) openComposer();
-      }}
+      onClick={() => openComposer()}
       className="group flex w-full cursor-pointer items-center border-0 bg-transparent px-0 text-left max-sm:hidden"
     >
       <span className="flex w-gutter shrink-0 items-center">
@@ -209,10 +146,9 @@ function ComposerTrigger() {
   );
 }
 
-function Feed({ scope, sort, viewerId }: { scope: FeedScope; sort: FeedSort; viewerId: string | null }) {
+function Feed({ scope, sort, viewerId }: { scope: FeedScope; sort: FeedSort; viewerId: string }) {
   const feed = useFeed(scope, sort, viewerId);
   const { openComposer } = useComposer();
-  const requireAuth = useRequireAuth();
   const posts = useMemo(() => dedupePosts(feed.data?.pages ?? []), [feed.data]);
 
   if (feed.isPending) return <PostListSkeleton />;
@@ -231,15 +167,7 @@ function Feed({ scope, sort, viewerId }: { scope: FeedScope; sort: FeedSort; vie
         <EmptyState
           icon="reply"
           title="No posts yet"
-          action={
-            <Button
-              onClick={() => {
-                if (requireAuth('post feedback')) openComposer();
-              }}
-            >
-              Post feedback
-            </Button>
-          }
+          action={<Button onClick={() => openComposer()}>Post feedback</Button>}
         >
           Be the first to share what’s slowing you down, or what you wish a product did.
         </EmptyState>

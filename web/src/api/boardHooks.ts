@@ -16,7 +16,20 @@ import {
   type FollowTarget,
   type Hub,
 } from './boards';
-import { createPost, seedPost, fetchChangelog, fetchPostList, fetchRoadmap, fetchSimilar, fetchWanted, type NewPost, type PostListParams, type SeedPost } from './posts';
+import {
+  createPost,
+  seedPost,
+  fetchChangelog,
+  fetchPopularByStatus,
+  fetchPostList,
+  fetchRoadmap,
+  fetchSimilar,
+  fetchWanted,
+  type NewPost,
+  type PopularStatus,
+  type PostListParams,
+  type SeedPost,
+} from './posts';
 import { postKeys } from './postHooks';
 
 /*
@@ -36,6 +49,8 @@ export const boardKeys = {
   changelog: (ids: string[]) => ['changelog', ids.join(',')] as const,
   trending: ['trending'] as const,
   wanted: ['wanted'] as const,
+  popularByStatus: (status: PopularStatus, limit: number, viewerId: string | null) =>
+    ['posts', 'popular', status, limit, viewerId ?? 'anon'] as const,
   team: (boardId: string, viewerId: string | null) => ['board-team', boardId, viewerId ?? 'anon'] as const,
   follows: (viewerId: string | null) => ['scope-follows', viewerId ?? 'anon'] as const,
 };
@@ -79,6 +94,15 @@ export function useTrending(boards: Board[] | undefined, limit = 4) {
 
 export function useWanted(enabled = true) {
   return useQuery({ queryKey: boardKeys.wanted, queryFn: () => fetchWanted(), enabled, staleTime: 60_000 });
+}
+
+export function usePopularByStatus(status: PopularStatus, viewerId: string | null, limit = 6, enabled = true) {
+  return useQuery({
+    queryKey: boardKeys.popularByStatus(status, limit, viewerId),
+    queryFn: () => fetchPopularByStatus(status, viewerId, limit),
+    enabled,
+    staleTime: 60_000,
+  });
 }
 
 export function useIsBoardTeam(boardId: string | undefined, viewerId: string | null) {

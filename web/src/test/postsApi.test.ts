@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { deletePost, editSeededPost, fetchFeed, fetchPost, fetchRelated, seedPost, setVote, updatePost, updateReply, FEED_PAGE_SIZE, POST_SELECT } from '../api/posts';
+import { deletePost, editSeededPost, fetchFeed, fetchPopularByStatus, fetchPost, fetchRelated, seedPost, setVote, updatePost, updateReply, FEED_PAGE_SIZE, POST_SELECT } from '../api/posts';
 
 /*
  * The api layer against a recording stand-in for the Supabase query builder:
@@ -197,5 +197,55 @@ describe('fetchPost and writes', () => {
 
     await expect(seedPost({ ...draft, boardId: 'board-1' }, null)).rejects.toThrow(message);
     await expect(editSeededPost('post-1', draft, null)).rejects.toThrow(message);
+  });
+});
+
+describe('fetchPopularByStatus', () => {
+  it('queries live posts in a single status, checks official replies, and skips vote/follow lookups signed out', async () => {
+    db.rows.post = [
+      { ...row('p1'), board_id: 'b1', type: 'feature', status: 'planned', created_at: '2026-10-01T00:00:00Z', vote_count: 12 },
+      { ...row('p2'), board_id: 'b2', type: 'bug', status: 'planned', created_at: '2026-10-02T00:00:00Z', vote_count: 4 },
+    ];
+    db.rows.reply = [{ post_id: 'p2' }];
+
+    const out = await fetchPopularByStatus('planned', null, 6);
+    const q = only('post');
+    expect(has(q, 'eq', 'status', 'planned')).toBe(true);
+    expect(has(q, 'is', 'hidden_at', null)).toBe(true);
+    expect(has(q, 'order', 'vote_count', { ascending: false })).toBe(true);
+    expect(has(q, 'limit', 6)).toBe(true);
+    expect(has(only('reply'), 'eq', 'is_official', true)).toBe(true);
+    expect(has(only('reply'), 'is', 'parent_id', null)).toBe(true);
+    expect(db.calls.vote).toBeUndefined();
+    expect(db.calls.follow).toBeUndefined();
+    expect(out.map((p) => [p.id, p.has_official_reply, p.voted, p.following])).toEqual([
+      ['p1', false, false, false],
+      ['p2', true, false, false],
+    ]);
+  });
+
+  it('decorates viewer vote and follow state when signed in', async () => {
+    db.rows.post = [{ ...row('p1'), board_id: 'b1', type: 'bug', status: 'in_progress', created_at: '2026-10-01T00:00:00Z', vote_count: 8 }];
+    db.rows.vote = [{ post_id: 'p1' }];
+    db.rows.follow = [{ target_id: 'p1' }];
+    db.rows.reply = [{ post_id: 'p1' }];
+
+    const [p] = await fetchPopularByStatus('in_progress', 'me', 6);
+    expect(p).toMatchObject({ id: 'p1', voted: true, following: true, has_official_reply: true });
+    expect(has(only('vote'), 'eq', 'user_id', 'me')).toBe(true);
+    expect(has(only('follow'), 'eq', 'user_id', 'me')).toBe(true);
+  });
+
+  it('short-circuits without querying replies, votes, or follows when empty', async () => {
+    db.rows.post = [];
+    expect(await fetchPopularByStatus('shipped', 'me', 6)).toEqual([]);
+    expect(db.calls.reply).toBeUndefined();
+    expect(db.calls.vote).toBeUndefined();
+    expect(db.calls.follow).toBeUndefined();
+  });
+
+  it('throws when the post query fails', async () => {
+    db.errors.post = { message: 'boom' };
+    await expect(fetchPopularByStatus('under_review', null, 6)).rejects.toBeTruthy();
   });
 });

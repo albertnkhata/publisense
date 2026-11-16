@@ -5,12 +5,14 @@ import type { QueryClient } from '@tanstack/react-query';
 import { rememberSearch } from '../api/boards';
 import { boardKeys } from '../api';
 import { purgeUserQueryCache, useViewer } from '../lib/viewer';
-import type { FeedPage, Post } from '../api/posts';
+import type { FeedPage, PopularPostSummary, Post } from '../api/posts';
 import { BoardPage } from '../pages/BoardPage';
 import { ExplorePage } from '../pages/ExplorePage';
 import { HubPage } from '../pages/HubPage';
+import { LandingFooter, LandingHeader, LandingPage } from '../pages/LandingPage';
 import { SearchPage } from '../pages/SearchPage';
 import { ClaimProvider } from '../claim/ClaimDialog';
+import { savePendingComposerIntent } from '../lib/postDraft';
 import { ComposerProvider } from '../shell/composer';
 import { SearchWell } from '../shell/SearchWell';
 import { CURSOR, FIGJAM, FIGMA, FIGMA_HUB, makeSummary, SUPABASE } from './boardFixtures';
@@ -34,6 +36,7 @@ const postsApi = vi.hoisted(() => ({
   fetchPostList: vi.fn(),
   fetchRoadmap: vi.fn(),
   fetchChangelog: vi.fn(),
+  fetchPopularByStatus: vi.fn(),
   fetchWanted: vi.fn(),
   fetchSimilar: vi.fn(),
   createPost: vi.fn(),
@@ -45,6 +48,13 @@ vi.mock('../api/posts', async (importOriginal) => ({ ...(await importOriginal<ty
 
 const page = (items: Post[], next: number | null = null): FeedPage => ({ items, next });
 const emptyRoadmap = { planned: [], in_progress: [], shipped: [] };
+const makePopular = (over: Partial<PopularPostSummary> = {}): PopularPostSummary => ({
+  ...makeSummary({ status: 'under_review' }),
+  has_official_reply: false,
+  voted: false,
+  following: false,
+  ...over,
+});
 
 function renderAt(path: string, signedIn = false, client?: QueryClient) {
   return renderWith(
@@ -58,6 +68,7 @@ function renderAt(path: string, signedIn = false, client?: QueryClient) {
         <Route path="/search" element={<SearchPage />} />
         <Route path="/well" element={<SearchWell />} />
         <Route path="/post/:id" element={<h1>Post page</h1>} />
+        <Route path="/landing" element={<><LandingHeader /><LandingPage /><LandingFooter /></>} />
         <Route path="/" element={<h1>Home page</h1>} />
       </Routes>
       </ClaimProvider>
@@ -86,8 +97,10 @@ beforeEach(() => {
   postsApi.fetchPostList.mockResolvedValue(page([makePost({ title: 'Composer drops edits' }), makePost({ title: 'Tab completion lag' })]));
   postsApi.fetchRoadmap.mockResolvedValue(emptyRoadmap);
   postsApi.fetchChangelog.mockResolvedValue([]);
+  postsApi.fetchPopularByStatus.mockResolvedValue([]);
   postsApi.fetchWanted.mockResolvedValue([]);
   postsApi.fetchSimilar.mockResolvedValue([]);
+  postsApi.setVote.mockResolvedValue(undefined);
 });
 
 describe('board page', () => {
@@ -608,23 +621,64 @@ describe('header follower count', () => {
 });
 
 describe('explore', () => {
-  it('shows trending, hubs and every product', async () => {
+  it('shows search trigger, trending, popular posts, hubs and categories', async () => {
     boardsApi.fetchTrending.mockResolvedValue([{ ...SUPABASE, recent: 3 }]);
-    postsApi.fetchWanted.mockResolvedValue([makeSummary({ title: 'Branching for preview databases', status: 'open', type: 'feature', vote_count: 80 })]);
+    postsApi.fetchPopularByStatus.mockResolvedValue([
+      makePopular({ title: 'Branching for preview databases', vote_count: 80, has_official_reply: true }),
+    ]);
     renderAt('/explore');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Explore' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Search products, hubs, or posts…' })).toBeTruthy();
     // One board of activity: the section says what the rows are instead of claiming a ranking.
     expect(await screen.findByRole('heading', { name: 'New this week' })).toBeTruthy();
     expect(screen.getByRole('link', { name: /Figma hub/ }).getAttribute('href')).toBe('/h/figma');
     expect(await screen.findByText('Branching for preview databases')).toBeTruthy();
-    expect(screen.queryByRole('heading', { name: 'Fresh bugs' })).toBeNull(); // no bugs to show
-    const all = screen.getByRole('list', { name: 'All products' });
-    expect(within(all).getAllByRole('article').map((a) => within(a).getAllByRole('link')[0]?.textContent)).toEqual(['Cursor', 'FigJam', 'Figma', 'Supabase']);
+    expect(screen.getByText(/Team replied/)).toBeTruthy();
+    const cats = screen.getByRole('list', { name: 'Categories' });
+    expect(within(cats).getByText('Code editors')).toBeTruthy();
+    expect(within(cats).getByText('Design')).toBeTruthy();
+    expect(within(cats).getByText('Dev platforms')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'All 4 boards →' })).toBeTruthy();
   });
 
-  it('has no search field of its own: the site search covers products', async () => {
-    renderAt('/explore');
-    await screen.findByRole('list', { name: 'All products' });
-    expect(screen.queryByRole('searchbox', { name: 'Search products' })).toBeNull();
+  it('switches Popular posts status tabs, upvotes optimistically, and pre-scopes Search modal', async () => {
+    postsApi.fetchPopularByStatus.mockImplementation(async (status: string) => {
+      if (status === 'under_review') return [makePopular({ id: 'p-ur', title: 'Review item', vote_count: 10 })];
+      if (status === 'planned') return [makePopular({ id: 'p-pl', title: 'Planned item', status: 'planned', vote_count: 25 })];
+      if (status === 'shipped') return [makePopular({ id: 'p-sh', title: 'Shipped item', status: 'shipped', vote_count: 40 })];
+      return [];
+    });
+    postsApi.fetchWanted.mockResolvedValue([makeSummary({ id: 'p-w1', title: 'Wanted request', vote_count: 40 })]);
+    renderAt('/explore', true);
+    expect(await screen.findByText('Review item')).toBeTruthy();
+
+    // Upvote from Popular posts works optimistically
+    fireEvent.click(screen.getByRole('button', { name: 'Upvote, 10 votes' }));
+    expect(await screen.findByRole('button', { name: 'Remove upvote, 11 votes' })).toBeTruthy();
+    expect(postsApi.setVote).toHaveBeenCalledWith('p-ur', TEST_VIEWER.id, true);
+
+    // Switch status tabs
+    fireEvent.click(screen.getByRole('tab', { name: 'Planned' }));
+    expect(await screen.findByText('Planned item')).toBeTruthy();
+    expect(postsApi.fetchPopularByStatus).toHaveBeenCalledWith('planned', TEST_VIEWER.id, 6);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Shipped' }));
+    expect(await screen.findByText('Shipped item')).toBeTruthy();
+    const shippedPanel = screen.getByRole('tabpanel', { name: 'Shipped' });
+    expect(within(shippedPanel).getByText('Shipped')).toBeTruthy();
+
+    // Browse all posts → opens Search modal pre-scoped to Feedback & bugs
+    fireEvent.click(screen.getByRole('button', { name: 'Browse all posts →' }));
+    let modal = await screen.findByRole('dialog', { name: 'Search' });
+    expect(within(modal).getByRole('button', { name: 'Feedback & bugs' }).getAttribute('aria-pressed')).toBe('true');
+    expect(await within(modal).findByRole('option', { name: /Wanted request/ })).toBeTruthy();
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    // All N boards → opens Search modal pre-scoped to Product boards
+    fireEvent.click(screen.getByRole('button', { name: 'All 4 boards →' }));
+    modal = await screen.findByRole('dialog', { name: 'Search' });
+    expect(within(modal).getByRole('button', { name: 'Product boards' }).getAttribute('aria-pressed')).toBe('true');
+    expect(await within(modal).findByRole('option', { name: /Cursor/ })).toBeTruthy();
   });
 
   it('filters by category', async () => {
@@ -654,37 +708,60 @@ describe('explore', () => {
   it('leaves out a hub with a single live product', async () => {
     boardsApi.fetchHubs.mockResolvedValue([{ ...FIGMA_HUB, boards: [FIGMA] }]);
     renderAt('/explore');
-    await screen.findAllByRole('link', { name: /Figma/ });
+    await screen.findByRole('list', { name: 'Categories' });
     expect(screen.queryByRole('heading', { name: 'Hubs' })).toBeNull();
   });
 
-  it('says when nothing matches and offers a way back to all products', async () => {
+  it('says when nothing matches and offers a way back to discover categories', async () => {
     const { router } = renderAt('/explore?q=zzz');
     expect(await screen.findByText('No products match “zzz”.')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
     await waitFor(() => expect(router.state.location.search).toBe(''));
-    expect(await screen.findByRole('list', { name: 'All products' })).toBeTruthy();
+    expect(await screen.findByRole('list', { name: 'Categories' })).toBeTruthy();
+  });
+});
+
+describe('landing page & auth handoff', () => {
+  it('shows Most active fallback when nothing is trending, plus Popular posts, Claim band, Hubs and Categories', async () => {
+    renderAt('/landing');
+    expect(await screen.findByRole('heading', { name: 'Most active' })).toBeTruthy();
+    const active = screen.getByRole('list', { name: 'Most active boards' });
+    expect(within(active).getAllByRole('article').map((a) => within(a).getAllByRole('link')[0]?.textContent)).toEqual(['Cursor', 'Supabase', 'Figma', 'FigJam']);
+    expect(screen.getByRole('heading', { name: 'Popular posts' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Building one of these products?' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Hubs' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Categories' })).toBeTruthy();
+    expect(screen.getByRole('contentinfo', { name: 'Site footer' })).toBeTruthy();
   });
 
-  it('sorts All products by A–Z, Most followed, and Most posts', async () => {
-    boardsApi.fetchBoards.mockResolvedValue([
-      { ...CURSOR, follower_count: 100, post_count: 10 },
-      { ...SUPABASE, follower_count: 500, post_count: 5 },
-      { ...FIGMA, follower_count: 50, post_count: 90 },
-      { ...FIGJAM, follower_count: 12, post_count: 2 },
+  it('switches to Trending when boards have recent activity', async () => {
+    boardsApi.fetchTrending.mockResolvedValue([
+      { ...CURSOR, recent: 4 },
+      { ...SUPABASE, recent: 2 },
+      { ...FIGMA, recent: 1 },
     ]);
-    renderAt('/explore');
-    const all = await screen.findByRole('list', { name: 'All products' });
-    const names = () => within(all).getAllByRole('article').map((a) => within(a).getAllByRole('link')[0]?.textContent);
-    expect(names()).toEqual(['Cursor', 'FigJam', 'Figma', 'Supabase']);
+    renderAt('/landing');
+    expect(await screen.findByRole('heading', { name: 'Trending this week' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Most active' })).toBeNull();
+  });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Sort products: A–Z' }));
-    fireEvent.click(screen.getByRole('menuitemradio', { name: /Most followed/ }));
-    expect(names()).toEqual(['Supabase', 'Cursor', 'Figma', 'FigJam']);
+  it('saves pending composer intent on signed-out Share a post click, clears on cancel, and resumes when signed in', async () => {
+    const first = renderAt('/landing');
+    fireEvent.click(await screen.findByRole('button', { name: 'Share a post →' }));
+    const authDialog = await screen.findByRole('dialog', { name: 'Sign in to Publisense' });
+    expect(within(authDialog).getByText(/Sign in to post feedback/)).toBeTruthy();
+    expect(window.localStorage.getItem('publisense:pending-composer')).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Sort products: Most followed' }));
-    fireEvent.click(screen.getByRole('menuitemradio', { name: /Most posts/ }));
-    expect(names()).toEqual(['Figma', 'Cursor', 'Supabase', 'FigJam']);
+    fireEvent.click(within(authDialog).getByRole('button', { name: 'Close' }));
+    expect(window.localStorage.getItem('publisense:pending-composer')).toBeNull();
+    first.unmount();
+
+    savePendingComposerIntent({ board: 'cursor', title: 'Offline support' });
+    renderAt('/landing', true);
+    const composer = await screen.findByRole('dialog', { name: 'Post feedback' });
+    expect(await within(composer).findByText('Cursor')).toBeTruthy();
+    expect((within(composer).getByRole('textbox', { name: 'Title' }) as HTMLInputElement).value).toBe('Offline support');
+    expect(window.localStorage.getItem('publisense:pending-composer')).toBeNull();
   });
 });
 

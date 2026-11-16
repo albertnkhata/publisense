@@ -771,6 +771,63 @@ export async function fetchWanted(limit = 20): Promise<PostSummary[]> {
   return (data ?? []) as unknown as PostSummary[];
 }
 
+export const POPULAR_STATUSES = ['under_review', 'planned', 'in_progress', 'shipped'] as const;
+export type PopularStatus = (typeof POPULAR_STATUSES)[number];
+
+/** Compact post row enriched with official-reply presence and viewer vote/follow state for Popular posts tabs. */
+export interface PopularPostSummary extends PostSummary {
+  has_official_reply: boolean;
+  voted: boolean;
+  following: boolean;
+}
+
+/** Most upvoted live posts in a single team status across all boards, with official-reply and viewer vote flags. */
+export async function fetchPopularByStatus(
+  status: PopularStatus,
+  viewerId: string | null,
+  limit = 6,
+): Promise<PopularPostSummary[]> {
+  const sb = getSupabase();
+  const { data, error } = await sb
+    .from('post')
+    .select(SUMMARY_SELECT)
+    .eq('status', status)
+    .is('hidden_at', null)
+    .order('vote_count', { ascending: false })
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  const rows = (data ?? []) as unknown as PostSummary[];
+  if (rows.length === 0) return [];
+  const ids = rows.map((r) => r.id);
+  const [votes, follows, officials] = await Promise.all([
+    viewerId ? sb.from('vote').select('post_id').eq('user_id', viewerId).in('post_id', ids) : Promise.resolve({ data: [], error: null }),
+    viewerId
+      ? sb.from('follow').select('target_id').eq('user_id', viewerId).eq('target', 'post').in('target_id', ids)
+      : Promise.resolve({ data: [], error: null }),
+    sb
+      .from('reply')
+      .select('post_id')
+      .eq('is_official', true)
+      .is('parent_id', null)
+      .is('hidden_at', null)
+      .in('post_id', ids),
+  ]);
+  if (votes.error) throw votes.error;
+  if (follows.error) throw follows.error;
+  if (officials.error) throw officials.error;
+  const voted = new Set(((votes.data ?? []) as Array<{ post_id: string }>).map((v) => v.post_id));
+  const followed = new Set(((follows.data ?? []) as Array<{ target_id: string }>).map((f) => f.target_id));
+  const hasOfficial = new Set(((officials.data ?? []) as Array<{ post_id: string }>).map((r) => r.post_id));
+  return rows.map((r) => ({
+    ...r,
+    has_official_reply: hasOfficial.has(r.id),
+    voted: voted.has(r.id),
+    following: followed.has(r.id),
+  }));
+}
+
 // ------------------------------------------------------------------ similar posts (composer)
 
 const SIM_STOP = new Set(

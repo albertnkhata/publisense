@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useSearchParams } from 'react-router';
-import { CATEGORIES, isLive, isProductFamily, matchCatalogue, useBoards, useHubs, useTrending, useWanted, type Board, type BoardCategory, type Hub } from '../api';
-import { BoardCard, CardGrid, ChoiceMenu, HubRow, PostRow, RowItem, RowList, Section, type Choice } from '../boards/parts';
+import { CATEGORIES, isLive, isProductFamily, matchCatalogue, useBoards, useHubs, useTrending, type Board, type BoardCategory, type Hub } from '../api';
+import { BoardCard, CardGrid, HubRow, RowItem, RowList, Section } from '../boards/parts';
+import { CategoriesSection, DiscoveryBoardsSection, HubsSection, PopularPostsSection } from '../discovery/DiscoverySections';
 import { cx } from '../lib/cx';
 import { usePageTitle } from '../lib/usePageTitle';
-import { trendingNote, trendingTitle } from '../lib/trendingCopy';
 import { useSetUrlParams, useUrlTextParam } from '../lib/useUrlParam';
 import { LoadError } from '../posts/PostList';
 import { AddProductLink } from '../products/AddProductDialog';
@@ -12,28 +12,15 @@ import { SearchWell } from '../shell/SearchWell';
 import { Button, EmptyState, Icon, ScrollRow, SkeletonBlock } from '../ui';
 
 /**
- * Explore (FOUNDATION §9 `/explore`): find products and follow their boards.
- * With no query or category: Trending this week, Hubs, Most wanted, Fresh bugs,
- * New on Publisense and All products (sections with nothing to show are left
- * out; Trending needs a board with new posts this week, and Most wanted reads
- * "Latest requests" until something has an upvote, #156). Typing or picking a category filters boards and hubs instead. Both live
- * in the URL (`?q=`, `?cat=`). Search itself is the shell's site search (shown as a field at the top on phones); `?q=` only
- * survives for old links.
+ * Explore (`/explore`): signed-in discovery directory with wide layout (`EXPLORE_PAGE`).
+ * Shows header + search trigger, category chips, Trending, Popular posts by status,
+ * Hubs, and the 3-column Categories summary (plus filter mode for `?q=` / `?cat=`).
  */
 type Cat = 'all' | BoardCategory;
-type ProductSort = 'name' | 'followers' | 'posts';
-
-const PRODUCT_SORTS: Choice<ProductSort>[] = [
-  { value: 'name', label: 'A–Z', hint: 'Alphabetical' },
-  { value: 'followers', label: 'Most followed', hint: 'Highest follower count' },
-  { value: 'posts', label: 'Most posts', hint: 'Most feedback shared' },
-];
 
 export function ExplorePage() {
   usePageTitle('Explore');
   const [params] = useSearchParams();
-  // The field keeps its own state so fast typing never drops a character; the
-  // URL follows shortly after.
   const [q, setQ] = useUrlTextParam('q');
   const setUrl = useSetUrlParams();
   const catParam = params.get('cat');
@@ -47,14 +34,19 @@ export function ExplorePage() {
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
-      {/* The nav rail already says where you are; the heading stays for screen readers. */}
-      <h1 id="page-title" className="sr-only">
-        Explore
-      </h1>
-      {/* Phones get the site search as a full field here (the top bar drops its icon on
-          Explore); larger screens already show it in the top bar or right rail. An old
-          /explore?q= link still filters, shown as a chip you can clear. */}
-      <SearchWell className="mb-4 hidden max-sm:block" />
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h1 id="page-title" className="m-0 text-2xl font-bold text-ink">
+          Explore
+        </h1>
+        <AddProductLink className="text-sm font-medium text-ink-muted hover:text-brand">
+          + Add a missing product
+        </AddProductLink>
+      </div>
+      <SearchWell
+        className="mb-4"
+        placeholder="Search products, hubs, or posts…"
+        triggerClassName="h-9 border-line-strong text-md"
+      />
       <ScrollRow label="Categories" className="mb-6">
         {q.trim() ? (
           <button
@@ -154,7 +146,7 @@ function Filtered({ q, cat, boards, hubs, onClear }: { q: string; cat: Cat; boar
       ) : null}
       {list.length ? (
         <Section id="ex-results" title={title} action={`${list.length} ${list.length === 1 ? 'product' : 'products'}`}>
-          <CardGrid label={title}>
+          <CardGrid cols={3} label={title}>
             {list.map((b) => (
               <li key={b.id} className="min-w-0">
                 <BoardCard board={b} />
@@ -168,119 +160,20 @@ function Filtered({ q, cat, boards, hubs, onClear }: { q: string; cat: Cat; boar
 }
 
 function Discover({ boards, hubs }: { boards: Board[]; hubs: Hub[] }) {
-  const trending = useTrending(boards, 4);
-  const wanted = useWanted();
-  const [productSort, setProductSort] = useState<ProductSort>('name');
+  const trending = useTrending(boards, 6);
   const now = useMemo(() => new Date(), []);
-  const mostWanted = useMemo(() => (wanted.data ?? []).slice(0, 5), [wanted.data]);
-  const freshBugs = useMemo(
-    () =>
-      (wanted.data ?? [])
-        .filter((p) => p.type === 'bug')
-        .sort((a, b) => b.created_at.localeCompare(a.created_at))
-        .slice(0, 3),
-    [wanted.data],
-  );
-  const { fresh, all } = useMemo(
-    () => ({
-      fresh: boards
-        .filter((b) => now.getTime() - new Date(b.created_at).getTime() <= 30 * 86400_000)
-        .sort((a, b) => b.created_at.localeCompare(a.created_at))
-        .slice(0, 4),
-      all: [...boards].sort((a, b) => {
-        if (productSort === 'followers') return b.follower_count - a.follower_count || a.name.localeCompare(b.name);
-        if (productSort === 'posts') return b.post_count - a.post_count || a.name.localeCompare(b.name);
-        return a.name.localeCompare(b.name);
-      }),
-    }),
-    [boards, now, productSort],
-  );
-  // Requests rank by upvotes, then newest. With no upvotes yet that is just
-  // newest, so the label says so (#156).
-  const anyVotes = mostWanted.some((p) => p.vote_count > 0);
-  const wantedTitle = anyVotes ? 'Most wanted' : 'Latest requests';
 
   return (
     <>
-      {trending.data && trending.data.length ? (
-        // Same rule as the rail: under three rows this is not a ranking, so it says what it is.
-        <Section id="ex-trending" title={trendingTitle(trending.data.length)} note={trendingNote(trending.data.length)}>
-          <CardGrid label="Boards with new posts this week">
-            {trending.data.map((b) => (
-              <li key={b.id} className="min-w-0">
-                <BoardCard board={b} now={now} />
-              </li>
-            ))}
-          </CardGrid>
-        </Section>
-      ) : null}
-      {hubs.length ? (
-        <Section id="ex-hubs" title="Hubs" note="Product families in one place">
-          <RowList label="Hubs">
-            {hubs.map((h) => (
-              <RowItem key={h.id}>
-                <HubRow hub={h} />
-              </RowItem>
-            ))}
-          </RowList>
-        </Section>
-      ) : null}
-      {mostWanted.length ? (
-        <Section id="ex-wanted" title={wantedTitle} note={anyVotes ? 'Top requests across all boards' : 'Newest across all boards'}>
-          <RowList label={wantedTitle}>
-            {mostWanted.map((p) => (
-              <RowItem key={p.id}>
-                <PostRow post={p} />
-              </RowItem>
-            ))}
-          </RowList>
-        </Section>
-      ) : null}
-      {freshBugs.length ? (
-        <Section id="ex-bugs" title="Fresh bugs" note={freshBugs.some((p) => p.vote_count > 0) ? 'Newly reported problems people are upvoting' : 'Newly reported problems'}>
-          <RowList label="Fresh bugs">
-            {freshBugs.map((p) => (
-              <RowItem key={p.id}>
-                <PostRow post={p} />
-              </RowItem>
-            ))}
-          </RowList>
-        </Section>
-      ) : null}
-      {fresh.length ? (
-        <Section id="ex-new" title="New on Publisense" note="Boards added recently">
-          <CardGrid label="New on Publisense">
-            {fresh.map((b) => (
-              <li key={b.id} className="min-w-0">
-                <BoardCard board={b} now={now} />
-              </li>
-            ))}
-          </CardGrid>
-        </Section>
-      ) : null}
-      <Section
-        id="ex-all"
-        title="All products"
-        action={
-          <span className="inline-flex items-center gap-2">
-            <span>{all.length}</span>
-            <ChoiceMenu label="Sort products" heading="Sort by" align="end" value={productSort} choices={PRODUCT_SORTS} onChange={setProductSort} />
-          </span>
-        }
-      >
-        <CardGrid label="All products">
-          {all.map((b) => (
-            <li key={b.id} className="min-w-0">
-              <BoardCard board={b} now={now} />
-            </li>
-          ))}
-        </CardGrid>
-      </Section>
+      <DiscoveryBoardsSection id="ex-trending" boards={boards} trending={trending.data ?? []} now={now} showMostActiveFallback={false} />
+      <PopularPostsSection id="ex-popular" />
+      <HubsSection id="ex-hubs" hubs={hubs} />
+      <CategoriesSection id="ex-categories" boards={boards} />
     </>
   );
 }
 
-/** Bottom of the boards list: the way to add a product that isn't here yet. */
+/** Bottom of Explore: the way to add a product that isn't here yet. */
 function MissingProduct({ q }: { q: string }) {
   return (
     <p className="m-0 rounded-md border border-dashed border-line-strong bg-card px-4 py-4 text-center text-base text-ink-secondary">
@@ -297,8 +190,8 @@ function ExploreSkeleton() {
           <SkeletonBlock className="h-4 w-1/3" />
           <SkeletonBlock className="h-3 w-1/5" />
         </div>
-        <div className="grid grid-cols-2 gap-3 max-md:grid-cols-1">
-          {[0, 1, 2, 3].map((i) => (
+        <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-2 max-sm:grid-cols-1">
+          {[0, 1, 2].map((i) => (
             <div key={i} className="flex flex-col gap-3 rounded-md border border-line bg-card p-4">
               <div className="flex items-center gap-3">
                 <SkeletonBlock className="size-9 rounded-lg" />
