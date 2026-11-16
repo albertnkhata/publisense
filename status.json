@@ -1,5 +1,5 @@
 {
-  "generatedAt": null,
+  "generatedAt": "2026-11-16T06:00:11Z",
   "repo": {
     "openDecisions": [],
     "resolved": [
@@ -371,5 +371,66 @@
       }
     ]
   },
-  "live": null
+  "live": {
+    "generatedAt": "2026-11-16T06:00:11Z",
+    "site": {
+      "status": 200,
+      "bundle": "/assets/index-CNj1wzua.js",
+      "wwwRedirect": "308 → https://publisense.app/",
+      "checkedAt": "2026-11-16T06:00:11Z"
+    },
+    "data": {
+      "counts": {
+        "board": 31,
+        "hub": 20,
+        "post": 191,
+        "reply": 0,
+        "vote": 0,
+        "follow": "restricted",
+        "profile": 5,
+        "status_event": 0
+      },
+      "trueCounts": {
+        "board": 32,
+        "hub": 21,
+        "post": 191,
+        "reply": 0,
+        "vote": 0,
+        "follow": 10,
+        "profile": 5,
+        "status_event": 0
+      },
+      "fixtures": {
+        "posts": 191,
+        "imports": 191,
+        "fromMembers": 0
+      },
+      "authUsers": 5
+    },
+    "auth": {
+      "providers": [
+        "google",
+        "email"
+      ],
+      "mailerAutoconfirm": false,
+      "smtpSender": "auth@publisense.app",
+      "consentScreen": {
+        "appName": "Publisense",
+        "supportEmail": "support@publisense.app",
+        "termsLinked": true,
+        "privacyLinked": true,
+        "unverifiedBanner": false
+      }
+    },
+    "github": {
+      "issues": [],
+      "prs": []
+    },
+    "deployedCommit": {
+      "sha": "e29a143",
+      "state": "READY",
+      "createdAt": "2026-11-15T08:02:13.925Z"
+    },
+    "unitTests": "unknown"
+  }
 }
