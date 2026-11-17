@@ -43,7 +43,6 @@ export function ExplorePage() {
       </div>
       <SearchWell
         className="mb-6"
-        placeholder="Search products, hubs, or posts…"
         triggerClassName="h-9 border-line-strong text-md"
       />
       {q.trim() ? (
@@ -63,7 +62,7 @@ export function ExplorePage() {
         <ExploreSkeleton />
       ) : boards.isError || hubs.isError ? (
         <LoadError
-          title="We couldn’t load the boards"
+          title="We couldn’t load the products"
           onRetry={() => {
             void boards.refetch();
             void hubs.refetch();

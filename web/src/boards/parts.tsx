@@ -224,7 +224,7 @@ export function PostRow({ post }: { post: PostSummary }) {
             title can run past the vote count and be cut at the card edge. */}
         <span className="text-base font-semibold wrap-anywhere">{post.title}</span>
         <span className="text-sm text-ink-muted">
-          {b?.name ?? 'Unknown board'} · {TYPE_META[post.type].label} · {shortAge(post.created_at)}
+          {b?.name ?? 'Unknown product'} · {TYPE_META[post.type].label} · {shortAge(post.created_at)}
         </span>
       </span>
       <VoteCount count={post.vote_count} />

@@ -9,8 +9,8 @@ import { useAuthDialog, useRequireAuth } from './auth';
 import { useComposer } from './composer';
 import { LegalLinks } from './LegalLinks';
 
-/** Icon-only tab bar at sm (≤520px), replacing the nav rail, plus the floating Post button. */
-/** `showPost` is false on full-screen pages (Messages), where the floating button would sit on the composer. */
+/** Icon-only tab bar at sm (≤520px), replacing the nav rail, with inline Post action. */
+/** `showPost` is false on full-screen pages (Messages), where the inline composer owns Send. */
 export function TabBar({ showPost = true }: { showPost?: boolean } = {}) {
   const { viewer, signOut } = useViewer();
   const { openAuth } = useAuthDialog();
@@ -39,6 +39,20 @@ export function TabBar({ showPost = true }: { showPost?: boolean } = {}) {
         <NavLink to="/explore" aria-label="Explore" className={tabClass}>
           {({ isActive }) => <TabIcon name="search" active={isActive} />}
         </NavLink>
+        {showPost ? (
+          <div className="flex h-8 items-center justify-center">
+            <button
+              type="button"
+              aria-label="Post feedback"
+              onClick={() => {
+                if (requireAuth('post feedback')) openComposer();
+              }}
+              className="grid size-8 cursor-pointer place-items-center rounded-md border-0 bg-brand text-on-brand transition-colors duration-120 active:bg-brand-hover"
+            >
+              <Icon name="plus" size={20} strokeWidth={2.2} />
+            </button>
+          </div>
+        ) : null}
         {viewer ? (
           <NavLink to="/notifications" aria-label={unread > 0 ? `Notifications, ${unread} new` : 'Notifications'} className={tabClass}>
             {({ isActive }) => (
@@ -76,22 +90,6 @@ export function TabBar({ showPost = true }: { showPost?: boolean } = {}) {
           </button>
         )}
       </nav>
-
-      {/* Floating Post button at sm, bottom right above the tab bar (as on X and
-          Substack). It replaces the composer row above the feed on phones. */}
-      {/* Shown signed out too: a tap opens sign-in, then the composer. */}
-      {showPost ? (
-        <button
-          type="button"
-          aria-label="Post feedback"
-          onClick={() => {
-            if (requireAuth('post feedback')) openComposer();
-          }}
-          className="fixed right-4 bottom-fab z-30 hidden size-9 cursor-pointer place-items-center rounded-pill border-0 bg-brand text-on-brand shadow-overlay transition-colors duration-120 active:bg-brand-hover max-sm:grid"
-        >
-          <Icon name="plus" size={22} strokeWidth={2.2} />
-        </button>
-      ) : null}
 
       {viewer ? (
         <Dialog open={sheet} onClose={() => setSheet(false)} title={viewer.name}>

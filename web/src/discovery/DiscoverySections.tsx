@@ -63,7 +63,7 @@ export function DiscoveryBoardsSection({
     const items = trending.slice(0, 6);
     return (
       <Section id={id} title={trendingTitle(items.length)} note={action ? undefined : trendingNote(items.length)} action={action}>
-        <CardGrid cols={3} label="Boards with new posts this week">
+        <CardGrid cols={3} label="Products with new posts this week">
           {items.map((b) => (
             <li key={b.id} className="min-w-0">
               <BoardCard board={b} now={now} />
@@ -77,8 +77,8 @@ export function DiscoveryBoardsSection({
   if (!showMostActiveFallback || mostActive.length === 0) return null;
 
   return (
-    <Section id={id} title="Most active" note={action ? undefined : 'Popular boards on Publisense'} action={action}>
-      <CardGrid cols={3} label="Most active boards">
+    <Section id={id} title="Most active" note={action ? undefined : 'Popular products on Publisense'} action={action}>
+      <CardGrid cols={3} label="Most active products">
         {mostActive.map((b) => (
           <li key={b.id} className="min-w-0">
             <BoardCard board={b} now={now} />
@@ -177,7 +177,7 @@ export function PopularPostsSection({ id = 'disc-popular' }: { id?: string }) {
                   <Link to={`/post/${p.id}`} className="flex min-w-0 flex-1 flex-col gap-1 no-underline">
                     <span className="text-base font-semibold text-ink wrap-anywhere hover:text-brand">{p.title}</span>
                     <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-muted">
-                      <span>{p.board?.name ?? 'Unknown board'}</span>
+                      <span>{p.board?.name ?? 'Unknown product'}</span>
                       <span>· {TYPE_META[p.type].label}</span>
                       <span>· {shortAge(p.created_at)}</span>
                       {p.has_official_reply ? <span>· Team replied</span> : null}
@@ -231,7 +231,7 @@ export function CategoriesSection({ boards, id = 'disc-categories' }: { boards: 
           onClick={() => openSearchModal({ scope: 'boards' })}
           className="cursor-pointer border-0 bg-transparent p-0 text-sm font-semibold text-brand hover:underline"
         >
-          All {liveCount} {liveCount === 1 ? 'board' : 'boards'} →
+          All {liveCount} {liveCount === 1 ? 'product' : 'products'} →
         </button>
       }
     >
@@ -244,7 +244,7 @@ export function CategoriesSection({ boards, id = 'disc-categories' }: { boards: 
             >
               <span className="flex items-baseline justify-between gap-2">
                 <span className="text-base font-semibold text-ink">{c.label}</span>
-                <span className="font-mono text-xs text-ink-muted tabular-nums">{plural(c.count, 'board')}</span>
+                <span className="font-mono text-xs text-ink-muted tabular-nums">{plural(c.count, 'product')}</span>
               </span>
               <span className="truncate text-sm text-ink-muted">{c.examples.join(', ')}</span>
             </Link>

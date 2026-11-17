@@ -188,7 +188,7 @@ describe('signed-out landing', () => {
   it('shows the discovery landing page when signed out without loading the feed', async () => {
     renderHome();
     expect(await screen.findByRole('heading', { level: 1, name: 'Find any product. Shape what ships next.' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Search products or posts…' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Search products, posts, hubs' })).toBeTruthy();
     expect(api.fetchFeed).not.toHaveBeenCalled();
   });
 
@@ -207,10 +207,10 @@ describe('signed-out landing', () => {
     expect(within(dialog).getByText(/Sign in to post feedback/)).toBeTruthy();
   });
 
-  it('Claim your board opens the claim dialog before sign-up', async () => {
+  it('Claim your product opens the claim dialog before sign-up', async () => {
     renderHome();
-    fireEvent.click(await screen.findByRole('button', { name: 'Claim your board' }));
-    const overview = await screen.findByRole('dialog', { name: 'Claim your board' });
+    fireEvent.click(await screen.findByRole('button', { name: 'Claim your product' }));
+    const overview = await screen.findByRole('dialog', { name: 'Claim your product' });
     expect(within(overview).queryByRole('searchbox')).toBeNull();
     fireEvent.click(within(overview).getByRole('button', { name: 'Get started' }));
     const auth = await screen.findByRole('dialog', { name: 'Create your account' });

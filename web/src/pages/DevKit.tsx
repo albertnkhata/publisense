@@ -348,7 +348,7 @@ function KitContent({ theme }: { theme: string }) {
           open={dialog !== null}
           size={dialog ?? 'md'}
           onClose={() => setDialog(null)}
-          title={dialog === 'lg' ? 'Post feedback' : 'Claim a board'}
+          title={dialog === 'lg' ? 'Post feedback' : 'Claim a product'}
           description="Focus stays inside, Escape closes, and focus returns to the button."
           footer={
             <>
@@ -360,7 +360,7 @@ function KitContent({ theme }: { theme: string }) {
           }
         >
           <Field label="Work email">
-            <Input type="email" placeholder="you@company.com" />
+            <Input type="email" placeholder="you@example.com" />
           </Field>
         </Dialog>
       </Section>
@@ -431,8 +431,8 @@ function KitContent({ theme }: { theme: string }) {
 
       <Section title="EmptyState">
         <Card padding="none">
-          <EmptyState icon="bell" title="No notifications yet" action={<Button variant="secondary">Explore boards</Button>}>
-            Follow boards and posts to hear when they change.
+          <EmptyState icon="bell" title="No notifications yet" action={<Button variant="secondary">Explore products</Button>}>
+            Follow products and posts to hear when they change.
           </EmptyState>
         </Card>
       </Section>

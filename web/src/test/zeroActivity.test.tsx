@@ -99,7 +99,7 @@ describe('explore while quiet', () => {
     const cats = await screen.findByRole('list', { name: 'Categories' });
     expect(screen.queryByRole('heading', { name: /Trending/ })).toBeNull();
     expect(within(cats).getByText('Code editors')).toBeTruthy();
-    expect(within(cats).getByText('2 boards')).toBeTruthy();
+    expect(within(cats).getByText('2 products')).toBeTruthy();
     expect(within(cats).getByText('Linear, Notion')).toBeTruthy();
     expect(cats.textContent).not.toMatch(/\b0 (posts|followers)\b/);
     await waitFor(() => expect(screen.queryByRole('heading', { name: 'Popular posts' })).toBeNull());
@@ -127,10 +127,10 @@ describe('explore while quiet', () => {
 });
 
 describe('claim line', () => {
-  it('offers "Claim its board" on generic pages or boards', async () => {
+  it('offers "Claim this product" on generic pages or boards', async () => {
     renderWith(<ClaimProvider><ClaimLine /></ClaimProvider>);
     expect(screen.getByText('Maintain a product?')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Claim its board' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Claim this product' })).toBeTruthy();
   });
 
   it('offers "Claim this hub" on hub pages', async () => {

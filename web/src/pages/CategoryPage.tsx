@@ -65,7 +65,7 @@ export function CategoryPage() {
         </h1>
         <div className="rounded-md border border-line bg-card">
           <EmptyState icon="explore" title="Category not found" action={backAction}>
-            Choose a category from Explore to browse product boards.
+            Choose a category from Explore to browse products.
           </EmptyState>
         </div>
       </section>

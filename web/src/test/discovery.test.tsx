@@ -322,7 +322,7 @@ describe('board page', () => {
     boardsApi.fetchBoard.mockResolvedValue(null);
     renderAt('/b/nope');
     expect(await screen.findByRole('heading', { level: 1, name: 'Board not found' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Explore boards' }).getAttribute('href')).toBe('/explore');
+    expect(screen.getByRole('link', { name: 'Explore products' }).getAttribute('href')).toBe('/explore');
   });
 
   it('does not leak pending board metadata to guests across identity changes (BUG-002)', async () => {
@@ -630,7 +630,7 @@ describe('explore', () => {
     ]);
     renderAt('/explore');
     expect(await screen.findByRole('heading', { level: 1, name: 'Explore' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Search products, hubs, or posts…' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Search products, posts, hubs' })).toBeTruthy();
     // One board of activity: the section says what the rows are instead of claiming a ranking.
     expect(await screen.findByRole('heading', { name: 'New this week' })).toBeTruthy();
     expect(screen.getByRole('link', { name: /Figma hub/ }).getAttribute('href')).toBe('/h/figma');
@@ -640,7 +640,7 @@ describe('explore', () => {
     expect(within(cats).getByText('Code editors')).toBeTruthy();
     expect(within(cats).getByText('Design')).toBeTruthy();
     expect(within(cats).getByText('Dev platforms')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'All 4 boards →' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'All 4 products →' })).toBeTruthy();
   });
 
   it('switches Popular posts status tabs (including Open), upvotes optimistically, omits Browse all posts, and pre-scopes Search modal', async () => {
@@ -672,10 +672,10 @@ describe('explore', () => {
     const shippedPanel = screen.getByRole('tabpanel', { name: 'Shipped' });
     expect(within(shippedPanel).getByText('Shipped')).toBeTruthy();
 
-    // All N boards → opens Search modal pre-scoped to Product boards
-    fireEvent.click(screen.getByRole('button', { name: 'All 4 boards →' }));
+    // All N products → opens Search modal pre-scoped to Products
+    fireEvent.click(screen.getByRole('button', { name: 'All 4 products →' }));
     const modal = await screen.findByRole('dialog', { name: 'Search' });
-    expect(within(modal).getByRole('button', { name: 'Product boards' }).getAttribute('aria-pressed')).toBe('true');
+    expect(within(modal).getByRole('button', { name: 'Products' }).getAttribute('aria-pressed')).toBe('true');
     expect(await within(modal).findByRole('option', { name: /Cursor/ })).toBeTruthy();
   });
 
@@ -752,7 +752,7 @@ describe('landing page & auth handoff', () => {
     renderAt('/landing');
     expect(await screen.findByRole('heading', { name: 'Most active' })).toBeTruthy();
     expect(screen.queryByRole('toolbar', { name: 'Categories' })).toBeNull();
-    const active = screen.getByRole('list', { name: 'Most active boards' });
+    const active = screen.getByRole('list', { name: 'Most active products' });
     expect(within(active).getAllByRole('article').map((a) => within(a).getAllByRole('link')[0]?.textContent)).toEqual(['Cursor', 'Supabase', 'Figma', 'FigJam']);
     expect(await screen.findByRole('heading', { name: 'Popular posts' })).toBeTruthy();
     expect(screen.getByText('Landing popular open post')).toBeTruthy();
@@ -830,7 +830,7 @@ describe('search', () => {
     expect(await screen.findByText('No posts match.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Post about it' })).toBeTruthy();
 
-    const input = screen.getByRole('searchbox', { name: 'Search products, posts and hubs' });
+    const input = screen.getByRole('searchbox', { name: 'Search products, posts, hubs' });
     fireEvent.change(input, { target: { value: 'figma' } });
     await waitFor(() => expect(router.state.location.search).toContain('q=figma'));
     expect(router.state.location.search).toContain('tab=posts');
@@ -888,7 +888,7 @@ describe('search', () => {
       { path: '/explore' },
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Search products, posts, hubs' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Search products, posts, hubs' })[0]!);
     const modal = await screen.findByRole('dialog', { name: 'Search' });
     fireEvent.change(within(modal).getByRole('combobox', { name: /Search products/ }), { target: { value: 'nope' } });
     const seeAll = await within(modal).findByRole('option', { name: /See all results for “nope”/ });
@@ -896,7 +896,7 @@ describe('search', () => {
 
     expect(await screen.findByText('No results for “nope”')).toBeTruthy();
 
-    const searchInput = screen.getByRole('searchbox', { name: 'Search products, posts and hubs' });
+    const searchInput = screen.getByRole('searchbox', { name: 'Search products, posts, hubs' });
     fireEvent.change(searchInput, { target: { value: 'claude' } });
     fireEvent.submit(searchInput.closest('form')!);
 
@@ -1020,12 +1020,12 @@ describe('search modal', () => {
     const list = within(modal).getByRole('listbox', { name: 'Search suggestions' });
     expect(await within(list).findByRole('option', { name: /Figma variables export/ })).toBeTruthy();
     expect(within(list).queryAllByRole('button')).toHaveLength(0);
-    expect(within(list).getByRole('group', { name: 'Product boards' })).toBeTruthy();
+    expect(within(list).getByRole('group', { name: 'Products' })).toBeTruthy();
     expect(within(list).getByRole('group', { name: 'Feedback & bugs' })).toBeTruthy();
-    expect(within(within(list).getByRole('group', { name: 'Company hubs' })).getByRole('option', { name: /Figma hub/ })).toBeTruthy();
+    expect(within(within(list).getByRole('group', { name: 'Hubs' })).getByRole('option', { name: /Figma hub/ })).toBeTruthy();
     // Scope filters carry no counts.
     const filters = within(modal).getByRole('group', { name: 'Filter search results' });
-    expect(within(filters).getAllByRole('button').map((b) => b.textContent)).toEqual(['All', 'Product boards', 'Feedback & bugs', 'Company hubs', 'People']);
+    expect(within(filters).getAllByRole('button').map((b) => b.textContent)).toEqual(['All', 'Products', 'Feedback & bugs', 'Hubs', 'People']);
   });
 
   it('filters live results by scope and navigates with the keyboard', async () => {
@@ -1049,9 +1049,9 @@ describe('search modal', () => {
     expect(within(modal).queryByRole('option', { name: /Figma hub/ })).toBeNull();
     expect(within(modal).getByRole('option', { name: /Figma variables export/ })).toBeTruthy();
 
-    // Back to Product boards: ArrowDown highlights the first option (aria-activedescendant follows),
+    // Back to Products: ArrowDown highlights the first option (aria-activedescendant follows),
     // ArrowUp wraps to the last, ArrowDown wraps back to the first, Enter opens it.
-    fireEvent.click(within(filters).getByRole('button', { name: 'Product boards' }));
+    fireEvent.click(within(filters).getByRole('button', { name: 'Products' }));
     const options = within(modal).getAllByRole('option');
     fireEvent.keyDown(input, { key: 'ArrowDown' });
     expect(input.getAttribute('aria-activedescendant')).toBe(options[0]!.id);
@@ -1063,6 +1063,25 @@ describe('search modal', () => {
     fireEvent.submit(input.closest('form')!);
     await waitFor(() => expect(router.state.location.pathname).toBe('/b/figma'));
     expect(screen.queryByRole('dialog', { name: 'Search' })).toBeNull();
+  });
+
+  it('ranks empty-state spotlights by post activity when follower counts are tied and always shows post count', async () => {
+    boardsApi.fetchBoards.mockResolvedValue([
+      { ...CURSOR, id: 'b-muse', slug: 'muse', name: 'Muse', follower_count: 1, post_count: 0 },
+      { ...FIGMA, id: 'b-a', slug: 'alpha', name: 'Alpha', follower_count: 1, post_count: 25 },
+      { ...FIGJAM, id: 'b-b', slug: 'beta', name: 'Beta', follower_count: 1, post_count: 10 },
+    ]);
+    renderAt('/well');
+    fireEvent.click(trigger());
+    const modal = await screen.findByRole('dialog', { name: 'Search' });
+    const group = await within(modal).findByRole('group', { name: 'Most active products' });
+    const options = within(group).getAllByRole('option');
+    expect(options.map((o) => o.textContent)).toEqual([
+      expect.stringContaining('Alpha'),
+      expect.stringContaining('Beta'),
+      expect.stringContaining('Muse'),
+    ]);
+    expect(options[2]!.textContent).toMatch(/0\s*posts/);
   });
 });
 

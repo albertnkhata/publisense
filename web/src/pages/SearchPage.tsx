@@ -85,7 +85,7 @@ export function SearchPage() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search products, posts, hubs"
-            aria-label="Search products, posts and hubs"
+            aria-label="Search products, posts, hubs"
             autoComplete="off"
             enterKeyHint="search"
             className="w-full min-w-0 appearance-none border-0 bg-transparent text-md text-ink outline-none focus-visible:outline-none"

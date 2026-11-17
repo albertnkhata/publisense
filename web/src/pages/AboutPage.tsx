@@ -117,7 +117,7 @@ export function AboutPage() {
             Explore products
           </Link>
           <Button variant="secondary" onClick={() => openClaim()}>
-            Claim a board
+            Claim a product
           </Button>
           {!viewer ? (
             <Button variant="ghost" onClick={() => openAuth('signup')}>

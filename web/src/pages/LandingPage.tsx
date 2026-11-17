@@ -48,7 +48,6 @@ export function LandingHeader() {
           {scrolled ? (
             <SearchWell
               className="max-w-dialog"
-              placeholder="Search products or posts…"
               triggerClassName="h-7 rounded-pill text-sm"
             />
           ) : null}
@@ -82,7 +81,7 @@ export function LandingFooter() {
             onClick={() => openClaim()}
             className="cursor-pointer border-0 bg-transparent p-0 text-sm text-ink-muted transition-colors duration-120 hover:text-ink"
           >
-            Claim a board
+            Claim a product
           </button>
           <Link to="/about" className="text-ink-muted no-underline transition-colors duration-120 hover:text-ink">
             About
@@ -124,13 +123,10 @@ export function LandingPage() {
             Find any product. Shape what ships next.
           </h1>
           <p className="mt-3 mb-6 max-w-dialog-lg text-md text-balance text-ink-secondary">
-            Public feedback boards ranked by the people who use the software and answered by verified teams.
+            Product feedback ranked by the people who use the software, answered by the teams who build it.
           </p>
           <div id="hero-search-anchor" className="w-full max-w-dialog-lg">
-            <SearchWell
-              placeholder="Search products or posts…"
-              triggerClassName="h-9 border-line-strong text-md"
-            />
+            <SearchWell triggerClassName="h-9 border-line-strong text-md" />
           </div>
           <div className="mt-5 inline-flex flex-wrap items-center justify-center gap-2 rounded-pill border border-line bg-card px-4 py-2 text-sm text-ink-secondary">
             <span>Have feedback on a product?</span>
@@ -164,7 +160,7 @@ export function LandingPage() {
         ) : boards.isError || hubs.isError ? (
           <div className="mb-6">
             <LoadError
-              title="We couldn’t load the boards"
+              title="We couldn’t load the products"
               onRetry={() => {
                 void boards.refetch();
                 void hubs.refetch();
@@ -201,7 +197,7 @@ export function LandingPage() {
             </p>
           </div>
           <Button variant="secondary" onClick={() => openClaim()}>
-            Claim your board
+            Claim your product
           </Button>
         </section>
 

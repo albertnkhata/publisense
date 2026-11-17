@@ -539,8 +539,8 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
 
   const head = target ? <TargetHead target={target} /> : null;
   const title = (() => {
-    if (step === 'pick') return 'Choose your board';
-    if (!target) return 'Claim your board';
+    if (step === 'pick') return 'Choose your product';
+    if (!target) return 'Claim your product';
     switch (step) {
       case 'taken':
         return isOnTeam ? `You manage ${target.name}` : `${target.name} is already claimed`;
@@ -553,7 +553,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
       case 'hub':
         return `Claim all of ${target.hub?.name ?? 'the hub'}?`;
       case 'done':
-        return claimed.hub ? `${claimed.hub} hub claimed` : claimed.names.length > 1 ? 'Boards claimed' : 'Board claimed';
+        return claimed.hub ? `${claimed.hub} hub claimed` : claimed.names.length > 1 ? 'Products claimed' : 'Product claimed';
       case 'code':
         return purpose === 'claim' ? `Claim ${target.name}` : purpose === 'join' ? 'Request to join' : 'Report the wrong owner';
       default:
@@ -582,7 +582,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
           <h3 className="mt-0 mb-2 text-base font-semibold">How it works</h3>
           <ol className="m-0 flex list-decimal flex-col gap-2 pl-4 text-sm text-ink-secondary">
             {!viewer ? <li>Create an account or sign in.</li> : null}
-            <li>Find your product’s board.</li>
+            <li>Find your product.</li>
             <li>Verify your product’s domain with a work-email code or a DNS TXT record.</li>
           </ol>
         </div>
@@ -598,15 +598,15 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
     body = (
       <div role="alert" className="flex items-start gap-3 rounded-md border border-line bg-subtle px-4 py-3 text-sm text-danger">
         <Icon name="flag" size={16} className="mt-1 shrink-0" />
-        <p className="m-0">We couldn’t load the boards. Check your connection and try again.</p>
+        <p className="m-0">We couldn’t load the products. Check your connection and try again.</p>
       </div>
     );
     footer = <Button onClick={() => { void boards.refetch(); void hubs.refetch(); }}>Try again</Button>;
   } else if (!boards.data || !hubs.data || (step !== 'pick' && !target)) {
     body = (
-      <div role="status" aria-label="Loading boards" className="flex flex-col items-center gap-2 py-8 text-sm text-ink-muted">
+      <div role="status" aria-label="Loading products" className="flex flex-col items-center gap-2 py-8 text-sm text-ink-muted">
         <Spinner />
-        <span>Loading boards…</span>
+        <span>Loading products…</span>
       </div>
     );
   } else if (step === 'pick') {
@@ -615,7 +615,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
     body = (
       <>
         <StepProgress step={step} purpose={purpose} />
-        <p ref={(el) => { stepHeading.current = el; }} tabIndex={-1} className="mt-0 mb-3 text-sm text-ink-secondary outline-none">Find your product to see its verification options. Choosing a board does not claim it.</p>
+        <p ref={(el) => { stepHeading.current = el; }} tabIndex={-1} className="mt-0 mb-3 text-sm text-ink-secondary outline-none">Find your product to see its verification options. Choosing a product does not claim it.</p>
         <Input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Enter product name" aria-label="Product" autoComplete="off" />
         {list.length > 0 ? (
           <ul className="m-0 mt-3 flex max-h-list list-none flex-col divide-y divide-line overflow-y-auto rounded-md border border-line bg-card p-0" aria-label="Products">
@@ -652,7 +652,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
           </ul>
         ) : (
           <div className="mt-3 rounded-md border border-line bg-card">
-            <EmptyState icon="search" title="No board for that product yet">
+            <EmptyState icon="search" title="No product matches yet">
               Anyone can start one by posting about it.
             </EmptyState>
           </div>
@@ -668,7 +668,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
         <StepProgress step={step} purpose={purpose} />
         {head}
         <ul className="m-0 mb-4 flex list-none flex-col gap-2 p-0 text-base text-ink">
-          <Perk>Get a verified badge on your board and your team’s replies</Perk>
+          <Perk>Get a verified badge on your product and your team’s replies</Perk>
           <Perk>Set statuses, reply as the team and run the roadmap</Perk>
           {offersHub && target.hub ? (
             <Perk>
@@ -677,7 +677,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
           ) : null}
         </ul>
         {!target.domain ? (
-          <p className="m-0 text-sm text-ink-muted">This board has no website to verify yet.</p>
+          <p className="m-0 text-sm text-ink-muted">This product has no website to verify yet.</p>
         ) : !viewer ? (
           <p className="m-0 text-sm text-ink-secondary">
             Verify with a 6-digit code sent to your <b className="font-semibold text-ink">@{target.domain}</b> work email, or by adding a DNS TXT record to{' '}

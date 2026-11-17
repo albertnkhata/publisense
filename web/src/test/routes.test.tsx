@@ -146,7 +146,7 @@ describe('routes', () => {
     expect(within(header).queryByRole('link', { name: 'Explore' })).toBeNull();
     const footer = screen.getByRole('contentinfo', { name: 'Site footer' });
     expect(within(footer).getByText('© 2026 Publisense')).toBeTruthy();
-    expect(within(footer).getByRole('button', { name: 'Claim a board' })).toBeTruthy();
+    expect(within(footer).getByRole('button', { name: 'Claim a product' })).toBeTruthy();
     expect(within(footer).getByRole('link', { name: 'About' }).getAttribute('href')).toBe('/about');
   });
 
@@ -191,6 +191,17 @@ describe('routes', () => {
     expect(within(legal).getByRole('link', { name: 'Terms' }).getAttribute('href')).toBe('/terms');
     expect(within(legal).getByRole('link', { name: 'Privacy' }).getAttribute('href')).toBe('/privacy');
     expect(within(rail).getByText('© 2026 Publisense')).toBeTruthy();
+  });
+
+  it('omits duplicate search triggers on /search, keeps Sign in + Join Publisense in TopBar, and puts Post feedback inside TabBar', () => {
+    renderAt('/search?q=dark%20mode');
+    expect(screen.queryByRole('button', { name: 'Search products, posts, hubs' })).toBeNull();
+    expect(screen.getAllByRole('searchbox')).toHaveLength(1);
+    const header = screen.getByRole('banner');
+    expect(within(header).getByRole('button', { name: 'Sign in' })).toBeTruthy();
+    expect(within(header).getByRole('button', { name: 'Join Publisense' })).toBeTruthy();
+    const tabBar = screen.getAllByRole('navigation', { name: 'Primary' }).find((el) => el.className.includes('bottom-0'))!;
+    expect(within(tabBar).getByRole('button', { name: 'Post feedback' })).toBeTruthy();
   });
 });
 

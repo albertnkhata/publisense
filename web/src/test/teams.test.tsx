@@ -146,7 +146,7 @@ beforeEach(() => {
 
 function GenericClaimButton() {
   const { openClaim } = useClaim();
-  return <button onClick={() => openClaim()}>Claim your board</button>;
+  return <button onClick={() => openClaim()}>Claim your product</button>;
 }
 
 function renderGeneric(signedIn = true) {
@@ -156,12 +156,12 @@ function renderGeneric(signedIn = true) {
 describe('generic claim overview', () => {
   it('explains before search, supports Back and preserves the query', async () => {
     renderGeneric();
-    fireEvent.click(screen.getByRole('button', { name: 'Claim your board' }));
-    const overview = await screen.findByRole('dialog', { name: 'Claim your board' });
+    fireEvent.click(screen.getByRole('button', { name: 'Claim your product' }));
+    const overview = await screen.findByRole('dialog', { name: 'Claim your product' });
     expect(within(overview).getByText('How it works')).toBeTruthy();
     expect(within(overview).queryByRole('searchbox')).toBeNull();
     fireEvent.click(within(overview).getByRole('button', { name: 'Get started' }));
-    const picker = await screen.findByRole('dialog', { name: 'Choose your board' });
+    const picker = await screen.findByRole('dialog', { name: 'Choose your product' });
     fireEvent.change(within(picker).getByRole('searchbox'), { target: { value: 'Cursor' } });
     fireEvent.click(within(picker).getByRole('button', { name: 'Back to overview' }));
     fireEvent.click(screen.getByRole('button', { name: 'Get started' }));
@@ -171,24 +171,24 @@ describe('generic claim overview', () => {
     expect(within(intro).queryByText('Your selected board')).toBeNull();
     expect(within(intro).queryByRole('button', { name: 'Choose a different board' })).toBeNull();
     fireEvent.click(within(intro).getByRole('button', { name: 'Back' }));
-    expect(await screen.findByRole('dialog', { name: 'Choose your board' })).toBeTruthy();
+    expect(await screen.findByRole('dialog', { name: 'Choose your product' })).toBeTruthy();
     expect(teamsApi.startEmailCode).not.toHaveBeenCalled();
     expect(teamsApi.claimBoard).not.toHaveBeenCalled();
   });
 
   it('signed out, Get started on the overview goes to sign-up for claiming, with no second explanation', async () => {
     renderGeneric(false);
-    const opener = screen.getByRole('button', { name: 'Claim your board' });
+    const opener = screen.getByRole('button', { name: 'Claim your product' });
     opener.focus();
     fireEvent.click(opener);
-    const overview = await screen.findByRole('dialog', { name: 'Claim your board' });
+    const overview = await screen.findByRole('dialog', { name: 'Claim your product' });
     expect(within(overview).queryByText('Choose your product’s board.')).toBeNull();
     fireEvent.click(within(overview).getByRole('button', { name: 'Get started' }));
     const auth = await screen.findByRole('dialog', { name: 'Create your account' });
     expect(within(auth).getByText('Create an account to claim your product’s board. It takes a few seconds.')).toBeTruthy();
-    expect(screen.queryByRole('dialog', { name: 'Claim your board' })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: 'Claim your product' })).toBeNull();
     fireEvent.keyDown(document, { key: 'Escape' });
-    expect(await screen.findByRole('dialog', { name: 'Claim your board' })).toBeTruthy();
+    expect(await screen.findByRole('dialog', { name: 'Claim your product' })).toBeTruthy();
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByRole('dialog')).toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(opener));
@@ -197,13 +197,13 @@ describe('generic claim overview', () => {
   it('remembers where a signed-out visitor was heading and resumes at product search after they return signed in', async () => {
     localStorage.clear();
     renderGeneric(false);
-    fireEvent.click(screen.getByRole('button', { name: 'Claim your board' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Claim your product' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Get started' }));
     await screen.findByRole('dialog', { name: 'Create your account' });
     expect(JSON.parse(localStorage.getItem('publisense:claim-intent') ?? '{}').at).toBeTypeOf('number');
     cleanup();
     renderGeneric(true);
-    const picker = await screen.findByRole('dialog', { name: 'Choose your board' });
+    const picker = await screen.findByRole('dialog', { name: 'Choose your product' });
     expect(await within(picker).findByRole('searchbox')).toBeTruthy();
     expect(localStorage.getItem('publisense:claim-intent')).toBeNull();
   });
@@ -211,7 +211,7 @@ describe('generic claim overview', () => {
   it('forgets the claim when the visitor backs out of sign-up, so a later sign-in doesn’t reopen it', async () => {
     localStorage.clear();
     renderGeneric(false);
-    fireEvent.click(screen.getByRole('button', { name: 'Claim your board' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Claim your product' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Get started' }));
     const auth = await screen.findByRole('dialog', { name: 'Create your account' });
     expect(localStorage.getItem('publisense:claim-intent')).not.toBeNull();
@@ -240,7 +240,7 @@ describe('generic claim overview', () => {
     localStorage.clear();
     authApi.signUp.mockResolvedValue({ error: null, needsConfirmation: true });
     renderGeneric(false);
-    fireEvent.click(screen.getByRole('button', { name: 'Claim your board' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Claim your product' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Get started' }));
     const auth = await screen.findByRole('dialog', { name: 'Create your account' });
     fireEvent.change(within(auth).getByRole('textbox', { name: 'Name' }), { target: { value: 'Nia' } });
@@ -254,7 +254,7 @@ describe('generic claim overview', () => {
     // The confirmation link signs them in (here, a fresh tab): the claim picks up at product search.
     cleanup();
     renderGeneric(true);
-    expect(await screen.findByRole('dialog', { name: 'Choose your board' })).toBeTruthy();
+    expect(await screen.findByRole('dialog', { name: 'Choose your product' })).toBeTruthy();
     expect(localStorage.getItem('publisense:claim-intent')).toBeNull();
   });
 
@@ -268,7 +268,7 @@ describe('generic claim overview', () => {
   it('opens the overview even if the board list fails and offers a retry in selection', async () => {
     boardsApi.fetchBoards.mockRejectedValue(new Error('Offline'));
     renderGeneric();
-    fireEvent.click(screen.getByRole('button', { name: 'Claim your board' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Claim your product' }));
     expect(await screen.findByText('How it works')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Get started' }));
     expect(await screen.findByRole('alert')).toBeTruthy();
@@ -301,7 +301,7 @@ describe('claim a board', () => {
     renderAt('/b/cursor', false);
     fireEvent.click(await screen.findByRole('button', { name: 'Work at Cursor?' }));
     const dialog = await screen.findByRole('dialog', { name: 'Claim Cursor' });
-    expect(within(dialog).getByText('Get a verified badge on your board and your team’s replies')).toBeTruthy();
+    expect(within(dialog).getByText('Get a verified badge on your product and your team’s replies')).toBeTruthy();
     expect(within(dialog).getByText('Set statuses, reply as the team and run the roadmap')).toBeTruthy();
     expect(within(dialog).getByText(/Verify with a 6-digit code sent to your/)).toBeTruthy();
     expect(within(dialog).getByText('@cursor.com')).toBeTruthy();
@@ -332,9 +332,9 @@ describe('claim a board', () => {
     teamsApi.fetchScopeRole.mockResolvedValue('admin');
     boardsApi.fetchIsBoardTeam.mockResolvedValue(true);
     renderGeneric();
-    fireEvent.click(screen.getByRole('button', { name: 'Claim your board' }));
-    fireEvent.click(within(await screen.findByRole('dialog', { name: 'Claim your board' })).getByRole('button', { name: 'Get started' }));
-    const picker = await screen.findByRole('dialog', { name: 'Choose your board' });
+    fireEvent.click(screen.getByRole('button', { name: 'Claim your product' }));
+    fireEvent.click(within(await screen.findByRole('dialog', { name: 'Claim your product' })).getByRole('button', { name: 'Get started' }));
+    const picker = await screen.findByRole('dialog', { name: 'Choose your product' });
     fireEvent.click(await within(picker).findByRole('button', { name: /Cursor/ }));
     const dialog = await screen.findByRole('dialog', { name: 'You manage Cursor' });
     expect(within(dialog).getByText(/You’re already on the team for Cursor/)).toBeTruthy();
@@ -364,7 +364,7 @@ describe('claim a board', () => {
 
     await waitFor(() => expect(teamsApi.verifyEmailCode).toHaveBeenCalledWith('Carol@cursor.com', '123456', 'cursor.com'));
     await waitFor(() => expect(teamsApi.claimBoard).toHaveBeenCalledWith(CURSOR.id, { name: 'Cursor', domain: 'cursor.com' }));
-    expect(await screen.findByRole('dialog', { name: 'Board claimed' })).toBeTruthy();
+    expect(await screen.findByRole('dialog', { name: 'Product claimed' })).toBeTruthy();
     expect(screen.getByText('You manage Cursor now')).toBeTruthy();
     expect(analyticsApi.recordEvent).toHaveBeenCalledWith('claim_verify_started', { boardId: CURSOR.id, meta: { method: 'email' } });
     expect(analyticsApi.recordEvent).not.toHaveBeenCalledWith('claim_verify_failed', expect.anything());
@@ -492,7 +492,7 @@ describe('claim a board', () => {
     renderAt('/b/cursor');
     fireEvent.click(await screen.findByRole('button', { name: 'Work at Cursor?' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Claim Cursor' }));
-    const done = await screen.findByRole('dialog', { name: 'Board claimed' });
+    const done = await screen.findByRole('dialog', { name: 'Product claimed' });
     fireEvent.change(within(done).getByLabelText('Invite teammates'), { target: { value: 'hank@cursor.com, ivy@cursor.com' } });
     fireEvent.click(within(done).getByRole('button', { name: 'Add to team' }));
     expect(await within(done).findByText(/ivy@cursor.com: No account uses that handle or email yet/)).toBeTruthy();
@@ -897,10 +897,10 @@ describe('team management', () => {
     teamsApi.startDnsCheck.mockResolvedValue('publisense-verify=abc123');
     teamsApi.checkDns.mockRejectedValueOnce(new TeamError('dns_slow', 'We didn’t see the TXT record yet.'));
     renderGeneric();
-    fireEvent.click(screen.getByRole('button', { name: 'Claim your board' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Claim your product' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Get started' }));
 
-    const picker = await screen.findByRole('dialog', { name: 'Choose your board' });
+    const picker = await screen.findByRole('dialog', { name: 'Choose your product' });
     const stepsOnPick = within(picker).getByRole('navigation', { name: 'Claim steps' });
     expect(within(stepsOnPick).getByText('Product').closest('li')?.getAttribute('aria-current')).toBe('step');
 
@@ -925,7 +925,7 @@ describe('team management', () => {
     fireEvent.click(within(intro).getByRole('button', { name: 'Send code' }));
     fireEvent.change(await within(intro).findByLabelText('Enter the 6-digit code'), { target: { value: '123456' } });
 
-    const doneDialog = await screen.findByRole('dialog', { name: 'Board claimed' });
+    const doneDialog = await screen.findByRole('dialog', { name: 'Product claimed' });
     const stepsOnDone = within(doneDialog).getByRole('navigation', { name: 'Claim steps' });
     expect(within(stepsOnDone).getByText('Team').closest('li')?.getAttribute('aria-current')).toBe('step');
     expect(within(doneDialog).getByRole('button', { name: 'Open dashboard' })).toBeTruthy();

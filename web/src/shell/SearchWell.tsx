@@ -380,8 +380,8 @@ export function SearchWell({
                       setActive(-1);
                     }}
                     onKeyDown={onKeyDown}
-                    placeholder="Search boards, feature requests, bugs, hubs, people…"
-                    aria-label="Search products, posts and hubs"
+                    placeholder={TRIGGER_LABEL}
+                    aria-label={TRIGGER_LABEL}
                     autoComplete="off"
                     className="w-full min-w-0 appearance-none border-0 bg-transparent text-md text-ink outline-none placeholder:text-ink-muted focus-visible:outline-none"
                   />
@@ -490,10 +490,15 @@ function SearchModalBody({
   const usedCats = new Set(live.map((b) => b.category).filter((c): c is BoardCategory => Boolean(c)));
   const categoryChips = CATEGORIES.filter((c) => c.value === 'all' || usedCats.has(c.value)).slice(0, 8);
 
-  // Boards to highlight in the zero-query state, with an explicit reason
+  // Boards to highlight in the zero-query state, falling back to post activity when follower counts aren't differentiated.
+  const hasFollowerSignal = live.filter((b) => b.follower_count > 1).length >= 2;
+  const byActivity = live
+    .slice()
+    .sort((a, b) => b.post_count - a.post_count || b.follower_count - a.follower_count || a.name.localeCompare(b.name));
   const byFollowers = live
     .slice()
     .sort((a, b) => b.follower_count - a.follower_count || b.post_count - a.post_count || a.name.localeCompare(b.name));
+  const rankedBoards = hasFollowerSignal ? byFollowers : byActivity;
   const trendingList = trendingQuery.data ?? [];
   const followedList = live.filter((b) => followedScopes.data?.has(`board:${b.id}`));
 
@@ -503,22 +508,26 @@ function SearchModalBody({
 
   if (catFilter !== 'all') {
     const label = CATEGORY_LABEL.get(catFilter) ?? 'Category';
-    featuredBoards = byFollowers.filter((b) => b.category === catFilter).slice(0, 4);
-    featuredGroupTitle = `${label} boards`;
+    featuredBoards = rankedBoards.filter((b) => b.category === catFilter).slice(0, 4);
+    featuredGroupTitle = `${label} products`;
     featuredGroupNote = undefined;
   } else if (trendingList.length > 0) {
     const seen = new Set(trendingList.map((b) => b.id));
-    featuredBoards = [...trendingList, ...byFollowers.filter((b) => !seen.has(b.id))].slice(0, 4);
-    featuredGroupTitle = 'Trending boards this week';
+    featuredBoards = [...trendingList, ...rankedBoards.filter((b) => !seen.has(b.id))].slice(0, 4);
+    featuredGroupTitle = 'Trending products this week';
     featuredGroupNote = 'Most new posts in the last 7 days';
   } else if (followedList.length > 0) {
     featuredBoards = followedList.slice(0, 4);
-    featuredGroupTitle = 'Boards you follow';
+    featuredGroupTitle = 'Products you follow';
     featuredGroupNote = 'Jump to a product you follow';
-  } else {
+  } else if (hasFollowerSignal) {
     featuredBoards = byFollowers.slice(0, 4);
-    featuredGroupTitle = 'Most followed boards';
-    featuredGroupNote = 'Active product boards on Publisense';
+    featuredGroupTitle = 'Most followed products';
+    featuredGroupNote = 'Active products on Publisense';
+  } else {
+    featuredBoards = byActivity.slice(0, 4);
+    featuredGroupTitle = 'Most active products';
+    featuredGroupNote = 'Most feedback on Publisense';
   }
 
   const wantedPosts = (wantedQuery.data ?? []).slice(0, scope === 'posts' ? 8 : 3);
@@ -536,7 +545,8 @@ function SearchModalBody({
   // (debounced, then unchanged for SEARCH_EMPTY_SETTLE_MS), is 3+ characters, and
   // doesn't look like an email or phone number; each term at most once per modal.
   const emptyLoggedRef = useRef<Set<string>>(new Set());
-  const noResults = hasQuery && Boolean(search.data) && debounced === term && boards.length === 0 && hubs.length === 0 && posts.length === 0;
+  const noResults =
+    hasQuery && Boolean(search.data) && !search.isPlaceholderData && debounced === term && boards.length === 0 && hubs.length === 0 && posts.length === 0;
   useEffect(() => {
     if (!noResults) return;
     const q = loggableSearchTerm(debounced);
@@ -550,12 +560,12 @@ function SearchModalBody({
 
   if (!term) {
     if (scope === 'boards') {
-      const scopedBoards = (catFilter === 'all' ? byFollowers : byFollowers.filter((b) => b.category === catFilter)).slice(0, 8);
+      const scopedBoards = (catFilter === 'all' ? rankedBoards : rankedBoards.filter((b) => b.category === catFilter)).slice(0, 8);
       for (const b of scopedBoards) {
         items.push({
           key: `board-${b.id}`,
-          group: 'Product boards',
-          groupNote: 'Most followed boards on Publisense',
+          group: 'Products',
+          groupNote: hasFollowerSignal ? 'Most followed products on Publisense' : 'Most active products on Publisense',
           layout: 'row',
           go: () => go(`/b/${b.slug}`),
           render: () => (
@@ -579,11 +589,9 @@ function SearchModalBody({
                       {compactCount(b.follower_count)} {b.follower_count === 1 ? 'follower' : 'followers'}
                     </span>
                   ) : null}
-                  {b.post_count > 0 ? (
-                    <span>
-                      {compactCount(b.post_count)} {b.post_count === 1 ? 'post' : 'posts'}
-                    </span>
-                  ) : null}
+                  <span>
+                    {compactCount(b.post_count)} {b.post_count === 1 ? 'post' : 'posts'}
+                  </span>
                 </span>
               ) : null}
             </>
@@ -595,7 +603,7 @@ function SearchModalBody({
         items.push({
           key: `wanted-${p.id}`,
           group: wantedHasVotes ? 'Popular feedback & bugs' : 'Latest feedback & bugs',
-          groupNote: wantedHasVotes ? 'Top upvoted requests' : 'Newest across boards',
+          groupNote: wantedHasVotes ? 'Top upvoted requests' : 'Newest across products',
           layout: 'row',
           go: () => go(`/post/${p.id}`),
           render: () => (
@@ -603,7 +611,7 @@ function SearchModalBody({
               <BoardAvatar name={p.board?.name ?? '?'} color={p.board?.color} logoSrc={logoSrc(p.board)} size="sm" decorative />
               <Text
                 title={p.title}
-                sub={[p.board?.name ?? 'Unknown board', TYPE_META[p.type].label, shortAge(p.created_at)].filter(Boolean).join(' · ')}
+                sub={[p.board?.name ?? 'Unknown product', TYPE_META[p.type].label, shortAge(p.created_at)].filter(Boolean).join(' · ')}
               />
               {p.status !== 'open' ? <StatusPill status={p.status} /> : null}
               <VoteBadge count={p.vote_count} />
@@ -615,7 +623,7 @@ function SearchModalBody({
       for (const h of liveHubs.slice(0, 8)) {
         items.push({
           key: `hub-${h.id}`,
-          group: 'Company hubs',
+          group: 'Hubs',
           groupNote: 'Product families',
           layout: 'row',
           go: () => go(`/h/${h.slug}`),
@@ -634,7 +642,7 @@ function SearchModalBody({
         });
       }
     } else if (scope === 'all') {
-      // Recent searches are parked until the broad layout is finished, so the empty state starts with boards.
+      // Recent searches are parked until the broad layout is finished, so the empty state starts with products.
       for (const b of featuredBoards) {
         items.push({
           key: `featured-${b.id}`,
@@ -648,8 +656,8 @@ function SearchModalBody({
       for (const p of wantedPosts) {
         items.push({
           key: `wanted-${p.id}`,
-          group: wantedHasVotes ? 'Most wanted across boards' : 'Latest feedback & bugs',
-          groupNote: wantedHasVotes ? 'Top upvoted requests' : 'Newest across boards',
+          group: wantedHasVotes ? 'Most wanted across products' : 'Latest feedback & bugs',
+          groupNote: wantedHasVotes ? 'Top upvoted requests' : 'Newest across products',
           layout: 'row',
           go: () => go(`/post/${p.id}`),
           render: () => (
@@ -657,7 +665,7 @@ function SearchModalBody({
               <BoardAvatar name={p.board?.name ?? '?'} color={p.board?.color} logoSrc={logoSrc(p.board)} size="sm" decorative />
               <Text
                 title={p.title}
-                sub={[p.board?.name ?? 'Unknown board', TYPE_META[p.type].label, shortAge(p.created_at)].filter(Boolean).join(' · ')}
+                sub={[p.board?.name ?? 'Unknown product', TYPE_META[p.type].label, shortAge(p.created_at)].filter(Boolean).join(' · ')}
               />
               {p.status !== 'open' ? <StatusPill status={p.status} /> : null}
               <VoteBadge count={p.vote_count} />
@@ -676,7 +684,7 @@ function SearchModalBody({
       for (const b of boards.slice(0, scope === 'boards' ? 8 : 4)) {
         items.push({
           key: `b-${b.id}`,
-          group: 'Product boards',
+          group: 'Products',
           layout: 'row',
           go: () => go(`/b/${b.slug}`, term),
           render: () => (
@@ -700,11 +708,9 @@ function SearchModalBody({
                       {compactCount(b.follower_count)} {b.follower_count === 1 ? 'follower' : 'followers'}
                     </span>
                   ) : null}
-                  {b.post_count > 0 ? (
-                    <span>
-                      {compactCount(b.post_count)} {b.post_count === 1 ? 'post' : 'posts'}
-                    </span>
-                  ) : null}
+                  <span>
+                    {compactCount(b.post_count)} {b.post_count === 1 ? 'post' : 'posts'}
+                  </span>
                 </span>
               ) : null}
             </>
@@ -716,7 +722,7 @@ function SearchModalBody({
       for (const h of hubs.slice(0, scope === 'hubs' ? 6 : 2)) {
         items.push({
           key: `h-${h.id}`,
-          group: 'Company hubs',
+          group: 'Hubs',
           groupNote: 'Product families',
           layout: 'row',
           go: () => go(`/h/${h.slug}`, term),
@@ -771,7 +777,7 @@ function SearchModalBody({
         });
       }
     }
-    if (addProduct && boards.length === 0 && hubs.length === 0) {
+    if (addProduct && !search.isPlaceholderData && boards.length === 0 && hubs.length === 0) {
       items.push({
         key: 'add',
         layout: 'callout',
@@ -788,7 +794,7 @@ function SearchModalBody({
               <span className="truncate font-semibold text-ink">
                 Can’t find it? <b className="font-semibold text-brand">Add it</b>
               </span>
-              <span className="truncate text-xs text-ink-muted">Add “{term}” to Publisense and post the first feedback on its board</span>
+              <span className="truncate text-xs text-ink-muted">Add “{term}” to Publisense and be the first to post feedback</span>
             </span>
             <span className="shrink-0 rounded-sm border border-brand bg-brand-soft px-2 py-1 text-xs font-semibold text-brand">
               Add product →
@@ -830,9 +836,9 @@ function SearchModalBody({
 
   const scopes: Array<{ id: SearchScope; label: string }> = [
     { id: 'all', label: 'All' },
-    { id: 'boards', label: 'Product boards' },
+    { id: 'boards', label: 'Products' },
     { id: 'posts', label: 'Feedback & bugs' },
-    { id: 'hubs', label: 'Company hubs' },
+    { id: 'hubs', label: 'Hubs' },
     { id: 'people', label: 'People' },
   ];
 
@@ -981,7 +987,7 @@ function SearchModalBody({
       ) : null}
 
       {term.length > 0 && term.length < SEARCH_MIN ? (
-        <p className="m-0 px-4 py-6 text-center text-sm text-ink-muted">Keep typing to search boards, feedback, hubs and people.</p>
+        <p className="m-0 px-4 py-6 text-center text-sm text-ink-muted">Keep typing to search products, feedback, hubs, or people.</p>
       ) : items.length === 0 && !hasQuery ? (
         <p className="m-0 px-4 py-6 text-center text-sm text-ink-muted">Type a product, feature request, bug or @handle to search.</p>
       ) : null}
@@ -1046,11 +1052,9 @@ function BoardSpotlightCard({ board }: { board: Board }) {
                 {board.follower_count === 1 ? 'follower' : 'followers'}
               </span>
             ) : null}
-            {board.post_count > 0 ? (
-              <span>
-                <b className="font-semibold text-ink">{compactCount(board.post_count)}</b> {board.post_count === 1 ? 'post' : 'posts'}
-              </span>
-            ) : null}
+            <span>
+              <b className="font-semibold text-ink">{compactCount(board.post_count)}</b> {board.post_count === 1 ? 'post' : 'posts'}
+            </span>
           </div>
         </div>
       ) : null}
