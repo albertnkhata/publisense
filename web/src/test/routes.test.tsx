@@ -142,11 +142,12 @@ describe('routes', () => {
     const header = screen.getByRole('banner');
     expect(within(header).getByRole('link', { name: 'Publisense home' }).getAttribute('href')).toBe('/');
     expect(within(header).getByRole('button', { name: 'Sign in' })).toBeTruthy();
-    expect(within(header).getByRole('button', { name: 'Join Publisense' })).toBeTruthy();
+    expect(within(header).queryByRole('button', { name: 'Join Publisense' })).toBeNull();
     expect(within(header).queryByRole('link', { name: 'Explore' })).toBeNull();
     const footer = screen.getByRole('contentinfo', { name: 'Site footer' });
     expect(within(footer).getByText('© 2026 Publisense')).toBeTruthy();
-    expect(within(footer).getByRole('button', { name: 'Claim a product' })).toBeTruthy();
+    expect(within(footer).queryByText('Publisense · Public feedback index')).toBeNull();
+    expect(within(footer).queryByRole('button', { name: 'Claim a product' })).toBeNull();
     expect(within(footer).getByRole('link', { name: 'About' }).getAttribute('href')).toBe('/about');
   });
 
@@ -193,13 +194,13 @@ describe('routes', () => {
     expect(within(rail).getByText('© 2026 Publisense')).toBeTruthy();
   });
 
-  it('omits duplicate search triggers on /search, keeps Sign in + Join Publisense in TopBar, and puts Post feedback inside TabBar', () => {
+  it('omits duplicate search triggers on /search, keeps Sign in in TopBar, and puts Post feedback inside TabBar', () => {
     renderAt('/search?q=dark%20mode');
     expect(screen.queryByRole('button', { name: 'Search products, posts, hubs' })).toBeNull();
     expect(screen.getAllByRole('searchbox')).toHaveLength(1);
     const header = screen.getByRole('banner');
     expect(within(header).getByRole('button', { name: 'Sign in' })).toBeTruthy();
-    expect(within(header).getByRole('button', { name: 'Join Publisense' })).toBeTruthy();
+    expect(within(header).queryByRole('button', { name: 'Join Publisense' })).toBeNull();
     const tabBar = screen.getAllByRole('navigation', { name: 'Primary' }).find((el) => el.className.includes('bottom-0'))!;
     expect(within(tabBar).getByRole('button', { name: 'Post feedback' })).toBeTruthy();
   });

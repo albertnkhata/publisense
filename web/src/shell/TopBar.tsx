@@ -53,11 +53,8 @@ export function TopBar({
           {viewer ? <NotificationBell count={unread} /> : null}
           {!viewer && ready ? (
             <span className="contents lg:hidden">
-              <Button size="sm" variant="secondary" onClick={() => openAuth('signin')}>
+              <Button size="sm" onClick={() => openAuth('signin')}>
                 Sign in
-              </Button>
-              <Button size="sm" onClick={() => openAuth('signup')}>
-                Join Publisense
               </Button>
             </span>
           ) : null}

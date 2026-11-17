@@ -56,7 +56,6 @@ interface PopItem {
   go: () => void;
   render: (active: boolean) => ReactNode;
   group?: string;
-  groupNote?: string;
   layout?: 'pill' | 'card' | 'row' | 'callout';
 }
 
@@ -504,30 +503,24 @@ function SearchModalBody({
 
   let featuredBoards: Board[];
   let featuredGroupTitle: string;
-  let featuredGroupNote: string | undefined;
 
   if (catFilter !== 'all') {
     const label = CATEGORY_LABEL.get(catFilter) ?? 'Category';
     featuredBoards = rankedBoards.filter((b) => b.category === catFilter).slice(0, 4);
     featuredGroupTitle = `${label} products`;
-    featuredGroupNote = undefined;
   } else if (trendingList.length > 0) {
     const seen = new Set(trendingList.map((b) => b.id));
     featuredBoards = [...trendingList, ...rankedBoards.filter((b) => !seen.has(b.id))].slice(0, 4);
     featuredGroupTitle = 'Trending products this week';
-    featuredGroupNote = 'Most new posts in the last 7 days';
   } else if (followedList.length > 0) {
     featuredBoards = followedList.slice(0, 4);
     featuredGroupTitle = 'Products you follow';
-    featuredGroupNote = 'Jump to a product you follow';
   } else if (hasFollowerSignal) {
     featuredBoards = byFollowers.slice(0, 4);
     featuredGroupTitle = 'Most followed products';
-    featuredGroupNote = 'Active products on Publisense';
   } else {
     featuredBoards = byActivity.slice(0, 4);
-    featuredGroupTitle = 'Most active products';
-    featuredGroupNote = 'Most feedback on Publisense';
+    featuredGroupTitle = 'Trending products';
   }
 
   const wantedPosts = (wantedQuery.data ?? []).slice(0, scope === 'posts' ? 8 : 3);
@@ -565,7 +558,6 @@ function SearchModalBody({
         items.push({
           key: `board-${b.id}`,
           group: 'Products',
-          groupNote: hasFollowerSignal ? 'Most followed products on Publisense' : 'Most active products on Publisense',
           layout: 'row',
           go: () => go(`/b/${b.slug}`),
           render: () => (
@@ -603,7 +595,6 @@ function SearchModalBody({
         items.push({
           key: `wanted-${p.id}`,
           group: wantedHasVotes ? 'Popular feedback & bugs' : 'Latest feedback & bugs',
-          groupNote: wantedHasVotes ? 'Top upvoted requests' : 'Newest across products',
           layout: 'row',
           go: () => go(`/post/${p.id}`),
           render: () => (
@@ -624,7 +615,6 @@ function SearchModalBody({
         items.push({
           key: `hub-${h.id}`,
           group: 'Hubs',
-          groupNote: 'Product families',
           layout: 'row',
           go: () => go(`/h/${h.slug}`),
           render: () => (
@@ -647,7 +637,6 @@ function SearchModalBody({
         items.push({
           key: `featured-${b.id}`,
           group: featuredGroupTitle,
-          groupNote: featuredGroupNote,
           layout: 'card',
           go: () => go(`/b/${b.slug}`),
           render: () => <BoardSpotlightCard board={b} />,
@@ -657,7 +646,6 @@ function SearchModalBody({
         items.push({
           key: `wanted-${p.id}`,
           group: wantedHasVotes ? 'Most wanted across products' : 'Latest feedback & bugs',
-          groupNote: wantedHasVotes ? 'Top upvoted requests' : 'Newest across products',
           layout: 'row',
           go: () => go(`/post/${p.id}`),
           render: () => (
@@ -723,7 +711,6 @@ function SearchModalBody({
         items.push({
           key: `h-${h.id}`,
           group: 'Hubs',
-          groupNote: 'Product families',
           layout: 'row',
           go: () => go(`/h/${h.slug}`, term),
           render: () => (
@@ -746,7 +733,6 @@ function SearchModalBody({
         items.push({
           key: `p-${p.id}`,
           group: 'Feedback & bugs',
-          groupNote: 'Most upvoted first',
           layout: 'row',
           go: () => go(`/post/${p.id}`, term),
           render: () => (
@@ -765,7 +751,6 @@ function SearchModalBody({
         items.push({
           key: `u-${person.id}`,
           group: 'People',
-          groupNote: 'Community profiles',
           layout: 'row',
           go: () => go(`/u/${person.handle}`, term),
           render: () => (
@@ -846,7 +831,6 @@ function SearchModalBody({
   // in a 2-column grid, and option ids keep flat indexes for aria-activedescendant.
   const sections: Array<{
     group?: string;
-    groupNote?: string;
     layout: PopItem['layout'];
     entries: Array<{ item: PopItem; index: number }>;
   }> = [];
@@ -856,7 +840,7 @@ function SearchModalBody({
     if (prev && prev.group === item.group && prev.layout === item.layout && item.group !== undefined) {
       prev.entries.push({ item, index });
     } else {
-      sections.push({ group: item.group, groupNote: item.groupNote, layout: item.layout, entries: [{ item, index }] });
+      sections.push({ group: item.group, layout: item.layout, entries: [{ item, index }] });
     }
   });
 
@@ -1007,11 +991,6 @@ function SearchModalBody({
                 <span id={headingId} className="text-xs font-semibold text-ink-muted uppercase">
                   {section.group}
                 </span>
-                {section.groupNote ? (
-                  <span aria-hidden="true" className="text-xs text-ink-muted">
-                    {section.groupNote}
-                  </span>
-                ) : null}
               </div>
               {renderEntries(section)}
             </div>

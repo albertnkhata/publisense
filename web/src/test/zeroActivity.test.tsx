@@ -94,12 +94,12 @@ describe('explore while quiet', () => {
       { path },
     );
 
-  it('has no Trending section, summarises categories, and hides Popular posts when empty', async () => {
+  it('has no Trending section, summarises categories without product counts, and hides Popular posts when empty', async () => {
     renderExplore();
     const cats = await screen.findByRole('list', { name: 'Categories' });
     expect(screen.queryByRole('heading', { name: /Trending/ })).toBeNull();
     expect(within(cats).getByText('Code editors')).toBeTruthy();
-    expect(within(cats).getByText('2 products')).toBeTruthy();
+    expect(cats.textContent).not.toMatch(/\b\d+\s+products?\b/);
     expect(within(cats).getByText('Linear, Notion')).toBeTruthy();
     expect(cats.textContent).not.toMatch(/\b0 (posts|followers)\b/);
     await waitFor(() => expect(screen.queryByRole('heading', { name: 'Popular posts' })).toBeNull());

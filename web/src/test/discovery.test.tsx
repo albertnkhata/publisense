@@ -640,7 +640,8 @@ describe('explore', () => {
     expect(within(cats).getByText('Code editors')).toBeTruthy();
     expect(within(cats).getByText('Design')).toBeTruthy();
     expect(within(cats).getByText('Dev platforms')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'All 4 products →' })).toBeTruthy();
+    expect(cats.textContent).not.toMatch(/\b\d+\s+products?\b/);
+    expect(screen.getByRole('button', { name: 'All products →' })).toBeTruthy();
   });
 
   it('switches Popular posts status tabs (including Open), upvotes optimistically, omits Browse all posts, and pre-scopes Search modal', async () => {
@@ -672,8 +673,8 @@ describe('explore', () => {
     const shippedPanel = screen.getByRole('tabpanel', { name: 'Shipped' });
     expect(within(shippedPanel).getByText('Shipped')).toBeTruthy();
 
-    // All N products → opens Search modal pre-scoped to Products
-    fireEvent.click(screen.getByRole('button', { name: 'All 4 products →' }));
+    // All products → opens Search modal pre-scoped to Products
+    fireEvent.click(screen.getByRole('button', { name: 'All products →' }));
     const modal = await screen.findByRole('dialog', { name: 'Search' });
     expect(within(modal).getByRole('button', { name: 'Products' }).getAttribute('aria-pressed')).toBe('true');
     expect(await within(modal).findByRole('option', { name: /Cursor/ })).toBeTruthy();
@@ -745,14 +746,14 @@ describe('explore', () => {
 });
 
 describe('landing page & auth handoff', () => {
-  it('shows Most active fallback when nothing is trending, without hero category chips, plus Popular posts, Claim band, Hubs and Categories', async () => {
+  it('shows Trending fallback when nothing is trending, without hero category chips, plus Popular posts, Claim band, Hubs and Categories', async () => {
     postsApi.fetchPopularByStatus.mockImplementation(async (status: string) =>
       status === 'open' ? [makePopular({ id: 'p-land', title: 'Landing popular open post', status: 'open' })] : [],
     );
     renderAt('/landing');
-    expect(await screen.findByRole('heading', { name: 'Most active' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Trending' })).toBeTruthy();
     expect(screen.queryByRole('toolbar', { name: 'Categories' })).toBeNull();
-    const active = screen.getByRole('list', { name: 'Most active products' });
+    const active = screen.getByRole('list', { name: 'Trending products' });
     expect(within(active).getAllByRole('article').map((a) => within(a).getAllByRole('link')[0]?.textContent)).toEqual(['Cursor', 'Supabase', 'Figma', 'FigJam']);
     expect(await screen.findByRole('heading', { name: 'Popular posts' })).toBeTruthy();
     expect(screen.getByText('Landing popular open post')).toBeTruthy();
@@ -760,17 +761,18 @@ describe('landing page & auth handoff', () => {
     expect(screen.getByRole('heading', { name: 'Hubs' })).toBeTruthy();
     const cats = screen.getByRole('list', { name: 'Categories' });
     expect(within(cats).getByRole('link', { name: /Dev platforms/ }).getAttribute('href')).toBe('/c/dev');
+    expect(cats.textContent).not.toMatch(/\b\d+\s+products?\b/);
     expect(screen.getByRole('contentinfo', { name: 'Site footer' })).toBeTruthy();
   });
 
   it('hides Popular posts on the landing page when every status tab is empty', async () => {
     postsApi.fetchPopularByStatus.mockResolvedValue([]);
     renderAt('/landing');
-    expect(await screen.findByRole('heading', { name: 'Most active' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Trending' })).toBeTruthy();
     await waitFor(() => expect(screen.queryByRole('heading', { name: 'Popular posts' })).toBeNull());
   });
 
-  it('switches to Trending when boards have recent activity', async () => {
+  it('switches to Trending this week when boards have recent activity', async () => {
     boardsApi.fetchTrending.mockResolvedValue([
       { ...CURSOR, recent: 4 },
       { ...SUPABASE, recent: 2 },
@@ -778,7 +780,7 @@ describe('landing page & auth handoff', () => {
     ]);
     renderAt('/landing');
     expect(await screen.findByRole('heading', { name: 'Trending this week' })).toBeTruthy();
-    expect(screen.queryByRole('heading', { name: 'Most active' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Trending' })).toBeNull();
   });
 
   it('saves pending composer intent on signed-out Share a post click, clears on cancel, and resumes when signed in', async () => {
@@ -1074,7 +1076,7 @@ describe('search modal', () => {
     renderAt('/well');
     fireEvent.click(trigger());
     const modal = await screen.findByRole('dialog', { name: 'Search' });
-    const group = await within(modal).findByRole('group', { name: 'Most active products' });
+    const group = await within(modal).findByRole('group', { name: 'Trending products' });
     const options = within(group).getAllByRole('option');
     expect(options.map((o) => o.textContent)).toEqual([
       expect.stringContaining('Alpha'),

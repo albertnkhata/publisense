@@ -3,7 +3,6 @@ import { Link } from 'react-router';
 import {
   compactCount,
   isLive,
-  plural,
   POPULAR_STATUSES,
   shortAge,
   summarizeCategories,
@@ -15,7 +14,7 @@ import {
 } from '../api';
 import { BoardCard, CardGrid, HubRow, RowItem, RowList, Section } from '../boards/parts';
 import { cx } from '../lib/cx';
-import { trendingNote, trendingTitle } from '../lib/trendingCopy';
+import { trendingTitle } from '../lib/trendingCopy';
 import { useViewer } from '../lib/viewer';
 import { LoadError } from '../posts/PostList';
 import { useRequireAuth } from '../shell/auth';
@@ -31,8 +30,8 @@ const POPULAR_EMPTY: Record<PopularStatus, string> = {
 };
 
 /**
- * Trending boards this week (3-column grid), or Most active fallback when enabled
- * on the signed-out Landing page and there are no recent posts.
+ * Trending boards this week (3-column grid), or activity-ordered Trending fallback
+ * when enabled on the signed-out Landing page and there are no recent posts.
  */
 export function DiscoveryBoardsSection({
   boards,
@@ -62,7 +61,7 @@ export function DiscoveryBoardsSection({
   if (trending.length > 0) {
     const items = trending.slice(0, 6);
     return (
-      <Section id={id} title={trendingTitle(items.length)} note={action ? undefined : trendingNote(items.length)} action={action}>
+      <Section id={id} title={trendingTitle(items.length)} action={action}>
         <CardGrid cols={3} label="Products with new posts this week">
           {items.map((b) => (
             <li key={b.id} className="min-w-0">
@@ -77,8 +76,8 @@ export function DiscoveryBoardsSection({
   if (!showMostActiveFallback || mostActive.length === 0) return null;
 
   return (
-    <Section id={id} title="Most active" note={action ? undefined : 'Popular products on Publisense'} action={action}>
-      <CardGrid cols={3} label="Most active products">
+    <Section id={id} title="Trending" action={action}>
+      <CardGrid cols={3} label="Trending products">
         {mostActive.map((b) => (
           <li key={b.id} className="min-w-0">
             <BoardCard board={b} now={now} />
@@ -120,7 +119,7 @@ export function PopularPostsSection({ id = 'disc-popular' }: { id?: string }) {
   }));
 
   return (
-    <Section id={id} title="Popular posts" note="By team status">
+    <Section id={id} title="Popular posts">
       <Tabs idBase={id} label="Posts by status" value={tab} onChange={setPickedTab} items={items} className="mb-3" />
       <TabPanel idBase={id} value={tab}>
         {waitingForFirst || activeQuery?.isPending ? (
@@ -200,7 +199,7 @@ export function PopularPostsSection({ id = 'disc-popular' }: { id?: string }) {
 export function HubsSection({ hubs, id = 'disc-hubs' }: { hubs: Hub[]; id?: string }) {
   if (hubs.length === 0) return null;
   return (
-    <Section id={id} title="Hubs" note="Product families in one place">
+    <Section id={id} title="Hubs">
       <RowList label="Hubs">
         {hubs.map((h) => (
           <RowItem key={h.id}>
@@ -217,7 +216,6 @@ export function HubsSection({ hubs, id = 'disc-hubs' }: { hubs: Hub[]; id?: stri
  */
 export function CategoriesSection({ boards, id = 'disc-categories' }: { boards: Board[]; id?: string }) {
   const cats = useMemo(() => summarizeCategories(boards), [boards]);
-  const liveCount = useMemo(() => boards.filter(isLive).length, [boards]);
 
   if (cats.length === 0) return null;
 
@@ -231,7 +229,7 @@ export function CategoriesSection({ boards, id = 'disc-categories' }: { boards: 
           onClick={() => openSearchModal({ scope: 'boards' })}
           className="cursor-pointer border-0 bg-transparent p-0 text-sm font-semibold text-brand hover:underline"
         >
-          All {liveCount} {liveCount === 1 ? 'product' : 'products'} →
+          All products →
         </button>
       }
     >
@@ -242,10 +240,7 @@ export function CategoriesSection({ boards, id = 'disc-categories' }: { boards: 
               to={`/c/${c.category}`}
               className="flex h-full flex-col gap-1 rounded-md border border-line bg-card p-4 text-ink no-underline transition-colors duration-120 hover:border-line-strong"
             >
-              <span className="flex items-baseline justify-between gap-2">
-                <span className="text-base font-semibold text-ink">{c.label}</span>
-                <span className="font-mono text-xs text-ink-muted tabular-nums">{plural(c.count, 'product')}</span>
-              </span>
+              <span className="text-base font-semibold text-ink">{c.label}</span>
               <span className="truncate text-sm text-ink-muted">{c.examples.join(', ')}</span>
             </Link>
           </li>

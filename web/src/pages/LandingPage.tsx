@@ -14,7 +14,7 @@ import { Button, SkeletonBlock } from '../ui';
 
 /**
  * Signed-out Landing Header: sticky brand mark, scroll-revealed compact search
- * trigger, Sign in, and Join Publisense. No Explore link (this surface IS discovery).
+ * trigger, and Sign in. No Explore link (this surface IS discovery).
  */
 export function LandingHeader() {
   const { openAuth } = useAuthDialog();
@@ -53,11 +53,8 @@ export function LandingHeader() {
           ) : null}
         </div>
         <span className="ml-auto flex shrink-0 items-center gap-2">
-          <Button size="sm" variant="secondary" onClick={() => openAuth('signin')}>
+          <Button size="sm" onClick={() => openAuth('signin')}>
             Sign in
-          </Button>
-          <Button size="sm" onClick={() => openAuth('signup')}>
-            Join Publisense
           </Button>
         </span>
       </div>
@@ -66,23 +63,13 @@ export function LandingHeader() {
 }
 
 /**
- * Signed-out Landing Footer: left attribution + right claim/legal links + copyright.
+ * Signed-out Landing Footer: legal links and copyright.
  */
 export function LandingFooter() {
-  const { openClaim } = useClaim();
-
   return (
     <footer aria-label="Site footer" className="border-t border-line py-6">
-      <div className="mx-auto flex w-full max-w-landing flex-wrap items-center justify-between gap-4 px-7 text-sm text-ink-muted max-sm:px-3">
-        <span>Publisense · Public feedback index</span>
+      <div className="mx-auto flex w-full max-w-landing flex-wrap items-center justify-center gap-4 px-7 text-sm text-ink-muted max-sm:px-3">
         <nav aria-label="Footer links" className="flex flex-wrap items-center gap-4">
-          <button
-            type="button"
-            onClick={() => openClaim()}
-            className="cursor-pointer border-0 bg-transparent p-0 text-sm text-ink-muted transition-colors duration-120 hover:text-ink"
-          >
-            Claim a product
-          </button>
           <Link to="/about" className="text-ink-muted no-underline transition-colors duration-120 hover:text-ink">
             About
           </Link>
@@ -92,8 +79,8 @@ export function LandingFooter() {
           <Link to="/privacy" className="text-ink-muted no-underline transition-colors duration-120 hover:text-ink">
             Privacy
           </Link>
-          <span>© 2026 Publisense</span>
         </nav>
+        <span>© 2026 Publisense</span>
       </div>
     </footer>
   );
@@ -119,7 +106,7 @@ export function LandingPage() {
       <section aria-labelledby="page-title" className="relative isolate overflow-hidden border-b border-line hero-glow py-10 max-sm:py-8">
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 hero-dots" />
         <div className="mx-auto flex w-full max-w-landing flex-col items-center px-7 text-center max-sm:px-3">
-          <h1 id="page-title" className="m-0 max-w-content text-hero font-bold text-balance text-ink">
+          <h1 id="page-title" className="m-0 max-w-hero text-hero font-bold text-balance text-ink">
             Find any product. Shape what ships next.
           </h1>
           <p className="mt-3 mb-6 max-w-dialog-lg text-md text-balance text-ink-secondary">
