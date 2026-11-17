@@ -632,7 +632,7 @@ describe('explore', () => {
       makePopular({ title: 'Branching for preview databases', vote_count: 80, has_official_reply: true }),
     ]);
     renderAt('/explore');
-    expect(await screen.findByRole('heading', { level: 1, name: 'Explore' })).toBeTruthy();
+    expect((await screen.findByRole('heading', { level: 1, name: 'Explore' })).className).toContain('sr-only');
     expect(screen.getByRole('button', { name: 'Search products, posts, hubs' })).toBeTruthy();
     // One board of activity: the section says what the rows are instead of claiming a ranking.
     expect(await screen.findByRole('heading', { name: 'New this week' })).toBeTruthy();

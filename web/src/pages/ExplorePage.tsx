@@ -33,7 +33,7 @@ export function ExplorePage() {
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
-      <h1 id="page-title" className="m-0 mb-4 text-2xl font-bold text-ink">
+      <h1 id="page-title" className="sr-only">
         Explore
       </h1>
       <SearchWell
