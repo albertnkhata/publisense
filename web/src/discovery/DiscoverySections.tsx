@@ -235,7 +235,7 @@ export function CategoriesSection({ boards, id = 'disc-categories' }: { boards: 
         {cats.map((c) => (
           <li key={c.category} className="min-w-0">
             <Link
-              to={`/explore?cat=${c.category}`}
+              to={`/c/${c.category}`}
               className="flex h-full flex-col gap-1 rounded-md border border-line bg-card p-4 text-ink no-underline transition-colors duration-120 hover:border-line-strong"
             >
               <span className="flex items-baseline justify-between gap-2">

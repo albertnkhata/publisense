@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes } from 'react-router';
 import { BoardCard } from '../boards/parts';
+import { CategoryPage } from '../pages/CategoryPage';
 import { ExplorePage } from '../pages/ExplorePage';
 import { PostCard } from '../posts/PostCard';
 import { ClaimLine, RailBoards } from '../shell/RightRail';
@@ -88,6 +89,7 @@ describe('explore while quiet', () => {
     renderWith(
       <Routes>
         <Route path="/explore" element={<ExplorePage />} />
+        <Route path="/c/:category" element={<CategoryPage />} />
       </Routes>,
       { path },
     );
@@ -104,7 +106,7 @@ describe('explore while quiet', () => {
   });
 
   it('shows Added recency instead of zero counters on quiet category results', async () => {
-    renderExplore('/explore?cat=code');
+    renderExplore('/c/code');
     const results = await screen.findByRole('list', { name: 'Code editors' });
     expect(results.textContent).not.toMatch(/\b0 (posts|followers)\b/);
     expect(within(results).getByText('Added 2w ago')).toBeTruthy();

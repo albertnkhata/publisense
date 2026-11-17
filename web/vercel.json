@@ -119,6 +119,10 @@
       "destination": "/index.html"
     },
     {
+      "source": "/c/:category",
+      "destination": "/index.html"
+    },
+    {
       "source": "/b/:board/manage",
       "destination": "/index.html"
     },

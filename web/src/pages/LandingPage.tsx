@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router';
-import { CATEGORIES, isLive, isProductFamily, useBoards, useHubs, useTrending } from '../api';
+import { isLive, isProductFamily, useBoards, useHubs, useTrending } from '../api';
 import { useClaim } from '../claim/ClaimDialog';
 import { CategoriesSection, DiscoveryBoardsSection, HubsSection, PopularPostsSection } from '../discovery/DiscoverySections';
-import { cx } from '../lib/cx';
 import { usePageTitle } from '../lib/usePageTitle';
 import { LoadError } from '../posts/PostList';
 import { AddProductLink } from '../products/AddProductDialog';
@@ -11,7 +10,7 @@ import { BrandSymbol } from '../shell/BrandMark';
 import { SearchWell } from '../shell/SearchWell';
 import { useAuthDialog } from '../shell/auth';
 import { useComposer } from '../shell/composer';
-import { Button, ScrollRow, SkeletonBlock } from '../ui';
+import { Button, SkeletonBlock } from '../ui';
 
 /**
  * Signed-out Landing Header: sticky brand mark, scroll-revealed compact search
@@ -116,9 +115,6 @@ export function LandingPage() {
   const liveHubs = useMemo(() => (hubs.data ?? []).filter((h) => isProductFamily(h.boards.length)), [hubs.data]);
   const trending = useTrending(liveBoards, 6);
 
-  const used = boards.data ? new Set(liveBoards.map((b) => b.category)) : null;
-  const chips = CATEGORIES.filter((c) => c.value === 'all' || !used || used.has(c.value));
-
   return (
     <div className="flex flex-col">
       <section aria-labelledby="page-title" className="relative isolate overflow-hidden border-b border-line hero-glow py-10 max-sm:py-8">
@@ -136,19 +132,6 @@ export function LandingPage() {
               triggerClassName="h-9 border-line-strong text-md"
             />
           </div>
-          <ScrollRow label="Categories" className="mt-4 w-fit max-w-full">
-            {chips.map((c) => (
-              <Link
-                key={c.value}
-                to={c.value === 'all' ? '/explore' : `/explore?cat=${c.value}`}
-                className={cx(
-                  'inline-flex h-7 shrink-0 items-center rounded-pill border border-line bg-card px-3 text-sm font-medium text-ink-secondary no-underline transition-colors duration-120 hover:border-line-strong hover:text-ink',
-                )}
-              >
-                {c.label}
-              </Link>
-            ))}
-          </ScrollRow>
           <div className="mt-5 inline-flex flex-wrap items-center justify-center gap-2 rounded-pill border border-line bg-card px-4 py-2 text-sm text-ink-secondary">
             <span>Have feedback on a product?</span>
             <button

@@ -1,20 +1,19 @@
 import { useMemo } from 'react';
-import { useSearchParams } from 'react-router';
+import { Navigate, useSearchParams } from 'react-router';
 import { CATEGORIES, isLive, isProductFamily, matchCatalogue, useBoards, useHubs, useTrending, type Board, type BoardCategory, type Hub } from '../api';
 import { BoardCard, CardGrid, HubRow, RowItem, RowList, Section } from '../boards/parts';
 import { CategoriesSection, DiscoveryBoardsSection, HubsSection, PopularPostsSection } from '../discovery/DiscoverySections';
-import { cx } from '../lib/cx';
 import { usePageTitle } from '../lib/usePageTitle';
 import { useSetUrlParams, useUrlTextParam } from '../lib/useUrlParam';
 import { LoadError } from '../posts/PostList';
 import { AddProductLink } from '../products/AddProductDialog';
 import { SearchWell } from '../shell/SearchWell';
-import { Button, EmptyState, Icon, ScrollRow, SkeletonBlock } from '../ui';
+import { Button, EmptyState, Icon, SkeletonBlock } from '../ui';
 
 /**
  * Explore (`/explore`): signed-in discovery directory with wide layout (`EXPLORE_PAGE`).
- * Shows header + search trigger, category chips, Trending, Popular posts by status,
- * Hubs, and the 3-column Categories summary (plus filter mode for `?q=` / `?cat=`).
+ * Shows header + search trigger, Trending, Popular posts by status, Hubs, and the
+ * 3-column Categories grid linking to dedicated `/c/:category` pages.
  */
 type Cat = 'all' | BoardCategory;
 
@@ -27,10 +26,10 @@ export function ExplorePage() {
   const cat: Cat = (CATEGORIES.find((c) => c.value === catParam)?.value ?? 'all') as Cat;
   const boards = useBoards();
   const hubs = useHubs();
-  // Only chips with something behind them: categories with a live board, plus the
-  // one in the URL. All of them while the boards are still loading.
-  const used = boards.data ? new Set(boards.data.filter(isLive).map((b) => b.category)) : null;
-  const chips = CATEGORIES.filter((c) => c.value === 'all' || c.value === cat || !used || used.has(c.value));
+
+  if (cat !== 'all') {
+    return <Navigate to={`/c/${cat}`} replace />;
+  }
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
@@ -43,12 +42,12 @@ export function ExplorePage() {
         </AddProductLink>
       </div>
       <SearchWell
-        className="mb-4"
+        className="mb-6"
         placeholder="Search products, hubs, or posts…"
         triggerClassName="h-9 border-line-strong text-md"
       />
-      <ScrollRow label="Categories" className="mb-6">
-        {q.trim() ? (
+      {q.trim() ? (
+        <div className="mb-4 flex items-center gap-2">
           <button
             type="button"
             onClick={() => setQ('')}
@@ -58,22 +57,8 @@ export function ExplorePage() {
             “{q.trim()}”
             <Icon name="close" size={14} />
           </button>
-        ) : null}
-        {chips.map((c) => (
-          <button
-            key={c.value}
-            type="button"
-            aria-pressed={cat === c.value}
-            onClick={() => setUrl([['cat', c.value, 'all']])}
-            className={cx(
-              'h-7 shrink-0 rounded-pill border px-3 text-sm font-medium transition-colors duration-120',
-              cat === c.value ? 'border-ink bg-ink text-card' : 'border-line bg-card text-ink-secondary hover:border-line-strong hover:text-ink',
-            )}
-          >
-            {c.label}
-          </button>
-        ))}
-      </ScrollRow>
+        </div>
+      ) : null}
       {boards.isPending || hubs.isPending ? (
         <ExploreSkeleton />
       ) : boards.isError || hubs.isError ? (
@@ -85,15 +70,14 @@ export function ExplorePage() {
           }}
           retrying={boards.isRefetching || hubs.isRefetching}
         />
-      ) : q.trim() || cat !== 'all' ? (
+      ) : q.trim() ? (
         <Filtered
           q={q.trim()}
-          cat={cat}
           boards={boards.data.filter(isLive)}
           hubs={hubs.data.filter((h) => isProductFamily(h.boards.length))}
           onClear={() => {
             setQ('');
-            setUrl([['q', '', ''], ['cat', 'all', 'all']]);
+            setUrl([['q', '', '']]);
           }}
         />
       ) : (
@@ -104,29 +88,22 @@ export function ExplorePage() {
   );
 }
 
-function Filtered({ q, cat, boards, hubs, onClear }: { q: string; cat: Cat; boards: Board[]; hubs: Hub[]; onClear: () => void }) {
-  const { list, hubList } = useMemo(() => {
-    const inCat = (b: Board) => cat === 'all' || b.category === cat;
-    const matched = q ? matchCatalogue(q, boards, hubs) : { boards, hubs: [] as typeof hubs };
-    return {
-      list: matched.boards.filter(inCat),
-      hubList: q ? matched.hubs.filter((h) => cat === 'all' || h.boards.some(inCat)) : hubs.filter((h) => h.boards.some(inCat)),
-    };
-  }, [q, cat, boards, hubs]);
-  const title = q ? 'Results' : (CATEGORIES.find((c) => c.value === cat)?.label ?? 'Results');
+function Filtered({ q, boards, hubs, onClear }: { q: string; boards: Board[]; hubs: Hub[]; onClear: () => void }) {
+  const { boards: list, hubs: hubList } = useMemo(() => matchCatalogue(q, boards, hubs), [q, boards, hubs]);
+  const title = 'Results';
   if (list.length === 0 && hubList.length === 0) {
     return (
       <div className="mb-6 rounded-md border border-line bg-card">
         <EmptyState
           icon="explore"
-          title={q ? `No products match “${q}”.` : 'No products in this category yet.'}
+          title={`No products match “${q}”.`}
           action={
             <Button size="sm" variant="secondary" onClick={onClear}>
-              {q ? 'Clear filters' : 'Show all products'}
+              Clear filters
             </Button>
           }
         >
-          {q ? 'Try a different spelling or browse all categories.' : 'Browse another category or add the product you use below.'}
+          Try a different spelling or browse all categories.
         </EmptyState>
       </div>
     );

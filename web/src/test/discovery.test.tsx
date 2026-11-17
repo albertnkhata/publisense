@@ -7,6 +7,7 @@ import { boardKeys } from '../api';
 import { purgeUserQueryCache, useViewer } from '../lib/viewer';
 import type { FeedPage, PopularPostSummary, Post } from '../api/posts';
 import { BoardPage } from '../pages/BoardPage';
+import { CategoryPage } from '../pages/CategoryPage';
 import { ExplorePage } from '../pages/ExplorePage';
 import { HubPage } from '../pages/HubPage';
 import { LandingFooter, LandingHeader, LandingPage } from '../pages/LandingPage';
@@ -64,6 +65,7 @@ function renderAt(path: string, signedIn = false, client?: QueryClient) {
         <Route path="/b/:board" element={<BoardPage />} />
         <Route path="/b/:board/manage" element={<h1>Manage page</h1>} />
         <Route path="/h/:hub" element={<HubPage />} />
+        <Route path="/c/:category" element={<CategoryPage />} />
         <Route path="/explore" element={<ExplorePage />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/well" element={<SearchWell />} />
@@ -681,11 +683,30 @@ describe('explore', () => {
     expect(await within(modal).findByRole('option', { name: /Cursor/ })).toBeTruthy();
   });
 
-  it('filters by category', async () => {
-    renderAt('/explore');
-    fireEvent.click(await screen.findByRole('button', { name: 'Dev platforms' }));
-    expect(await screen.findByText('1 product')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Dev platforms' }).getAttribute('aria-pressed')).toBe('true');
+  it('omits the category chip toolbar under Search and opens category cards on a dedicated page', async () => {
+    const { router } = renderAt('/explore', true);
+    const cats = await screen.findByRole('list', { name: 'Categories' });
+    expect(screen.queryByRole('toolbar', { name: 'Categories' })).toBeNull();
+    fireEvent.click(within(cats).getByRole('link', { name: /Dev platforms/ }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/c/dev'));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Dev platforms' })).toBeTruthy();
+    expect(screen.getByText('1 product')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Back to Explore' }).getAttribute('href')).toBe('/explore');
+  });
+
+  it('redirects legacy /explore?cat= links to /c/:category and handles empty or unknown categories', async () => {
+    const first = renderAt('/explore?cat=dev');
+    await waitFor(() => expect(first.router.state.location.pathname).toBe('/c/dev'));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Dev platforms' })).toBeTruthy();
+    first.unmount();
+
+    const empty = renderAt('/c/travel');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Travel' })).toBeTruthy();
+    expect(await screen.findByText('No products in this category yet.')).toBeTruthy();
+    empty.unmount();
+
+    renderAt('/c/bogus');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Category not found' })).toBeTruthy();
   });
 
   it('an old /explore?q= link still filters, as a chip you can clear', async () => {
@@ -694,15 +715,6 @@ describe('explore', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Clear search “fig”' }));
     await waitFor(() => expect(router.state.location.search).toBe(''));
     expect(screen.queryByRole('button', { name: /Clear search/ })).toBeNull();
-  });
-
-  it('shows only category chips that have products, plus the one in the URL', async () => {
-    renderAt('/explore?cat=travel');
-    expect(await screen.findByText('No products in this category yet.')).toBeTruthy();
-    const chips = within(screen.getByRole('toolbar', { name: 'Categories' }));
-    expect(chips.getByRole('button', { name: 'Code editors' })).toBeTruthy();
-    expect(chips.getByRole('button', { name: 'Travel' }).getAttribute('aria-pressed')).toBe('true');
-    expect(chips.queryByRole('button', { name: 'Shopping' })).toBeNull();
   });
 
   it('leaves out a hub with a single live product', async () => {
@@ -722,15 +734,17 @@ describe('explore', () => {
 });
 
 describe('landing page & auth handoff', () => {
-  it('shows Most active fallback when nothing is trending, plus Popular posts, Claim band, Hubs and Categories', async () => {
+  it('shows Most active fallback when nothing is trending, without hero category chips, plus Popular posts, Claim band, Hubs and Categories', async () => {
     renderAt('/landing');
     expect(await screen.findByRole('heading', { name: 'Most active' })).toBeTruthy();
+    expect(screen.queryByRole('toolbar', { name: 'Categories' })).toBeNull();
     const active = screen.getByRole('list', { name: 'Most active boards' });
     expect(within(active).getAllByRole('article').map((a) => within(a).getAllByRole('link')[0]?.textContent)).toEqual(['Cursor', 'Supabase', 'Figma', 'FigJam']);
     expect(screen.getByRole('heading', { name: 'Popular posts' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Building one of these products?' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Hubs' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Categories' })).toBeTruthy();
+    const cats = screen.getByRole('list', { name: 'Categories' });
+    expect(within(cats).getByRole('link', { name: /Dev platforms/ }).getAttribute('href')).toBe('/c/dev');
     expect(screen.getByRole('contentinfo', { name: 'Site footer' })).toBeTruthy();
   });
 
