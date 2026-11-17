@@ -31,13 +31,13 @@ const POPULAR_EMPTY: Record<PopularStatus, string> = {
 
 /**
  * Trending boards this week (3-column grid), or activity-ordered Trending fallback
- * when enabled on the signed-out Landing page and there are no recent posts.
+ * when there are no recent posts but boards have existing activity.
  */
 export function DiscoveryBoardsSection({
   boards,
   trending,
   now,
-  showMostActiveFallback = false,
+  showMostActiveFallback = true,
   action,
   id = 'disc-boards',
 }: {
@@ -51,7 +51,7 @@ export function DiscoveryBoardsSection({
   const mostActive = useMemo(
     () =>
       boards
-        .filter(isLive)
+        .filter((b) => isLive(b) && (b.post_count > 0 || b.follower_count > 0))
         .slice()
         .sort((a, b) => b.post_count - a.post_count || b.follower_count - a.follower_count || a.name.localeCompare(b.name))
         .slice(0, 6),

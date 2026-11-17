@@ -14,6 +14,7 @@ import { LandingFooter, LandingHeader, LandingPage } from '../pages/LandingPage'
 import { SearchPage } from '../pages/SearchPage';
 import { ClaimProvider } from '../claim/ClaimDialog';
 import { savePendingComposerIntent } from '../lib/postDraft';
+import { AddProductProvider } from '../products/AddProductDialog';
 import { ComposerProvider } from '../shell/composer';
 import { SearchWell } from '../shell/SearchWell';
 import { CURSOR, FIGJAM, FIGMA, FIGMA_HUB, makeSummary, SUPABASE } from './boardFixtures';
@@ -61,18 +62,20 @@ function renderAt(path: string, signedIn = false, client?: QueryClient) {
   return renderWith(
     <ComposerProvider>
       <ClaimProvider>
-      <Routes>
-        <Route path="/b/:board" element={<BoardPage />} />
-        <Route path="/b/:board/manage" element={<h1>Manage page</h1>} />
-        <Route path="/h/:hub" element={<HubPage />} />
-        <Route path="/c/:category" element={<CategoryPage />} />
-        <Route path="/explore" element={<ExplorePage />} />
-        <Route path="/search" element={<SearchPage />} />
-        <Route path="/well" element={<SearchWell />} />
-        <Route path="/post/:id" element={<h1>Post page</h1>} />
-        <Route path="/landing" element={<><LandingHeader /><LandingPage /><LandingFooter /></>} />
-        <Route path="/" element={<h1>Home page</h1>} />
-      </Routes>
+        <AddProductProvider>
+          <Routes>
+            <Route path="/b/:board" element={<BoardPage />} />
+            <Route path="/b/:board/manage" element={<h1>Manage page</h1>} />
+            <Route path="/h/:hub" element={<HubPage />} />
+            <Route path="/c/:category" element={<CategoryPage />} />
+            <Route path="/explore" element={<ExplorePage />} />
+            <Route path="/search" element={<SearchPage />} />
+            <Route path="/well" element={<SearchWell />} />
+            <Route path="/post/:id" element={<h1>Post page</h1>} />
+            <Route path="/landing" element={<><LandingHeader /><LandingPage /><LandingFooter /></>} />
+            <Route path="/" element={<h1>Home page</h1>} />
+          </Routes>
+        </AddProductProvider>
       </ClaimProvider>
     </ComposerProvider>,
     { viewer: signedIn ? TEST_VIEWER : null, path, client },
@@ -642,6 +645,20 @@ describe('explore', () => {
     expect(within(cats).getByText('Dev platforms')).toBeTruthy();
     expect(cats.textContent).not.toMatch(/\b\d+\s+products?\b/);
     expect(screen.getByRole('button', { name: 'All products →' })).toBeTruthy();
+  });
+
+  it('shows Trending fallback and + Add a missing product on /explore when nothing is trending this week', async () => {
+    boardsApi.fetchTrending.mockResolvedValue([]);
+    renderAt('/explore');
+    expect(await screen.findByRole('heading', { name: 'Trending' })).toBeTruthy();
+    const trendingList = screen.getByRole('list', { name: 'Trending products' });
+    expect(within(trendingList).getAllByRole('article').map((a) => within(a).getAllByRole('link')[0]?.textContent)).toEqual([
+      'Cursor',
+      'Supabase',
+      'Figma',
+      'FigJam',
+    ]);
+    expect(screen.getByRole('button', { name: '+ Add a missing product' })).toBeTruthy();
   });
 
   it('switches Popular posts status tabs (including Open), upvotes optimistically, omits Browse all posts, and pre-scopes Search modal', async () => {

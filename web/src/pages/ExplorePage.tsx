@@ -33,14 +33,9 @@ export function ExplorePage() {
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h1 id="page-title" className="m-0 text-2xl font-bold text-ink">
-          Explore
-        </h1>
-        <AddProductLink className="text-sm font-medium text-ink-muted hover:text-brand">
-          + Add a missing product
-        </AddProductLink>
-      </div>
+      <h1 id="page-title" className="m-0 mb-4 text-2xl font-bold text-ink">
+        Explore
+      </h1>
       <SearchWell
         className="mb-6"
         triggerClassName="h-9 border-line-strong text-md"
@@ -141,7 +136,17 @@ function Discover({ boards, hubs }: { boards: Board[]; hubs: Hub[] }) {
 
   return (
     <>
-      <DiscoveryBoardsSection id="ex-trending" boards={boards} trending={trending.data ?? []} now={now} showMostActiveFallback={false} />
+      <DiscoveryBoardsSection
+        id="ex-trending"
+        boards={boards}
+        trending={trending.data ?? []}
+        now={now}
+        action={
+          <AddProductLink className="font-medium text-ink-muted hover:text-brand">
+            + Add a missing product
+          </AddProductLink>
+        }
+      />
       <PopularPostsSection id="ex-popular" />
       <HubsSection id="ex-hubs" hubs={hubs} />
       <CategoriesSection id="ex-categories" boards={boards} />
