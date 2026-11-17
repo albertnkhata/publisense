@@ -643,21 +643,24 @@ describe('explore', () => {
     expect(screen.getByRole('button', { name: 'All 4 boards →' })).toBeTruthy();
   });
 
-  it('switches Popular posts status tabs, upvotes optimistically, and pre-scopes Search modal', async () => {
+  it('switches Popular posts status tabs (including Open), upvotes optimistically, omits Browse all posts, and pre-scopes Search modal', async () => {
     postsApi.fetchPopularByStatus.mockImplementation(async (status: string) => {
-      if (status === 'under_review') return [makePopular({ id: 'p-ur', title: 'Review item', vote_count: 10 })];
+      if (status === 'open') return [makePopular({ id: 'p-op', title: 'Open item', status: 'open', vote_count: 10 })];
+      if (status === 'under_review') return [makePopular({ id: 'p-ur', title: 'Review item', vote_count: 15 })];
       if (status === 'planned') return [makePopular({ id: 'p-pl', title: 'Planned item', status: 'planned', vote_count: 25 })];
       if (status === 'shipped') return [makePopular({ id: 'p-sh', title: 'Shipped item', status: 'shipped', vote_count: 40 })];
       return [];
     });
     postsApi.fetchWanted.mockResolvedValue([makeSummary({ id: 'p-w1', title: 'Wanted request', vote_count: 40 })]);
     renderAt('/explore', true);
-    expect(await screen.findByText('Review item')).toBeTruthy();
+    expect(await screen.findByText('Open item')).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Open' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.queryByRole('button', { name: 'Browse all posts →' })).toBeNull();
 
     // Upvote from Popular posts works optimistically
     fireEvent.click(screen.getByRole('button', { name: 'Upvote, 10 votes' }));
     expect(await screen.findByRole('button', { name: 'Remove upvote, 11 votes' })).toBeTruthy();
-    expect(postsApi.setVote).toHaveBeenCalledWith('p-ur', TEST_VIEWER.id, true);
+    expect(postsApi.setVote).toHaveBeenCalledWith('p-op', TEST_VIEWER.id, true);
 
     // Switch status tabs
     fireEvent.click(screen.getByRole('tab', { name: 'Planned' }));
@@ -669,18 +672,26 @@ describe('explore', () => {
     const shippedPanel = screen.getByRole('tabpanel', { name: 'Shipped' });
     expect(within(shippedPanel).getByText('Shipped')).toBeTruthy();
 
-    // Browse all posts → opens Search modal pre-scoped to Feedback & bugs
-    fireEvent.click(screen.getByRole('button', { name: 'Browse all posts →' }));
-    let modal = await screen.findByRole('dialog', { name: 'Search' });
-    expect(within(modal).getByRole('button', { name: 'Feedback & bugs' }).getAttribute('aria-pressed')).toBe('true');
-    expect(await within(modal).findByRole('option', { name: /Wanted request/ })).toBeTruthy();
-    fireEvent.keyDown(document, { key: 'Escape' });
-
     // All N boards → opens Search modal pre-scoped to Product boards
     fireEvent.click(screen.getByRole('button', { name: 'All 4 boards →' }));
-    modal = await screen.findByRole('dialog', { name: 'Search' });
+    const modal = await screen.findByRole('dialog', { name: 'Search' });
     expect(within(modal).getByRole('button', { name: 'Product boards' }).getAttribute('aria-pressed')).toBe('true');
     expect(await within(modal).findByRole('option', { name: /Cursor/ })).toBeTruthy();
+  });
+
+  it('defaults Popular posts to the first non-empty tab and hides the section when every tab is empty', async () => {
+    postsApi.fetchPopularByStatus.mockImplementation(async (status: string) =>
+      status === 'planned' ? [makePopular({ id: 'p-pl', title: 'Planned item', status: 'planned', vote_count: 12 })] : [],
+    );
+    const populated = renderAt('/explore');
+    expect(await screen.findByText('Planned item')).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Planned' }).getAttribute('aria-selected')).toBe('true');
+    populated.unmount();
+
+    postsApi.fetchPopularByStatus.mockResolvedValue([]);
+    renderAt('/explore');
+    await screen.findByRole('list', { name: 'Categories' });
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Popular posts' })).toBeNull());
   });
 
   it('omits the category chip toolbar under Search and opens category cards on a dedicated page', async () => {
@@ -735,17 +746,28 @@ describe('explore', () => {
 
 describe('landing page & auth handoff', () => {
   it('shows Most active fallback when nothing is trending, without hero category chips, plus Popular posts, Claim band, Hubs and Categories', async () => {
+    postsApi.fetchPopularByStatus.mockImplementation(async (status: string) =>
+      status === 'open' ? [makePopular({ id: 'p-land', title: 'Landing popular open post', status: 'open' })] : [],
+    );
     renderAt('/landing');
     expect(await screen.findByRole('heading', { name: 'Most active' })).toBeTruthy();
     expect(screen.queryByRole('toolbar', { name: 'Categories' })).toBeNull();
     const active = screen.getByRole('list', { name: 'Most active boards' });
     expect(within(active).getAllByRole('article').map((a) => within(a).getAllByRole('link')[0]?.textContent)).toEqual(['Cursor', 'Supabase', 'Figma', 'FigJam']);
-    expect(screen.getByRole('heading', { name: 'Popular posts' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Popular posts' })).toBeTruthy();
+    expect(screen.getByText('Landing popular open post')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Building one of these products?' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Hubs' })).toBeTruthy();
     const cats = screen.getByRole('list', { name: 'Categories' });
     expect(within(cats).getByRole('link', { name: /Dev platforms/ }).getAttribute('href')).toBe('/c/dev');
     expect(screen.getByRole('contentinfo', { name: 'Site footer' })).toBeTruthy();
+  });
+
+  it('hides Popular posts on the landing page when every status tab is empty', async () => {
+    postsApi.fetchPopularByStatus.mockResolvedValue([]);
+    renderAt('/landing');
+    expect(await screen.findByRole('heading', { name: 'Most active' })).toBeTruthy();
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Popular posts' })).toBeNull());
   });
 
   it('switches to Trending when boards have recent activity', async () => {
@@ -839,6 +861,51 @@ describe('search', () => {
     renderAt('/search?q=a');
     expect(await screen.findByText('Keep typing to search.')).toBeTruthy();
     expect(boardsApi.searchAll).not.toHaveBeenCalled();
+  });
+
+  it('never shows stale "No results" when submitting a new query after an empty modal handoff', async () => {
+    let resolveClaude!: (v: { boards: typeof FIGMA[]; hubs: typeof FIGMA_HUB[]; posts: ReturnType<typeof makePost>[] }) => void;
+    boardsApi.searchAll.mockImplementation(async (q: string) => {
+      if (q === 'nope') return { boards: [], hubs: [], posts: [] };
+      if (q === 'claude') {
+        return new Promise((resolve) => {
+          resolveClaude = resolve;
+        });
+      }
+      return { boards: [], hubs: [], posts: [] };
+    });
+
+    renderWith(
+      <ComposerProvider>
+        <ClaimProvider>
+          <SearchWell />
+          <Routes>
+            <Route path="/explore" element={<ExplorePage />} />
+            <Route path="/search" element={<SearchPage />} />
+          </Routes>
+        </ClaimProvider>
+      </ComposerProvider>,
+      { path: '/explore' },
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Search products, posts, hubs' }));
+    const modal = await screen.findByRole('dialog', { name: 'Search' });
+    fireEvent.change(within(modal).getByRole('combobox', { name: /Search products/ }), { target: { value: 'nope' } });
+    const seeAll = await within(modal).findByRole('option', { name: /See all results for “nope”/ });
+    fireEvent.click(seeAll);
+
+    expect(await screen.findByText('No results for “nope”')).toBeTruthy();
+
+    const searchInput = screen.getByRole('searchbox', { name: 'Search products, posts and hubs' });
+    fireEvent.change(searchInput, { target: { value: 'claude' } });
+    fireEvent.submit(searchInput.closest('form')!);
+
+    await waitFor(() => expect(boardsApi.searchAll).toHaveBeenCalledWith('claude', expect.anything()));
+    expect(screen.queryByText('No results for “claude”')).toBeNull();
+
+    resolveClaude({ boards: [CURSOR], hubs: [], posts: [makePost({ title: 'Claude 4 thinking mode' })] });
+    expect(await screen.findByText('Claude 4 thinking mode')).toBeTruthy();
+    expect(screen.queryByText(/No results/)).toBeNull();
   });
 });
 

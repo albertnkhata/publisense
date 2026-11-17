@@ -771,7 +771,7 @@ export async function fetchWanted(limit = 20): Promise<PostSummary[]> {
   return (data ?? []) as unknown as PostSummary[];
 }
 
-export const POPULAR_STATUSES = ['under_review', 'planned', 'in_progress', 'shipped'] as const;
+export const POPULAR_STATUSES = ['open', 'under_review', 'planned', 'in_progress', 'shipped'] as const;
 export type PopularStatus = (typeof POPULAR_STATUSES)[number];
 
 /** Compact post row enriched with official-reply presence and viewer vote/follow state for Popular posts tabs. */

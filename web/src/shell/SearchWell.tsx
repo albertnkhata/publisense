@@ -482,7 +482,7 @@ function SearchModalBody({
   const trendingQuery = useTrending(live, 4);
   const wantedQuery = useWanted(!term);
   const followedScopes = useFollowedScopes(viewer?.id ?? null);
-  const search = useSearch(debounced, viewer?.id ?? null, { postLimit: 6 });
+  const search = useSearch(debounced, viewer?.id ?? null, { postLimit: 6, keepPrevious: true });
   const peopleQuery = usePeopleSearch(debounced);
   const addProduct = useAddProduct();
 

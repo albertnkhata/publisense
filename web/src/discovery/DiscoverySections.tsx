@@ -7,7 +7,7 @@ import {
   POPULAR_STATUSES,
   shortAge,
   summarizeCategories,
-  usePopularByStatus,
+  useAllPopularByStatus,
   useVote,
   type Board,
   type Hub,
@@ -23,6 +23,7 @@ import { openSearchModal } from '../shell/SearchWell';
 import { Icon, SkeletonBlock, StatusPill, STATUS_META, TabPanel, Tabs, TYPE_META, useToast } from '../ui';
 
 const POPULAR_EMPTY: Record<PopularStatus, string> = {
+  open: 'No open posts yet',
   under_review: 'No posts under review yet',
   planned: 'No planned posts yet',
   in_progress: 'No posts in progress yet',
@@ -89,28 +90,40 @@ export function DiscoveryBoardsSection({
 }
 
 /**
- * Popular posts ranked by team status (Under review · Planned · In progress · Shipped).
+ * Popular posts ranked by team status (Open · Under review · Planned · In progress · Shipped).
+ * Hidden entirely when every status tab is empty.
  */
 export function PopularPostsSection({ id = 'disc-popular' }: { id?: string }) {
   const { viewer } = useViewer();
   const requireAuth = useRequireAuth();
   const { toast } = useToast();
-  const [tab, setTab] = useState<PopularStatus>('under_review');
-  const popular = usePopularByStatus(tab, viewer?.id ?? null, 6);
+  const [pickedTab, setPickedTab] = useState<PopularStatus | null>(null);
+  const popularQueries = useAllPopularByStatus(viewer?.id ?? null, 6);
   const vote = useVote(viewer?.id ?? null);
+
+  const firstNonEmpty = POPULAR_STATUSES.find((_, i) => (popularQueries[i]?.data?.length ?? 0) > 0);
+  const anyPending = popularQueries.some((q) => q.isPending);
+  const anyError = popularQueries.some((q) => q.isError);
+  const allErrored = popularQueries.every((q) => q.isError);
+
+  // If every status settled empty with no errors, omit the section entirely so zero-post states don't show an empty box.
+  if (!anyPending && !anyError && !firstNonEmpty) return null;
+
+  const tab: PopularStatus = pickedTab ?? firstNonEmpty ?? 'open';
+  const activeQuery = popularQueries[POPULAR_STATUSES.indexOf(tab)];
+  const waitingForFirst = pickedTab === null && !firstNonEmpty && anyPending && !allErrored;
+  const posts = activeQuery?.data ?? [];
 
   const items = POPULAR_STATUSES.map((status) => ({
     value: status,
     label: STATUS_META[status].label,
   }));
 
-  const posts = popular.data ?? [];
-
   return (
     <Section id={id} title="Popular posts" note="By team status">
-      <Tabs idBase={id} label="Posts by status" value={tab} onChange={setTab} items={items} className="mb-3" />
+      <Tabs idBase={id} label="Posts by status" value={tab} onChange={setPickedTab} items={items} className="mb-3" />
       <TabPanel idBase={id} value={tab}>
-        {popular.isPending ? (
+        {waitingForFirst || activeQuery?.isPending ? (
           <div className="divide-y divide-line rounded-md border border-line bg-card px-4" aria-busy="true">
             {[0, 1, 2].map((i) => (
               <div key={i} className="flex items-center gap-3 py-3">
@@ -122,8 +135,8 @@ export function PopularPostsSection({ id = 'disc-popular' }: { id?: string }) {
               </div>
             ))}
           </div>
-        ) : popular.isError ? (
-          <LoadError title="We couldn’t load popular posts" onRetry={() => void popular.refetch()} retrying={popular.isRefetching} />
+        ) : activeQuery?.isError ? (
+          <LoadError title="We couldn’t load popular posts" onRetry={() => void activeQuery.refetch()} retrying={activeQuery.isRefetching} />
         ) : posts.length === 0 ? (
           <p className="m-0 rounded-md border border-dashed border-line-strong bg-card px-4 py-6 text-center text-sm text-ink-muted">
             {POPULAR_EMPTY[tab]}
@@ -177,15 +190,6 @@ export function PopularPostsSection({ id = 'disc-popular' }: { id?: string }) {
           </ul>
         )}
       </TabPanel>
-      <div className="mt-3 flex justify-end">
-        <button
-          type="button"
-          onClick={() => openSearchModal({ scope: 'posts' })}
-          className="cursor-pointer border-0 bg-transparent p-0 text-sm font-semibold text-brand hover:underline"
-        >
-          Browse all posts →
-        </button>
-      </div>
     </Section>
   );
 }

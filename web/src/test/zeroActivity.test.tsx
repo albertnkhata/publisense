@@ -94,7 +94,7 @@ describe('explore while quiet', () => {
       { path },
     );
 
-  it('has no Trending section, summarises categories, and shows empty status tab cleanly', async () => {
+  it('has no Trending section, summarises categories, and hides Popular posts when empty', async () => {
     renderExplore();
     const cats = await screen.findByRole('list', { name: 'Categories' });
     expect(screen.queryByRole('heading', { name: /Trending/ })).toBeNull();
@@ -102,7 +102,8 @@ describe('explore while quiet', () => {
     expect(within(cats).getByText('2 boards')).toBeTruthy();
     expect(within(cats).getByText('Linear, Notion')).toBeTruthy();
     expect(cats.textContent).not.toMatch(/\b0 (posts|followers)\b/);
-    expect(await screen.findByText('No posts under review yet')).toBeTruthy();
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Popular posts' })).toBeNull());
+    expect(screen.queryByText(/No .* posts yet/)).toBeNull();
   });
 
   it('shows Added recency instead of zero counters on quiet category results', async () => {
