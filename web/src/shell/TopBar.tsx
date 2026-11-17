@@ -1,4 +1,4 @@
-import { Link, NavLink } from 'react-router';
+import { Link, NavLink, useLocation } from 'react-router';
 import { useUnreadCount } from '../api';
 import { cx } from '../lib/cx';
 import { useViewer } from '../lib/viewer';
@@ -26,6 +26,7 @@ export function TopBar({
   width?: ShellWidth;
   fill?: boolean;
 }) {
+  const { pathname } = useLocation();
   const { viewer, ready } = useViewer();
   const { openAuth } = useAuthDialog();
   const unread = useUnreadCount(viewer?.id ?? null).data ?? 0;
@@ -38,21 +39,21 @@ export function TopBar({
         always ? 'flex items-center' : 'hidden items-center max-lg:flex',
       )}
     >
-      <div className={cx('mx-auto flex w-full items-center gap-3', !fill && (width === 'narrow' ? 'max-w-content' : 'max-w-wide'))}>
+      <div className={cx('mx-auto flex w-full items-center gap-3 max-sm:gap-2', !fill && (width === 'narrow' ? 'max-w-content' : 'max-w-wide'))}>
         <Link
           to="/"
           aria-label="Publisense home"
-          className="hidden items-center gap-2 text-md font-bold text-ink no-underline max-sm:flex"
+          className="hidden shrink-0 items-center gap-2 text-md font-bold text-ink no-underline max-sm:flex"
         >
           <BrandSymbol />
           <span>Publisense</span>
         </Link>
-        <SearchWell className="max-w-dialog flex-1 max-sm:hidden" />
-        <span className="ml-auto flex items-center gap-2">
+        {pathname !== '/search' ? <SearchWell className="max-w-dialog flex-1 max-sm:hidden" /> : null}
+        <span className="ml-auto flex shrink-0 items-center gap-2">
           {viewer ? <NotificationBell count={unread} /> : null}
           {!viewer && ready ? (
             <span className="contents lg:hidden">
-              <Button size="sm" variant="secondary" onClick={() => openAuth('signin')}>
+              <Button size="sm" onClick={() => openAuth('signin')}>
                 Sign in
               </Button>
             </span>

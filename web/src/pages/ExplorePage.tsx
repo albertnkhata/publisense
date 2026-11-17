@@ -1,62 +1,47 @@
-import { useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router';
-import { CATEGORIES, isLive, isProductFamily, matchCatalogue, useBoards, useHubs, useTrending, useWanted, type Board, type BoardCategory, type Hub } from '../api';
-import { BoardCard, CardGrid, ChoiceMenu, HubRow, PostRow, RowItem, RowList, Section, type Choice } from '../boards/parts';
-import { cx } from '../lib/cx';
+import { useMemo } from 'react';
+import { Navigate, useSearchParams } from 'react-router';
+import { CATEGORIES, isLive, isProductFamily, matchCatalogue, useBoards, useHubs, useTrending, type Board, type BoardCategory, type Hub } from '../api';
+import { BoardCard, CardGrid, HubRow, RowItem, RowList, Section } from '../boards/parts';
+import { CategoriesSection, DiscoveryBoardsSection, HubsSection, PopularPostsSection } from '../discovery/DiscoverySections';
 import { usePageTitle } from '../lib/usePageTitle';
-import { trendingNote, trendingTitle } from '../lib/trendingCopy';
 import { useSetUrlParams, useUrlTextParam } from '../lib/useUrlParam';
 import { LoadError } from '../posts/PostList';
 import { AddProductLink } from '../products/AddProductDialog';
 import { SearchWell } from '../shell/SearchWell';
-import { Button, EmptyState, Icon, ScrollRow, SkeletonBlock } from '../ui';
+import { Button, EmptyState, Icon, SkeletonBlock } from '../ui';
 
 /**
- * Explore (FOUNDATION §9 `/explore`): find products and follow their boards.
- * With no query or category: Trending this week, Hubs, Most wanted, Fresh bugs,
- * New on Publisense and All products (sections with nothing to show are left
- * out; Trending needs a board with new posts this week, and Most wanted reads
- * "Latest requests" until something has an upvote, #156). Typing or picking a category filters boards and hubs instead. Both live
- * in the URL (`?q=`, `?cat=`). Search itself is the shell's site search (shown as a field at the top on phones); `?q=` only
- * survives for old links.
+ * Explore (`/explore`): signed-in discovery directory with wide layout (`EXPLORE_PAGE`).
+ * Shows header + search trigger, Trending, Popular posts by status, Hubs, and the
+ * 3-column Categories grid linking to dedicated `/c/:category` pages.
  */
 type Cat = 'all' | BoardCategory;
-type ProductSort = 'name' | 'followers' | 'posts';
-
-const PRODUCT_SORTS: Choice<ProductSort>[] = [
-  { value: 'name', label: 'A–Z', hint: 'Alphabetical' },
-  { value: 'followers', label: 'Most followed', hint: 'Highest follower count' },
-  { value: 'posts', label: 'Most posts', hint: 'Most feedback shared' },
-];
 
 export function ExplorePage() {
   usePageTitle('Explore');
   const [params] = useSearchParams();
-  // The field keeps its own state so fast typing never drops a character; the
-  // URL follows shortly after.
   const [q, setQ] = useUrlTextParam('q');
   const setUrl = useSetUrlParams();
   const catParam = params.get('cat');
   const cat: Cat = (CATEGORIES.find((c) => c.value === catParam)?.value ?? 'all') as Cat;
   const boards = useBoards();
   const hubs = useHubs();
-  // Only chips with something behind them: categories with a live board, plus the
-  // one in the URL. All of them while the boards are still loading.
-  const used = boards.data ? new Set(boards.data.filter(isLive).map((b) => b.category)) : null;
-  const chips = CATEGORIES.filter((c) => c.value === 'all' || c.value === cat || !used || used.has(c.value));
+
+  if (cat !== 'all') {
+    return <Navigate to={`/c/${cat}`} replace />;
+  }
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
-      {/* The nav rail already says where you are; the heading stays for screen readers. */}
       <h1 id="page-title" className="sr-only">
         Explore
       </h1>
-      {/* Phones get the site search as a full field here (the top bar drops its icon on
-          Explore); larger screens already show it in the top bar or right rail. An old
-          /explore?q= link still filters, shown as a chip you can clear. */}
-      <SearchWell className="mb-4 hidden max-sm:block" />
-      <ScrollRow label="Categories" className="mb-6">
-        {q.trim() ? (
+      <SearchWell
+        className="mb-6"
+        triggerClassName="h-9 border-line-strong text-md"
+      />
+      {q.trim() ? (
+        <div className="mb-4 flex items-center gap-2">
           <button
             type="button"
             onClick={() => setQ('')}
@@ -66,42 +51,27 @@ export function ExplorePage() {
             “{q.trim()}”
             <Icon name="close" size={14} />
           </button>
-        ) : null}
-        {chips.map((c) => (
-          <button
-            key={c.value}
-            type="button"
-            aria-pressed={cat === c.value}
-            onClick={() => setUrl([['cat', c.value, 'all']])}
-            className={cx(
-              'h-7 shrink-0 rounded-pill border px-3 text-sm font-medium transition-colors duration-120',
-              cat === c.value ? 'border-ink bg-ink text-card' : 'border-line bg-card text-ink-secondary hover:border-line-strong hover:text-ink',
-            )}
-          >
-            {c.label}
-          </button>
-        ))}
-      </ScrollRow>
+        </div>
+      ) : null}
       {boards.isPending || hubs.isPending ? (
         <ExploreSkeleton />
       ) : boards.isError || hubs.isError ? (
         <LoadError
-          title="We couldn’t load the boards"
+          title="We couldn’t load the products"
           onRetry={() => {
             void boards.refetch();
             void hubs.refetch();
           }}
           retrying={boards.isRefetching || hubs.isRefetching}
         />
-      ) : q.trim() || cat !== 'all' ? (
+      ) : q.trim() ? (
         <Filtered
           q={q.trim()}
-          cat={cat}
           boards={boards.data.filter(isLive)}
           hubs={hubs.data.filter((h) => isProductFamily(h.boards.length))}
           onClear={() => {
             setQ('');
-            setUrl([['q', '', ''], ['cat', 'all', 'all']]);
+            setUrl([['q', '', '']]);
           }}
         />
       ) : (
@@ -112,29 +82,22 @@ export function ExplorePage() {
   );
 }
 
-function Filtered({ q, cat, boards, hubs, onClear }: { q: string; cat: Cat; boards: Board[]; hubs: Hub[]; onClear: () => void }) {
-  const { list, hubList } = useMemo(() => {
-    const inCat = (b: Board) => cat === 'all' || b.category === cat;
-    const matched = q ? matchCatalogue(q, boards, hubs) : { boards, hubs: [] as typeof hubs };
-    return {
-      list: matched.boards.filter(inCat),
-      hubList: q ? matched.hubs.filter((h) => cat === 'all' || h.boards.some(inCat)) : hubs.filter((h) => h.boards.some(inCat)),
-    };
-  }, [q, cat, boards, hubs]);
-  const title = q ? 'Results' : (CATEGORIES.find((c) => c.value === cat)?.label ?? 'Results');
+function Filtered({ q, boards, hubs, onClear }: { q: string; boards: Board[]; hubs: Hub[]; onClear: () => void }) {
+  const { boards: list, hubs: hubList } = useMemo(() => matchCatalogue(q, boards, hubs), [q, boards, hubs]);
+  const title = 'Results';
   if (list.length === 0 && hubList.length === 0) {
     return (
       <div className="mb-6 rounded-md border border-line bg-card">
         <EmptyState
           icon="explore"
-          title={q ? `No products match “${q}”.` : 'No products in this category yet.'}
+          title={`No products match “${q}”.`}
           action={
             <Button size="sm" variant="secondary" onClick={onClear}>
-              {q ? 'Clear filters' : 'Show all products'}
+              Clear filters
             </Button>
           }
         >
-          {q ? 'Try a different spelling or browse all categories.' : 'Browse another category or add the product you use below.'}
+          Try a different spelling or browse all categories.
         </EmptyState>
       </div>
     );
@@ -154,7 +117,7 @@ function Filtered({ q, cat, boards, hubs, onClear }: { q: string; cat: Cat; boar
       ) : null}
       {list.length ? (
         <Section id="ex-results" title={title} action={`${list.length} ${list.length === 1 ? 'product' : 'products'}`}>
-          <CardGrid label={title}>
+          <CardGrid cols={3} label={title}>
             {list.map((b) => (
               <li key={b.id} className="min-w-0">
                 <BoardCard board={b} />
@@ -168,119 +131,30 @@ function Filtered({ q, cat, boards, hubs, onClear }: { q: string; cat: Cat; boar
 }
 
 function Discover({ boards, hubs }: { boards: Board[]; hubs: Hub[] }) {
-  const trending = useTrending(boards, 4);
-  const wanted = useWanted();
-  const [productSort, setProductSort] = useState<ProductSort>('name');
+  const trending = useTrending(boards, 6);
   const now = useMemo(() => new Date(), []);
-  const mostWanted = useMemo(() => (wanted.data ?? []).slice(0, 5), [wanted.data]);
-  const freshBugs = useMemo(
-    () =>
-      (wanted.data ?? [])
-        .filter((p) => p.type === 'bug')
-        .sort((a, b) => b.created_at.localeCompare(a.created_at))
-        .slice(0, 3),
-    [wanted.data],
-  );
-  const { fresh, all } = useMemo(
-    () => ({
-      fresh: boards
-        .filter((b) => now.getTime() - new Date(b.created_at).getTime() <= 30 * 86400_000)
-        .sort((a, b) => b.created_at.localeCompare(a.created_at))
-        .slice(0, 4),
-      all: [...boards].sort((a, b) => {
-        if (productSort === 'followers') return b.follower_count - a.follower_count || a.name.localeCompare(b.name);
-        if (productSort === 'posts') return b.post_count - a.post_count || a.name.localeCompare(b.name);
-        return a.name.localeCompare(b.name);
-      }),
-    }),
-    [boards, now, productSort],
-  );
-  // Requests rank by upvotes, then newest. With no upvotes yet that is just
-  // newest, so the label says so (#156).
-  const anyVotes = mostWanted.some((p) => p.vote_count > 0);
-  const wantedTitle = anyVotes ? 'Most wanted' : 'Latest requests';
 
   return (
     <>
-      {trending.data && trending.data.length ? (
-        // Same rule as the rail: under three rows this is not a ranking, so it says what it is.
-        <Section id="ex-trending" title={trendingTitle(trending.data.length)} note={trendingNote(trending.data.length)}>
-          <CardGrid label="Boards with new posts this week">
-            {trending.data.map((b) => (
-              <li key={b.id} className="min-w-0">
-                <BoardCard board={b} now={now} />
-              </li>
-            ))}
-          </CardGrid>
-        </Section>
-      ) : null}
-      {hubs.length ? (
-        <Section id="ex-hubs" title="Hubs" note="Product families in one place">
-          <RowList label="Hubs">
-            {hubs.map((h) => (
-              <RowItem key={h.id}>
-                <HubRow hub={h} />
-              </RowItem>
-            ))}
-          </RowList>
-        </Section>
-      ) : null}
-      {mostWanted.length ? (
-        <Section id="ex-wanted" title={wantedTitle} note={anyVotes ? 'Top requests across all boards' : 'Newest across all boards'}>
-          <RowList label={wantedTitle}>
-            {mostWanted.map((p) => (
-              <RowItem key={p.id}>
-                <PostRow post={p} />
-              </RowItem>
-            ))}
-          </RowList>
-        </Section>
-      ) : null}
-      {freshBugs.length ? (
-        <Section id="ex-bugs" title="Fresh bugs" note={freshBugs.some((p) => p.vote_count > 0) ? 'Newly reported problems people are upvoting' : 'Newly reported problems'}>
-          <RowList label="Fresh bugs">
-            {freshBugs.map((p) => (
-              <RowItem key={p.id}>
-                <PostRow post={p} />
-              </RowItem>
-            ))}
-          </RowList>
-        </Section>
-      ) : null}
-      {fresh.length ? (
-        <Section id="ex-new" title="New on Publisense" note="Boards added recently">
-          <CardGrid label="New on Publisense">
-            {fresh.map((b) => (
-              <li key={b.id} className="min-w-0">
-                <BoardCard board={b} now={now} />
-              </li>
-            ))}
-          </CardGrid>
-        </Section>
-      ) : null}
-      <Section
-        id="ex-all"
-        title="All products"
+      <DiscoveryBoardsSection
+        id="ex-trending"
+        boards={boards}
+        trending={trending.data ?? []}
+        now={now}
         action={
-          <span className="inline-flex items-center gap-2">
-            <span>{all.length}</span>
-            <ChoiceMenu label="Sort products" heading="Sort by" align="end" value={productSort} choices={PRODUCT_SORTS} onChange={setProductSort} />
-          </span>
+          <AddProductLink className="font-medium text-ink-muted hover:text-brand">
+            + Add a missing product
+          </AddProductLink>
         }
-      >
-        <CardGrid label="All products">
-          {all.map((b) => (
-            <li key={b.id} className="min-w-0">
-              <BoardCard board={b} now={now} />
-            </li>
-          ))}
-        </CardGrid>
-      </Section>
+      />
+      <PopularPostsSection id="ex-popular" />
+      <HubsSection id="ex-hubs" hubs={hubs} />
+      <CategoriesSection id="ex-categories" boards={boards} />
     </>
   );
 }
 
-/** Bottom of the boards list: the way to add a product that isn't here yet. */
+/** Bottom of Explore: the way to add a product that isn't here yet. */
 function MissingProduct({ q }: { q: string }) {
   return (
     <p className="m-0 rounded-md border border-dashed border-line-strong bg-card px-4 py-4 text-center text-base text-ink-secondary">
@@ -297,8 +171,8 @@ function ExploreSkeleton() {
           <SkeletonBlock className="h-4 w-1/3" />
           <SkeletonBlock className="h-3 w-1/5" />
         </div>
-        <div className="grid grid-cols-2 gap-3 max-md:grid-cols-1">
-          {[0, 1, 2, 3].map((i) => (
+        <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-2 max-sm:grid-cols-1">
+          {[0, 1, 2].map((i) => (
             <div key={i} className="flex flex-col gap-3 rounded-md border border-line bg-card p-4">
               <div className="flex items-center gap-3">
                 <SkeletonBlock className="size-9 rounded-lg" />

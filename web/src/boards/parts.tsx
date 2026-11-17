@@ -224,7 +224,7 @@ export function PostRow({ post }: { post: PostSummary }) {
             title can run past the vote count and be cut at the card edge. */}
         <span className="text-base font-semibold wrap-anywhere">{post.title}</span>
         <span className="text-sm text-ink-muted">
-          {b?.name ?? 'Unknown board'} · {TYPE_META[post.type].label} · {shortAge(post.created_at)}
+          {b?.name ?? 'Unknown product'} · {TYPE_META[post.type].label} · {shortAge(post.created_at)}
         </span>
       </span>
       <VoteCount count={post.vote_count} />
@@ -319,9 +319,15 @@ export function Section({
   );
 }
 
-export function CardGrid({ children, label }: { children: ReactNode; label?: string }) {
+export function CardGrid({ children, label, cols = 2 }: { children: ReactNode; label?: string; cols?: 2 | 3 }) {
   return (
-    <ul aria-label={label} className="m-0 grid list-none grid-cols-2 gap-3 p-0 max-md:grid-cols-1">
+    <ul
+      aria-label={label}
+      className={cx(
+        'm-0 grid list-none gap-3 p-0',
+        cols === 3 ? 'grid-cols-3 max-lg:grid-cols-2 max-sm:grid-cols-1' : 'grid-cols-2 max-md:grid-cols-1',
+      )}
+    >
       {children}
     </ul>
   );

@@ -193,7 +193,7 @@ function PostHead({
     );
   }
 
-  const boardName = board?.name ?? 'Unknown board';
+  const boardName = board?.name ?? 'Unknown product';
   const credit =
     kind === 'seeded' ? (
       post.source_url ? (
@@ -240,7 +240,7 @@ function PostHead({
 /** The detail-page header has no avatar rail: its product icon and post text share the same left edge. */
 function PagePostHead({ post, boardDetail }: { post: Post; boardDetail: BoardWithHub | null }) {
   const board = post.board;
-  const boardName = board?.name ?? 'Unknown board';
+  const boardName = board?.name ?? 'Unknown product';
   const kind = postKind(post);
   const time = (
     <Dot>
@@ -303,19 +303,15 @@ function PagePostHead({ post, boardDetail }: { post: Post; boardDetail: BoardWit
               Verified team
             </span>
           ) : null}
-          <Dot>
-            <TypePill type={post.type} />
-          </Dot>
+          {stats ? <Dot>{stats}</Dot> : null}
+        </div>
+        <div className={cx(row, 'mt-1')}>
+          <TypePill type={post.type} />
           {platform}
           {time}
           {edited}
         </div>
-        {credit || stats ? (
-          <div className={cx(row, 'mt-1')}>
-            {credit}
-            {credit && stats ? <Dot>{stats}</Dot> : stats ? <span>{stats}</span> : null}
-          </div>
-        ) : null}
+        {credit ? <div className={cx(row, 'mt-1')}>{credit}</div> : null}
       </div>
       {canFollowBoard && board ? <FollowScopeButton target="board" id={board.id} name={board.name} size="sm" className="shrink-0" /> : null}
     </div>

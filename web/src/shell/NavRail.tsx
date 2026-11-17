@@ -91,11 +91,13 @@ export function NavRail() {
             </button>
           </Tooltip>
         ) : (
-          <Link to="/" aria-label="Publisense home" className="flex h-8 items-center rounded-md text-ink no-underline">
+          <Link to="/" aria-label="Publisense home" className="flex h-8 items-center overflow-hidden rounded-md text-ink no-underline">
             <span className="grid h-8 w-gutter shrink-0 place-items-center">
               <BrandSymbol />
             </span>
-            <span className={cx('text-lg font-bold transition-opacity duration-120', collapsed && 'opacity-0')}>Publisense</span>
+            <span className={cx('text-lg font-bold whitespace-nowrap transition-opacity duration-120', collapsed && 'pointer-events-none opacity-0')}>
+              Publisense
+            </span>
           </Link>
         )}
       </div>

@@ -35,7 +35,10 @@ export function SearchPage() {
   // but not when the change is our own debounced push of what is being typed.
   const pushed = useRef<string | null>(null);
   useEffect(() => {
-    if (pushed.current === urlQ) return;
+    if (pushed.current !== null && pushed.current === urlQ) {
+      pushed.current = null;
+      return;
+    }
     pushed.current = null;
     setQ(urlQ);
   }, [urlQ]);
@@ -82,7 +85,7 @@ export function SearchPage() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search products, posts, hubs"
-            aria-label="Search products, posts and hubs"
+            aria-label="Search products, posts, hubs"
             autoComplete="off"
             enterKeyHint="search"
             className="w-full min-w-0 appearance-none border-0 bg-transparent text-md text-ink outline-none focus-visible:outline-none"
@@ -171,12 +174,12 @@ function Results({ q, tab, setTab }: { q: string; tab: SearchTab; setTab: (t: Se
   const search = useSearch(q, viewer?.id ?? null);
   const people = usePeopleSearch(q).data ?? [];
 
-  // Remember a search once its results are on screen.
+  // Remember a search once its real results are on screen.
   useEffect(() => {
-    if (search.isSuccess) rememberSearch(q);
-  }, [search.isSuccess, q]);
+    if (search.isSuccess && !search.isPlaceholderData) rememberSearch(q);
+  }, [search.isSuccess, search.isPlaceholderData, q]);
 
-  if (search.isPending) return <PostListSkeleton count={2} />;
+  if (search.isPending || search.isPlaceholderData) return <PostListSkeleton count={2} />;
   if (search.isError) return <LoadError title="We couldn’t search right now" onRetry={() => void search.refetch()} retrying={search.isRefetching} />;
 
   const { boards, hubs, posts } = search.data;

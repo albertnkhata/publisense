@@ -65,3 +65,49 @@ export function clearPostDraft(viewerId: string | null): void {
     // ignore
   }
 }
+
+export interface PendingComposerOpts {
+  board?: string;
+  hub?: string;
+  title?: string;
+}
+
+const PENDING_INTENT_KEY = 'publisense:pending-composer';
+const PENDING_INTENT_TTL_MS = 30 * 60_000;
+
+export function savePendingComposerIntent(opts: PendingComposerOpts): void {
+  try {
+    const clean: PendingComposerOpts & { ts: number } = { ts: Date.now() };
+    if (opts.board) clean.board = opts.board;
+    if (opts.hub) clean.hub = opts.hub;
+    if (opts.title) clean.title = opts.title;
+    window.localStorage.setItem(PENDING_INTENT_KEY, JSON.stringify(clean));
+  } catch {
+    // Storage blocked: skip handoff persistence.
+  }
+}
+
+export function consumePendingComposerIntent(): PendingComposerOpts | null {
+  try {
+    const raw = window.localStorage.getItem(PENDING_INTENT_KEY);
+    if (!raw) return null;
+    window.localStorage.removeItem(PENDING_INTENT_KEY);
+    const parsed = JSON.parse(raw) as Partial<PendingComposerOpts & { ts: number }>;
+    if (typeof parsed.ts !== 'number' || Date.now() - parsed.ts > PENDING_INTENT_TTL_MS) return null;
+    const out: PendingComposerOpts = {};
+    if (typeof parsed.board === 'string') out.board = parsed.board;
+    if (typeof parsed.hub === 'string') out.hub = parsed.hub;
+    if (typeof parsed.title === 'string') out.title = parsed.title;
+    return out;
+  } catch {
+    return null;
+  }
+}
+
+export function clearPendingComposerIntent(): void {
+  try {
+    window.localStorage.removeItem(PENDING_INTENT_KEY);
+  } catch {
+    // ignore
+  }
+}

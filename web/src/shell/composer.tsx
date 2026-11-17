@@ -48,20 +48,27 @@ import {
   sourceLabel,
 } from '../api';
 import { cx } from '../lib/cx';
-import { clearPostDraft, loadPostDraft, savePostDraft } from '../lib/postDraft';
+import {
+  clearPendingComposerIntent,
+  clearPostDraft,
+  consumePendingComposerIntent,
+  loadPostDraft,
+  savePendingComposerIntent,
+  savePostDraft,
+} from '../lib/postDraft';
 import { useViewer } from '../lib/viewer';
 import { AddImagesButton, DraftImages, imageFiles, useImageDraft } from '../posts/ImageDraft';
 import { PlatformField } from '../posts/PlatformField';
 import { VoteButton } from '../posts/VoteButton';
 import { AlertDialog, BoardAvatar, Button, Dialog, IconButton, Field, Icon, Input, Menu, MenuItemRadio, STATUS_META, TYPE_META, useToast } from '../ui';
-import { useRequireAuth } from './auth';
+import { useAuthDialog } from './auth';
 import { useAddProduct } from '../products/AddProductDialog';
 
 /**
  * The Composer (FOUNDATION §5): board picker (with a product picker when opened
  * from a hub), type, title with similar-post suggestions, details. Opened from
  * anywhere (nav CTA, tab bar, "C", board and hub headers, search). Signed out,
- * opening it asks for sign-in instead.
+ * opening it asks for sign-in instead and resumes once signed in.
  */
 export interface ComposerOptions {
   /** Preselect this board (slug). */
@@ -87,21 +94,33 @@ interface ComposerCtx {
 const ComposerContext = createContext<ComposerCtx | null>(null);
 
 export function ComposerProvider({ children }: { children: ReactNode }) {
-  const requireAuth = useRequireAuth();
+  const { viewer } = useViewer();
+  const { openAuth } = useAuthDialog();
   const [state, setState] = useState<{ open: boolean; opts: ComposerOptions; key: number }>({ open: false, opts: {}, key: 0 });
   const openComposer = useCallback(
     (opts?: ComposerOptions) => {
-      if (!requireAuth('post feedback')) return;
       // Guard against being handed a click event as `opts`.
       const clean: ComposerOptions =
         opts && typeof opts === 'object' && !('nativeEvent' in opts)
           ? { board: opts.board, hub: opts.hub, title: opts.title, firstPost: opts.firstPost, onClaim: opts.onClaim, seed: opts.seed, draft: opts.draft }
           : {};
+      if (!viewer) {
+        savePendingComposerIntent({ board: clean.board, hub: clean.hub, title: clean.title });
+        openAuth('signin', 'post feedback', { onCancel: clearPendingComposerIntent });
+        return;
+      }
       recordEvent('composer_open');
       setState((s) => ({ open: true, opts: clean, key: s.key + 1 }));
     },
-    [requireAuth],
+    [viewer, openAuth],
   );
+  useEffect(() => {
+    if (!viewer || state.open) return;
+    const pending = consumePendingComposerIntent();
+    if (!pending) return;
+    recordEvent('composer_open');
+    setState((s) => ({ open: true, opts: pending, key: s.key + 1 }));
+  }, [viewer, state.open]);
   const close = useCallback(() => setState((s) => ({ ...s, open: false })), []);
   // Picking a draft starts a fresh composer on it.
   const openDraft = useCallback((draft: SavedDraft) => setState((s) => ({ open: true, opts: { draft }, key: s.key + 1 })), []);

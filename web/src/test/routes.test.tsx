@@ -1,14 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { routes } from '../App';
 import { Providers } from '../Providers';
+import { ThemeProvider } from '../lib/ThemeProvider';
+import { StaticViewerProvider, type Viewer } from '../lib/viewer';
 import { shellLayoutFor } from '../shell/layout';
+import { ToastProvider } from '../ui';
+import { TEST_VIEWER } from './renderApp';
 
 // FOUNDATION §9, with sample params. Each must render a page heading, not NotFound.
 const CASES: Array<[string, string]> = [
-  ['/', 'Home'],
+  ['/', 'Find any product. Shape what ships next.'],
   ['/explore', 'Explore'],
+  ['/c/dev', 'Dev platforms'],
   ['/search?q=dark%20mode', 'Search'],
   ['/b/supabase', 'Loading board'], // board and hub pages fetch first (no Supabase here)
   ['/b/supabase?tab=roadmap', 'Loading board'],
@@ -33,8 +39,23 @@ const CASES: Array<[string, string]> = [
   ['/admin/companies', 'Sign in'],
 ];
 
-function renderAt(path: string) {
+function renderAt(path: string, viewer?: Viewer | null) {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
+  if (viewer !== undefined) {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ThemeProvider>
+          <StaticViewerProvider initial={viewer}>
+            <ToastProvider>
+              <RouterProvider router={router} />
+            </ToastProvider>
+          </StaticViewerProvider>
+        </ThemeProvider>
+      </QueryClientProvider>,
+    );
+    return;
+  }
   render(
     <Providers>
       <RouterProvider router={router} />
@@ -48,6 +69,21 @@ describe('routes', () => {
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(heading);
   });
 
+  it('/ renders the Home feed inside the app shell when signed in', () => {
+    renderAt('/', TEST_VIEWER);
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Home');
+    expect(screen.getByRole('complementary', { name: 'Main navigation' })).toBeTruthy();
+    expect(screen.getByRole('complementary', { name: 'Sidebar' })).toBeTruthy();
+    expect(document.getElementById('main')!.className).toContain('max-w-content');
+  });
+
+  it('/?scope=following keeps the app shell for the sign-in gate even when signed out', () => {
+    renderAt('/?scope=following');
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Following');
+    expect(screen.getByRole('complementary', { name: 'Main navigation' })).toBeTruthy();
+    expect(screen.getByRole('complementary', { name: 'Sidebar' })).toBeTruthy();
+  });
+
   it('unknown paths render NotFound inside the shell', () => {
     renderAt('/nope/really');
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Page not found');
@@ -55,15 +91,18 @@ describe('routes', () => {
   });
 
   // The right rail (search, boards card, claim line) is opt-out per route via `handle`
-  // (shell/layout.ts). Browsing pages keep it; task pages drop it, wide or narrow.
+  // (shell/layout.ts). Browsing pages keep it; Explore and task pages drop it, wide or narrow.
+  // Signed-out `/` swaps the app chrome for the landing header and footer.
   const paths = CASES.map(([p]) => p);
-  const WIDE = [...paths.filter((p) => p.startsWith('/admin')), '/b/supabase/manage', '/h/acme/manage'];
+  const WIDE_NO_TOPBAR = [...paths.filter((p) => p.startsWith('/admin')), '/explore', '/c/dev'];
+  const WIDE = [...WIDE_NO_TOPBAR, '/b/supabase/manage', '/h/acme/manage'];
   const NARROW = ['/notifications', '/settings'];
   const SITE = ['/about', '/privacy', '/terms', '/auth/reset', '/unsubscribe?token=abc'];
-  const RAIL = ['/', '/explore', '/search?q=dark%20mode', '/b/supabase', '/b/supabase?tab=roadmap', '/h/acme', '/post/123', '/u/alex', '/no/such/page'];
+  const LANDING = ['/'];
+  const RAIL = ['/search?q=dark%20mode', '/b/supabase', '/b/supabase?tab=roadmap', '/h/acme', '/post/123', '/u/alex', '/no/such/page'];
 
   it('every route case is classified', () => {
-    expect([...WIDE, ...NARROW, ...SITE, ...RAIL.filter((p) => p !== '/no/such/page')].sort()).toEqual([...paths].sort());
+    expect([...WIDE, ...NARROW, ...SITE, ...LANDING, ...RAIL.filter((p) => p !== '/no/such/page')].sort()).toEqual([...paths].sort());
   });
 
   function expectNoRail(topBarOnDesktop = true) {
@@ -73,15 +112,15 @@ describe('routes', () => {
       expect(header.className.split(/\s+/)).toContain('flex');
       expect(header.className).not.toContain('max-lg:flex');
     } else {
-      // Staff pages: the top bar is gone from lg up and kept below it.
+      // Explore and staff pages: the top bar is gone from lg up and kept below it.
       expect(header.className.split(/\s+/)).toEqual(expect.arrayContaining(['hidden', 'max-lg:flex']));
     }
     expect(screen.getAllByRole('button', { name: /search/i }).length).toBeGreaterThan(0);
   }
 
-  it.each(WIDE)('%s has no right rail and a wide column; the top bar is desktop-free only on /admin', (path) => {
+  it.each(WIDE)('%s has no right rail and a wide column; the top bar is desktop-free on /explore and /admin', (path) => {
     renderAt(path);
-    expectNoRail(!path.startsWith('/admin'));
+    expectNoRail(!WIDE_NO_TOPBAR.includes(path));
     const main = document.getElementById('main')!;
     expect(main.className).toContain('max-w-wide');
     expect(main.className).not.toContain('max-w-content');
@@ -93,6 +132,23 @@ describe('routes', () => {
     const main = document.getElementById('main')!;
     expect(main.className).toContain('max-w-content');
     expect(main.className).not.toContain('max-w-wide');
+  });
+
+  it.each(LANDING)('%s signed out uses the dedicated landing header and footer without nav rail or right rail', (path) => {
+    renderAt(path);
+    expect(screen.queryByRole('complementary', { name: 'Main navigation' })).toBeNull();
+    expect(screen.queryByRole('complementary', { name: 'Sidebar' })).toBeNull();
+    expect(screen.queryByRole('navigation', { name: 'Primary' })).toBeNull();
+    const header = screen.getByRole('banner');
+    expect(within(header).getByRole('link', { name: 'Publisense home' }).getAttribute('href')).toBe('/');
+    expect(within(header).getByRole('button', { name: 'Sign in' })).toBeTruthy();
+    expect(within(header).queryByRole('button', { name: 'Join Publisense' })).toBeNull();
+    expect(within(header).queryByRole('link', { name: 'Explore' })).toBeNull();
+    const footer = screen.getByRole('contentinfo', { name: 'Site footer' });
+    expect(within(footer).getByText('© 2026 Publisense')).toBeTruthy();
+    expect(within(footer).queryByText('Publisense · Public feedback index')).toBeNull();
+    expect(within(footer).queryByRole('button', { name: 'Claim a product' })).toBeNull();
+    expect(within(footer).getByRole('link', { name: 'About' }).getAttribute('href')).toBe('/about');
   });
 
   // The site pages are standalone website pages: a header with brand, About · Terms · Privacy
@@ -137,6 +193,17 @@ describe('routes', () => {
     expect(within(legal).getByRole('link', { name: 'Privacy' }).getAttribute('href')).toBe('/privacy');
     expect(within(rail).getByText('© 2026 Publisense')).toBeTruthy();
   });
+
+  it('omits duplicate search triggers on /search, keeps Sign in in TopBar, and puts Post feedback inside TabBar', () => {
+    renderAt('/search?q=dark%20mode');
+    expect(screen.queryByRole('button', { name: 'Search products, posts, hubs' })).toBeNull();
+    expect(screen.getAllByRole('searchbox')).toHaveLength(1);
+    const header = screen.getByRole('banner');
+    expect(within(header).getByRole('button', { name: 'Sign in' })).toBeTruthy();
+    expect(within(header).queryByRole('button', { name: 'Join Publisense' })).toBeNull();
+    const tabBar = screen.getAllByRole('navigation', { name: 'Primary' }).find((el) => el.className.includes('bottom-0'))!;
+    expect(within(tabBar).getByRole('button', { name: 'Post feedback' })).toBeTruthy();
+  });
 });
 
 describe('shellLayoutFor', () => {
@@ -179,7 +246,7 @@ describe('vercel.json SPA rewrites', () => {
   it('rewrites public site and app entry paths to /index.html', async () => {
     const { default: vercel } = await import('../../vercel.json');
     const spaSources = new Set(vercel.rewrites.filter((r) => r.destination === '/index.html').map((r) => r.source));
-    for (const path of ['/explore', '/search', '/notifications', '/messages', '/settings', '/about', '/privacy', '/terms', '/unsubscribe', '/auth/reset']) {
+    for (const path of ['/explore', '/c/:category', '/search', '/notifications', '/messages', '/settings', '/about', '/privacy', '/terms', '/unsubscribe', '/auth/reset']) {
       expect(spaSources.has(path)).toBe(true);
     }
   });

@@ -296,7 +296,7 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
               ref={emailRef}
               type="email"
               aria-label="Email address"
-              placeholder="you@company.com"
+              placeholder="you@example.com"
               autoComplete="email"
               value={email}
               onChange={(e) => {

@@ -358,7 +358,7 @@ describe('search modal without the composer', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Search products, posts, hubs' }));
     const modal = await screen.findByRole('dialog', { name: 'Search' });
-    const input = within(modal).getByRole('combobox', { name: 'Search products, posts and hubs' });
+    const input = within(modal).getByRole('combobox', { name: 'Search products, posts, hubs' });
     fireEvent.change(input, { target: { value: 'fig' } });
     const list = within(modal).getByRole('listbox', { name: 'Search suggestions' });
     expect(await within(list).findByText('Figma variables export')).toBeTruthy();
@@ -401,7 +401,7 @@ describe('search modal without the composer', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Search products, posts, hubs' }));
     const modal = await screen.findByRole('dialog', { name: 'Search' });
-    const input = within(modal).getByRole('combobox', { name: 'Search products, posts and hubs' });
+    const input = within(modal).getByRole('combobox', { name: 'Search products, posts, hubs' });
     fireEvent.change(input, { target: { value: 'dark mode' } });
     fireEvent.submit(input.closest('form')!);
     expect(router.state.location.pathname).toBe('/search');

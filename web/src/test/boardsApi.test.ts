@@ -16,6 +16,7 @@ import {
   resolveHubSlug,
   searchAll,
   setScopeFollow,
+  summarizeCategories,
   type Board,
   type Hub,
   type HubName,
@@ -346,6 +347,22 @@ describe('helpers', () => {
     expect(compactCount(950)).toBe('950');
     expect(compactCount(4100)).toBe('4.1k');
     expect(compactCount(12_400)).toBe('12k');
+  });
+
+  it('summarizes categories in canonical order, live boards only, top 3 by followers then posts', () => {
+    const out = summarizeCategories([
+      board({ id: 'c1', name: 'Zed', category: 'code', follower_count: 10, post_count: 5 }),
+      board({ id: 'c2', name: 'Cursor', category: 'code', follower_count: 100, post_count: 1 }),
+      board({ id: 'c3', name: 'VS Code', category: 'code', follower_count: 10, post_count: 20 }),
+      board({ id: 'c4', name: 'Neovim', category: 'code', follower_count: 1, post_count: 0 }),
+      board({ id: 'c5', name: 'Pending Code', category: 'code', status: 'pending', follower_count: 999 }),
+      board({ id: 'a1', name: 'Claude', category: 'ai', follower_count: 50 }),
+      board({ id: 'n1', name: 'Uncategorized', category: null, follower_count: 50 }),
+    ]);
+    expect(out).toEqual([
+      { category: 'ai', label: 'AI assistants', count: 1, examples: ['Claude'] },
+      { category: 'code', label: 'Code editors', count: 4, examples: ['Cursor', 'VS Code', 'Zed'] },
+    ]);
   });
 });
 

@@ -55,6 +55,8 @@ export interface ShellLayout {
 export const NO_RAIL_WIDE = { rail: false, width: 'wide' } as const satisfies ShellHandle;
 /** /admin: like NO_RAIL_WIDE, and no top bar on desktop. */
 export const STAFF_PAGE = { rail: false, width: 'wide', topBar: false } as const satisfies ShellHandle;
+/** /explore: wide directory without the redundant right rail or desktop top bar. */
+export const EXPLORE_PAGE = { rail: false, width: 'wide', topBar: false } as const satisfies ShellHandle;
 /** No rail, reading-width column: forms, lists and long text. */
 export const NO_RAIL_NARROW = { rail: false, width: 'narrow' } as const satisfies ShellHandle;
 /** Website header instead of the app's nav rail, reading-width column: the legal pages. */

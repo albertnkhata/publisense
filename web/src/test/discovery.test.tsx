@@ -5,12 +5,16 @@ import type { QueryClient } from '@tanstack/react-query';
 import { rememberSearch } from '../api/boards';
 import { boardKeys } from '../api';
 import { purgeUserQueryCache, useViewer } from '../lib/viewer';
-import type { FeedPage, Post } from '../api/posts';
+import type { FeedPage, PopularPostSummary, Post } from '../api/posts';
 import { BoardPage } from '../pages/BoardPage';
+import { CategoryPage } from '../pages/CategoryPage';
 import { ExplorePage } from '../pages/ExplorePage';
 import { HubPage } from '../pages/HubPage';
+import { LandingFooter, LandingHeader, LandingPage } from '../pages/LandingPage';
 import { SearchPage } from '../pages/SearchPage';
 import { ClaimProvider } from '../claim/ClaimDialog';
+import { savePendingComposerIntent } from '../lib/postDraft';
+import { AddProductProvider } from '../products/AddProductDialog';
 import { ComposerProvider } from '../shell/composer';
 import { SearchWell } from '../shell/SearchWell';
 import { CURSOR, FIGJAM, FIGMA, FIGMA_HUB, makeSummary, SUPABASE } from './boardFixtures';
@@ -34,6 +38,7 @@ const postsApi = vi.hoisted(() => ({
   fetchPostList: vi.fn(),
   fetchRoadmap: vi.fn(),
   fetchChangelog: vi.fn(),
+  fetchPopularByStatus: vi.fn(),
   fetchWanted: vi.fn(),
   fetchSimilar: vi.fn(),
   createPost: vi.fn(),
@@ -45,21 +50,32 @@ vi.mock('../api/posts', async (importOriginal) => ({ ...(await importOriginal<ty
 
 const page = (items: Post[], next: number | null = null): FeedPage => ({ items, next });
 const emptyRoadmap = { planned: [], in_progress: [], shipped: [] };
+const makePopular = (over: Partial<PopularPostSummary> = {}): PopularPostSummary => ({
+  ...makeSummary({ status: 'under_review' }),
+  has_official_reply: false,
+  voted: false,
+  following: false,
+  ...over,
+});
 
 function renderAt(path: string, signedIn = false, client?: QueryClient) {
   return renderWith(
     <ComposerProvider>
       <ClaimProvider>
-      <Routes>
-        <Route path="/b/:board" element={<BoardPage />} />
-        <Route path="/b/:board/manage" element={<h1>Manage page</h1>} />
-        <Route path="/h/:hub" element={<HubPage />} />
-        <Route path="/explore" element={<ExplorePage />} />
-        <Route path="/search" element={<SearchPage />} />
-        <Route path="/well" element={<SearchWell />} />
-        <Route path="/post/:id" element={<h1>Post page</h1>} />
-        <Route path="/" element={<h1>Home page</h1>} />
-      </Routes>
+        <AddProductProvider>
+          <Routes>
+            <Route path="/b/:board" element={<BoardPage />} />
+            <Route path="/b/:board/manage" element={<h1>Manage page</h1>} />
+            <Route path="/h/:hub" element={<HubPage />} />
+            <Route path="/c/:category" element={<CategoryPage />} />
+            <Route path="/explore" element={<ExplorePage />} />
+            <Route path="/search" element={<SearchPage />} />
+            <Route path="/well" element={<SearchWell />} />
+            <Route path="/post/:id" element={<h1>Post page</h1>} />
+            <Route path="/landing" element={<><LandingHeader /><LandingPage /><LandingFooter /></>} />
+            <Route path="/" element={<h1>Home page</h1>} />
+          </Routes>
+        </AddProductProvider>
       </ClaimProvider>
     </ComposerProvider>,
     { viewer: signedIn ? TEST_VIEWER : null, path, client },
@@ -86,8 +102,10 @@ beforeEach(() => {
   postsApi.fetchPostList.mockResolvedValue(page([makePost({ title: 'Composer drops edits' }), makePost({ title: 'Tab completion lag' })]));
   postsApi.fetchRoadmap.mockResolvedValue(emptyRoadmap);
   postsApi.fetchChangelog.mockResolvedValue([]);
+  postsApi.fetchPopularByStatus.mockResolvedValue([]);
   postsApi.fetchWanted.mockResolvedValue([]);
   postsApi.fetchSimilar.mockResolvedValue([]);
+  postsApi.setVote.mockResolvedValue(undefined);
 });
 
 describe('board page', () => {
@@ -307,7 +325,7 @@ describe('board page', () => {
     boardsApi.fetchBoard.mockResolvedValue(null);
     renderAt('/b/nope');
     expect(await screen.findByRole('heading', { level: 1, name: 'Board not found' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Explore boards' }).getAttribute('href')).toBe('/explore');
+    expect(screen.getByRole('link', { name: 'Explore products' }).getAttribute('href')).toBe('/explore');
   });
 
   it('does not leak pending board metadata to guests across identity changes (BUG-002)', async () => {
@@ -608,30 +626,116 @@ describe('header follower count', () => {
 });
 
 describe('explore', () => {
-  it('shows trending, hubs and every product', async () => {
+  it('shows search trigger, trending, popular posts, hubs and categories', async () => {
     boardsApi.fetchTrending.mockResolvedValue([{ ...SUPABASE, recent: 3 }]);
-    postsApi.fetchWanted.mockResolvedValue([makeSummary({ title: 'Branching for preview databases', status: 'open', type: 'feature', vote_count: 80 })]);
+    postsApi.fetchPopularByStatus.mockResolvedValue([
+      makePopular({ title: 'Branching for preview databases', vote_count: 80, has_official_reply: true }),
+    ]);
     renderAt('/explore');
+    expect((await screen.findByRole('heading', { level: 1, name: 'Explore' })).className).toContain('sr-only');
+    expect(screen.getByRole('button', { name: 'Search products, posts, hubs' })).toBeTruthy();
     // One board of activity: the section says what the rows are instead of claiming a ranking.
     expect(await screen.findByRole('heading', { name: 'New this week' })).toBeTruthy();
     expect(screen.getByRole('link', { name: /Figma hub/ }).getAttribute('href')).toBe('/h/figma');
     expect(await screen.findByText('Branching for preview databases')).toBeTruthy();
-    expect(screen.queryByRole('heading', { name: 'Fresh bugs' })).toBeNull(); // no bugs to show
-    const all = screen.getByRole('list', { name: 'All products' });
-    expect(within(all).getAllByRole('article').map((a) => within(a).getAllByRole('link')[0]?.textContent)).toEqual(['Cursor', 'FigJam', 'Figma', 'Supabase']);
+    expect(screen.getByText(/Team replied/)).toBeTruthy();
+    const cats = screen.getByRole('list', { name: 'Categories' });
+    expect(within(cats).getByText('Code editors')).toBeTruthy();
+    expect(within(cats).getByText('Design')).toBeTruthy();
+    expect(within(cats).getByText('Dev platforms')).toBeTruthy();
+    expect(cats.textContent).not.toMatch(/\b\d+\s+products?\b/);
+    expect(screen.getByRole('button', { name: 'All products →' })).toBeTruthy();
   });
 
-  it('has no search field of its own: the site search covers products', async () => {
+  it('shows Trending fallback and + Add a missing product on /explore when nothing is trending this week', async () => {
+    boardsApi.fetchTrending.mockResolvedValue([]);
     renderAt('/explore');
-    await screen.findByRole('list', { name: 'All products' });
-    expect(screen.queryByRole('searchbox', { name: 'Search products' })).toBeNull();
+    expect(await screen.findByRole('heading', { name: 'Trending' })).toBeTruthy();
+    const trendingList = screen.getByRole('list', { name: 'Trending products' });
+    expect(within(trendingList).getAllByRole('article').map((a) => within(a).getAllByRole('link')[0]?.textContent)).toEqual([
+      'Cursor',
+      'Supabase',
+      'Figma',
+      'FigJam',
+    ]);
+    expect(screen.getByRole('button', { name: '+ Add a missing product' })).toBeTruthy();
   });
 
-  it('filters by category', async () => {
+  it('switches Popular posts status tabs (including Open), upvotes optimistically, omits Browse all posts, and pre-scopes Search modal', async () => {
+    postsApi.fetchPopularByStatus.mockImplementation(async (status: string) => {
+      if (status === 'open') return [makePopular({ id: 'p-op', title: 'Open item', status: 'open', vote_count: 10 })];
+      if (status === 'under_review') return [makePopular({ id: 'p-ur', title: 'Review item', vote_count: 15 })];
+      if (status === 'planned') return [makePopular({ id: 'p-pl', title: 'Planned item', status: 'planned', vote_count: 25 })];
+      if (status === 'shipped') return [makePopular({ id: 'p-sh', title: 'Shipped item', status: 'shipped', vote_count: 40 })];
+      return [];
+    });
+    postsApi.fetchWanted.mockResolvedValue([makeSummary({ id: 'p-w1', title: 'Wanted request', vote_count: 40 })]);
+    renderAt('/explore', true);
+    expect(await screen.findByText('Open item')).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Open' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.queryByRole('button', { name: 'Browse all posts →' })).toBeNull();
+
+    // Upvote from Popular posts works optimistically
+    fireEvent.click(screen.getByRole('button', { name: 'Upvote, 10 votes' }));
+    expect(await screen.findByRole('button', { name: 'Remove upvote, 11 votes' })).toBeTruthy();
+    expect(postsApi.setVote).toHaveBeenCalledWith('p-op', TEST_VIEWER.id, true);
+
+    // Switch status tabs
+    fireEvent.click(screen.getByRole('tab', { name: 'Planned' }));
+    expect(await screen.findByText('Planned item')).toBeTruthy();
+    expect(postsApi.fetchPopularByStatus).toHaveBeenCalledWith('planned', TEST_VIEWER.id, 6);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Shipped' }));
+    expect(await screen.findByText('Shipped item')).toBeTruthy();
+    const shippedPanel = screen.getByRole('tabpanel', { name: 'Shipped' });
+    expect(within(shippedPanel).getByText('Shipped')).toBeTruthy();
+
+    // All products → opens Search modal pre-scoped to Products
+    fireEvent.click(screen.getByRole('button', { name: 'All products →' }));
+    const modal = await screen.findByRole('dialog', { name: 'Search' });
+    expect(within(modal).getByRole('button', { name: 'Products' }).getAttribute('aria-pressed')).toBe('true');
+    expect(await within(modal).findByRole('option', { name: /Cursor/ })).toBeTruthy();
+  });
+
+  it('defaults Popular posts to the first non-empty tab and hides the section when every tab is empty', async () => {
+    postsApi.fetchPopularByStatus.mockImplementation(async (status: string) =>
+      status === 'planned' ? [makePopular({ id: 'p-pl', title: 'Planned item', status: 'planned', vote_count: 12 })] : [],
+    );
+    const populated = renderAt('/explore');
+    expect(await screen.findByText('Planned item')).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Planned' }).getAttribute('aria-selected')).toBe('true');
+    populated.unmount();
+
+    postsApi.fetchPopularByStatus.mockResolvedValue([]);
     renderAt('/explore');
-    fireEvent.click(await screen.findByRole('button', { name: 'Dev platforms' }));
-    expect(await screen.findByText('1 product')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Dev platforms' }).getAttribute('aria-pressed')).toBe('true');
+    await screen.findByRole('list', { name: 'Categories' });
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Popular posts' })).toBeNull());
+  });
+
+  it('omits the category chip toolbar under Search and opens category cards on a dedicated page', async () => {
+    const { router } = renderAt('/explore', true);
+    const cats = await screen.findByRole('list', { name: 'Categories' });
+    expect(screen.queryByRole('toolbar', { name: 'Categories' })).toBeNull();
+    fireEvent.click(within(cats).getByRole('link', { name: /Dev platforms/ }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/c/dev'));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Dev platforms' })).toBeTruthy();
+    expect(screen.getByText('1 product')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Back to Explore' }).getAttribute('href')).toBe('/explore');
+  });
+
+  it('redirects legacy /explore?cat= links to /c/:category and handles empty or unknown categories', async () => {
+    const first = renderAt('/explore?cat=dev');
+    await waitFor(() => expect(first.router.state.location.pathname).toBe('/c/dev'));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Dev platforms' })).toBeTruthy();
+    first.unmount();
+
+    const empty = renderAt('/c/travel');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Travel' })).toBeTruthy();
+    expect(await screen.findByText('No products in this category yet.')).toBeTruthy();
+    empty.unmount();
+
+    renderAt('/c/bogus');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Category not found' })).toBeTruthy();
   });
 
   it('an old /explore?q= link still filters, as a chip you can clear', async () => {
@@ -642,49 +746,77 @@ describe('explore', () => {
     expect(screen.queryByRole('button', { name: /Clear search/ })).toBeNull();
   });
 
-  it('shows only category chips that have products, plus the one in the URL', async () => {
-    renderAt('/explore?cat=travel');
-    expect(await screen.findByText('No products in this category yet.')).toBeTruthy();
-    const chips = within(screen.getByRole('toolbar', { name: 'Categories' }));
-    expect(chips.getByRole('button', { name: 'Code editors' })).toBeTruthy();
-    expect(chips.getByRole('button', { name: 'Travel' }).getAttribute('aria-pressed')).toBe('true');
-    expect(chips.queryByRole('button', { name: 'Shopping' })).toBeNull();
-  });
-
   it('leaves out a hub with a single live product', async () => {
     boardsApi.fetchHubs.mockResolvedValue([{ ...FIGMA_HUB, boards: [FIGMA] }]);
     renderAt('/explore');
-    await screen.findAllByRole('link', { name: /Figma/ });
+    await screen.findByRole('list', { name: 'Categories' });
     expect(screen.queryByRole('heading', { name: 'Hubs' })).toBeNull();
   });
 
-  it('says when nothing matches and offers a way back to all products', async () => {
+  it('says when nothing matches and offers a way back to discover categories', async () => {
     const { router } = renderAt('/explore?q=zzz');
     expect(await screen.findByText('No products match “zzz”.')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
     await waitFor(() => expect(router.state.location.search).toBe(''));
-    expect(await screen.findByRole('list', { name: 'All products' })).toBeTruthy();
+    expect(await screen.findByRole('list', { name: 'Categories' })).toBeTruthy();
+  });
+});
+
+describe('landing page & auth handoff', () => {
+  it('shows Trending fallback when nothing is trending, without hero category chips, plus Popular posts, Claim band, Hubs and Categories', async () => {
+    postsApi.fetchPopularByStatus.mockImplementation(async (status: string) =>
+      status === 'open' ? [makePopular({ id: 'p-land', title: 'Landing popular open post', status: 'open' })] : [],
+    );
+    renderAt('/landing');
+    expect(await screen.findByRole('heading', { name: 'Trending' })).toBeTruthy();
+    expect(screen.queryByRole('toolbar', { name: 'Categories' })).toBeNull();
+    const active = screen.getByRole('list', { name: 'Trending products' });
+    expect(within(active).getAllByRole('article').map((a) => within(a).getAllByRole('link')[0]?.textContent)).toEqual(['Cursor', 'Supabase', 'Figma', 'FigJam']);
+    expect(await screen.findByRole('heading', { name: 'Popular posts' })).toBeTruthy();
+    expect(screen.getByText('Landing popular open post')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Building one of these products?' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Hubs' })).toBeTruthy();
+    const cats = screen.getByRole('list', { name: 'Categories' });
+    expect(within(cats).getByRole('link', { name: /Dev platforms/ }).getAttribute('href')).toBe('/c/dev');
+    expect(cats.textContent).not.toMatch(/\b\d+\s+products?\b/);
+    expect(screen.getByRole('contentinfo', { name: 'Site footer' })).toBeTruthy();
   });
 
-  it('sorts All products by A–Z, Most followed, and Most posts', async () => {
-    boardsApi.fetchBoards.mockResolvedValue([
-      { ...CURSOR, follower_count: 100, post_count: 10 },
-      { ...SUPABASE, follower_count: 500, post_count: 5 },
-      { ...FIGMA, follower_count: 50, post_count: 90 },
-      { ...FIGJAM, follower_count: 12, post_count: 2 },
+  it('hides Popular posts on the landing page when every status tab is empty', async () => {
+    postsApi.fetchPopularByStatus.mockResolvedValue([]);
+    renderAt('/landing');
+    expect(await screen.findByRole('heading', { name: 'Trending' })).toBeTruthy();
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Popular posts' })).toBeNull());
+  });
+
+  it('switches to Trending this week when boards have recent activity', async () => {
+    boardsApi.fetchTrending.mockResolvedValue([
+      { ...CURSOR, recent: 4 },
+      { ...SUPABASE, recent: 2 },
+      { ...FIGMA, recent: 1 },
     ]);
-    renderAt('/explore');
-    const all = await screen.findByRole('list', { name: 'All products' });
-    const names = () => within(all).getAllByRole('article').map((a) => within(a).getAllByRole('link')[0]?.textContent);
-    expect(names()).toEqual(['Cursor', 'FigJam', 'Figma', 'Supabase']);
+    renderAt('/landing');
+    expect(await screen.findByRole('heading', { name: 'Trending this week' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Trending' })).toBeNull();
+  });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Sort products: A–Z' }));
-    fireEvent.click(screen.getByRole('menuitemradio', { name: /Most followed/ }));
-    expect(names()).toEqual(['Supabase', 'Cursor', 'Figma', 'FigJam']);
+  it('saves pending composer intent on signed-out Share a post click, clears on cancel, and resumes when signed in', async () => {
+    const first = renderAt('/landing');
+    fireEvent.click(await screen.findByRole('button', { name: 'Share a post →' }));
+    const authDialog = await screen.findByRole('dialog', { name: 'Sign in to Publisense' });
+    expect(within(authDialog).getByText(/Sign in to post feedback/)).toBeTruthy();
+    expect(window.localStorage.getItem('publisense:pending-composer')).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Sort products: Most followed' }));
-    fireEvent.click(screen.getByRole('menuitemradio', { name: /Most posts/ }));
-    expect(names()).toEqual(['Figma', 'Cursor', 'Supabase', 'FigJam']);
+    fireEvent.click(within(authDialog).getByRole('button', { name: 'Close' }));
+    expect(window.localStorage.getItem('publisense:pending-composer')).toBeNull();
+    first.unmount();
+
+    savePendingComposerIntent({ board: 'cursor', title: 'Offline support' });
+    renderAt('/landing', true);
+    const composer = await screen.findByRole('dialog', { name: 'Post feedback' });
+    expect(await within(composer).findByText('Cursor')).toBeTruthy();
+    expect((within(composer).getByRole('textbox', { name: 'Title' }) as HTMLInputElement).value).toBe('Offline support');
+    expect(window.localStorage.getItem('publisense:pending-composer')).toBeNull();
   });
 });
 
@@ -717,7 +849,7 @@ describe('search', () => {
     expect(await screen.findByText('No posts match.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Post about it' })).toBeTruthy();
 
-    const input = screen.getByRole('searchbox', { name: 'Search products, posts and hubs' });
+    const input = screen.getByRole('searchbox', { name: 'Search products, posts, hubs' });
     fireEvent.change(input, { target: { value: 'figma' } });
     await waitFor(() => expect(router.state.location.search).toContain('q=figma'));
     expect(router.state.location.search).toContain('tab=posts');
@@ -748,6 +880,51 @@ describe('search', () => {
     renderAt('/search?q=a');
     expect(await screen.findByText('Keep typing to search.')).toBeTruthy();
     expect(boardsApi.searchAll).not.toHaveBeenCalled();
+  });
+
+  it('never shows stale "No results" when submitting a new query after an empty modal handoff', async () => {
+    let resolveClaude!: (v: { boards: typeof FIGMA[]; hubs: typeof FIGMA_HUB[]; posts: ReturnType<typeof makePost>[] }) => void;
+    boardsApi.searchAll.mockImplementation(async (q: string) => {
+      if (q === 'nope') return { boards: [], hubs: [], posts: [] };
+      if (q === 'claude') {
+        return new Promise((resolve) => {
+          resolveClaude = resolve;
+        });
+      }
+      return { boards: [], hubs: [], posts: [] };
+    });
+
+    renderWith(
+      <ComposerProvider>
+        <ClaimProvider>
+          <SearchWell />
+          <Routes>
+            <Route path="/explore" element={<ExplorePage />} />
+            <Route path="/search" element={<SearchPage />} />
+          </Routes>
+        </ClaimProvider>
+      </ComposerProvider>,
+      { path: '/explore' },
+    );
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Search products, posts, hubs' })[0]!);
+    const modal = await screen.findByRole('dialog', { name: 'Search' });
+    fireEvent.change(within(modal).getByRole('combobox', { name: /Search products/ }), { target: { value: 'nope' } });
+    const seeAll = await within(modal).findByRole('option', { name: /See all results for “nope”/ });
+    fireEvent.click(seeAll);
+
+    expect(await screen.findByText('No results for “nope”')).toBeTruthy();
+
+    const searchInput = screen.getByRole('searchbox', { name: 'Search products, posts, hubs' });
+    fireEvent.change(searchInput, { target: { value: 'claude' } });
+    fireEvent.submit(searchInput.closest('form')!);
+
+    await waitFor(() => expect(boardsApi.searchAll).toHaveBeenCalledWith('claude', expect.anything()));
+    expect(screen.queryByText('No results for “claude”')).toBeNull();
+
+    resolveClaude({ boards: [CURSOR], hubs: [], posts: [makePost({ title: 'Claude 4 thinking mode' })] });
+    expect(await screen.findByText('Claude 4 thinking mode')).toBeTruthy();
+    expect(screen.queryByText(/No results/)).toBeNull();
   });
 });
 
@@ -862,12 +1039,12 @@ describe('search modal', () => {
     const list = within(modal).getByRole('listbox', { name: 'Search suggestions' });
     expect(await within(list).findByRole('option', { name: /Figma variables export/ })).toBeTruthy();
     expect(within(list).queryAllByRole('button')).toHaveLength(0);
-    expect(within(list).getByRole('group', { name: 'Product boards' })).toBeTruthy();
+    expect(within(list).getByRole('group', { name: 'Products' })).toBeTruthy();
     expect(within(list).getByRole('group', { name: 'Feedback & bugs' })).toBeTruthy();
-    expect(within(within(list).getByRole('group', { name: 'Company hubs' })).getByRole('option', { name: /Figma hub/ })).toBeTruthy();
+    expect(within(within(list).getByRole('group', { name: 'Hubs' })).getByRole('option', { name: /Figma hub/ })).toBeTruthy();
     // Scope filters carry no counts.
     const filters = within(modal).getByRole('group', { name: 'Filter search results' });
-    expect(within(filters).getAllByRole('button').map((b) => b.textContent)).toEqual(['All', 'Product boards', 'Feedback & bugs', 'Company hubs', 'People']);
+    expect(within(filters).getAllByRole('button').map((b) => b.textContent)).toEqual(['All', 'Products', 'Feedback & bugs', 'Hubs', 'People']);
   });
 
   it('filters live results by scope and navigates with the keyboard', async () => {
@@ -891,9 +1068,9 @@ describe('search modal', () => {
     expect(within(modal).queryByRole('option', { name: /Figma hub/ })).toBeNull();
     expect(within(modal).getByRole('option', { name: /Figma variables export/ })).toBeTruthy();
 
-    // Back to Product boards: ArrowDown highlights the first option (aria-activedescendant follows),
+    // Back to Products: ArrowDown highlights the first option (aria-activedescendant follows),
     // ArrowUp wraps to the last, ArrowDown wraps back to the first, Enter opens it.
-    fireEvent.click(within(filters).getByRole('button', { name: 'Product boards' }));
+    fireEvent.click(within(filters).getByRole('button', { name: 'Products' }));
     const options = within(modal).getAllByRole('option');
     fireEvent.keyDown(input, { key: 'ArrowDown' });
     expect(input.getAttribute('aria-activedescendant')).toBe(options[0]!.id);
@@ -905,6 +1082,25 @@ describe('search modal', () => {
     fireEvent.submit(input.closest('form')!);
     await waitFor(() => expect(router.state.location.pathname).toBe('/b/figma'));
     expect(screen.queryByRole('dialog', { name: 'Search' })).toBeNull();
+  });
+
+  it('ranks empty-state spotlights by post activity when follower counts are tied and always shows post count', async () => {
+    boardsApi.fetchBoards.mockResolvedValue([
+      { ...CURSOR, id: 'b-muse', slug: 'muse', name: 'Muse', follower_count: 1, post_count: 0 },
+      { ...FIGMA, id: 'b-a', slug: 'alpha', name: 'Alpha', follower_count: 1, post_count: 25 },
+      { ...FIGJAM, id: 'b-b', slug: 'beta', name: 'Beta', follower_count: 1, post_count: 10 },
+    ]);
+    renderAt('/well');
+    fireEvent.click(trigger());
+    const modal = await screen.findByRole('dialog', { name: 'Search' });
+    const group = await within(modal).findByRole('group', { name: 'Trending products' });
+    const options = within(group).getAllByRole('option');
+    expect(options.map((o) => o.textContent)).toEqual([
+      expect.stringContaining('Alpha'),
+      expect.stringContaining('Beta'),
+      expect.stringContaining('Muse'),
+    ]);
+    expect(options[2]!.textContent).toMatch(/0\s*posts/);
   });
 });
 

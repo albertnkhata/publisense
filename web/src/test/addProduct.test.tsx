@@ -46,6 +46,7 @@ const postsApi = vi.hoisted(() => ({
   fetchPostList: vi.fn(),
   fetchRoadmap: vi.fn(),
   fetchChangelog: vi.fn(),
+  fetchPopularByStatus: vi.fn(),
   fetchWanted: vi.fn(),
   fetchSimilar: vi.fn(),
   createPost: vi.fn(),
@@ -145,6 +146,7 @@ beforeEach(() => {
   postsApi.fetchPostList.mockResolvedValue({ items: [], next: null });
   postsApi.fetchRoadmap.mockResolvedValue({ planned: [], in_progress: [], shipped: [] });
   postsApi.fetchChangelog.mockResolvedValue([]);
+  postsApi.fetchPopularByStatus.mockResolvedValue([]);
   postsApi.fetchWanted.mockResolvedValue([]);
   postsApi.fetchSimilar.mockResolvedValue([]);
   modApi.fetchIsPlatformAdmin.mockResolvedValue(true);
@@ -453,11 +455,12 @@ describe('pending boards', () => {
   it('stay out of Explore even for the people RLS lets read them', async () => {
     boardsApi.fetchBoards.mockResolvedValue([CURSOR, ACME, makeBoard({ id: 'b0000000-0000-4000-8000-0000000000a2', slug: 'beta', name: 'Beta', status: 'pending', created_by: OTHER.id })]);
     renderApp('/explore');
-    expect(await screen.findByRole('list', { name: 'All products' })).toBeTruthy();
-    const all = screen.getByRole('list', { name: 'All products' });
-    expect(within(all).getByText('Cursor')).toBeTruthy();
-    expect(within(all).queryByText('Acme Notes')).toBeNull();
-    expect(within(all).queryByText('Beta')).toBeNull();
+    const cats = await screen.findByRole('list', { name: 'Categories' });
+    expect(within(cats).getByText('Code editors')).toBeTruthy();
+    expect(within(cats).getByText('Cursor')).toBeTruthy();
+    expect(within(cats).queryByText('Acme Notes')).toBeNull();
+    expect(within(cats).queryByText('Beta')).toBeNull();
+    expect(within(cats).queryByText('Productivity')).toBeNull();
     expect(screen.getByText(/Can’t find a product you use\?/)).toBeTruthy();
   });
 });

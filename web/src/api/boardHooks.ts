@@ -1,4 +1,4 @@
-import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useInfiniteQuery, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   fetchBoard,
   fetchBoards,
@@ -16,7 +16,21 @@ import {
   type FollowTarget,
   type Hub,
 } from './boards';
-import { createPost, seedPost, fetchChangelog, fetchPostList, fetchRoadmap, fetchSimilar, fetchWanted, type NewPost, type PostListParams, type SeedPost } from './posts';
+import {
+  createPost,
+  seedPost,
+  fetchChangelog,
+  fetchPopularByStatus,
+  fetchPostList,
+  fetchRoadmap,
+  fetchSimilar,
+  fetchWanted,
+  POPULAR_STATUSES,
+  type NewPost,
+  type PopularStatus,
+  type PostListParams,
+  type SeedPost,
+} from './posts';
 import { postKeys } from './postHooks';
 
 /*
@@ -36,6 +50,8 @@ export const boardKeys = {
   changelog: (ids: string[]) => ['changelog', ids.join(',')] as const,
   trending: ['trending'] as const,
   wanted: ['wanted'] as const,
+  popularByStatus: (status: PopularStatus, limit: number, viewerId: string | null) =>
+    ['posts', 'popular', status, limit, viewerId ?? 'anon'] as const,
   team: (boardId: string, viewerId: string | null) => ['board-team', boardId, viewerId ?? 'anon'] as const,
   follows: (viewerId: string | null) => ['scope-follows', viewerId ?? 'anon'] as const,
 };
@@ -79,6 +95,25 @@ export function useTrending(boards: Board[] | undefined, limit = 4) {
 
 export function useWanted(enabled = true) {
   return useQuery({ queryKey: boardKeys.wanted, queryFn: () => fetchWanted(), enabled, staleTime: 60_000 });
+}
+
+export function usePopularByStatus(status: PopularStatus, viewerId: string | null, limit = 6, enabled = true) {
+  return useQuery({
+    queryKey: boardKeys.popularByStatus(status, limit, viewerId),
+    queryFn: () => fetchPopularByStatus(status, viewerId, limit),
+    enabled,
+    staleTime: 60_000,
+  });
+}
+
+export function useAllPopularByStatus(viewerId: string | null, limit = 6) {
+  return useQueries({
+    queries: POPULAR_STATUSES.map((status) => ({
+      queryKey: boardKeys.popularByStatus(status, limit, viewerId),
+      queryFn: () => fetchPopularByStatus(status, viewerId, limit),
+      staleTime: 60_000,
+    })),
+  });
 }
 
 export function useIsBoardTeam(boardId: string | undefined, viewerId: string | null) {
@@ -171,16 +206,16 @@ export function useScopeFollow(viewerId: string | null) {
 // ------------------------------------------------------------------ search and composer
 
 /** Search results; keyed under ['posts'] because they hold full posts that votes patch. */
-export function useSearch(q: string, viewerId: string | null, opts: { postLimit?: number } = {}) {
+export function useSearch(q: string, viewerId: string | null, opts: { postLimit?: number; keepPrevious?: boolean } = {}) {
   const term = q.trim();
   const boards = useBoards();
   const hubs = useHubs();
   return useQuery({
     queryKey: ['posts', 'search', term.toLowerCase(), opts.postLimit ?? 30, viewerId ?? 'anon'],
     queryFn: () => searchAll(term, { postLimit: opts.postLimit ?? 30, boards: boards.data, hubs: hubs.data, viewerId }),
-    enabled: term.length >= SEARCH_MIN && boards.isSuccess && hubs.isSuccess,
+    enabled: term.length >= SEARCH_MIN && !boards.isPending && !hubs.isPending,
     staleTime: 30_000,
-    placeholderData: (prev) => prev,
+    placeholderData: opts.keepPrevious ? keepPreviousData : undefined,
   });
 }
 

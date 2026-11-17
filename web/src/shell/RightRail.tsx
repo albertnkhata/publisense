@@ -15,9 +15,10 @@ import { trendingTitle } from '../lib/trendingCopy';
  * age), leaving out any board already in Trending.
  */
 export function RightRail() {
+  const { pathname } = useLocation();
   return (
     <aside aria-label="Sidebar" className="sticky top-6 flex w-rail shrink-0 flex-col gap-4 self-start max-lg:hidden">
-      <SearchWell />
+      {pathname !== '/search' ? <SearchWell /> : null}
       {hasSupabaseConfig ? (
         <RailBoards />
       ) : (
@@ -56,7 +57,7 @@ export function ClaimLine() {
 
   // Hub copy only while the hub can still be claimed; otherwise the generic picker line.
   const hubOpen = Boolean(hereHub && !hereHub.claimed_at);
-  const actionText = hubOpen ? 'Claim this hub' : 'Claim its board';
+  const actionText = hubOpen ? 'Claim this hub' : 'Claim this product';
   const promptText = hubOpen ? 'Maintain these products?' : 'Maintain a product?';
 
   return (

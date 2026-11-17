@@ -406,7 +406,7 @@ function UserPosts({ person, self }: { person: PublicProfile; self: boolean }) {
         action={
           self ? (
             <Link to="/explore" className={actionLink}>
-              Explore boards
+              Explore products
             </Link>
           ) : undefined
         }
@@ -503,7 +503,7 @@ function PersonNotFound() {
           title="No one goes by that name"
           action={
             <Link to="/explore" className={actionLink}>
-              Explore boards
+              Explore products
             </Link>
           }
         >

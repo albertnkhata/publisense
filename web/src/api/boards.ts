@@ -226,6 +226,43 @@ export function compactCount(n: number): string {
 
 export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
+export interface CategorySummary {
+  category: BoardCategory;
+  label: string;
+  count: number;
+  examples: string[];
+}
+
+/**
+ * Group live boards by category in canonical CATEGORIES order, skipping empty
+ * categories and listing up to 3 top boards (most followed, then most active) per card.
+ */
+export function summarizeCategories(boards: Board[]): CategorySummary[] {
+  const grouped = new Map<BoardCategory, Board[]>();
+  for (const b of boards) {
+    if (!isLive(b) || !b.category) continue;
+    const list = grouped.get(b.category);
+    if (list) list.push(b);
+    else grouped.set(b.category, [b]);
+  }
+  const out: CategorySummary[] = [];
+  for (const c of CATEGORIES) {
+    if (c.value === 'all') continue;
+    const list = grouped.get(c.value);
+    if (!list || list.length === 0) continue;
+    const top = [...list].sort(
+      (a, b) => b.follower_count - a.follower_count || b.post_count - a.post_count || a.name.localeCompare(b.name),
+    );
+    out.push({
+      category: c.value,
+      label: c.label,
+      count: list.length,
+      examples: top.slice(0, 3).map((b) => b.name),
+    });
+  }
+  return out;
+}
+
 // ------------------------------------------------------------------ reads
 
 /** Every board, alphabetical. The catalogue is small (tens of boards), so Explore filters client-side. */

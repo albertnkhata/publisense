@@ -157,7 +157,7 @@ describe('user page', () => {
   it('managing nothing: no claim prompt on the profile', async () => {
     renderAt(`/u/${ME.handle}`);
     expect(await screen.findByRole('tab', { name: /Upvoted/ })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /Claim its board/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Claim this product/ })).toBeNull();
   });
 
   it('an unknown handle says so', async () => {
@@ -165,12 +165,12 @@ describe('user page', () => {
     expect(await screen.findByText('No one goes by that name')).toBeTruthy();
   });
 
-  it('shows Your profile pill, Account settings menu link, and Explore boards CTA on empty self posts', async () => {
+  it('shows Your profile pill, Account settings menu link, and Explore products CTA on empty self posts', async () => {
     posts.fetchUserPosts.mockResolvedValue({ items: [], next: null });
     renderAt(`/u/${ME.handle}`);
     expect(await screen.findByText('Your profile')).toBeTruthy();
     expect(await screen.findByText('You haven’t posted yet.')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Explore boards' }).getAttribute('href')).toBe('/explore');
+    expect(screen.getByRole('link', { name: 'Explore products' }).getAttribute('href')).toBe('/explore');
     fireEvent.click(screen.getByRole('button', { name: 'Profile options' }));
     const settingsItem = await within(await screen.findByRole('menu')).findByRole('menuitem', { name: /Account settings/ });
     expect(settingsItem.getAttribute('href')).toBe('/settings');

@@ -138,6 +138,8 @@ describe('post page', () => {
     const article = await screen.findByRole('article', { name: post.title });
     expect(await within(article).findByText('Verified team')).toBeTruthy();
     expect(within(article).getByText(/92 posts · 4\.1k followers/)).toBeTruthy();
+    const headerText = article.querySelector('.relative.min-w-0')?.textContent ?? '';
+    expect(headerText.indexOf('92 posts · 4.1k followers')).toBeLessThan(headerText.indexOf(`@${post.author?.handle}`));
     // Board name appears once in the header rather than duplicated in a separate card.
     expect(within(article).getAllByRole('link', { name: BOARD.name })).toHaveLength(1);
     const followBoard = within(article).getByRole('button', { name: `Follow ${BOARD.name}` });
