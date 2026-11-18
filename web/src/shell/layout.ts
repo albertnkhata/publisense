@@ -23,11 +23,14 @@ import { useMatches } from 'react-router';
  *   page lays out its own scrolling panes, and anything at its foot stays at the
  *   foot of the screen. For Messages, whose composer sits at the bottom always.
  * - `chrome` picks the frame around the page:
- *   - `'app'` (the default): nav rail, top bar, tab bar at sm.
- *   - `'site'`: a plain website header (brand, Terms · Privacy, Sign in or
+ *   - `'app'` (the default): nav rail, top bar, tab bar at sm. (When `/` is
+ *     visited signed-out without `?scope=following`, `AppShell` switches at
+ *     runtime to the `isLanding` shell: `LandingHeader`, `LandingFooter`,
+ *     and `max-w-landing` 1200px, without nav rail or right rail.)
+ *   - `'site'`: a plain website header (brand, About · Terms · Privacy, Sign in or
  *     back to Publisense) and no nav rail or tab bar, for standalone pages
- *     people land on from a link (the legal pages). Implies no right rail
- *     and the narrow reading column.
+ *     people land on from a link (about and legal pages). Implies no right
+ *     rail and the narrow reading column.
  */
 export type ShellWidth = 'narrow' | 'wide';
 export type ShellChrome = 'app' | 'site';
@@ -55,7 +58,7 @@ export interface ShellLayout {
 export const NO_RAIL_WIDE = { rail: false, width: 'wide' } as const satisfies ShellHandle;
 /** /admin: like NO_RAIL_WIDE, and no top bar on desktop. */
 export const STAFF_PAGE = { rail: false, width: 'wide', topBar: false } as const satisfies ShellHandle;
-/** /explore: wide directory without the redundant right rail or desktop top bar. */
+/** /explore and /c/:category: wide directory without the right rail or desktop top bar. */
 export const EXPLORE_PAGE = { rail: false, width: 'wide', topBar: false } as const satisfies ShellHandle;
 /** No rail, reading-width column: forms, lists and long text. */
 export const NO_RAIL_NARROW = { rail: false, width: 'narrow' } as const satisfies ShellHandle;
