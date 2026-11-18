@@ -18,7 +18,6 @@ import { trendingTitle } from '../lib/trendingCopy';
 import { useViewer } from '../lib/viewer';
 import { LoadError } from '../posts/PostList';
 import { useRequireAuth } from '../shell/auth';
-import { openSearchModal } from '../shell/SearchWell';
 import { Icon, SkeletonBlock, StatusPill, STATUS_META, TabPanel, Tabs, TYPE_META, useToast } from '../ui';
 
 const POPULAR_EMPTY: Record<PopularStatus, string> = {
@@ -224,13 +223,9 @@ export function CategoriesSection({ boards, id = 'disc-categories' }: { boards: 
       id={id}
       title="Categories"
       action={
-        <button
-          type="button"
-          onClick={() => openSearchModal({ scope: 'boards' })}
-          className="cursor-pointer border-0 bg-transparent p-0 text-sm font-semibold text-brand hover:underline"
-        >
-          All products →
-        </button>
+        <Link to="/categories" className="text-sm font-semibold text-brand no-underline hover:underline">
+          All categories →
+        </Link>
       }
     >
       <ul aria-label="Categories" className="m-0 grid list-none grid-cols-3 gap-3 p-0 max-lg:grid-cols-2 max-sm:grid-cols-1">

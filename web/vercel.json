@@ -71,6 +71,10 @@
       "destination": "/index.html"
     },
     {
+      "source": "/categories",
+      "destination": "/index.html"
+    },
+    {
       "source": "/search",
       "destination": "/index.html"
     },

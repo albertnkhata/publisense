@@ -7,6 +7,7 @@ import { boardKeys } from '../api';
 import { purgeUserQueryCache, useViewer } from '../lib/viewer';
 import type { FeedPage, PopularPostSummary, Post } from '../api/posts';
 import { BoardPage } from '../pages/BoardPage';
+import { CategoriesPage } from '../pages/CategoriesPage';
 import { CategoryPage } from '../pages/CategoryPage';
 import { ExplorePage } from '../pages/ExplorePage';
 import { HubPage } from '../pages/HubPage';
@@ -67,6 +68,7 @@ function renderAt(path: string, signedIn = false, client?: QueryClient) {
             <Route path="/b/:board" element={<BoardPage />} />
             <Route path="/b/:board/manage" element={<h1>Manage page</h1>} />
             <Route path="/h/:hub" element={<HubPage />} />
+            <Route path="/categories" element={<CategoriesPage />} />
             <Route path="/c/:category" element={<CategoryPage />} />
             <Route path="/explore" element={<ExplorePage />} />
             <Route path="/search" element={<SearchPage />} />
@@ -644,7 +646,7 @@ describe('explore', () => {
     expect(within(cats).getByText('Design')).toBeTruthy();
     expect(within(cats).getByText('Dev platforms')).toBeTruthy();
     expect(cats.textContent).not.toMatch(/\b\d+\s+products?\b/);
-    expect(screen.getByRole('button', { name: 'All products →' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'All categories →' }).getAttribute('href')).toBe('/categories');
   });
 
   it('shows Trending fallback and + Add a missing product on /explore when nothing is trending this week', async () => {
@@ -661,7 +663,7 @@ describe('explore', () => {
     expect(screen.getByRole('button', { name: '+ Add a missing product' })).toBeTruthy();
   });
 
-  it('switches Popular posts status tabs (including Open), upvotes optimistically, omits Browse all posts, and pre-scopes Search modal', async () => {
+  it('switches Popular posts status tabs (including Open), upvotes optimistically, omits Browse all posts, and opens Categories page from All categories link', async () => {
     postsApi.fetchPopularByStatus.mockImplementation(async (status: string) => {
       if (status === 'open') return [makePopular({ id: 'p-op', title: 'Open item', status: 'open', vote_count: 10 })];
       if (status === 'under_review') return [makePopular({ id: 'p-ur', title: 'Review item', vote_count: 15 })];
@@ -670,7 +672,7 @@ describe('explore', () => {
       return [];
     });
     postsApi.fetchWanted.mockResolvedValue([makeSummary({ id: 'p-w1', title: 'Wanted request', vote_count: 40 })]);
-    renderAt('/explore', true);
+    const { router } = renderAt('/explore', true);
     expect(await screen.findByText('Open item')).toBeTruthy();
     expect(screen.getByRole('tab', { name: 'Open' }).getAttribute('aria-selected')).toBe('true');
     expect(screen.queryByRole('button', { name: 'Browse all posts →' })).toBeNull();
@@ -690,11 +692,14 @@ describe('explore', () => {
     const shippedPanel = screen.getByRole('tabpanel', { name: 'Shipped' });
     expect(within(shippedPanel).getByText('Shipped')).toBeTruthy();
 
-    // All products → opens Search modal pre-scoped to Products
-    fireEvent.click(screen.getByRole('button', { name: 'All products →' }));
-    const modal = await screen.findByRole('dialog', { name: 'Search' });
-    expect(within(modal).getByRole('button', { name: 'Products' }).getAttribute('aria-pressed')).toBe('true');
-    expect(await within(modal).findByRole('option', { name: /Cursor/ })).toBeTruthy();
+    // All categories → navigates to the /categories directory
+    fireEvent.click(screen.getByRole('link', { name: 'All categories →' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/categories'));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Categories' })).toBeTruthy();
+    const allCats = screen.getByRole('list', { name: 'Categories' });
+    expect(within(allCats).getAllByRole('link')).toHaveLength(16);
+    expect(within(allCats).getByRole('link', { name: /Dev platforms/ }).getAttribute('href')).toBe('/c/dev');
+    expect(within(allCats).getByRole('link', { name: /Travel/ }).textContent).toContain('No products yet');
   });
 
   it('defaults Popular posts to the first non-empty tab and hides the section when every tab is empty', async () => {
@@ -777,9 +782,22 @@ describe('landing page & auth handoff', () => {
     expect(screen.getByRole('heading', { name: 'Building one of these products?' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Hubs' })).toBeTruthy();
     const cats = screen.getByRole('list', { name: 'Categories' });
+    expect(screen.getByRole('link', { name: 'All categories →' }).getAttribute('href')).toBe('/categories');
     expect(within(cats).getByRole('link', { name: /Dev platforms/ }).getAttribute('href')).toBe('/c/dev');
     expect(cats.textContent).not.toMatch(/\b\d+\s+products?\b/);
     expect(screen.getByRole('contentinfo', { name: 'Site footer' })).toBeTruthy();
+  });
+
+  it('shows CategoriesPage back link to Home when signed out and retries on load error', async () => {
+    boardsApi.fetchBoards.mockRejectedValueOnce(new Error('network down'));
+    renderAt('/categories');
+    expect(await screen.findByText('We couldn’t load categories')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Back to Home' }).getAttribute('href')).toBe('/');
+
+    boardsApi.fetchBoards.mockResolvedValueOnce([CURSOR, FIGJAM, FIGMA, SUPABASE]);
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    const cats = await screen.findByRole('list', { name: 'Categories' });
+    expect(within(cats).getAllByRole('link')).toHaveLength(16);
   });
 
   it('hides Popular posts on the landing page when every status tab is empty', async () => {

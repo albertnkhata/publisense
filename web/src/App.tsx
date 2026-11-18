@@ -14,6 +14,7 @@ import {
   AuthResetPage,
   BoardManagePage,
   BoardPage,
+  CategoriesPage,
   CategoryPage,
   ConversationPage,
   ExplorePage,
@@ -50,6 +51,7 @@ export const routes = [
     children: [
       { index: true, element: <HomePage /> },
       { path: 'explore', handle: EXPLORE_PAGE, element: <ExplorePage /> },
+      { path: 'categories', handle: EXPLORE_PAGE, element: <CategoriesPage /> },
       { path: 'c/:category', handle: EXPLORE_PAGE, element: <CategoryPage /> },
       { path: 'search', element: <SearchPage /> },
       { path: 'b/:board', element: <BoardPage /> },

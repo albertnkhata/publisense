@@ -14,6 +14,7 @@ import { TEST_VIEWER } from './renderApp';
 const CASES: Array<[string, string]> = [
   ['/', 'Find any product. Shape what ships next.'],
   ['/explore', 'Explore'],
+  ['/categories', 'Categories'],
   ['/c/dev', 'Dev platforms'],
   ['/search?q=dark%20mode', 'Search'],
   ['/b/supabase', 'Loading board'], // board and hub pages fetch first (no Supabase here)
@@ -94,7 +95,7 @@ describe('routes', () => {
   // (shell/layout.ts). Browsing pages keep it; Explore and task pages drop it, wide or narrow.
   // Signed-out `/` swaps the app chrome for the landing header and footer.
   const paths = CASES.map(([p]) => p);
-  const WIDE_NO_TOPBAR = [...paths.filter((p) => p.startsWith('/admin')), '/explore', '/c/dev'];
+  const WIDE_NO_TOPBAR = [...paths.filter((p) => p.startsWith('/admin')), '/explore', '/categories', '/c/dev'];
   const WIDE = [...WIDE_NO_TOPBAR, '/b/supabase/manage', '/h/acme/manage'];
   const NARROW = ['/notifications', '/settings'];
   const SITE = ['/about', '/privacy', '/terms', '/auth/reset', '/unsubscribe?token=abc'];
@@ -246,7 +247,7 @@ describe('vercel.json SPA rewrites', () => {
   it('rewrites public site and app entry paths to /index.html', async () => {
     const { default: vercel } = await import('../../vercel.json');
     const spaSources = new Set(vercel.rewrites.filter((r) => r.destination === '/index.html').map((r) => r.source));
-    for (const path of ['/explore', '/c/:category', '/search', '/notifications', '/messages', '/settings', '/about', '/privacy', '/terms', '/unsubscribe', '/auth/reset']) {
+    for (const path of ['/explore', '/categories', '/c/:category', '/search', '/notifications', '/messages', '/settings', '/about', '/privacy', '/terms', '/unsubscribe', '/auth/reset']) {
       expect(spaSources.has(path)).toBe(true);
     }
   });

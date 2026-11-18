@@ -9,6 +9,7 @@ export { PostPage } from './PostPage';
 // Step 6: boards, hubs and discovery.
 export { BoardPage } from './BoardPage';
 export { HubPage } from './HubPage';
+export { CategoriesPage } from './CategoriesPage';
 export { CategoryPage } from './CategoryPage';
 export { ExplorePage } from './ExplorePage';
 export { SearchPage } from './SearchPage';
