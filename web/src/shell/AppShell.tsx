@@ -115,11 +115,20 @@ export function AppShell() {
       ) : (
         <div className="flex min-h-dvh flex-col bg-page text-ink">
           <TopBar nav="top" always width={width} fill={false} />
-          <div className="mx-auto flex w-full flex-1 justify-center gap-rail-gap px-7 pt-6 pb-10 max-sm:px-3 max-sm:pt-4 max-sm:pb-10">
+          <div className="mx-auto flex w-full max-w-landing flex-1 justify-center gap-10 px-7 pt-6 pb-10 max-sm:px-3 max-sm:pt-4 max-sm:pb-10">
             <main
               id="main"
               tabIndex={-1}
-              className={cx('w-full min-w-0 flex-1 outline-none', width === 'narrow' ? 'max-w-content' : 'max-w-wide')}
+              className={cx(
+                'w-full min-w-0 flex-1 outline-none',
+                rail
+                  ? 'max-w-feed'
+                  : width === 'narrow'
+                    ? 'max-w-content'
+                    : width === 'landing'
+                      ? 'max-w-landing'
+                      : 'max-w-wide',
+              )}
             >
               <Outlet />
             </main>

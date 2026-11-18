@@ -10,11 +10,15 @@ import { useMatches } from 'react-router';
  *   search is still one click away.
  * - `width` sizes the content column when the rail is off:
  *   - `'wide'` (the default without a rail) widens it to `max-w-wide`
- *     (content + gap + rail), for dense screens like /admin and Manage.
+ *     (1024px), for dense NavRail workspaces like /admin and Manage.
+ *   - `'landing'` widens it to `max-w-landing` (1200px outer, 1136px inner),
+ *     aligning top-bar directory views (Explore, Categories) with TopBar and
+ *     LandingPage.
  *   - `'narrow'` keeps the reading column (`max-w-content`, 680px), centred
- *     in the space the rail used to share, for forms, lists and long text
- *     (Settings, Notifications, the legal pages).
- *   With the rail on the column is always `max-w-content`; `width` is ignored.
+ *     for forms, lists and long text (Settings, Notifications, the legal pages).
+ *   With the rail on, the column is `max-w-feed` (752px) under `nav: 'top'`
+ *   (so 752 + 64 + 320 fills the 1136px `max-w-landing` frame) or `max-w-content`
+ *   under `nav: 'rail'`; `width` is ignored.
  * - `topBar: false` drops the top bar from lg up, where the nav rail is
  *   already there, for staff screens (/admin) where search and the bell add
  *   nothing. Below lg it stays: it carries the brand, search and the bell there.
@@ -32,7 +36,7 @@ import { useMatches } from 'react-router';
  *     people land on from a link (about and legal pages). Implies no right
  *     rail and the narrow reading column.
  */
-export type ShellWidth = 'narrow' | 'wide';
+export type ShellWidth = 'narrow' | 'wide' | 'landing';
 export type ShellChrome = 'app' | 'site';
 export type ShellNav = 'top' | 'rail';
 
@@ -49,7 +53,7 @@ export interface ShellLayout {
   /** 'top' renders the horizontal TopBar everywhere; 'rail' renders the workspace left NavRail. */
   nav: ShellNav;
   rail: boolean;
-  /** The content column: `narrow` is max-w-content, `wide` is max-w-wide. Always `narrow` with the rail. */
+  /** The content column width preset (`narrow` when `rail` is on). */
   width: ShellWidth;
   chrome: ShellChrome;
   /** False: no top bar from lg up (it stays below lg). */
@@ -64,8 +68,8 @@ export const NO_RAIL_WIDE = { rail: false, width: 'wide' } as const satisfies Sh
 export const MANAGE_PAGE = { nav: 'rail', rail: false, width: 'wide', topBar: false } as const satisfies ShellHandle;
 /** /admin workspace: left NavRail with admin sections, wide column, no desktop top bar. */
 export const STAFF_PAGE = { nav: 'rail', rail: false, width: 'wide', topBar: false } as const satisfies ShellHandle;
-/** /explore, /categories and /c/:category: wide directory without the right rail. */
-export const EXPLORE_PAGE = { rail: false, width: 'wide' } as const satisfies ShellHandle;
+/** /explore, /categories and /c/:category: landing-width directory without the right rail. */
+export const EXPLORE_PAGE = { rail: false, width: 'landing' } as const satisfies ShellHandle;
 /** No rail, reading-width column: forms, lists and long text. */
 export const NO_RAIL_NARROW = { rail: false, width: 'narrow' } as const satisfies ShellHandle;
 /** Website header instead of the app's nav rail, reading-width column: the legal pages. */
@@ -86,7 +90,7 @@ export function shellLayoutFor(handles: unknown[]): ShellLayout {
     const s = h as ShellHandle;
     if (s.nav === 'top' || s.nav === 'rail') nav = s.nav;
     if (typeof s.rail === 'boolean') rail = s.rail;
-    if (s.width === 'narrow' || s.width === 'wide') width = s.width;
+    if (s.width === 'narrow' || s.width === 'wide' || s.width === 'landing') width = s.width;
     if (s.chrome === 'app' || s.chrome === 'site') chrome = s.chrome;
     if (typeof s.topBar === 'boolean') topBar = s.topBar;
     if (typeof s.fill === 'boolean') fill = s.fill;

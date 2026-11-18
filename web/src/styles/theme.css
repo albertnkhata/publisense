@@ -145,6 +145,7 @@
   --spacing-gutter: 40px;
   --spacing-row: 38px;
   --spacing-content: 680px;
+  --spacing-feed: 752px;       /* top-bar reading column: 752 + gap-10 (64) + rail (320) = 1136 inner inside max-w-landing */
   --spacing-hero: 840px;       /* signed-out landing hero headline measure */
   --spacing-rail: 320px;
   --spacing-rail-gap: clamp(24px, calc((100% - 1000px) / 3), 64px); /* not in §3: feed-to-rail gap; grows with spare width so it roughly matches the nav-side margin (content 680 + rail 320) */

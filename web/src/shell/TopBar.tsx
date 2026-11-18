@@ -61,14 +61,16 @@ export function TopBar({
     <header
       className={cx(
         'sticky top-0 z-20 h-9 border-b border-line bg-glass backdrop-blur-md',
-        fill ? 'px-5 max-sm:px-3' : 'px-7 max-sm:px-3',
+        !isTopNav && (fill ? 'px-5 max-sm:px-3' : 'px-7 max-sm:px-3'),
         isTopNav || always ? 'flex items-center' : 'hidden items-center max-lg:flex',
       )}
     >
       <div
         className={cx(
           'mx-auto flex w-full items-center gap-3 max-sm:gap-2',
-          isTopNav ? 'max-w-landing' : !fill && (width === 'narrow' ? 'max-w-content' : 'max-w-wide'),
+          isTopNav
+            ? 'max-w-landing px-7 max-sm:px-3'
+            : !fill && (width === 'narrow' ? 'max-w-content' : width === 'landing' ? 'max-w-landing' : 'max-w-wide'),
         )}
       >
         <Link
