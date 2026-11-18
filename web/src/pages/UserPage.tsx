@@ -99,7 +99,7 @@ function Profile({ person }: { person: PublicProfile }) {
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
-      <div className="mb-4">
+      <div className="mb-4 hidden max-md:block">
         <BackLink />
       </div>
       <Card className="mb-5">

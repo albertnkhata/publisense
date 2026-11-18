@@ -126,7 +126,7 @@ function Board({ board }: { board: BoardWithHub }) {
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
-      <div className="mb-4 flex items-center justify-between gap-2">
+      <div className={SHOW_MORE_MENU ? 'mb-4 flex items-center justify-between gap-2' : 'mb-4 hidden items-center justify-between gap-2 max-md:flex'}>
         <BackLink {...(familyHub(board) ? { to: `/h/${board.hub!.slug}`, smart: true, fallbackLabel: board.hub!.name } : {})} />
         {SHOW_MORE_MENU ? (
           <div className="flex items-center gap-1">

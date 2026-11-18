@@ -117,6 +117,7 @@ describe('board page', () => {
     // No history (a direct link): it names where it goes.
     const back = await screen.findByRole('link', { name: 'Back to Home' });
     expect(back).toBeTruthy();
+    expect(back.className.split(/\s+/)).toEqual(expect.arrayContaining(['hidden', 'max-md:inline-flex', 'h-8']));
     expect(back.getAttribute('href')).toBe('/');
     fireEvent.click(back);
     await waitFor(() => expect(router.state.location.pathname).toBe('/'));

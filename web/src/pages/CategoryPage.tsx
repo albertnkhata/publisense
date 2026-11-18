@@ -57,7 +57,7 @@ export function CategoryPage() {
   if (!meta) {
     return (
       <section aria-labelledby="page-title" className="flex flex-col">
-        <div className="mb-4">
+        <div className="mb-4 hidden max-md:block">
           <BackLink to={backTo} smart fallbackLabel={fallbackLabel} />
         </div>
         <h1 id="page-title" className="sr-only">
@@ -74,7 +74,7 @@ export function CategoryPage() {
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
-      <div className="mb-4">
+      <div className="mb-4 hidden max-md:block">
         <BackLink to={backTo} smart fallbackLabel={fallbackLabel} />
       </div>
       <div className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
