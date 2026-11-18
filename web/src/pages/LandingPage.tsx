@@ -109,7 +109,7 @@ export function LandingPage() {
           <h1 id="page-title" className="m-0 max-w-hero text-hero font-bold text-balance text-ink">
             Find any product. Shape what ships next.
           </h1>
-          <p className="mt-3 mb-6 max-w-dialog-lg text-md text-balance text-ink-secondary">
+          <p className="mt-3 mb-6 max-w-hero text-md text-balance text-ink-secondary">
             Product feedback ranked by the people who use the software, answered by the teams who build it.
           </p>
           <div id="hero-search-anchor" className="w-full max-w-dialog-lg">
