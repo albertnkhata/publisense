@@ -87,7 +87,7 @@ function HubView({ hub }: { hub: Hub }) {
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
-      <div className="mb-4 flex items-center justify-between gap-2">
+      <div className="mb-4 hidden items-center justify-between gap-2 max-md:flex">
         <BackLink />
       </div>
       <ScopeHeader

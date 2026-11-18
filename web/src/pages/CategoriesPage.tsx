@@ -38,7 +38,7 @@ export function CategoriesPage() {
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
-      <div className="mb-4">
+      <div className="mb-4 hidden max-md:block">
         <BackLink to={backTo} smart fallbackLabel={fallbackLabel} />
       </div>
       <div className="mb-6 flex flex-wrap items-baseline justify-between gap-3">

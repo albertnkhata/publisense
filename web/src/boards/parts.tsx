@@ -367,7 +367,10 @@ export function BackLink({
           void navigate(-1);
         }
       }}
-      className={cx('inline-flex items-center gap-2 self-start text-sm font-medium text-ink-muted no-underline hover:text-ink', className)}
+      className={cx(
+        'hidden h-8 items-center gap-2 self-start rounded-md border border-line bg-card px-3 text-sm font-medium text-ink-secondary no-underline transition-colors duration-120 hover:border-line-strong hover:text-ink active:bg-subtle max-md:inline-flex',
+        className,
+      )}
     >
       <Icon name="arrow-left" size={14} />
       {named ?? children}

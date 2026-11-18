@@ -173,7 +173,7 @@ function BoardManage({ board, role }: { board: BoardWithHub; role: Role }) {
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
-      <div className="mb-4">
+      <div className="mb-4 hidden max-md:block">
         <BackLink to={`/b/${board.slug}`}>{board.name} board</BackLink>
       </div>
       <ScopeHeader
@@ -470,7 +470,7 @@ function HubManage({ hub, role }: { hub: Hub; role: Role }) {
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
-      <div className="mb-4">
+      <div className="mb-4 hidden max-md:block">
         <BackLink to={`/h/${hub.slug}`}>{hub.name} hub</BackLink>
       </div>
       <ScopeHeader
