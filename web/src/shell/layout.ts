@@ -34,8 +34,10 @@ import { useMatches } from 'react-router';
  */
 export type ShellWidth = 'narrow' | 'wide';
 export type ShellChrome = 'app' | 'site';
+export type ShellNav = 'top' | 'rail';
 
 export interface ShellHandle {
+  nav?: ShellNav;
   rail?: boolean;
   width?: ShellWidth;
   chrome?: ShellChrome;
@@ -44,6 +46,8 @@ export interface ShellHandle {
 }
 
 export interface ShellLayout {
+  /** 'top' renders the horizontal TopBar everywhere; 'rail' renders the workspace left NavRail. */
+  nav: ShellNav;
   rail: boolean;
   /** The content column: `narrow` is max-w-content, `wide` is max-w-wide. Always `narrow` with the rail. */
   width: ShellWidth;
@@ -54,21 +58,24 @@ export interface ShellLayout {
   fill: boolean;
 }
 
-/** No rail, wide column: dense staff and owner screens (/admin, Manage). */
+/** No rail, wide column: wide browsing/directory views on top-bar navigation. */
 export const NO_RAIL_WIDE = { rail: false, width: 'wide' } as const satisfies ShellHandle;
-/** /admin: like NO_RAIL_WIDE, and no top bar on desktop. */
-export const STAFF_PAGE = { rail: false, width: 'wide', topBar: false } as const satisfies ShellHandle;
-/** /explore and /c/:category: wide directory without the right rail or desktop top bar. */
-export const EXPLORE_PAGE = { rail: false, width: 'wide', topBar: false } as const satisfies ShellHandle;
+/** Board/hub management workspace: left NavRail, wide column, no desktop top bar. */
+export const MANAGE_PAGE = { nav: 'rail', rail: false, width: 'wide', topBar: false } as const satisfies ShellHandle;
+/** /admin workspace: left NavRail with admin sections, wide column, no desktop top bar. */
+export const STAFF_PAGE = { nav: 'rail', rail: false, width: 'wide', topBar: false } as const satisfies ShellHandle;
+/** /explore, /categories and /c/:category: wide directory without the right rail. */
+export const EXPLORE_PAGE = { rail: false, width: 'wide' } as const satisfies ShellHandle;
 /** No rail, reading-width column: forms, lists and long text. */
 export const NO_RAIL_NARROW = { rail: false, width: 'narrow' } as const satisfies ShellHandle;
 /** Website header instead of the app's nav rail, reading-width column: the legal pages. */
 export const SITE_PAGE = { chrome: 'site', rail: false, width: 'narrow' } as const satisfies ShellHandle;
 
-/** Messages: one screen tall, wide, no top bar on desktop (the nav rail has Messages). */
-export const MESSAGES_PAGE = { rail: false, width: 'wide', topBar: false, fill: true } as const satisfies ShellHandle;
+/** Messages workspace: left NavRail, one screen tall, wide, no desktop top bar. */
+export const MESSAGES_PAGE = { nav: 'rail', rail: false, width: 'wide', topBar: false, fill: true } as const satisfies ShellHandle;
 
 export function shellLayoutFor(handles: unknown[]): ShellLayout {
+  let nav: ShellNav = 'top';
   let rail = true;
   let width: ShellWidth | undefined;
   let chrome: ShellChrome = 'app';
@@ -77,15 +84,16 @@ export function shellLayoutFor(handles: unknown[]): ShellLayout {
   for (const h of handles) {
     if (!h || typeof h !== 'object') continue;
     const s = h as ShellHandle;
+    if (s.nav === 'top' || s.nav === 'rail') nav = s.nav;
     if (typeof s.rail === 'boolean') rail = s.rail;
     if (s.width === 'narrow' || s.width === 'wide') width = s.width;
     if (s.chrome === 'app' || s.chrome === 'site') chrome = s.chrome;
     if (typeof s.topBar === 'boolean') topBar = s.topBar;
     if (typeof s.fill === 'boolean') fill = s.fill;
   }
-  if (chrome === 'site') return { rail: false, width: 'narrow', chrome, topBar, fill: false };
-  if (rail) return { rail, width: 'narrow', chrome, topBar, fill: false };
-  return { rail, width: width ?? 'wide', chrome, topBar, fill };
+  if (chrome === 'site') return { nav: 'top', rail: false, width: 'narrow', chrome, topBar, fill: false };
+  if (rail) return { nav, rail, width: 'narrow', chrome, topBar, fill: false };
+  return { nav, rail, width: width ?? 'wide', chrome, topBar, fill };
 }
 
 export function useShellLayout(): ShellLayout {

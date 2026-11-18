@@ -3,11 +3,10 @@ import { compactCount, hasSupabaseConfig, isLive, logoSrc, shortAge, useBoards, 
 import { BoardAvatar, Card, SkeletonBlock } from '../ui';
 import { useClaim } from '../claim/ClaimDialog';
 import { LegalLinks } from './LegalLinks';
-import { SearchWell } from './SearchWell';
 import { trendingTitle } from '../lib/trendingCopy';
 
 /**
- * Right rail above lg: search, the boards cards and the claim line.
+ * Right rail above lg: the boards cards and the claim line.
  * Terms · Privacy sit at the foot of the right rail.
  * Two boards cards, each saying what its ordering is (#156): "Trending this
  * week" (boards with new posts this week, most first, with that count), shown
@@ -15,10 +14,8 @@ import { trendingTitle } from '../lib/trendingCopy';
  * age), leaving out any board already in Trending.
  */
 export function RightRail() {
-  const { pathname } = useLocation();
   return (
-    <aside aria-label="Sidebar" className="sticky top-6 flex w-rail shrink-0 flex-col gap-4 self-start max-lg:hidden">
-      {pathname !== '/search' ? <SearchWell /> : null}
+    <aside aria-label="Sidebar" className="sticky top-10 flex w-rail shrink-0 flex-col gap-4 self-start max-lg:hidden">
       {hasSupabaseConfig ? (
         <RailBoards />
       ) : (

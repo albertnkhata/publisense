@@ -5,41 +5,60 @@ import { cx } from '../lib/cx';
 import { Icon, Menu, MenuItem, MenuSeparator, Tooltip, UserAvatar, useToast } from '../ui';
 
 /**
- * The avatar menu at the foot of the nav rail. Holds the theme toggle.
- * Settings opens /settings (profile, notifications, account). Terms and
- * Privacy are at the foot of the nav rail, under this menu, at every width.
+ * Account menu rendered either at the foot of the workspace NavRail or as a
+ * compact avatar trigger in the browsing TopBar.
  */
-export function UserMenu({ viewer, collapsed }: { viewer: Viewer; collapsed: boolean }) {
+export function UserMenu({
+  viewer,
+  collapsed = false,
+  placement = 'rail',
+}: {
+  viewer: Viewer;
+  collapsed?: boolean;
+  placement?: 'rail' | 'topbar';
+}) {
   const { theme, pref, toggle, setPref } = useTheme();
   const { signOut } = useViewer();
   const { toast } = useToast();
   const staff = useIsPlatformAdmin(viewer.id).data ?? false;
+  const topbar = placement === 'topbar';
   return (
     <Menu
-      side="top"
-      align="start"
+      side={topbar ? 'bottom' : 'top'}
+      align={topbar ? 'end' : 'start'}
       label="Account"
-      trigger={(props) => (
-        <Tooltip content="Account menu" side="right" disabled={!collapsed} delay={0}>
+      trigger={(props) =>
+        topbar ? (
           <button
             type="button"
             {...props}
             aria-label={`Account menu for ${viewer.name}`}
-            className="flex h-row w-full items-center overflow-hidden rounded-md border-0 bg-transparent text-left text-ink-secondary transition-colors duration-120 hover:bg-subtle hover:text-ink aria-expanded:bg-subtle"
+            className="inline-flex size-8 cursor-pointer items-center justify-center rounded-pill border-0 bg-transparent transition-colors duration-120 hover:bg-subtle aria-expanded:bg-subtle"
           >
-            <span className="grid h-row w-gutter shrink-0 place-items-center">
-              <UserAvatar size="md" src={viewer.avatarUrl ?? null} />
-            </span>
-            <span className={cx('flex min-w-0 flex-1 flex-col gap-1 leading-none transition-opacity duration-120', collapsed && 'opacity-0')}>
-              <b className="truncate text-sm font-semibold text-ink">{viewer.name}</b>
-              <small className="truncate text-xs text-ink-muted">@{viewer.handle}</small>
-            </span>
-            <span className={cx('grid place-items-center pr-2 text-ink-muted', collapsed && 'opacity-0')}>
-              <Icon name="chevrons-up-down" size={14} />
-            </span>
+            <UserAvatar size="sm" src={viewer.avatarUrl ?? null} />
           </button>
-        </Tooltip>
-      )}
+        ) : (
+          <Tooltip content="Account menu" side="right" disabled={!collapsed} delay={0}>
+            <button
+              type="button"
+              {...props}
+              aria-label={`Account menu for ${viewer.name}`}
+              className="flex h-row w-full items-center overflow-hidden rounded-md border-0 bg-transparent text-left text-ink-secondary transition-colors duration-120 hover:bg-subtle hover:text-ink aria-expanded:bg-subtle"
+            >
+              <span className="grid h-row w-gutter shrink-0 place-items-center">
+                <UserAvatar size="md" src={viewer.avatarUrl ?? null} />
+              </span>
+              <span className={cx('flex min-w-0 flex-1 flex-col gap-1 leading-none transition-opacity duration-120', collapsed && 'opacity-0')}>
+                <b className="truncate text-sm font-semibold text-ink">{viewer.name}</b>
+                <small className="truncate text-xs text-ink-muted">@{viewer.handle}</small>
+              </span>
+              <span className={cx('grid place-items-center pr-2 text-ink-muted', collapsed && 'opacity-0')}>
+                <Icon name="chevrons-up-down" size={14} />
+              </span>
+            </button>
+          </Tooltip>
+        )
+      }
     >
       <MenuItem icon="user" to={`/u/${viewer.handle}`}>
         Profile
