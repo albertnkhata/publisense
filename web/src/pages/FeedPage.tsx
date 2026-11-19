@@ -38,8 +38,6 @@ export function FeedPage() {
       <h1 id="page-title" className="sr-only">
         {scope === 'following' ? 'Following' : 'Feed'}
       </h1>
-      {/* Phones post from the floating button (TabBar) instead. */}
-      {viewer ? <ComposerTrigger /> : null}
       <div className="flex items-center justify-between gap-3 border-b border-line">
         <Tabs
           idBase="feed"
@@ -100,40 +98,6 @@ function SortMenu({ sort, onChange }: { sort: FeedSort; onChange: (s: FeedSort) 
         </MenuItemRadio>
       ))}
     </Menu>
-  );
-}
-
-/**
- * The collapsed composer: a field, not a card — one rule, one line, one quiet action.
- * It shares the feed's grid (PostCard: a pl-gutter column): the plus
- * hangs in the gutter where avatars sit, and the prompt and its rule span exactly
- * the post content's width, so the rule reads as the field's underline.
- */
-function ComposerTrigger() {
-  const { openComposer } = useComposer();
-  return (
-    <button
-      type="button"
-      onClick={() => openComposer()}
-      className="group flex w-full cursor-pointer items-center border-0 bg-transparent px-0 text-left max-sm:hidden"
-    >
-      <span className="flex w-gutter shrink-0 items-center">
-        <span className="flex size-6 items-center justify-center rounded-pill border border-line-strong text-ink-muted transition-colors duration-120 group-hover:border-ink-muted group-hover:text-ink-secondary">
-          <Icon name="plus" size={11} strokeWidth={2} />
-        </span>
-      </span>
-      <span className="flex min-w-0 flex-1 items-center gap-3 border-b border-line-strong py-2">
-        <span className="min-w-0 flex-1 truncate text-base text-ink-muted transition-colors duration-120 group-hover:text-ink-secondary">
-          Share feedback on a product
-        </span>
-        {/* Looks like the primary sm Button, but is a span: the whole row is already
-            the button, and a button can't nest inside another. Kept at every width:
-            the old filled button was hidden under 640px, which left phones with no action. */}
-        <span className="inline-flex h-7 shrink-0 items-center justify-center rounded-md bg-brand px-3 text-sm font-semibold whitespace-nowrap text-on-brand transition-colors duration-120 ease-out group-hover:bg-brand-hover">
-          Post
-        </span>
-      </span>
-    </button>
   );
 }
 
