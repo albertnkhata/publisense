@@ -63,7 +63,7 @@ export function NavRail() {
       aria-label="Main navigation"
       data-collapsed={collapsed || undefined}
       className={cx(
-        'group sticky top-9 z-20 flex h-nav-height shrink-0 flex-col border-r border-line bg-transparent px-3 pt-3 pb-3 select-none',
+        'group sticky top-9 z-20 flex h-nav-height shrink-0 flex-col bg-transparent px-3 pt-3 pb-3 select-none',
         'transition-all duration-180 ease-out max-sm:hidden',
         collapsed ? 'w-nav-collapsed' : 'w-nav',
       )}
@@ -83,7 +83,7 @@ export function NavRail() {
       {/* Placed after primary links in the DOM so keyboard users reach Home, Feed, and
           Categories before the sidebar toggle (#141). */}
       {!belowXl ? (
-        <div className="flex border-t border-line pt-2">
+        <div className="flex pt-2">
           <Tooltip content={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} side="right" disabled={!collapsed} delay={0}>
             <button
               type="button"
@@ -128,7 +128,7 @@ function FollowedProducts({ viewerId, collapsed }: { viewerId: string; collapsed
   if (items.length === 0) return null;
 
   return (
-    <nav aria-label="Your products" className="mb-3 flex flex-col gap-1 border-t border-line pt-3">
+    <nav aria-label="Your products" className="mb-3 flex flex-col gap-1 pt-3">
       {collapsed ? null : <div className="px-3 pb-1 text-xs font-semibold text-ink-muted uppercase">Your products</div>}
       {items.map((item) => {
         const to = item.kind === 'board' ? `/b/${item.board.slug}` : `/h/${item.hub.slug}`;
@@ -181,7 +181,7 @@ const ADMIN_SECTIONS: Array<{ to: string; icon: IconName; label: string; end?: b
 
 function AdminSections({ collapsed }: { collapsed: boolean }) {
   return (
-    <nav aria-label="Admin" className="mb-3 flex flex-col gap-1 border-t border-line pt-3">
+    <nav aria-label="Admin" className="mb-3 flex flex-col gap-1 pt-3">
       {collapsed ? null : <div className="px-3 pb-1 text-xs font-semibold text-ink-muted uppercase">Admin</div>}
       {ADMIN_SECTIONS.map((s) => (
         <NavRow key={s.to} to={s.to} icon={s.icon} label={s.label} collapsed={collapsed} end={s.end} />
