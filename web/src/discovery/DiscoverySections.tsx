@@ -71,7 +71,7 @@ export function YourProductsSection({
       title="Your products"
       action={
         <Link to="/feed?scope=following" className="text-sm font-semibold text-brand no-underline hover:underline">
-          Following feed →
+          See posts →
         </Link>
       }
     >

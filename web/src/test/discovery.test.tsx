@@ -621,7 +621,7 @@ describe('signed-in discovery home', () => {
     const trendingHeading = await screen.findByRole('heading', { name: 'Trending' });
     // Your products appears above Trending in document order.
     expect(heading.compareDocumentPosition(trendingHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Following feed →' }).getAttribute('href')).toBe('/feed?scope=following');
+    expect(screen.getByRole('link', { name: 'See posts →' }).getAttribute('href')).toBe('/feed?scope=following');
 
     const strip = screen.getByRole('list', { name: 'Your followed products' });
     expect(within(strip).getAllByRole('link')).toHaveLength(6);
