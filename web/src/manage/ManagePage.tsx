@@ -24,7 +24,6 @@ import {
   type Role,
   type TypeFilter,
 } from '../api';
-import { BackLink } from '../boards/parts';
 import { ScopeHeader } from '../boards/ScopeHeader';
 import { useClaim } from '../claim/ClaimDialog';
 import { usePageTitle } from '../lib/usePageTitle';
@@ -71,10 +70,9 @@ const pickType = (v: string | null): TypeFilter => (v === 'bug' || v === 'fricti
 
 // ------------------------------------------------------------------ gates
 
-function Gate({ kind, name, back, children }: { kind: 'board' | 'hub'; name: string; back: string; children: ReactNode }) {
+function Gate({ name, children }: { name: string; children: ReactNode }) {
   return (
     <section aria-labelledby="page-title" className="flex flex-col gap-4">
-      <BackLink to={back}>{kind === 'board' ? `${name} board` : `${name} hub`}</BackLink>
       <div className="rounded-md border border-line bg-card">
         <h1 id="page-title" className="sr-only">
           Manage {name}
@@ -85,10 +83,10 @@ function Gate({ kind, name, back, children }: { kind: 'board' | 'hub'; name: str
   );
 }
 
-function SignInGate({ kind, name, back }: { kind: 'board' | 'hub'; name: string; back: string }) {
+function SignInGate({ name }: { name: string }) {
   const { openAuth } = useAuthDialog();
   return (
-    <Gate kind={kind} name={name} back={back}>
+    <Gate name={name}>
       <EmptyState icon="lock" title={`Sign in to manage ${name}`} action={<Button onClick={() => openAuth('signin', `manage ${name}`)}>Sign in</Button>}>
         Only the verified team sees this page.
       </EmptyState>
@@ -99,7 +97,7 @@ function SignInGate({ kind, name, back }: { kind: 'board' | 'hub'; name: string;
 function NotTeamGate({ kind, name, back, unclaimed, slug }: { kind: 'board' | 'hub'; name: string; back: string; unclaimed: boolean; slug: string }) {
   const { openClaim } = useClaim();
   return (
-    <Gate kind={kind} name={name} back={back}>
+    <Gate name={name}>
       <EmptyState
         icon="lock"
         title={`Only the ${name} team can see this`}
@@ -136,18 +134,17 @@ export function BoardManagePage() {
         <h1 id="page-title" className="sr-only">
           Manage board
         </h1>
-        <BackLink to="/explore">All boards</BackLink>
         <LoadError title="We couldn’t load this board" onRetry={() => void query.refetch()} retrying={query.isRefetching} />
       </section>
     );
   }
   if (!board) return <ScopeNotFound kind="board" />;
   const back = `/b/${board.slug}`;
-  if (!viewer) return <SignInGate kind="board" name={board.name} back={back} />;
+  if (!viewer) return <SignInGate name={board.name} />;
   if (role.isPending) return <HeaderSkeleton label={`Manage ${board.name}`} />;
   if (role.isError) {
     return (
-      <Gate kind="board" name={board.name} back={back}>
+      <Gate name={board.name}>
         <div className="p-4">
           <LoadError title="We couldn’t check your team access" onRetry={() => void role.refetch()} retrying={role.isRefetching} />
         </div>
@@ -173,9 +170,6 @@ function BoardManage({ board, role }: { board: BoardWithHub; role: Role }) {
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
-      <div className="mb-4 hidden max-md:block">
-        <BackLink to={`/b/${board.slug}`}>{board.name} board</BackLink>
-      </div>
       <ScopeHeader
         logo={<BoardAvatar name={board.name} color={board.color} logoSrc={logoSrc(board)} size="xl" decorative />}
         title={`Manage ${board.name}`}
@@ -431,18 +425,17 @@ export function HubManagePage() {
         <h1 id="page-title" className="sr-only">
           Manage hub
         </h1>
-        <BackLink to="/explore">All boards</BackLink>
         <LoadError title="We couldn’t load this hub" onRetry={() => void query.refetch()} retrying={query.isRefetching} />
       </section>
     );
   }
   if (!hub) return <ScopeNotFound kind="hub" />;
   const back = `/h/${hub.slug}`;
-  if (!viewer) return <SignInGate kind="hub" name={hub.name} back={back} />;
+  if (!viewer) return <SignInGate name={hub.name} />;
   if (role.isPending) return <HeaderSkeleton label={`Manage ${hub.name} hub`} />;
   if (role.isError) {
     return (
-      <Gate kind="hub" name={hub.name} back={back}>
+      <Gate name={hub.name}>
         <div className="p-4">
           <LoadError title="We couldn’t check your team access" onRetry={() => void role.refetch()} retrying={role.isRefetching} />
         </div>
@@ -470,9 +463,6 @@ function HubManage({ hub, role }: { hub: Hub; role: Role }) {
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
-      <div className="mb-4 hidden max-md:block">
-        <BackLink to={`/h/${hub.slug}`}>{hub.name} hub</BackLink>
-      </div>
       <ScopeHeader
         logo={<BoardAvatar name={hub.name} color={first?.color} logoSrc={logoSrc(first)} size="xl" decorative />}
         title={`Manage ${hub.name} hub`}

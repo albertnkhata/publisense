@@ -111,46 +111,6 @@ beforeEach(() => {
 });
 
 describe('board page', () => {
-  it('renders smart Back navigation falling back to home', async () => {
-    postsApi.fetchPostList.mockResolvedValue(page([]));
-    const { router } = renderAt('/b/cursor');
-    // No history (a direct link): it names where it goes.
-    const back = await screen.findByRole('link', { name: 'Back to Home' });
-    expect(back).toBeTruthy();
-    expect(back.className.split(/\s+/)).toEqual(expect.arrayContaining(['hidden', 'max-md:inline-flex', 'h-8']));
-    expect(back.getAttribute('href')).toBe('/');
-    fireEvent.click(back);
-    await waitFor(() => expect(router.state.location.pathname).toBe('/'));
-  });
-
-  it('falls back to the company hub, by name, when the board has one', async () => {
-    boardsApi.fetchBoard.mockResolvedValue({ ...FIGJAM, hub: { id: FIGMA_HUB.id, slug: 'figma', name: 'Figma', board_count: 2 } });
-    renderAt('/b/figjam');
-    const back = await screen.findByRole('link', { name: 'Back to Figma' });
-    expect(back.getAttribute('href')).toBe('/h/figma');
-    expect(back.textContent).toBe('Figma');
-  });
-
-  it('navigates back in history when history entries exist', async () => {
-    const originalState = window.history.state;
-    Object.defineProperty(window.history, 'state', {
-      value: { idx: 2 },
-      configurable: true,
-    });
-    try {
-      const { router } = renderAt('/b/cursor');
-      const back = await screen.findByRole('link', { name: 'Back' });
-      const navSpy = vi.spyOn(router, 'navigate');
-      fireEvent.click(back);
-      expect(navSpy).toHaveBeenCalledWith(-1);
-    } finally {
-      Object.defineProperty(window.history, 'state', {
-        value: originalState,
-        configurable: true,
-      });
-    }
-  });
-
   it('sets the tab title to the board name (#159)', async () => {
     renderAt('/b/cursor');
     await waitFor(() => expect(document.title).toBe(`${CURSOR.name} · Publisense`));
@@ -501,15 +461,6 @@ describe('board header meta line', () => {
 });
 
 describe('hub page', () => {
-  it('renders smart Back navigation', async () => {
-    const { router } = renderAt('/h/figma');
-    const back = await screen.findByRole('link', { name: 'Back to Home' });
-    expect(back).toBeTruthy();
-    expect(back.getAttribute('href')).toBe('/');
-    fireEvent.click(back);
-    await waitFor(() => expect(router.state.location.pathname).toBe('/'));
-  });
-
   it('sets the tab title to the hub name (#159)', async () => {
     renderAt('/h/figma');
     await waitFor(() => expect(document.title).toBe(`${FIGMA_HUB.name} hub · Publisense`));
@@ -726,7 +677,6 @@ describe('explore', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/c/dev'));
     expect(await screen.findByRole('heading', { level: 1, name: 'Dev platforms' })).toBeTruthy();
     expect(screen.getByText('1 product')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Back to Explore' }).getAttribute('href')).toBe('/explore');
   });
 
   it('redirects legacy /explore?cat= links to /c/:category and handles empty or unknown categories', async () => {
@@ -789,11 +739,10 @@ describe('landing page & auth handoff', () => {
     expect(screen.getByRole('contentinfo', { name: 'Site footer' })).toBeTruthy();
   });
 
-  it('shows CategoriesPage back link to Home when signed out and retries on load error', async () => {
+  it('retries CategoriesPage on load error and lists all categories', async () => {
     boardsApi.fetchBoards.mockRejectedValueOnce(new Error('network down'));
     renderAt('/categories');
     expect(await screen.findByText('We couldn’t load categories')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Back to Home' }).getAttribute('href')).toBe('/');
 
     boardsApi.fetchBoards.mockResolvedValueOnce([CURSOR, FIGJAM, FIGMA, SUPABASE]);
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));

@@ -21,7 +21,7 @@ import {
   type TypeFilter,
   isProductFamily,
 } from '../api';
-import { BackLink, ChoiceMenu, FollowScopeButton, type Choice } from '../boards/parts';
+import { ChoiceMenu, FollowScopeButton, type Choice } from '../boards/parts';
 import { Changelog, Roadmap } from '../boards/Roadmap';
 import { FollowerStat, metaLink, ScopeHeader } from '../boards/ScopeHeader';
 import { useClaim } from '../claim/ClaimDialog';
@@ -126,9 +126,8 @@ function Board({ board }: { board: BoardWithHub }) {
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
-      <div className={SHOW_MORE_MENU ? 'mb-4 flex items-center justify-between gap-2' : 'mb-4 hidden items-center justify-between gap-2 max-md:flex'}>
-        <BackLink {...(familyHub(board) ? { to: `/h/${board.hub!.slug}`, smart: true, fallbackLabel: board.hub!.name } : {})} />
-        {SHOW_MORE_MENU ? (
+      {SHOW_MORE_MENU ? (
+        <div className="mb-4 flex items-center justify-end gap-2">
           <div className="flex items-center gap-1">
             <Menu label={`More from ${board.name}`} align="end" trigger={(p) => <IconButton {...p} icon="more" label="More" />}>
               <MenuItem
@@ -143,8 +142,8 @@ function Board({ board }: { board: BoardWithHub }) {
               </MenuItem>
             </Menu>
           </div>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
       <ScopeHeader
         logo={<BoardAvatar name={board.name} color={board.color} logoSrc={logoSrc(board)} size="xl" decorative />}
         title={board.name}
@@ -573,7 +572,6 @@ export function HeaderSkeleton({ label }: { label: string }) {
 export function ScopeNotFound({ kind }: { kind: 'board' | 'hub' }) {
   return (
     <section aria-labelledby="page-title" className="flex flex-col gap-4">
-      <BackLink />
       <div className="rounded-md border border-line bg-card">
         <h1 id="page-title" className="sr-only">
           {kind === 'board' ? 'Board not found' : 'Hub not found'}

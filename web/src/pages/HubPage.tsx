@@ -16,7 +16,7 @@ import {
   useVerifiedDomains,
   type Hub,
 } from '../api';
-import { BackLink, BoardRow, ChoiceMenu, FollowScopeButton, RowItem, RowList } from '../boards/parts';
+import { BoardRow, ChoiceMenu, FollowScopeButton, RowItem, RowList } from '../boards/parts';
 import { FollowerStat, ScopeHeader, Stat } from '../boards/ScopeHeader';
 import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
@@ -87,9 +87,6 @@ function HubView({ hub }: { hub: Hub }) {
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
-      <div className="mb-4 hidden items-center justify-between gap-2 max-md:flex">
-        <BackLink />
-      </div>
       <ScopeHeader
         logo={<BoardAvatar name={hub.name} color={first?.color} logoSrc={logoSrc(first)} size="xl" decorative />}
         title={hub.name}
