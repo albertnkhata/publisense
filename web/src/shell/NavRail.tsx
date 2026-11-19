@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type MouseEvent, type ReactNode } from 'react';
+import { useCallback, useMemo, useSyncExternalStore, type MouseEvent, type ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router';
 import {
   followKey,
@@ -14,12 +14,12 @@ import {
 } from '../api';
 import { cx } from '../lib/cx';
 import { MQ, useMediaQuery } from '../lib/useMediaQuery';
-import { useShortcut } from '../lib/useShortcut';
 import { useViewer } from '../lib/viewer';
 import { BoardAvatar, HubAvatar, Icon, Tooltip, type IconName } from '../ui';
 
 const NAV_KEY = 'publisense:nav-collapsed';
 const FOLLOWED_RAIL_LIMIT = 8;
+const navListeners = new Set<() => void>();
 
 function readCollapsed(): boolean {
   try {
@@ -29,9 +29,34 @@ function readCollapsed(): boolean {
   }
 }
 
+export function useNavCollapsed() {
+  const belowXl = useMediaQuery(MQ.xl);
+  const manual = useSyncExternalStore(
+    (onStoreChange) => {
+      navListeners.add(onStoreChange);
+      return () => navListeners.delete(onStoreChange);
+    },
+    readCollapsed,
+    () => false,
+  );
+  const collapsed = manual || belowXl;
+
+  const toggle = useCallback(() => {
+    try {
+      const next = !readCollapsed();
+      window.localStorage.setItem(NAV_KEY, next ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+    for (const fn of navListeners) fn();
+  }, []);
+
+  return { collapsed, belowXl, toggle };
+}
+
 /**
  * Left navigation rail seated beneath the global TopBar. Every row shares one
- * 40px icon column (aligned directly under the BrandSymbol in TopBar), so
+ * 40px icon column (aligned directly under the sidebar toggle in TopBar), so
  * collapsing only hides labels: icons never move.
  * 248px wide; 64px when collapsed by the user ("[") or below xl (1336px), so it
  * gives up its width before the right rail (hidden below lg) or the feed do.
@@ -40,23 +65,9 @@ function readCollapsed(): boolean {
 export function NavRail() {
   const { pathname } = useLocation();
   const { viewer } = useViewer();
-  const belowXl = useMediaQuery(MQ.xl);
-  const [manual, setManual] = useState<boolean>(readCollapsed);
-  const collapsed = manual || belowXl;
+  const { collapsed } = useNavCollapsed();
   const staff = useIsPlatformAdmin(viewer?.id ?? null).data ?? false;
   const isCategories = pathname === '/categories' || pathname.startsWith('/c/');
-
-  const toggle = useCallback(() => {
-    setManual((c) => {
-      try {
-        window.localStorage.setItem(NAV_KEY, c ? '0' : '1');
-      } catch {
-        /* ignore */
-      }
-      return !c;
-    });
-  }, []);
-  useShortcut('[', toggle, { enabled: !belowXl });
 
   return (
     <aside
@@ -79,26 +90,6 @@ export function NavRail() {
 
         {staff ? <AdminSections collapsed={collapsed} /> : null}
       </div>
-
-      {/* Placed after primary links in the DOM so keyboard users reach Home, Feed, and
-          Categories before the sidebar toggle (#141). */}
-      {!belowXl ? (
-        <div className="flex pt-2">
-          <Tooltip content={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} side="right" disabled={!collapsed} delay={0}>
-            <button
-              type="button"
-              onClick={toggle}
-              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              aria-expanded={!collapsed}
-              aria-keyshortcuts="["
-              title={collapsed ? undefined : 'Collapse sidebar'}
-              className="ml-auto grid h-row w-gutter shrink-0 place-items-center rounded-md border-0 bg-transparent text-ink-muted transition-colors duration-120 hover:bg-subtle hover:text-ink focus-visible:opacity-100"
-            >
-              <Icon name="sidebar" size={18} strokeWidth={1.75} />
-            </button>
-          </Tooltip>
-        </div>
-      ) : null}
     </aside>
   );
 }

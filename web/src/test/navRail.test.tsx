@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { followKey } from '../api';
 import { NavRail } from '../shell/NavRail';
+import { TopBar } from '../shell/TopBar';
 import { ComposerProvider } from '../shell/composer';
 import { CURSOR, FIGMA_HUB } from './boardFixtures';
 import { renderWith, TEST_VIEWER } from './renderApp';
@@ -32,24 +33,25 @@ function tabOrder(root: HTMLElement): string[] {
     .map((el) => el.getAttribute('aria-label') ?? el.textContent?.trim() ?? '');
 }
 
-describe('NavRail keyboard order (#141)', () => {
-  it('reaches Home, Feed and Categories before the Collapse sidebar button', () => {
+describe('NavRail keyboard order and TopBar toggle (#141)', () => {
+  it('orders Home, Feed and Categories in NavRail and toggles collapse from TopBar', () => {
     renderWith(
       <ComposerProvider>
+        <TopBar />
         <NavRail />
       </ComposerProvider>,
       { viewer: TEST_VIEWER },
     );
     const rail = screen.getByRole('complementary', { name: 'Main navigation' });
     const order = tabOrder(rail);
-    expect(order[0]).toBe('Home');
-    expect(order[1]).toBe('Feed');
-    expect(order[2]).toBe('Categories');
-    const collapse = order.indexOf('Collapse sidebar');
-    expect(collapse).toBeGreaterThan(order.indexOf('Categories'));
-    const btn = within(rail).getByRole('button', { name: 'Collapse sidebar' });
+    expect(order).toEqual(['Home', 'Feed', 'Categories']);
+    const btn = screen.getByRole('button', { name: 'Collapse sidebar' });
     expect(btn.getAttribute('aria-keyshortcuts')).toBe('[');
     expect(btn.className).toContain('focus-visible:opacity-100');
+    fireEvent.click(btn);
+    expect(rail.getAttribute('data-collapsed')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }));
+    expect(rail.getAttribute('data-collapsed')).toBeNull();
   });
 });
 

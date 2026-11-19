@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
 import { NavRail } from '../shell/NavRail';
+import { TopBar } from '../shell/TopBar';
 import { PostRow, Section } from '../boards/parts';
 import { ComposerProvider } from '../shell/composer';
 import { trendingNote, trendingTitle, TRENDING_MIN_CURATED } from '../lib/trendingCopy';
@@ -31,6 +32,7 @@ describe('collapsed nav rail names its rows (item 5a)', () => {
   it('shows the row label on hover with no delay, since the tip is the only label', async () => {
     renderWith(
       <ComposerProvider>
+        <TopBar />
         <NavRail />
       </ComposerProvider>,
       { viewer: TEST_VIEWER },

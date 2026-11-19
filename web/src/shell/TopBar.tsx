@@ -3,8 +3,9 @@ import { useDmUnread, useMessagesEnabled, useUnreadCount } from '../api';
 import { cx } from '../lib/cx';
 import { useShortcut } from '../lib/useShortcut';
 import { useViewer } from '../lib/viewer';
-import { Button, Icon } from '../ui';
+import { Button, Icon, Tooltip } from '../ui';
 import { BrandSymbol } from './BrandMark';
+import { useNavCollapsed } from './NavRail';
 import { SearchWell } from './SearchWell';
 import { UserMenu } from './UserMenu';
 import { useAuthDialog, useRequireAuth } from './auth';
@@ -12,7 +13,7 @@ import { useComposer } from './composer';
 
 /**
  * Full-width sticky TopBar seated above the left NavRail and main column.
- * - Left: BrandSymbol aligned over the NavRail's 40px icon column + wordmark.
+ * - Left: Sidebar toggle (aligned over the NavRail's 40px icon column) + BrandSymbol + wordmark.
  * - Center: SearchWell (omitted on `/` and `/search` where the page has its own top search bar).
  * - Right: Post feedback (C), Messages, Notifications, and UserMenu / Sign in.
  */
@@ -22,6 +23,7 @@ export function TopBar() {
   const { openAuth } = useAuthDialog();
   const requireAuth = useRequireAuth();
   const { openComposer } = useComposer();
+  const { collapsed, belowXl, toggle } = useNavCollapsed();
   const unread = useUnreadCount(viewer?.id ?? null).data ?? 0;
   const messages = useMessagesEnabled(viewer?.id ?? null);
   const dmUnread = useDmUnread(viewer?.id ?? null);
@@ -30,22 +32,37 @@ export function TopBar() {
     if (requireAuth('post feedback')) openComposer();
   };
   useShortcut('c', onPost);
+  useShortcut('[', toggle, { enabled: !belowXl });
 
   const showSearch = pathname !== '/search' && pathname !== '/';
 
   return (
     <header className="sticky top-0 z-30 flex h-9 w-full shrink-0 items-center border-b border-line bg-glass px-3 backdrop-blur-md">
       <div className="flex w-full items-center gap-3 max-sm:gap-2">
-        <Link
-          to="/"
-          aria-label="Publisense home"
-          className="flex h-8 shrink-0 items-center overflow-hidden rounded-md text-ink no-underline"
-        >
-          <span className="grid h-8 w-gutter shrink-0 place-items-center">
+        <span className="flex shrink-0 items-center gap-1">
+          {!belowXl ? (
+            <Tooltip content={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} side="bottom" delay={0}>
+              <button
+                type="button"
+                onClick={toggle}
+                aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                aria-expanded={!collapsed}
+                aria-keyshortcuts="["
+                className="grid h-8 w-gutter shrink-0 place-items-center rounded-md border-0 bg-transparent text-ink-secondary transition-colors duration-120 hover:bg-subtle hover:text-ink focus-visible:opacity-100 max-sm:hidden"
+              >
+                <Icon name="sidebar" size={18} strokeWidth={1.75} />
+              </button>
+            </Tooltip>
+          ) : null}
+          <Link
+            to="/"
+            aria-label="Publisense home"
+            className="flex h-8 shrink-0 items-center gap-2 overflow-hidden rounded-md px-1 text-ink no-underline"
+          >
             <BrandSymbol />
-          </span>
-          <span className="text-lg font-bold whitespace-nowrap">Publisense</span>
-        </Link>
+            <span className="text-lg font-bold whitespace-nowrap">Publisense</span>
+          </Link>
+        </span>
 
         {showSearch ? (
           <SearchWell
