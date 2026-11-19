@@ -39,7 +39,7 @@ export function TopBar() {
   return (
     <header className="sticky top-0 z-30 flex h-9 w-full shrink-0 items-center border-b border-line bg-glass px-3 backdrop-blur-md">
       <div className="flex w-full items-center gap-3 max-sm:gap-2">
-        <span className="flex shrink-0 items-center gap-1">
+        <span className="flex flex-1 items-center gap-1">
           {!belowXl ? (
             <Tooltip content={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} side="bottom" delay={0}>
               <button
@@ -66,12 +66,12 @@ export function TopBar() {
 
         {showSearch ? (
           <SearchWell
-            className="mx-auto min-w-0 max-w-dialog flex-1 max-sm:hidden"
+            className="w-full min-w-0 max-w-dialog max-sm:hidden"
             triggerClassName="h-7 text-sm"
           />
         ) : null}
 
-        <span className="ml-auto flex shrink-0 items-center gap-2 pr-1 max-sm:gap-1">
+        <span className="flex flex-1 items-center justify-end gap-2 pr-1 max-sm:gap-1">
           <span className="contents max-sm:hidden">
             <Button size="sm" icon="plus" aria-label="Post feedback" onClick={onPost}>
               <span className="max-lg:hidden">Post feedback</span>
