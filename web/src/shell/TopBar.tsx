@@ -14,9 +14,8 @@ import type { ShellNav, ShellWidth } from './layout';
 /**
  * Global TopBar.
  * - `nav === 'top'` (browsing & consumer routes): always visible sticky navigation
- *   bar with Brand, primary nav links (Home / Explore / Following when signed in;
- *   Explore / Categories when signed out), SearchWell, Post feedback, Messages,
- *   Notifications, and UserMenu / Sign in.
+ *   bar with Brand, primary nav links (Home / Feed / Categories), SearchWell,
+ *   Post feedback, Messages, Notifications, and UserMenu / Sign in.
  * - `nav === 'rail'` (workspaces with NavRail): shown below lg (unless `always`)
  *   to provide brand, search, notification bell, and sign in.
  */
@@ -31,7 +30,7 @@ export function TopBar({
   width?: ShellWidth;
   fill?: boolean;
 }) {
-  const { pathname, search } = useLocation();
+  const { pathname } = useLocation();
   const { viewer, ready } = useViewer();
   const { openAuth } = useAuthDialog();
   const requireAuth = useRequireAuth();
@@ -46,10 +45,10 @@ export function TopBar({
   };
   useShortcut('c', onPost, { enabled: isTopNav });
 
-  const isFollowing = pathname === '/' && search.includes('scope=following');
-  const isHome = pathname === '/' && !isFollowing;
-  const isExploreGroup = pathname === '/explore' || pathname === '/categories' || pathname.startsWith('/c/');
-  const showSearch = pathname !== '/search' && (!isTopNav || pathname !== '/explore');
+  const isHome = pathname === '/';
+  const isFeed = pathname === '/feed';
+  const isCategories = pathname === '/categories' || pathname.startsWith('/c/');
+  const showSearch = pathname !== '/search' && (!isTopNav || pathname !== '/');
 
   const navLinkClass = (active: boolean) =>
     cx(
@@ -87,28 +86,15 @@ export function TopBar({
 
         {isTopNav ? (
           <nav aria-label="Primary" className="flex items-center gap-1 max-sm:hidden">
-            {viewer ? (
-              <>
-                <NavLink to="/" end className={() => navLinkClass(isHome)}>
-                  Home
-                </NavLink>
-                <NavLink to="/explore" className={() => navLinkClass(isExploreGroup)}>
-                  Explore
-                </NavLink>
-                <NavLink to="/?scope=following" className={() => navLinkClass(isFollowing)}>
-                  Following
-                </NavLink>
-              </>
-            ) : (
-              <>
-                <NavLink to="/explore" className={({ isActive }) => navLinkClass(isActive)}>
-                  Explore
-                </NavLink>
-                <NavLink to="/categories" className={() => navLinkClass(pathname === '/categories' || pathname.startsWith('/c/'))}>
-                  Categories
-                </NavLink>
-              </>
-            )}
+            <NavLink to="/" end className={() => navLinkClass(isHome)}>
+              Home
+            </NavLink>
+            <NavLink to="/feed" className={() => navLinkClass(isFeed)}>
+              Feed
+            </NavLink>
+            <NavLink to="/categories" className={() => navLinkClass(isCategories)}>
+              Categories
+            </NavLink>
           </nav>
         ) : null}
 

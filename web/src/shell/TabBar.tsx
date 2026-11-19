@@ -36,8 +36,8 @@ export function TabBar({ showPost = true }: { showPost?: boolean } = {}) {
         <NavLink to="/" end aria-label="Home" className={tabClass}>
           {({ isActive }) => <TabIcon name="home" active={isActive} />}
         </NavLink>
-        <NavLink to="/explore" aria-label="Explore" className={tabClass}>
-          {({ isActive }) => <TabIcon name="search" active={isActive} />}
+        <NavLink to="/feed" aria-label="Feed" className={tabClass}>
+          {({ isActive }) => <TabIcon name="feed" active={isActive} />}
         </NavLink>
         {showPost ? (
           <div className="flex h-8 items-center justify-center">

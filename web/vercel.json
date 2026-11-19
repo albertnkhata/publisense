@@ -67,6 +67,10 @@
       "destination": "/api/sitemap"
     },
     {
+      "source": "/feed",
+      "destination": "/index.html"
+    },
+    {
       "source": "/explore",
       "destination": "/index.html"
     },

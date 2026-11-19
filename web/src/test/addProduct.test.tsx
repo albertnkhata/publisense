@@ -7,7 +7,8 @@ import { parseLink as webParseLink } from '../lib/link';
 import * as rules from '../../../supabase/functions/link-preview/rules';
 import { ClaimProvider } from '../claim/ClaimDialog';
 import { BoardPage } from '../pages/BoardPage';
-import { ExplorePage } from '../pages/ExplorePage';
+import { CategoryPage } from '../pages/CategoryPage';
+import { HomePage } from '../pages/HomePage';
 import { AdminCompaniesPage, AdminProductsPage } from '../pages/AdminPages';
 import { describeNotification } from '../pages/NotificationsPage';
 import { AddProductHost, AddProductProvider, useAddProduct } from '../products/AddProductDialog';
@@ -101,7 +102,8 @@ function renderApp(path = '/', signedIn = true) {
             <Route path="/" element={<Opener />} />
             <Route path="/well" element={<SearchWell />} />
             <Route path="/compose" element={<ComposerOpener />} />
-            <Route path="/explore" element={<ExplorePage />} />
+            <Route path="/home" element={<HomePage />} />
+            <Route path="/c/:category" element={<CategoryPage />} />
             <Route path="/b/:board" element={<BoardPage />} />
             <Route path="/u/:handle" element={<h1>Profile page</h1>} />
             <Route path="/admin/products" element={<AdminProductsPage />} />
@@ -253,7 +255,7 @@ describe('link rules', () => {
 
 describe('add a product', () => {
   it('signed out, it asks them to create an account first', async () => {
-    renderApp('/explore', false);
+    renderApp('/c/code', false);
     fireEvent.click(await screen.findByRole('button', { name: 'Add it' }));
     const auth = await screen.findByRole('dialog');
     expect(within(auth).getByText(/Create an account to add a product/)).toBeTruthy();
@@ -452,9 +454,9 @@ describe('pending boards', () => {
     expect(screen.queryByRole('button', { name: 'Post feedback' })).toBeNull();
   });
 
-  it('stay out of Explore even for the people RLS lets read them', async () => {
+  it('stay out of Home even for the people RLS lets read them', async () => {
     boardsApi.fetchBoards.mockResolvedValue([CURSOR, ACME, makeBoard({ id: 'b0000000-0000-4000-8000-0000000000a2', slug: 'beta', name: 'Beta', status: 'pending', created_by: OTHER.id })]);
-    renderApp('/explore');
+    renderApp('/home');
     const cats = await screen.findByRole('list', { name: 'Categories' });
     expect(within(cats).getByText('Code editors')).toBeTruthy();
     expect(within(cats).getByText('Cursor')).toBeTruthy();

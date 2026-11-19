@@ -399,8 +399,8 @@ function UserPosts({ person, self }: { person: PublicProfile; self: boolean }) {
         icon="edit"
         action={
           self ? (
-            <Link to="/explore" className={actionLink}>
-              Explore products
+            <Link to="/" className={actionLink}>
+              Browse products
             </Link>
           ) : undefined
         }
@@ -495,8 +495,8 @@ function PersonNotFound() {
           icon="user"
           title="No one goes by that name"
           action={
-            <Link to="/explore" className={actionLink}>
-              Explore products
+            <Link to="/" className={actionLink}>
+              Browse products
             </Link>
           }
         >

@@ -3,13 +3,14 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { Route, Routes } from 'react-router';
 import type { QueryClient } from '@tanstack/react-query';
 import { rememberSearch } from '../api/boards';
-import { boardKeys } from '../api';
+import { boardKeys, followKey } from '../api';
 import { purgeUserQueryCache, useViewer } from '../lib/viewer';
 import type { FeedPage, PopularPostSummary, Post } from '../api/posts';
 import { BoardPage } from '../pages/BoardPage';
 import { CategoriesPage } from '../pages/CategoriesPage';
 import { CategoryPage } from '../pages/CategoryPage';
 import { ExplorePage } from '../pages/ExplorePage';
+import { HomePage } from '../pages/HomePage';
 import { HubPage } from '../pages/HubPage';
 import { LandingFooter, LandingHeader, LandingPage } from '../pages/LandingPage';
 import { SearchPage } from '../pages/SearchPage';
@@ -18,7 +19,7 @@ import { savePendingComposerIntent } from '../lib/postDraft';
 import { AddProductProvider } from '../products/AddProductDialog';
 import { ComposerProvider } from '../shell/composer';
 import { SearchWell } from '../shell/SearchWell';
-import { CURSOR, FIGJAM, FIGMA, FIGMA_HUB, makeSummary, SUPABASE } from './boardFixtures';
+import { CURSOR, FIGJAM, FIGMA, FIGMA_HUB, makeBoard, makeSummary, SUPABASE } from './boardFixtures';
 import { makePost } from './postFixtures';
 import { renderWith, TEST_VIEWER } from './renderApp';
 
@@ -71,11 +72,12 @@ function renderAt(path: string, signedIn = false, client?: QueryClient) {
             <Route path="/categories" element={<CategoriesPage />} />
             <Route path="/c/:category" element={<CategoryPage />} />
             <Route path="/explore" element={<ExplorePage />} />
+            <Route path="/feed" element={<h1>Feed page</h1>} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/well" element={<SearchWell />} />
             <Route path="/post/:id" element={<h1>Post page</h1>} />
             <Route path="/landing" element={<><LandingHeader /><LandingPage /><LandingFooter /></>} />
-            <Route path="/" element={<h1>Home page</h1>} />
+            <Route path="/" element={<HomePage />} />
           </Routes>
         </AddProductProvider>
       </ClaimProvider>
@@ -288,7 +290,7 @@ describe('board page', () => {
     boardsApi.fetchBoard.mockResolvedValue(null);
     renderAt('/b/nope');
     expect(await screen.findByRole('heading', { level: 1, name: 'Board not found' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Explore products' }).getAttribute('href')).toBe('/explore');
+    expect(screen.getByRole('link', { name: 'Browse products' }).getAttribute('href')).toBe('/');
   });
 
   it('does not leak pending board metadata to guests across identity changes (BUG-002)', async () => {
@@ -579,15 +581,16 @@ describe('header follower count', () => {
   });
 });
 
-describe('explore', () => {
-  it('shows search trigger, trending, popular posts, hubs and categories', async () => {
+describe('signed-in discovery home', () => {
+  it('shows search trigger, trending, popular posts, hubs and categories, omitting Your products when following none', async () => {
     boardsApi.fetchTrending.mockResolvedValue([{ ...SUPABASE, recent: 3 }]);
     postsApi.fetchPopularByStatus.mockResolvedValue([
       makePopular({ title: 'Branching for preview databases', vote_count: 80, has_official_reply: true }),
     ]);
-    renderAt('/explore');
-    expect((await screen.findByRole('heading', { level: 1, name: 'Explore' })).className).toContain('sr-only');
+    renderAt('/', true);
+    expect((await screen.findByRole('heading', { level: 1, name: 'Home' })).className).toContain('sr-only');
     expect(screen.getByRole('button', { name: 'Search products, posts, hubs' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Your products' })).toBeNull();
     // One board of activity: the section says what the rows are instead of claiming a ranking.
     expect(await screen.findByRole('heading', { name: 'New this week' })).toBeTruthy();
     expect(screen.getByRole('link', { name: /Figma hub/ }).getAttribute('href')).toBe('/h/figma');
@@ -601,9 +604,39 @@ describe('explore', () => {
     expect(screen.getByRole('link', { name: 'All categories →' }).getAttribute('href')).toBe('/categories');
   });
 
-  it('shows Trending fallback on /explore without + Add a missing product in the section header', async () => {
+  it('shows Your products strip above Trending when following boards or hubs, with Following feed shortcut and expand toggle', async () => {
+    const extraBoards = Array.from({ length: 6 }, (_, i) =>
+      makeBoard({ id: `b-extra-${i}`, slug: `extra-${i}`, name: `Extra ${i}`, post_count: 20 - i, follower_count: 5 }),
+    );
+    boardsApi.fetchBoards.mockResolvedValue([CURSOR, SUPABASE, FIGMA, FIGJAM, ...extraBoards]);
+    boardsApi.fetchFollowedScopes.mockResolvedValue(
+      new Set([
+        followKey('board', CURSOR.id),
+        followKey('hub', FIGMA_HUB.id),
+        ...extraBoards.map((b) => followKey('board', b.id)),
+      ]),
+    );
+    renderAt('/', true);
+    const heading = await screen.findByRole('heading', { name: 'Your products' });
+    const trendingHeading = await screen.findByRole('heading', { name: 'Trending' });
+    // Your products appears above Trending in document order.
+    expect(heading.compareDocumentPosition(trendingHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'See posts →' }).getAttribute('href')).toBe('/feed?scope=following');
+
+    const strip = screen.getByRole('list', { name: 'Your followed products' });
+    expect(within(strip).getAllByRole('link')).toHaveLength(6);
+    expect(within(strip).getByRole('link', { name: /Cursor/ }).getAttribute('href')).toBe('/b/cursor');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show 2 more' }));
+    expect(within(strip).getAllByRole('link')).toHaveLength(8);
+    expect(within(strip).getByRole('link', { name: /Figma hub/ }).getAttribute('href')).toBe('/h/figma');
+    fireEvent.click(screen.getByRole('button', { name: 'Show fewer' }));
+    expect(within(strip).getAllByRole('link')).toHaveLength(6);
+  });
+
+  it('shows Trending fallback on signed-in / without + Add a missing product in the section header', async () => {
     boardsApi.fetchTrending.mockResolvedValue([]);
-    renderAt('/explore');
+    renderAt('/', true);
     expect(await screen.findByRole('heading', { name: 'Trending' })).toBeTruthy();
     const trendingList = screen.getByRole('list', { name: 'Trending products' });
     expect(within(trendingList).getAllByRole('article').map((a) => within(a).getAllByRole('link')[0]?.textContent)).toEqual([
@@ -625,7 +658,7 @@ describe('explore', () => {
       return [];
     });
     postsApi.fetchWanted.mockResolvedValue([makeSummary({ id: 'p-w1', title: 'Wanted request', vote_count: 40 })]);
-    const { router } = renderAt('/explore', true);
+    const { router } = renderAt('/', true);
     expect(await screen.findByText('Open item')).toBeTruthy();
     expect(screen.getByRole('tab', { name: 'Open' }).getAttribute('aria-selected')).toBe('true');
     expect(screen.queryByRole('button', { name: 'Browse all posts →' })).toBeNull();
@@ -659,19 +692,19 @@ describe('explore', () => {
     postsApi.fetchPopularByStatus.mockImplementation(async (status: string) =>
       status === 'planned' ? [makePopular({ id: 'p-pl', title: 'Planned item', status: 'planned', vote_count: 12 })] : [],
     );
-    const populated = renderAt('/explore');
+    const populated = renderAt('/', true);
     expect(await screen.findByText('Planned item')).toBeTruthy();
     expect(screen.getByRole('tab', { name: 'Planned' }).getAttribute('aria-selected')).toBe('true');
     populated.unmount();
 
     postsApi.fetchPopularByStatus.mockResolvedValue([]);
-    renderAt('/explore');
+    renderAt('/', true);
     await screen.findByRole('list', { name: 'Categories' });
     await waitFor(() => expect(screen.queryByRole('heading', { name: 'Popular posts' })).toBeNull());
   });
 
   it('omits the category chip toolbar under Search and opens category cards on a dedicated page', async () => {
-    const { router } = renderAt('/explore', true);
+    const { router } = renderAt('/', true);
     const cats = await screen.findByRole('list', { name: 'Categories' });
     expect(screen.queryByRole('toolbar', { name: 'Categories' })).toBeNull();
     fireEvent.click(within(cats).getByRole('link', { name: /Dev platforms/ }));
@@ -680,11 +713,24 @@ describe('explore', () => {
     expect(screen.getByText('1 product')).toBeTruthy();
   });
 
-  it('redirects legacy /explore?cat= links to /c/:category and handles empty or unknown categories', async () => {
+  it('redirects legacy /explore, /explore?cat=, and /explore?q= links cleanly', async () => {
+    const root = renderAt('/explore', true);
+    await waitFor(() => expect(root.router.state.location.pathname).toBe('/'));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Home' })).toBeTruthy();
+    root.unmount();
+
     const first = renderAt('/explore?cat=dev');
     await waitFor(() => expect(first.router.state.location.pathname).toBe('/c/dev'));
     expect(await screen.findByRole('heading', { level: 1, name: 'Dev platforms' })).toBeTruthy();
     first.unmount();
+
+    boardsApi.searchAll.mockResolvedValue({ boards: [FIGMA, FIGJAM], hubs: [], posts: [] });
+    const search = renderAt('/explore?q=fig');
+    await waitFor(() => {
+      expect(search.router.state.location.pathname).toBe('/search');
+      expect(search.router.state.location.search).toBe('?q=fig');
+    });
+    search.unmount();
 
     const empty = renderAt('/c/travel');
     expect(await screen.findByRole('heading', { level: 1, name: 'Travel' })).toBeTruthy();
@@ -695,27 +741,11 @@ describe('explore', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Category not found' })).toBeTruthy();
   });
 
-  it('an old /explore?q= link still filters, as a chip you can clear', async () => {
-    const { router } = renderAt('/explore?q=fig');
-    expect(await screen.findByText('2 products')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Clear search “fig”' }));
-    await waitFor(() => expect(router.state.location.search).toBe(''));
-    expect(screen.queryByRole('button', { name: /Clear search/ })).toBeNull();
-  });
-
   it('leaves out a hub with a single live product', async () => {
     boardsApi.fetchHubs.mockResolvedValue([{ ...FIGMA_HUB, boards: [FIGMA] }]);
-    renderAt('/explore');
+    renderAt('/', true);
     await screen.findByRole('list', { name: 'Categories' });
     expect(screen.queryByRole('heading', { name: 'Hubs' })).toBeNull();
-  });
-
-  it('says when nothing matches and offers a way back to discover categories', async () => {
-    const { router } = renderAt('/explore?q=zzz');
-    expect(await screen.findByText('No products match “zzz”.')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
-    await waitFor(() => expect(router.state.location.search).toBe(''));
-    expect(await screen.findByRole('list', { name: 'Categories' })).toBeTruthy();
   });
 });
 
@@ -868,12 +898,12 @@ describe('search', () => {
         <ClaimProvider>
           <SearchWell />
           <Routes>
-            <Route path="/explore" element={<ExplorePage />} />
+            <Route path="/" element={<HomePage />} />
             <Route path="/search" element={<SearchPage />} />
           </Routes>
         </ClaimProvider>
       </ComposerProvider>,
-      { path: '/explore' },
+      { viewer: TEST_VIEWER, path: '/' },
     );
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Search products, posts, hubs' })[0]!);

@@ -3,6 +3,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes } from 'react-router';
 import type { FeedPage, PopularPostSummary, Post } from '../api/posts';
 import { ClaimProvider } from '../claim/ClaimDialog';
+import { FeedPage } from '../pages/FeedPage';
 import { HomePage } from '../pages/HomePage';
 import { ComposerProvider } from '../shell/composer';
 import { CURSOR, makeSummary } from './boardFixtures';
@@ -20,6 +21,7 @@ const boardsApi = vi.hoisted(() => ({
   fetchBoards: vi.fn(),
   fetchHubs: vi.fn(),
   fetchTrending: vi.fn(),
+  fetchFollowedScopes: vi.fn(),
 }));
 vi.mock('../api/posts', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/posts')>()), ...api }));
 vi.mock('../api/boards', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/boards')>()), ...boardsApi }));
@@ -33,18 +35,18 @@ const makePopular = (over: Partial<PopularPostSummary> = {}): PopularPostSummary
   ...over,
 });
 
-function renderHome(opts: { signedIn?: boolean; path?: string } = {}) {
+function renderApp(opts: { signedIn?: boolean; path?: string } = {}) {
   return renderWith(
     <ComposerProvider>
       <ClaimProvider>
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route path="/explore" element={<h1>Explore page</h1>} />
+          <Route path="/feed" element={<FeedPage />} />
           <Route path="/post/:id" element={<h1>Post page</h1>} />
         </Routes>
       </ClaimProvider>
     </ComposerProvider>,
-    { viewer: opts.signedIn ? TEST_VIEWER : null, path: opts.path ?? '/' },
+    { viewer: opts.signedIn ? TEST_VIEWER : null, path: opts.path ?? '/feed' },
   );
 }
 
@@ -67,9 +69,10 @@ beforeEach(() => {
   boardsApi.fetchBoards.mockResolvedValue([CURSOR]);
   boardsApi.fetchHubs.mockResolvedValue([]);
   boardsApi.fetchTrending.mockResolvedValue([]);
+  boardsApi.fetchFollowedScopes.mockResolvedValue(new Set());
 });
 
-describe('home feed', () => {
+describe('feed (/feed)', () => {
   it('renders community, seeded and deleted-author posts when signed in', async () => {
     api.fetchFeed.mockResolvedValue(
       page([
@@ -85,7 +88,7 @@ describe('home feed', () => {
         makePost({ title: 'Orphaned post', author: null, author_id: null }),
       ]),
     );
-    renderHome({ signedIn: true });
+    renderApp({ signedIn: true });
     const list = await screen.findByRole('list', { name: 'Posts' });
     const cards = within(list).getAllByRole('article');
     expect(cards).toHaveLength(3);
@@ -110,17 +113,30 @@ describe('home feed', () => {
     expect(api.fetchFeed).toHaveBeenCalledWith({ scope: 'all', sort: 'top', offset: 0, viewerId: TEST_VIEWER.id });
   });
 
+  it('lets guests browse All on /feed and gates Following with sign-in', async () => {
+    api.fetchFeed.mockResolvedValue(page([makePost({ title: 'Guest visible post' })]));
+    renderApp({ signedIn: false, path: '/feed' });
+    expect(await screen.findByText('Guest visible post')).toBeTruthy();
+    expect(api.fetchFeed).toHaveBeenCalledWith({ scope: 'all', sort: 'top', offset: 0, viewerId: null });
+    fireEvent.click(screen.getByRole('tab', { name: 'Following' }));
+    expect(await screen.findByText('Sign in to see what you follow')).toBeTruthy();
+  });
+
   it('offers the Following tab when signed in', async () => {
     api.fetchFeed.mockResolvedValue(page([makePost()]));
-    renderHome({ signedIn: true });
+    renderApp({ signedIn: true });
     fireEvent.click(await screen.findByRole('tab', { name: 'Following' }));
     await waitFor(() =>
       expect(api.fetchFeed).toHaveBeenLastCalledWith({ scope: 'following', sort: 'top', offset: 0, viewerId: TEST_VIEWER.id }),
     );
   });
 
-  it('shows an explicit Following sign-in gate when a guest opens /?scope=following directly (GAP-001)', async () => {
-    renderHome({ signedIn: false, path: '/?scope=following' });
+  it('redirects legacy /?scope=following to /feed?scope=following and shows the Following sign-in gate (GAP-001)', async () => {
+    const { router } = renderApp({ signedIn: false, path: '/?scope=following' });
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/feed');
+      expect(router.state.location.search).toBe('?scope=following');
+    });
     expect(await screen.findByRole('heading', { level: 1, name: 'Following' })).toBeTruthy();
     expect(screen.getByText('Sign in to see what you follow')).toBeTruthy();
     expect(api.fetchFeed).not.toHaveBeenCalled();
@@ -130,7 +146,7 @@ describe('home feed', () => {
 
   it('sorts by New from the sort menu', async () => {
     api.fetchFeed.mockResolvedValue(page([makePost()]));
-    const { router } = renderHome({ signedIn: true });
+    const { router } = renderApp({ signedIn: true });
     await screen.findByRole('list', { name: 'Posts' });
     fireEvent.click(screen.getByRole('button', { name: 'Sort feed: Top' }));
     fireEvent.click(screen.getByRole('menuitemradio', { name: /New/ }));
@@ -143,7 +159,7 @@ describe('home feed', () => {
     const first = Array.from({ length: 3 }, (_, i) => makePost({ title: `First page ${i}` }));
     const second = [makePost({ title: 'Second page post' }), first[0]!];
     api.fetchFeed.mockImplementation(async ({ offset }: { offset: number }) => (offset === 0 ? page(first, 20) : page(second, null)));
-    renderHome({ signedIn: true });
+    renderApp({ signedIn: true });
     await screen.findByText('First page 0');
     expect(screen.queryByText('You’re all caught up')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Show more' }));
@@ -156,7 +172,7 @@ describe('home feed', () => {
 
   it('shows empty states for an empty feed and an empty Following', async () => {
     api.fetchFeed.mockResolvedValue(page([]));
-    renderHome({ signedIn: true });
+    renderApp({ signedIn: true });
     expect(await screen.findByText('No posts yet')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Post feedback' })).toBeTruthy();
     fireEvent.click(screen.getByRole('tab', { name: 'Following' }));
@@ -165,7 +181,7 @@ describe('home feed', () => {
 
   it('shows an error with a retry', async () => {
     api.fetchFeed.mockRejectedValueOnce(new Error('offline')).mockResolvedValue(page([makePost({ title: 'Back online' })]));
-    renderHome({ signedIn: true });
+    renderApp({ signedIn: true });
     expect(await screen.findByText('We couldn’t load the feed')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByText('Back online')).toBeTruthy();
@@ -174,11 +190,11 @@ describe('home feed', () => {
   it('opens the post when the card is clicked, not when a control is', async () => {
     const post = makePost({ title: 'Click me' });
     api.fetchFeed.mockResolvedValue(page([post]));
-    const { router } = renderHome({ signedIn: true });
+    const { router } = renderApp({ signedIn: true });
     const card = (await screen.findByText('Body text')).closest('article')!;
     fireEvent.click(within(card).getByRole('link', { name: 'Cursor' }));
     expect(router.state.location.pathname).toBe('/b/cursor');
-    await router.navigate('/');
+    await router.navigate('/feed');
     fireEvent.click((await screen.findByText('Body text')).closest('article')!.querySelector('p')!);
     expect(router.state.location.pathname).toBe(`/post/${post.id}`);
   });
@@ -186,29 +202,28 @@ describe('home feed', () => {
 
 describe('signed-out landing', () => {
   it('shows the discovery landing page when signed out without loading the feed', async () => {
-    renderHome();
+    renderApp({ path: '/' });
     expect(await screen.findByRole('heading', { level: 1, name: 'Find any product. Shape what ships next.' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Search products, posts, hubs' })).toBeTruthy();
     expect(api.fetchFeed).not.toHaveBeenCalled();
   });
 
   it('is never shown to a signed-in viewer', async () => {
-    api.fetchFeed.mockResolvedValue(page([makePost()]));
-    renderHome({ signedIn: true });
-    await screen.findByRole('tab', { name: 'All' });
+    renderApp({ signedIn: true, path: '/' });
+    expect(await screen.findByRole('heading', { level: 1, name: 'Home' })).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'Find any product. Shape what ships next.' })).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Building one of these products?' })).toBeNull();
   });
 
   it('Share a post opens Sign in to post feedback when signed out', async () => {
-    renderHome();
+    renderApp({ path: '/' });
     fireEvent.click(await screen.findByRole('button', { name: 'Share a post →' }));
     const dialog = await screen.findByRole('dialog', { name: 'Sign in to Publisense' });
     expect(within(dialog).getByText(/Sign in to post feedback/)).toBeTruthy();
   });
 
   it('Claim your product opens the claim dialog before sign-up', async () => {
-    renderHome();
+    renderApp({ path: '/' });
     fireEvent.click(await screen.findByRole('button', { name: 'Claim your product' }));
     const overview = await screen.findByRole('dialog', { name: 'Claim your product' });
     expect(within(overview).queryByRole('searchbox')).toBeNull();
@@ -221,7 +236,7 @@ describe('signed-out landing', () => {
 describe('voting', () => {
   it('signed out, upvoting on landing popular posts asks you to sign in and writes nothing', async () => {
     api.fetchPopularByStatus.mockResolvedValue([makePopular({ vote_count: 5 })]);
-    renderHome();
+    renderApp({ path: '/' });
     fireEvent.click(await screen.findByRole('button', { name: /Upvote, 5 votes/ }));
     expect(await screen.findByText(/Sign in to upvote/)).toBeTruthy();
     expect(api.setVote).not.toHaveBeenCalled();
@@ -232,7 +247,7 @@ describe('voting', () => {
     api.fetchFeed.mockResolvedValue(page([post]));
     const write = deferred<void>();
     api.setVote.mockReturnValue(write.promise);
-    renderHome({ signedIn: true });
+    renderApp({ signedIn: true });
     const btn = await screen.findByRole('button', { name: /Upvote, 5 votes/ });
     expect(btn.getAttribute('aria-pressed')).toBe('false');
     fireEvent.click(btn);
@@ -247,7 +262,7 @@ describe('voting', () => {
   it('removes an upvote', async () => {
     const post = makePost({ vote_count: 7, voted: true, following: true });
     api.fetchFeed.mockResolvedValue(page([post]));
-    renderHome({ signedIn: true });
+    renderApp({ signedIn: true });
     fireEvent.click(await screen.findByRole('button', { name: /Upvote, 7 votes/ }));
     const off = await screen.findByRole('button', { name: /Upvote, 6 votes/ });
     expect(off.getAttribute('aria-pressed')).toBe('false');
@@ -258,7 +273,7 @@ describe('voting', () => {
     api.fetchFeed.mockResolvedValue(page([makePost({ vote_count: 5 })]));
     const write = deferred<void>();
     api.setVote.mockReturnValue(write.promise);
-    renderHome({ signedIn: true });
+    renderApp({ signedIn: true });
     fireEvent.click(await screen.findByRole('button', { name: /Upvote, 5 votes/ }));
     await screen.findByRole('button', { name: /Upvote, 6 votes/ });
     write.reject(new Error('We couldn’t save your upvote. Try again.'));
@@ -270,7 +285,7 @@ describe('voting', () => {
   it('follows a post from the ⋯ menu', async () => {
     const post = makePost({ board: BOARD });
     api.fetchFeed.mockResolvedValue(page([post]));
-    renderHome({ signedIn: true });
+    renderApp({ signedIn: true });
     fireEvent.click(await screen.findByRole('button', { name: 'More options' }));
     fireEvent.click(screen.getByRole('menuitem', { name: /Follow post/ }));
     await waitFor(() => expect(api.setPostFollow).toHaveBeenCalledWith(post.id, TEST_VIEWER.id, true));

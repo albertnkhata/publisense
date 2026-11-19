@@ -2,7 +2,10 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import {
   compactCount,
+  followKey,
   isLive,
+  logoSrc,
+  plural,
   POPULAR_STATUSES,
   shortAge,
   summarizeCategories,
@@ -18,7 +21,112 @@ import { trendingTitle } from '../lib/trendingCopy';
 import { useViewer } from '../lib/viewer';
 import { LoadError } from '../posts/PostList';
 import { useRequireAuth } from '../shell/auth';
-import { Icon, SkeletonBlock, StatusPill, STATUS_META, TabPanel, Tabs, TYPE_META, useToast } from '../ui';
+import { BoardAvatar, HubAvatar, Icon, SkeletonBlock, StatusPill, STATUS_META, TabPanel, Tabs, TYPE_META, useToast } from '../ui';
+
+const YOUR_PRODUCTS_LIMIT = 6;
+
+type FollowedItem = { kind: 'board'; board: Board } | { kind: 'hub'; hub: Hub };
+
+/**
+ * Compact strip of products & hubs the signed-in viewer follows, linking directly
+ * to each board/hub and offering a shortcut to `/feed?scope=following`.
+ * Omitted entirely when the viewer follows nothing yet (Day 1).
+ */
+export function YourProductsSection({
+  boards,
+  hubs,
+  followed,
+  id = 'home-your-products',
+}: {
+  boards: Board[];
+  hubs: Hub[];
+  followed: Set<string> | undefined;
+  id?: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  const items = useMemo<FollowedItem[]>(() => {
+    if (!followed || followed.size === 0) return [];
+    const followedBoards: FollowedItem[] = boards
+      .filter((b) => isLive(b) && followed.has(followKey('board', b.id)))
+      .slice()
+      .sort((a, b) => b.post_count - a.post_count || b.follower_count - a.follower_count || a.name.localeCompare(b.name))
+      .map((board) => ({ kind: 'board', board }));
+    const followedHubs: FollowedItem[] = hubs
+      .filter((h) => followed.has(followKey('hub', h.id)))
+      .slice()
+      .sort((a, b) => b.follower_count - a.follower_count || a.name.localeCompare(b.name))
+      .map((hub) => ({ kind: 'hub', hub }));
+    return [...followedBoards, ...followedHubs];
+  }, [boards, hubs, followed]);
+
+  if (items.length === 0) return null;
+
+  const shown = expanded ? items : items.slice(0, YOUR_PRODUCTS_LIMIT);
+  const hiddenCount = items.length - shown.length;
+
+  return (
+    <Section
+      id={id}
+      title="Your products"
+      action={
+        <Link to="/feed?scope=following" className="text-sm font-semibold text-brand no-underline hover:underline">
+          See posts →
+        </Link>
+      }
+    >
+      <ul aria-label="Your followed products" className="m-0 grid list-none grid-cols-3 gap-3 p-0 max-lg:grid-cols-2 max-sm:grid-cols-1">
+        {shown.map((item) =>
+          item.kind === 'board' ? (
+            <li key={`board:${item.board.id}`} className="min-w-0">
+              <Link
+                to={`/b/${item.board.slug}`}
+                className="flex h-full items-center gap-3 rounded-md border border-line bg-card p-3 text-ink no-underline transition-colors duration-120 hover:border-line-strong"
+              >
+                <BoardAvatar name={item.board.name} color={item.board.color} logoSrc={logoSrc(item.board)} size="md" decorative />
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-base font-semibold text-ink">{item.board.name}</span>
+                  <span className="truncate text-sm text-ink-muted">
+                    {item.board.post_count > 0 ? plural(item.board.post_count, 'post') : item.board.tagline}
+                  </span>
+                </span>
+              </Link>
+            </li>
+          ) : (
+            <li key={`hub:${item.hub.id}`} className="min-w-0">
+              <Link
+                to={`/h/${item.hub.slug}`}
+                className="flex h-full items-center gap-3 rounded-md border border-line bg-card p-3 text-ink no-underline transition-colors duration-120 hover:border-line-strong"
+              >
+                <HubAvatar
+                  name={`${item.hub.name} hub`}
+                  size="md"
+                  boards={item.hub.boards.map((b) => ({ name: b.name, color: b.color, logoSrc: logoSrc(b) }))}
+                  reserve
+                />
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-base font-semibold text-ink">{item.hub.name} hub</span>
+                  <span className="truncate text-sm text-ink-muted">{plural(item.hub.boards.length, 'product')}</span>
+                </span>
+              </Link>
+            </li>
+          ),
+        )}
+      </ul>
+      {items.length > YOUR_PRODUCTS_LIMIT ? (
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="cursor-pointer border-0 bg-transparent p-0 text-sm font-semibold text-ink-secondary hover:text-ink"
+          >
+            {expanded ? 'Show fewer' : `Show ${hiddenCount} more`}
+          </button>
+        </div>
+      ) : null}
+    </Section>
+  );
+}
 
 const POPULAR_EMPTY: Record<PopularStatus, string> = {
   open: 'No open posts yet',

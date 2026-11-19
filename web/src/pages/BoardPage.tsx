@@ -580,8 +580,8 @@ export function ScopeNotFound({ kind }: { kind: 'board' | 'hub' }) {
           icon="search"
           title={kind === 'board' ? 'Board not found' : 'Hub not found'}
           action={
-            <Link to="/explore" className={actionLink}>
-              Explore products
+            <Link to="/" className={actionLink}>
+              Browse products
             </Link>
           }
         >

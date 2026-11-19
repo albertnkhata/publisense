@@ -15,7 +15,7 @@ vi.mock('../api/messageHooks', async (importOriginal) => {
 });
 
 describe('TopBar (nav="top")', () => {
-  it('shows Explore and Categories when signed out and prompts sign-in for Post feedback', async () => {
+  it('shows Home, Feed and Categories when signed out and prompts sign-in for Post feedback', async () => {
     renderWith(
       <ComposerProvider>
         <TopBar nav="top" />
@@ -24,9 +24,10 @@ describe('TopBar (nav="top")', () => {
     );
 
     const nav = screen.getByRole('navigation', { name: 'Primary' });
-    expect(within(nav).getByRole('link', { name: 'Explore' }).getAttribute('href')).toBe('/explore');
+    expect(within(nav).getByRole('link', { name: 'Home' }).getAttribute('href')).toBe('/');
+    expect(within(nav).getByRole('link', { name: 'Feed' }).getAttribute('href')).toBe('/feed');
     expect(within(nav).getByRole('link', { name: 'Categories' }).getAttribute('href')).toBe('/categories');
-    expect(within(nav).queryByRole('link', { name: 'Following' })).toBeNull();
+    expect(within(nav).queryByRole('link', { name: 'Explore' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Search products, posts, hubs' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Sign in' })).toBeTruthy();
 
@@ -35,7 +36,7 @@ describe('TopBar (nav="top")', () => {
     expect(screen.getByText(/Sign in to post feedback/)).toBeTruthy();
   });
 
-  it('shows Home, Explore, Following, Messages, Notifications, UserMenu and c shortcut when signed in', async () => {
+  it('shows Home, Feed, Categories, Messages, Notifications, UserMenu and c shortcut when signed in', async () => {
     renderWith(
       <ComposerProvider>
         <TopBar nav="top" />
@@ -45,8 +46,8 @@ describe('TopBar (nav="top")', () => {
 
     const nav = screen.getByRole('navigation', { name: 'Primary' });
     expect(within(nav).getByRole('link', { name: 'Home' }).getAttribute('href')).toBe('/');
-    expect(within(nav).getByRole('link', { name: 'Explore' }).getAttribute('href')).toBe('/explore');
-    expect(within(nav).getByRole('link', { name: 'Following' }).getAttribute('href')).toBe('/?scope=following');
+    expect(within(nav).getByRole('link', { name: 'Feed' }).getAttribute('href')).toBe('/feed');
+    expect(within(nav).getByRole('link', { name: 'Categories' }).getAttribute('href')).toBe('/categories');
     expect(screen.getByRole('link', { name: 'Messages, 2 unread' }).getAttribute('href')).toBe('/messages');
     expect(screen.getByRole('link', { name: 'Notifications, 4 new' }).getAttribute('href')).toBe('/notifications');
     expect(screen.getByRole('button', { name: `Account menu for ${TEST_VIEWER.name}` })).toBeTruthy();
@@ -55,12 +56,12 @@ describe('TopBar (nav="top")', () => {
     expect(await screen.findByRole('dialog', { name: 'Post feedback' })).toBeTruthy();
   });
 
-  it('omits duplicate SearchWell on /explore and /search', () => {
+  it('omits duplicate SearchWell on signed-in / and /search', () => {
     const { unmount } = renderWith(
       <ComposerProvider>
         <TopBar nav="top" />
       </ComposerProvider>,
-      { viewer: TEST_VIEWER, path: '/explore' },
+      { viewer: TEST_VIEWER, path: '/' },
     );
     expect(screen.queryByRole('button', { name: 'Search products, posts, hubs' })).toBeNull();
     unmount();

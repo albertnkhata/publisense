@@ -23,7 +23,7 @@ function tabOrder(root: HTMLElement): string[] {
 }
 
 describe('NavRail keyboard order (#141)', () => {
-  it('reaches Home and Explore before the hover-only Collapse sidebar button', () => {
+  it('reaches Home and Feed before the hover-only Collapse sidebar button', () => {
     renderWith(
       <ComposerProvider>
         <NavRail />
@@ -35,7 +35,7 @@ describe('NavRail keyboard order (#141)', () => {
     expect(order[0]).toBe('Publisense home');
     expect(order[1]).toBe('Home');
     const collapse = order.indexOf('Collapse sidebar');
-    expect(collapse).toBeGreaterThan(order.indexOf('Explore'));
+    expect(collapse).toBeGreaterThan(order.indexOf('Feed'));
     expect(collapse).toBeGreaterThan(order.findIndex((l) => l.startsWith('Notifications')));
     // Still there, labelled, announced with its shortcut, and revealed on keyboard focus.
     const btn = within(rail).getByRole('button', { name: 'Collapse sidebar' });
@@ -83,7 +83,8 @@ describe('NavRail links and layout', () => {
       </ComposerProvider>,
       { viewer: TEST_VIEWER },
     );
-    expect(screen.getByRole('link', { name: 'Following' }).getAttribute('href')).toBe('/?scope=following');
+    expect(screen.getByRole('link', { name: 'Home' }).getAttribute('href')).toBe('/');
+    expect(screen.getByRole('link', { name: 'Feed' }).getAttribute('href')).toBe('/feed');
     expect(screen.getByRole('link', { name: 'Notifications' }).getAttribute('href')).toBe('/notifications');
     expect(screen.getByRole('button', { name: 'Post feedback' })).toBeTruthy();
     unmount();
@@ -94,10 +95,9 @@ describe('NavRail links and layout', () => {
       </ComposerProvider>,
       { viewer: null },
     );
-    expect(screen.getByRole('link', { name: 'Following' }).className).toContain('text-ink-muted');
+    expect(screen.getByRole('link', { name: 'Feed' }).className).toContain('text-ink-secondary');
     expect(screen.getByRole('link', { name: 'Notifications' }).className).toContain('text-ink-muted');
     expect(screen.getByRole('link', { name: 'Messages' }).className).toContain('text-ink-muted');
-    expect(screen.getByRole('link', { name: 'Explore' }).className).toContain('text-ink-secondary');
     expect(screen.getByRole('button', { name: 'Post feedback' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Sign in' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Create account' })).toBeNull();
@@ -105,15 +105,15 @@ describe('NavRail links and layout', () => {
     expect(screen.queryByRole('navigation', { name: 'Legal links' })).toBeNull();
   });
 
-  it('prompts sign in when signed-out visitor clicks Following or Post feedback', async () => {
+  it('prompts sign in when signed-out visitor clicks Notifications or Post feedback', async () => {
     renderWith(
       <ComposerProvider>
         <NavRail />
       </ComposerProvider>,
       { viewer: null },
     );
-    fireEvent.click(screen.getByRole('link', { name: 'Following' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Notifications' }));
     expect(await screen.findByRole('dialog')).toBeTruthy();
-    expect(screen.getByText(/Sign in to see what you follow/)).toBeTruthy();
+    expect(screen.getByText(/Sign in to see notifications/)).toBeTruthy();
   });
 });

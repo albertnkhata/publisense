@@ -18,6 +18,7 @@ import {
   CategoryPage,
   ConversationPage,
   ExplorePage,
+  FeedPage,
   HomePage,
   HubManagePage,
   HubPage,
@@ -38,7 +39,7 @@ const DevKit = lazy(() => import('./pages/DevKit'));
 
 /**
  * FOUNDATION §9 route table. Real paths; the mockup's #hash routes do not carry over.
- * Browsing pages (home, explore, categories, search, boards, hubs, posts, profiles,
+ * Browsing pages (home, feed, categories, search, boards, hubs, posts, profiles,
  * notifications, settings, 404) use the TopBar shell (`nav: 'top'`), with RightRail
  * on reading/feed routes and wide/narrow columns on directory and utility pages.
  * Operational workspaces (/b/:board/manage, /h/:hub/manage, /messages, /admin)
@@ -50,7 +51,8 @@ export const routes = [
     path: '/',
     element: <AppShell />,
     children: [
-      { index: true, element: <HomePage /> },
+      { index: true, handle: EXPLORE_PAGE, element: <HomePage /> },
+      { path: 'feed', element: <FeedPage /> },
       { path: 'explore', handle: EXPLORE_PAGE, element: <ExplorePage /> },
       { path: 'categories', handle: EXPLORE_PAGE, element: <CategoriesPage /> },
       { path: 'c/:category', handle: EXPLORE_PAGE, element: <CategoryPage /> },
