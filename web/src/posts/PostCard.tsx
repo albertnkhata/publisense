@@ -56,7 +56,7 @@ export function PostCard({ post, variant = 'feed', onDeleted, hideBoard = false,
         // on its own page a hairline under the post separates it from what follows.
         // Feed cards reserve an avatar gutter; the page variant keeps the post text flush with its icon.
         'pt-4 pb-5',
-        page ? 'border-b border-line' : 'group -mx-3 cursor-pointer rounded-md px-3 transition-colors duration-120 hover:bg-subtle',
+        page ? 'border-b border-line' : 'group -mx-3 cursor-pointer rounded-md px-3 transition-colors duration-120 hover:bg-subtle/60',
       )}
     >
       <div className={cx('relative min-w-0', !page && 'pl-gutter')}>
