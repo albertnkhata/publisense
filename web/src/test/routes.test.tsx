@@ -70,22 +70,21 @@ describe('routes', () => {
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(heading);
   });
 
-  it('/ renders the signed-in discovery home in the landing-width top-bar shell without a right rail', () => {
+  it('/ renders the signed-in discovery home in the wide TopBar + NavRail shell without a right rail', () => {
     renderAt('/', TEST_VIEWER);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Home');
-    expect(screen.queryByRole('complementary', { name: 'Main navigation' })).toBeNull();
+    expect(screen.getByRole('complementary', { name: 'Main navigation' })).toBeTruthy();
     expect(screen.queryByRole('complementary', { name: 'Sidebar' })).toBeNull();
-    const header = screen.getByRole('banner');
-    expect(within(header).getByRole('navigation', { name: 'Primary' })).toBeTruthy();
-    expect(document.getElementById('main')!.className).toContain('max-w-landing');
+    expect(screen.getByRole('banner')).toBeTruthy();
+    expect(document.getElementById('main')!.className).toContain('max-w-wide');
   });
 
-  it('/feed renders the feed inside the top-bar shell with a right rail when signed in', () => {
+  it('/feed renders the feed inside the TopBar + NavRail shell with a right rail when signed in', () => {
     renderAt('/feed', TEST_VIEWER);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Feed');
-    expect(screen.queryByRole('complementary', { name: 'Main navigation' })).toBeNull();
+    expect(screen.getByRole('complementary', { name: 'Main navigation' })).toBeTruthy();
     expect(screen.getByRole('complementary', { name: 'Sidebar' })).toBeTruthy();
-    expect(document.getElementById('main')!.className).toContain('max-w-feed');
+    expect(document.getElementById('main')!.className).toContain('max-w-content');
   });
 
   it('legacy /explore redirects to /', () => {
@@ -93,28 +92,25 @@ describe('routes', () => {
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Find any product. Shape what ships next.');
   });
 
-  it('/?scope=following redirects to /feed?scope=following and keeps the top-bar shell for the sign-in gate', () => {
+  it('/?scope=following redirects to /feed?scope=following and keeps the TopBar + NavRail shell for the sign-in gate', () => {
     renderAt('/?scope=following');
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Following');
-    expect(screen.queryByRole('complementary', { name: 'Main navigation' })).toBeNull();
+    expect(screen.getByRole('complementary', { name: 'Main navigation' })).toBeTruthy();
     expect(screen.getByRole('banner')).toBeTruthy();
     expect(screen.getByRole('complementary', { name: 'Sidebar' })).toBeTruthy();
   });
 
-  it('unknown paths render NotFound inside the top-bar shell', () => {
+  it('unknown paths render NotFound inside the TopBar + NavRail shell', () => {
     renderAt('/nope/really');
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Page not found');
-    expect(screen.queryByRole('complementary', { name: 'Main navigation' })).toBeNull();
+    expect(screen.getByRole('complementary', { name: 'Main navigation' })).toBeTruthy();
     expect(screen.getByRole('banner')).toBeTruthy();
   });
 
-  // Browsing & consumer pages use TopBar (`nav: 'top'`); workspaces (/admin,
-  // /manage, /messages) use the left NavRail (`nav: 'rail'`, desktop-free TopBar).
+  // App pages render the global TopBar together with the left NavRail.
   // Signed-out `/` uses LandingHeader/Footer; SITE_PAGE uses SiteHeader/Footer.
   const paths = CASES.map(([p]) => p);
-  const WORKSPACE_WIDE = [...paths.filter((p) => p.startsWith('/admin')), '/b/supabase/manage', '/h/acme/manage'];
-  const BROWSE_WIDE = ['/categories', '/c/dev'];
-  const WIDE = [...WORKSPACE_WIDE, ...BROWSE_WIDE];
+  const WIDE = [...paths.filter((p) => p.startsWith('/admin')), '/categories', '/c/dev', '/b/supabase/manage', '/h/acme/manage'];
   const NARROW = ['/notifications', '/settings'];
   const SITE = ['/about', '/privacy', '/terms', '/auth/reset', '/unsubscribe?token=abc'];
   const LANDING = ['/'];
@@ -124,56 +120,50 @@ describe('routes', () => {
     expect([...WIDE, ...NARROW, ...SITE, ...LANDING, ...RAIL.filter((p) => p !== '/no/such/page')].sort()).toEqual([...paths].sort());
   });
 
-  function expectNoRail(workspaceRail = false) {
+  function expectNoRail() {
     expect(screen.queryByRole('complementary', { name: 'Sidebar' })).toBeNull();
+    expect(screen.getByRole('complementary', { name: 'Main navigation' })).toBeTruthy();
     const header = screen.getAllByRole('banner')[0]!;
-    if (workspaceRail) {
-      expect(screen.getByRole('complementary', { name: 'Main navigation' })).toBeTruthy();
-      expect(header.className.split(/\s+/)).toEqual(expect.arrayContaining(['hidden', 'max-lg:flex']));
-    } else {
-      expect(screen.queryByRole('complementary', { name: 'Main navigation' })).toBeNull();
-      expect(header.className.split(/\s+/)).toContain('flex');
-      expect(header.className).not.toContain('max-lg:flex');
-      expect(screen.getByRole('contentinfo', { name: 'Site footer' })).toBeTruthy();
-    }
+    expect(header.className.split(/\s+/)).toContain('flex');
+    expect(header.className).not.toContain('max-lg:flex');
     expect(screen.getAllByRole('button', { name: /search/i }).length).toBeGreaterThan(0);
   }
 
-  it.each(WIDE)('%s has no right rail and uses landing (top-bar) or wide (workspace) column width', (path) => {
-    const isWorkspace = WORKSPACE_WIDE.includes(path);
+  it.each(WIDE)('%s has TopBar and left NavRail, no right rail, and uses wide column width', (path) => {
     renderAt(path);
-    expectNoRail(isWorkspace);
+    expectNoRail();
     const main = document.getElementById('main')!;
-    expect(main.className).toContain(isWorkspace ? 'max-w-wide' : 'max-w-landing');
+    expect(main.className).toContain('max-w-wide');
     expect(main.className).not.toContain('max-w-content');
   });
 
-  it('/messages uses the workspace left NavRail with fill layout and no desktop TopBar', () => {
+  it('/messages uses the global TopBar and left NavRail with fill layout', () => {
     renderAt('/messages', TEST_VIEWER);
     expect(screen.getByRole('complementary', { name: 'Main navigation' })).toBeTruthy();
     expect(screen.queryByRole('complementary', { name: 'Sidebar' })).toBeNull();
     const header = screen.getAllByRole('banner')[0]!;
-    expect(header.className.split(/\s+/)).toEqual(expect.arrayContaining(['hidden', 'max-lg:flex']));
+    expect(header.className.split(/\s+/)).toContain('flex');
+    expect(header.className).not.toContain('max-lg:flex');
   });
 
-  it.each(NARROW)('%s uses TopBar, has no right rail, and keeps the narrow reading column', (path) => {
+  it.each(NARROW)('%s uses TopBar and left NavRail, has no right rail, and keeps the narrow reading column', (path) => {
     renderAt(path);
-    expectNoRail(false);
+    expectNoRail();
     const main = document.getElementById('main')!;
     expect(main.className).toContain('max-w-content');
     expect(main.className).not.toContain('max-w-wide');
   });
 
-  it.each(LANDING)('%s signed out uses the dedicated landing header and footer without nav rail or right rail', (path) => {
+  it.each(LANDING)('%s signed out uses the unified TopBar + NavRail shell with the landing content and footer', (path) => {
     renderAt(path);
-    expect(screen.queryByRole('complementary', { name: 'Main navigation' })).toBeNull();
+    expect(screen.getByRole('complementary', { name: 'Main navigation' })).toBeTruthy();
     expect(screen.queryByRole('complementary', { name: 'Sidebar' })).toBeNull();
-    expect(screen.queryByRole('navigation', { name: 'Primary' })).toBeNull();
     const header = screen.getByRole('banner');
     expect(within(header).getByRole('link', { name: 'Publisense home' }).getAttribute('href')).toBe('/');
     expect(within(header).getByRole('button', { name: 'Sign in' })).toBeTruthy();
     expect(within(header).queryByRole('button', { name: 'Join Publisense' })).toBeNull();
     expect(within(header).queryByRole('link', { name: 'Explore' })).toBeNull();
+    expect(document.getElementById('main')!.className).toContain('max-w-wide');
     const footer = screen.getByRole('contentinfo', { name: 'Site footer' });
     expect(within(footer).getByText('© 2026 Publisense')).toBeTruthy();
     expect(within(footer).queryByText('Publisense · Public feedback index')).toBeNull();
@@ -204,20 +194,21 @@ describe('routes', () => {
     expect(main.className).not.toContain('max-w-wide');
   });
 
-  it.each(RAIL)('%s uses TopBar and keeps the right rail without left NavRail', (path) => {
+  it.each(RAIL)('%s uses TopBar, left NavRail, and right rail', (path) => {
     renderAt(path);
-    expect(screen.queryByRole('complementary', { name: 'Main navigation' })).toBeNull();
+    expect(screen.getByRole('complementary', { name: 'Main navigation' })).toBeTruthy();
     expect(screen.getByRole('complementary', { name: 'Sidebar' })).toBeTruthy();
-    expect(document.getElementById('main')!.className).toContain('max-w-feed');
+    expect(document.getElementById('main')!.className).toContain('max-w-content');
     const header = screen.getAllByRole('banner')[0]!;
     expect(header.className.split(/\s+/)).toContain('flex');
     expect(header.className).not.toContain('max-lg:flex');
   });
 
-  // About · Terms · Privacy live at the foot of the right rail on desktop.
+  // About · Terms · Privacy live at the foot of the right rail on desktop, and are omitted from the left nav.
   it.each(RAIL)('%s has About, Terms and Privacy in the right rail', (path) => {
     renderAt(path);
-    expect(screen.queryByRole('complementary', { name: 'Main navigation' })).toBeNull();
+    const nav = screen.getByRole('complementary', { name: 'Main navigation' });
+    expect(within(nav).queryByRole('navigation', { name: 'Legal links' })).toBeNull();
     const rail = screen.getByRole('complementary', { name: 'Sidebar' });
     const legal = within(rail).getByRole('navigation', { name: 'Legal links' });
     expect(within(legal).getByRole('link', { name: 'About' }).getAttribute('href')).toBe('/about');
@@ -239,41 +230,38 @@ describe('routes', () => {
 });
 
 describe('shellLayoutFor', () => {
-  it('defaults to top nav with right rail and lets the deepest route that says something win', () => {
-    expect(shellLayoutFor([])).toEqual({ nav: 'top', rail: true, width: 'narrow', chrome: 'app', topBar: true, fill: false });
-    expect(shellLayoutFor([undefined, null, 'x', {}])).toEqual({ nav: 'top', rail: true, width: 'narrow', chrome: 'app', topBar: true, fill: false });
-    expect(shellLayoutFor([undefined, { rail: false }, undefined])).toEqual({ nav: 'top', rail: false, width: 'wide', chrome: 'app', topBar: true, fill: false });
-    expect(shellLayoutFor([{ rail: false }, { rail: true }])).toEqual({ nav: 'top', rail: true, width: 'narrow', chrome: 'app', topBar: true, fill: false });
-    expect(shellLayoutFor([{ nav: 'rail', rail: false, topBar: false }])).toEqual({ nav: 'rail', rail: false, width: 'wide', chrome: 'app', topBar: false, fill: false });
-    expect(shellLayoutFor([{ nav: 'rail' }, { nav: 'top' }]).nav).toBe('top');
+  it('defaults to the right rail and lets the deepest route that says something win', () => {
+    expect(shellLayoutFor([])).toEqual({ rail: true, width: 'narrow', chrome: 'app', topBar: true, fill: false });
+    expect(shellLayoutFor([undefined, null, 'x', {}])).toEqual({ rail: true, width: 'narrow', chrome: 'app', topBar: true, fill: false });
+    expect(shellLayoutFor([undefined, { rail: false }, undefined])).toEqual({ rail: false, width: 'wide', chrome: 'app', topBar: true, fill: false });
+    expect(shellLayoutFor([{ rail: false }, { rail: true }])).toEqual({ rail: true, width: 'narrow', chrome: 'app', topBar: true, fill: false });
   });
 
-  it('sizes the column without the rail: wide by default, narrow or landing on request, ignored with the rail', () => {
-    expect(shellLayoutFor([{ rail: false, width: 'narrow' }])).toEqual({ nav: 'top', rail: false, width: 'narrow', chrome: 'app', topBar: true, fill: false });
-    expect(shellLayoutFor([{ rail: false, width: 'wide' }])).toEqual({ nav: 'top', rail: false, width: 'wide', chrome: 'app', topBar: true, fill: false });
-    expect(shellLayoutFor([{ rail: false, width: 'landing' }])).toEqual({ nav: 'top', rail: false, width: 'landing', chrome: 'app', topBar: true, fill: false });
-    expect(shellLayoutFor([{ rail: false, width: 'narrow' }, { width: 'wide' }])).toEqual({ nav: 'top', rail: false, width: 'wide', chrome: 'app', topBar: true, fill: false });
-    expect(shellLayoutFor([{ rail: false }, { width: 'narrow' }])).toEqual({ nav: 'top', rail: false, width: 'narrow', chrome: 'app', topBar: true, fill: false });
-    expect(shellLayoutFor([{ rail: true, width: 'wide' }])).toEqual({ nav: 'top', rail: true, width: 'narrow', chrome: 'app', topBar: true, fill: false });
-    expect(shellLayoutFor([{ rail: false, width: 'huge' }])).toEqual({ nav: 'top', rail: false, width: 'wide', chrome: 'app', topBar: true, fill: false });
+  it('sizes the column without the rail: wide by default, narrow on request, ignored with the rail', () => {
+    expect(shellLayoutFor([{ rail: false, width: 'narrow' }])).toEqual({ rail: false, width: 'narrow', chrome: 'app', topBar: true, fill: false });
+    expect(shellLayoutFor([{ rail: false, width: 'wide' }])).toEqual({ rail: false, width: 'wide', chrome: 'app', topBar: true, fill: false });
+    expect(shellLayoutFor([{ rail: false, width: 'narrow' }, { width: 'wide' }])).toEqual({ rail: false, width: 'wide', chrome: 'app', topBar: true, fill: false });
+    expect(shellLayoutFor([{ rail: false }, { width: 'narrow' }])).toEqual({ rail: false, width: 'narrow', chrome: 'app', topBar: true, fill: false });
+    expect(shellLayoutFor([{ rail: true, width: 'wide' }])).toEqual({ rail: true, width: 'narrow', chrome: 'app', topBar: true, fill: false });
+    expect(shellLayoutFor([{ rail: false, width: 'huge' }])).toEqual({ rail: false, width: 'wide', chrome: 'app', topBar: true, fill: false });
   });
 
-  it('topBar: false drops the desktop top bar, deepest route wins', () => {
-    expect(shellLayoutFor([{ rail: false, topBar: false }])).toEqual({ nav: 'top', rail: false, width: 'wide', chrome: 'app', topBar: false, fill: false });
+  it('topBar: false is preserved in layout state, deepest route wins', () => {
+    expect(shellLayoutFor([{ rail: false, topBar: false }])).toEqual({ rail: false, width: 'wide', chrome: 'app', topBar: false, fill: false });
     expect(shellLayoutFor([{ topBar: false }, { topBar: true }]).topBar).toBe(true);
   });
 
   it('fill makes a one-screen page (Messages), never with the rail or site chrome', () => {
-    expect(shellLayoutFor([{ nav: 'rail', rail: false, width: 'wide', topBar: false, fill: true }])).toEqual({ nav: 'rail', rail: false, width: 'wide', chrome: 'app', topBar: false, fill: true });
+    expect(shellLayoutFor([{ rail: false, width: 'wide', topBar: false, fill: true }])).toEqual({ rail: false, width: 'wide', chrome: 'app', topBar: false, fill: true });
     expect(shellLayoutFor([{ fill: true }]).fill).toBe(false);
     expect(shellLayoutFor([{ chrome: 'site', fill: true }]).fill).toBe(false);
   });
 
-  it('site chrome always means top nav, no rail, and the narrow column', () => {
-    expect(shellLayoutFor([{ chrome: 'site' }])).toEqual({ nav: 'top', rail: false, width: 'narrow', chrome: 'site', topBar: true, fill: false });
-    expect(shellLayoutFor([{ chrome: 'site', nav: 'rail', rail: true, width: 'wide' }])).toEqual({ nav: 'top', rail: false, width: 'narrow', chrome: 'site', topBar: true, fill: false });
-    expect(shellLayoutFor([{ chrome: 'site' }, { chrome: 'app', rail: false }])).toEqual({ nav: 'top', rail: false, width: 'wide', chrome: 'app', topBar: true, fill: false });
-    expect(shellLayoutFor([{ chrome: 'web' }])).toEqual({ nav: 'top', rail: true, width: 'narrow', chrome: 'app', topBar: true, fill: false });
+  it('site chrome always means no rail and the narrow column', () => {
+    expect(shellLayoutFor([{ chrome: 'site' }])).toEqual({ rail: false, width: 'narrow', chrome: 'site', topBar: true, fill: false });
+    expect(shellLayoutFor([{ chrome: 'site', rail: true, width: 'wide' }])).toEqual({ rail: false, width: 'narrow', chrome: 'site', topBar: true, fill: false });
+    expect(shellLayoutFor([{ chrome: 'site' }, { chrome: 'app', rail: false }])).toEqual({ rail: false, width: 'wide', chrome: 'app', topBar: true, fill: false });
+    expect(shellLayoutFor([{ chrome: 'web' }])).toEqual({ rail: true, width: 'narrow', chrome: 'app', topBar: true, fill: false });
   });
 });
 

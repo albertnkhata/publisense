@@ -1,18 +1,29 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, within } from '@testing-library/react';
+import { followKey } from '../api';
 import { NavRail } from '../shell/NavRail';
+import { TopBar } from '../shell/TopBar';
 import { ComposerProvider } from '../shell/composer';
+import { CURSOR, FIGMA_HUB } from './boardFixtures';
 import { renderWith, TEST_VIEWER } from './renderApp';
-
-vi.mock('../api/notificationHooks', async (importOriginal) => {
-  const real = await importOriginal<typeof import('../api/notificationHooks')>();
-  return { ...real, useUnreadCount: () => ({ data: 0 }) };
-});
 
 const staff = vi.hoisted(() => ({ value: false }));
 vi.mock('../api/moderationHooks', async (importOriginal) => {
   const real = await importOriginal<typeof import('../api/moderationHooks')>();
   return { ...real, useIsPlatformAdmin: () => ({ data: staff.value }) };
+});
+
+const boardsState = vi.hoisted(() => ({
+  followed: new Set<string>(),
+}));
+vi.mock('../api/boardHooks', async (importOriginal) => {
+  const real = await importOriginal<typeof import('../api/boardHooks')>();
+  return {
+    ...real,
+    useBoards: () => ({ data: [CURSOR] }),
+    useHubs: () => ({ data: [FIGMA_HUB] }),
+    useFollowedScopes: () => ({ data: boardsState.followed }),
+  };
 });
 
 /** Focusable controls in DOM (= Tab) order. */
@@ -22,25 +33,25 @@ function tabOrder(root: HTMLElement): string[] {
     .map((el) => el.getAttribute('aria-label') ?? el.textContent?.trim() ?? '');
 }
 
-describe('NavRail keyboard order (#141)', () => {
-  it('reaches Home and Feed before the hover-only Collapse sidebar button', () => {
+describe('NavRail keyboard order and TopBar toggle (#141)', () => {
+  it('orders Home, Feed and Categories in NavRail and toggles collapse from TopBar', () => {
     renderWith(
       <ComposerProvider>
+        <TopBar />
         <NavRail />
       </ComposerProvider>,
       { viewer: TEST_VIEWER },
     );
     const rail = screen.getByRole('complementary', { name: 'Main navigation' });
     const order = tabOrder(rail);
-    expect(order[0]).toBe('Publisense home');
-    expect(order[1]).toBe('Home');
-    const collapse = order.indexOf('Collapse sidebar');
-    expect(collapse).toBeGreaterThan(order.indexOf('Feed'));
-    expect(collapse).toBeGreaterThan(order.findIndex((l) => l.startsWith('Notifications')));
-    // Still there, labelled, announced with its shortcut, and revealed on keyboard focus.
-    const btn = within(rail).getByRole('button', { name: 'Collapse sidebar' });
+    expect(order).toEqual(['Home', 'Feed', 'Categories']);
+    const btn = screen.getByRole('button', { name: 'Collapse sidebar' });
     expect(btn.getAttribute('aria-keyshortcuts')).toBe('[');
     expect(btn.className).toContain('focus-visible:opacity-100');
+    fireEvent.click(btn);
+    expect(rail.getAttribute('data-collapsed')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }));
+    expect(rail.getAttribute('data-collapsed')).toBeNull();
   });
 });
 
@@ -76,7 +87,7 @@ describe('NavRail admin sections', () => {
 });
 
 describe('NavRail links and layout', () => {
-  it('shows primary links and Post feedback both signed in and signed out', () => {
+  it('shows primary links both signed in and signed out', () => {
     const { unmount } = renderWith(
       <ComposerProvider>
         <NavRail />
@@ -85,8 +96,7 @@ describe('NavRail links and layout', () => {
     );
     expect(screen.getByRole('link', { name: 'Home' }).getAttribute('href')).toBe('/');
     expect(screen.getByRole('link', { name: 'Feed' }).getAttribute('href')).toBe('/feed');
-    expect(screen.getByRole('link', { name: 'Notifications' }).getAttribute('href')).toBe('/notifications');
-    expect(screen.getByRole('button', { name: 'Post feedback' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Categories' }).getAttribute('href')).toBe('/categories');
     unmount();
 
     renderWith(
@@ -95,25 +105,23 @@ describe('NavRail links and layout', () => {
       </ComposerProvider>,
       { viewer: null },
     );
+    expect(screen.getByRole('link', { name: 'Home' }).getAttribute('href')).toBe('/');
     expect(screen.getByRole('link', { name: 'Feed' }).className).toContain('text-ink-secondary');
-    expect(screen.getByRole('link', { name: 'Notifications' }).className).toContain('text-ink-muted');
-    expect(screen.getByRole('link', { name: 'Messages' }).className).toContain('text-ink-muted');
-    expect(screen.getByRole('button', { name: 'Post feedback' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Sign in' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Create account' })).toBeNull();
-    // Legal links are moved out of the nav rail
+    expect(screen.getByRole('link', { name: 'Categories' }).getAttribute('href')).toBe('/categories');
     expect(screen.queryByRole('navigation', { name: 'Legal links' })).toBeNull();
   });
 
-  it('prompts sign in when signed-out visitor clicks Notifications or Post feedback', async () => {
+  it('lists followed boards and hubs under Your products when signed in', () => {
+    boardsState.followed = new Set([followKey('board', CURSOR.id), followKey('hub', FIGMA_HUB.id)]);
     renderWith(
       <ComposerProvider>
         <NavRail />
       </ComposerProvider>,
-      { viewer: null },
+      { viewer: TEST_VIEWER },
     );
-    fireEvent.click(screen.getByRole('link', { name: 'Notifications' }));
-    expect(await screen.findByRole('dialog')).toBeTruthy();
-    expect(screen.getByText(/Sign in to see notifications/)).toBeTruthy();
+    const nav = screen.getByRole('navigation', { name: 'Your products' });
+    expect(within(nav).getByRole('link', { name: 'Cursor' }).getAttribute('href')).toBe('/b/cursor');
+    expect(within(nav).getByRole('link', { name: 'Figma hub' }).getAttribute('href')).toBe('/h/figma');
+    boardsState.followed = new Set();
   });
 });

@@ -142,6 +142,7 @@
   /* Layout */
   --spacing-nav: 248px;
   --spacing-nav-collapsed: 64px;
+  --spacing-nav-height: calc(100dvh - 48px);
   --spacing-gutter: 40px;
   --spacing-row: 38px;
   --spacing-content: 680px;

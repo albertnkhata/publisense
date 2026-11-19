@@ -12,7 +12,7 @@ import { useTheme } from '../lib/ThemeProvider';
 import { useShortcut } from '../lib/useShortcut';
 import { useViewer } from '../lib/viewer';
 import { ClaimProvider } from '../claim/ClaimDialog';
-import { LandingFooter, LandingHeader } from '../pages/LandingPage';
+import { LandingFooter } from '../pages/LandingPage';
 import { ComposerProvider } from './composer';
 import { AddProductHost, AddProductProvider } from '../products/AddProductDialog';
 import { NavRail } from './NavRail';
@@ -23,12 +23,11 @@ import { TopBar } from './TopBar';
 import { useShellLayout } from './layout';
 
 /**
- * AppShell (FOUNDATION §5): NavRail · TopBar (below lg) · content ·
+ * AppShell (FOUNDATION §5): TopBar · NavRail · content ·
  * RightRail (above lg) · TabBar (sm).
  *
  * A route can drop the right rail with `handle: { rail: false }` (see
- * shell/layout.ts). Without it the top bar stays on at every width, so search
- * keeps a visible way in, and the column is `max-w-wide` or, with
+ * shell/layout.ts). Without it the column is `max-w-wide` or, with
  * `width: 'narrow'`, stays `max-w-content` and centres. Terms · Privacy live
  * at the foot of the right rail (TabBar sheet at sm, and the UserMenu).
  * `chrome: 'site'` (the legal pages) swaps all of that for a website header
@@ -39,11 +38,10 @@ export function AppShell() {
   const onTheme = useCallback(() => toggle(), [toggle]);
   useShortcut('d', onTheme, { ctrl: true });
   const { pathname, search } = useLocation();
-  const { viewer, ready } = useViewer();
-  const { nav, rail, width, chrome, topBar, fill } = useShellLayout();
+  const { ready } = useViewer();
+  const { rail, width, chrome, fill } = useShellLayout();
   const isFollowingGate = new URLSearchParams(search).get('scope') === 'following';
   const isHomeRoot = chrome !== 'site' && pathname === '/' && !isFollowingGate;
-  const isLanding = isHomeRoot && !viewer;
 
   useEffect(() => {
     // Board pages (/b/:slug) log their own page_view with boardId once the board loads;
@@ -81,65 +79,35 @@ export function AppShell() {
         </div>
       ) : isHomeRoot && !ready ? (
         <div className="min-h-dvh bg-page" />
-      ) : isLanding ? (
-        <div className="flex min-h-dvh flex-col bg-page text-ink">
-          <LandingHeader />
-          <main id="main" tabIndex={-1} className="w-full min-w-0 flex-1 outline-none">
-            <Outlet />
-          </main>
-          <LandingFooter />
-        </div>
-      ) : nav === 'rail' ? (
-        <div className={cx('flex bg-page text-ink', fill ? 'h-dvh overflow-hidden' : 'min-h-dvh')}>
-          <NavRail />
-          <div className={cx('flex min-w-0 flex-1 flex-col', fill && 'min-h-0')}>
-            <TopBar nav="rail" always={!rail && topBar} width={width} fill={fill} />
-            <div
-              className={cx(
-                'mx-auto flex w-full justify-center gap-rail-gap',
-                fill ? 'min-h-0 flex-1 max-sm:pb-tabbar' : 'px-7 pt-6 pb-10 max-sm:px-3 max-sm:pt-4 max-sm:pb-10',
-              )}
-            >
-              <main
-                id="main"
-                tabIndex={-1}
-                className={cx('w-full min-w-0 flex-1 outline-none', fill ? 'flex min-h-0 flex-col' : width === 'narrow' ? 'max-w-content' : 'max-w-wide')}
+      ) : (
+        <div className={cx('flex flex-col bg-page text-ink', fill ? 'h-dvh overflow-hidden' : 'min-h-dvh')}>
+          <TopBar />
+          <div className={cx('flex min-w-0 flex-1', fill && 'min-h-0')}>
+            <NavRail />
+            <div className={cx('flex min-w-0 flex-1 flex-col', fill && 'min-h-0')}>
+              <div
+                className={cx(
+                  'mx-auto flex w-full flex-1 justify-center gap-rail-gap',
+                  fill ? 'min-h-0 max-sm:pb-tabbar' : 'px-7 pt-6 pb-10 max-sm:px-3 max-sm:pt-4 max-sm:pb-10',
+                )}
               >
-                <Outlet />
-              </main>
-              {rail ? <RightRail /> : null}
+                <main
+                  id="main"
+                  tabIndex={-1}
+                  className={cx('w-full min-w-0 flex-1 outline-none', fill ? 'flex min-h-0 flex-col' : width === 'narrow' ? 'max-w-content' : 'max-w-wide')}
+                >
+                  <Outlet />
+                </main>
+                {rail ? <RightRail /> : null}
+              </div>
+              {!rail && !fill ? (
+                <div className="mt-auto max-sm:pb-tabbar">
+                  <LandingFooter />
+                </div>
+              ) : null}
             </div>
           </div>
           <TabBar showPost={!fill} />
-        </div>
-      ) : (
-        <div className="flex min-h-dvh flex-col bg-page text-ink">
-          <TopBar nav="top" always width={width} fill={false} />
-          <div className="mx-auto flex w-full max-w-landing flex-1 justify-center gap-10 px-7 pt-6 pb-10 max-sm:px-3 max-sm:pt-4 max-sm:pb-10">
-            <main
-              id="main"
-              tabIndex={-1}
-              className={cx(
-                'w-full min-w-0 flex-1 outline-none',
-                rail
-                  ? 'max-w-feed'
-                  : width === 'narrow'
-                    ? 'max-w-content'
-                    : width === 'landing'
-                      ? 'max-w-landing'
-                      : 'max-w-wide',
-              )}
-            >
-              <Outlet />
-            </main>
-            {rail ? <RightRail /> : null}
-          </div>
-          {!rail ? (
-            <div className="max-sm:pb-tabbar">
-              <LandingFooter />
-            </div>
-          ) : null}
-          <TabBar showPost />
         </div>
       )}
     </ClaimProvider>

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
 import { NavRail } from '../shell/NavRail';
+import { TopBar } from '../shell/TopBar';
 import { PostRow, Section } from '../boards/parts';
 import { ComposerProvider } from '../shell/composer';
 import { trendingNote, trendingTitle, TRENDING_MIN_CURATED } from '../lib/trendingCopy';
@@ -23,7 +24,7 @@ describe('collapsed nav rail names its rows (item 5a)', () => {
       </ComposerProvider>,
       { viewer: TEST_VIEWER },
     );
-    for (const name of ['Home', 'Feed', 'Notifications']) {
+    for (const name of ['Home', 'Feed', 'Categories']) {
       expect(screen.getByRole('link', { name })).toBeTruthy();
     }
   });
@@ -31,6 +32,7 @@ describe('collapsed nav rail names its rows (item 5a)', () => {
   it('shows the row label on hover with no delay, since the tip is the only label', async () => {
     renderWith(
       <ComposerProvider>
+        <TopBar />
         <NavRail />
       </ComposerProvider>,
       { viewer: TEST_VIEWER },
@@ -43,10 +45,10 @@ describe('collapsed nav rail names its rows (item 5a)', () => {
     expect(home.getAttribute('aria-describedby')).toBe(tip.id);
 
     fireEvent.pointerLeave(home);
-    const account = screen.getByRole('button', { name: `Account menu for ${TEST_VIEWER.name}` });
-    fireEvent.pointerEnter(account);
-    const accountTip = await screen.findByRole('tooltip');
-    expect(accountTip.textContent).toBe('Account menu');
+    const expand = screen.getByRole('button', { name: 'Expand sidebar' });
+    fireEvent.pointerEnter(expand);
+    const expandTip = await screen.findByRole('tooltip');
+    expect(expandTip.textContent).toContain('Expand sidebar');
   });
 });
 

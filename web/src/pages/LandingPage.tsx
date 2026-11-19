@@ -102,9 +102,12 @@ export function LandingPage() {
 
   return (
     <div className="flex flex-col">
-      <section aria-labelledby="page-title" className="relative isolate overflow-hidden border-b border-line hero-glow py-10 max-sm:py-8">
+      <section
+        aria-labelledby="page-title"
+        className="relative isolate mb-8 overflow-hidden rounded-lg border border-line hero-glow px-6 py-9 max-sm:px-4 max-sm:py-7"
+      >
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 hero-dots" />
-        <div className="mx-auto flex w-full max-w-landing flex-col items-center px-7 text-center max-sm:px-3">
+        <div className="mx-auto flex w-full flex-col items-center text-center">
           <h1 id="page-title" className="m-0 max-w-hero text-hero font-bold text-balance text-ink">
             Find any product. Shape what ships next.
           </h1>
@@ -127,7 +130,7 @@ export function LandingPage() {
         </div>
       </section>
 
-      <div className="mx-auto flex w-full max-w-landing flex-col px-7 pt-8 pb-10 max-sm:px-3 max-sm:pt-6">
+      <div className="flex w-full flex-col">
         {boards.isPending || hubs.isPending ? (
           <div className="mb-6 grid grid-cols-3 gap-3 max-lg:grid-cols-2 max-sm:grid-cols-1" aria-busy="true">
             {[0, 1, 2].map((i) => (
