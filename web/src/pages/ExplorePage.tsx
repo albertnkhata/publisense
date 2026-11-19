@@ -141,11 +141,6 @@ function Discover({ boards, hubs }: { boards: Board[]; hubs: Hub[] }) {
         boards={boards}
         trending={trending.data ?? []}
         now={now}
-        action={
-          <AddProductLink className="font-medium text-ink-muted hover:text-brand">
-            + Add a missing product
-          </AddProductLink>
-        }
       />
       <PopularPostsSection id="ex-popular" />
       <HubsSection id="ex-hubs" hubs={hubs} />

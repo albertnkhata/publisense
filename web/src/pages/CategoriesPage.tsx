@@ -33,18 +33,13 @@ export function CategoriesPage() {
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
-      <div className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
-        <div className="flex flex-wrap items-baseline gap-3">
-          <h1 id="page-title" className="m-0 text-2xl font-bold text-ink">
-            Categories
-          </h1>
-          <span className="font-mono text-sm text-ink-muted tabular-nums">
-            {plural(ALL_CATEGORIES.length, 'category', 'categories')}
-          </span>
-        </div>
-        <AddProductLink className="text-sm font-medium text-ink-muted hover:text-brand">
-          + Add a missing product
-        </AddProductLink>
+      <div className="mb-6 flex flex-wrap items-baseline gap-3">
+        <h1 id="page-title" className="m-0 text-2xl font-bold text-ink">
+          Categories
+        </h1>
+        <span className="font-mono text-sm text-ink-muted tabular-nums">
+          {plural(ALL_CATEGORIES.length, 'category', 'categories')}
+        </span>
       </div>
 
       {boards.isPending ? (
