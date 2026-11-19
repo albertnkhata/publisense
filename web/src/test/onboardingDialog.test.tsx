@@ -75,7 +75,10 @@ describe('OnboardingDialog', () => {
     fireEvent.click(cont());
     await waitFor(() => expect(api.markOnboarded).toHaveBeenCalledTimes(1));
     expect(api.setScopeFollow.mock.calls.map((c) => c[1]).sort()).toEqual(['b1', 'b2', 'b3']);
-    await waitFor(() => expect(router.state.location.search).toBe('?scope=following'));
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/feed');
+      expect(router.state.location.search).toBe('?scope=following');
+    });
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 

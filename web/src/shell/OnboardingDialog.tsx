@@ -78,7 +78,7 @@ export function OnboardingDialog() {
     void qc.invalidateQueries({ queryKey: boardKeys.boards });
     void qc.invalidateQueries({ queryKey: ['posts', 'feed', 'following'] });
     refresh();
-    navigate('/?scope=following');
+    navigate('/feed?scope=following');
   }
 
   const ready = picked.size >= ONBOARDING_MIN;

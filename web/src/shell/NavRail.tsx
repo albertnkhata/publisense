@@ -1,5 +1,5 @@
 import { useCallback, useState, type MouseEvent, type ReactNode } from 'react';
-import { Link, NavLink, useLocation } from 'react-router';
+import { Link, NavLink } from 'react-router';
 import { cx } from '../lib/cx';
 import { MQ, useMediaQuery } from '../lib/useMediaQuery';
 import { useShortcut } from '../lib/useShortcut';
@@ -34,7 +34,6 @@ export function NavRail() {
   const { openComposer } = useComposer();
   const { openAuth } = useAuthDialog();
   const requireAuth = useRequireAuth();
-  const location = useLocation();
   const belowXl = useMediaQuery(MQ.xl);
   const [manual, setManual] = useState<boolean>(readCollapsed);
   const collapsed = manual || belowXl;
@@ -42,9 +41,6 @@ export function NavRail() {
   const staff = useIsPlatformAdmin(viewer?.id ?? null).data ?? false;
   const messages = useMessagesEnabled(viewer?.id ?? null);
   const dmUnread = useDmUnread(viewer?.id ?? null);
-
-  const isFollowing = location.pathname === '/' && location.search.includes('scope=following');
-  const isHome = location.pathname === '/' && !isFollowing;
 
   const toggle = useCallback(() => {
     setManual((c) => {
@@ -103,24 +99,9 @@ export function NavRail() {
       </div>
 
       <nav aria-label="Primary" className="mb-4 flex flex-col gap-1">
-        <NavRow to="/" icon="home" label="Home" collapsed={collapsed} active={isHome} end />
-        <NavRow to="/explore" icon="search" label="Explore" collapsed={collapsed} />
+        <NavRow to="/" icon="home" label="Home" collapsed={collapsed} end />
+        <NavRow to="/feed" icon="feed" label="Feed" collapsed={collapsed} />
         {!viewer ? <div aria-hidden="true" className="my-1 border-t border-line" /> : null}
-        <NavRow
-          to="/?scope=following"
-          icon="users"
-          label="Following"
-          collapsed={collapsed}
-          active={isFollowing}
-          muted={!viewer}
-          tipSuffix={!viewer ? 'Sign in' : undefined}
-          onClick={(e) => {
-            if (!viewer) {
-              e.preventDefault();
-              requireAuth('see what you follow');
-            }
-          }}
-        />
         <NavRow
           to="/notifications"
           icon="bell"

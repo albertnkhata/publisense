@@ -170,7 +170,7 @@ describe('user page', () => {
     renderAt(`/u/${ME.handle}`);
     expect(await screen.findByText('Your profile')).toBeTruthy();
     expect(await screen.findByText('You haven’t posted yet.')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Explore products' }).getAttribute('href')).toBe('/explore');
+    expect(screen.getByRole('link', { name: 'Browse products' }).getAttribute('href')).toBe('/');
     fireEvent.click(screen.getByRole('button', { name: 'Profile options' }));
     const settingsItem = await within(await screen.findByRole('menu')).findByRole('menuitem', { name: /Account settings/ });
     expect(settingsItem.getAttribute('href')).toBe('/settings');

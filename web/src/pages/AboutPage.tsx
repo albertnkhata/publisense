@@ -111,10 +111,10 @@ export function AboutPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Link
-            to="/explore"
+            to="/"
             className="inline-flex h-8 items-center justify-center rounded-md bg-brand px-4 text-base font-semibold whitespace-nowrap text-on-brand no-underline transition-colors duration-120 hover:bg-brand-hover"
           >
-            Explore products
+            Browse products
           </Link>
           <Button variant="secondary" onClick={() => openClaim()}>
             Claim a product

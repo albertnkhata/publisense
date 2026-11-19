@@ -3,13 +3,13 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes } from 'react-router';
 import { BoardCard } from '../boards/parts';
 import { CategoryPage } from '../pages/CategoryPage';
-import { ExplorePage } from '../pages/ExplorePage';
+import { HomePage } from '../pages/HomePage';
 import { PostCard } from '../posts/PostCard';
 import { ClaimLine, RailBoards } from '../shell/RightRail';
 import { ClaimProvider } from '../claim/ClaimDialog';
 import { CURSOR, FIGMA, makeBoard, makeSummary, SUPABASE } from './boardFixtures';
 import { makePost } from './postFixtures';
-import { renderWith } from './renderApp';
+import { renderWith, TEST_VIEWER } from './renderApp';
 
 // #156: while the community is quiet, public surfaces say what their ordering
 // really is and do not lead with zero counters. No manufactured activity.
@@ -84,18 +84,18 @@ describe('right rail boards card', () => {
   });
 });
 
-describe('explore while quiet', () => {
-  const renderExplore = (path = '/explore') =>
+describe('discovery home while quiet', () => {
+  const renderHome = (path = '/') =>
     renderWith(
       <Routes>
-        <Route path="/explore" element={<ExplorePage />} />
+        <Route path="/" element={<HomePage />} />
         <Route path="/c/:category" element={<CategoryPage />} />
       </Routes>,
-      { path },
+      { path, viewer: TEST_VIEWER },
     );
 
   it('has no Trending section, summarises categories without product counts, and hides Popular posts when empty', async () => {
-    renderExplore();
+    renderHome();
     const cats = await screen.findByRole('list', { name: 'Categories' });
     expect(screen.queryByRole('heading', { name: /Trending/ })).toBeNull();
     expect(within(cats).getByText('Code editors')).toBeTruthy();
@@ -107,7 +107,7 @@ describe('explore while quiet', () => {
   });
 
   it('shows Added recency instead of zero counters on quiet category results', async () => {
-    renderExplore('/c/code');
+    renderHome('/c/code');
     const results = await screen.findByRole('list', { name: 'Code editors' });
     expect(results.textContent).not.toMatch(/\b0 (posts|followers)\b/);
     expect(within(results).getByText('Added 2w ago')).toBeTruthy();
@@ -119,7 +119,7 @@ describe('explore while quiet', () => {
       { ...makeSummary({ title: 'Offline mode', status: 'under_review', vote_count: 0 }), has_official_reply: false, voted: false, following: false },
       { ...makeSummary({ title: 'Keyboard nav', status: 'under_review', vote_count: 4 }), has_official_reply: false, voted: false, following: false },
     ]);
-    renderExplore();
+    renderHome();
     expect(await screen.findByText('Offline mode')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Upvote, 0 votes' }).textContent).toBe('');
     expect(screen.getByRole('button', { name: 'Upvote, 4 votes' }).textContent).toBe('4');

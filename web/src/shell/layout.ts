@@ -68,7 +68,7 @@ export const NO_RAIL_WIDE = { rail: false, width: 'wide' } as const satisfies Sh
 export const MANAGE_PAGE = { nav: 'rail', rail: false, width: 'wide', topBar: false } as const satisfies ShellHandle;
 /** /admin workspace: left NavRail with admin sections, wide column, no desktop top bar. */
 export const STAFF_PAGE = { nav: 'rail', rail: false, width: 'wide', topBar: false } as const satisfies ShellHandle;
-/** /explore, /categories and /c/:category: landing-width directory without the right rail. */
+/** Signed-in /, /categories and /c/:category: landing-width directory without the right rail. */
 export const EXPLORE_PAGE = { rail: false, width: 'landing' } as const satisfies ShellHandle;
 /** No rail, reading-width column: forms, lists and long text. */
 export const NO_RAIL_NARROW = { rail: false, width: 'narrow' } as const satisfies ShellHandle;

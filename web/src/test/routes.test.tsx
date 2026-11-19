@@ -13,7 +13,7 @@ import { TEST_VIEWER } from './renderApp';
 // FOUNDATION §9, with sample params. Each must render a page heading, not NotFound.
 const CASES: Array<[string, string]> = [
   ['/', 'Find any product. Shape what ships next.'],
-  ['/explore', 'Explore'],
+  ['/feed', 'Feed'],
   ['/categories', 'Categories'],
   ['/c/dev', 'Dev platforms'],
   ['/search?q=dark%20mode', 'Search'],
@@ -70,17 +70,30 @@ describe('routes', () => {
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(heading);
   });
 
-  it('/ renders the Home feed inside the top-bar shell when signed in', () => {
+  it('/ renders the signed-in discovery home in the landing-width top-bar shell without a right rail', () => {
     renderAt('/', TEST_VIEWER);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Home');
     expect(screen.queryByRole('complementary', { name: 'Main navigation' })).toBeNull();
+    expect(screen.queryByRole('complementary', { name: 'Sidebar' })).toBeNull();
     const header = screen.getByRole('banner');
     expect(within(header).getByRole('navigation', { name: 'Primary' })).toBeTruthy();
+    expect(document.getElementById('main')!.className).toContain('max-w-landing');
+  });
+
+  it('/feed renders the feed inside the top-bar shell with a right rail when signed in', () => {
+    renderAt('/feed', TEST_VIEWER);
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Feed');
+    expect(screen.queryByRole('complementary', { name: 'Main navigation' })).toBeNull();
     expect(screen.getByRole('complementary', { name: 'Sidebar' })).toBeTruthy();
     expect(document.getElementById('main')!.className).toContain('max-w-feed');
   });
 
-  it('/?scope=following keeps the top-bar shell for the sign-in gate even when signed out', () => {
+  it('legacy /explore redirects to /', () => {
+    renderAt('/explore');
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Find any product. Shape what ships next.');
+  });
+
+  it('/?scope=following redirects to /feed?scope=following and keeps the top-bar shell for the sign-in gate', () => {
     renderAt('/?scope=following');
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Following');
     expect(screen.queryByRole('complementary', { name: 'Main navigation' })).toBeNull();
@@ -100,12 +113,12 @@ describe('routes', () => {
   // Signed-out `/` uses LandingHeader/Footer; SITE_PAGE uses SiteHeader/Footer.
   const paths = CASES.map(([p]) => p);
   const WORKSPACE_WIDE = [...paths.filter((p) => p.startsWith('/admin')), '/b/supabase/manage', '/h/acme/manage'];
-  const BROWSE_WIDE = ['/explore', '/categories', '/c/dev'];
+  const BROWSE_WIDE = ['/categories', '/c/dev'];
   const WIDE = [...WORKSPACE_WIDE, ...BROWSE_WIDE];
   const NARROW = ['/notifications', '/settings'];
   const SITE = ['/about', '/privacy', '/terms', '/auth/reset', '/unsubscribe?token=abc'];
   const LANDING = ['/'];
-  const RAIL = ['/search?q=dark%20mode', '/b/supabase', '/b/supabase?tab=roadmap', '/h/acme', '/post/123', '/u/alex', '/no/such/page'];
+  const RAIL = ['/feed', '/search?q=dark%20mode', '/b/supabase', '/b/supabase?tab=roadmap', '/h/acme', '/post/123', '/u/alex', '/no/such/page'];
 
   it('every route case is classified', () => {
     expect([...WIDE, ...NARROW, ...SITE, ...LANDING, ...RAIL.filter((p) => p !== '/no/such/page')].sort()).toEqual([...paths].sort());
@@ -268,7 +281,7 @@ describe('vercel.json SPA rewrites', () => {
   it('rewrites public site and app entry paths to /index.html', async () => {
     const { default: vercel } = await import('../../vercel.json');
     const spaSources = new Set(vercel.rewrites.filter((r) => r.destination === '/index.html').map((r) => r.source));
-    for (const path of ['/explore', '/categories', '/c/:category', '/search', '/notifications', '/messages', '/settings', '/about', '/privacy', '/terms', '/unsubscribe', '/auth/reset']) {
+    for (const path of ['/feed', '/explore', '/categories', '/c/:category', '/search', '/notifications', '/messages', '/settings', '/about', '/privacy', '/terms', '/unsubscribe', '/auth/reset']) {
       expect(spaSources.has(path)).toBe(true);
     }
   });

@@ -3,21 +3,17 @@ import { Link, Navigate, useParams } from 'react-router';
 import { CATEGORIES, isLive, isProductFamily, plural, useBoards, useHubs, type Board, type BoardCategory } from '../api';
 import { BoardCard, CardGrid, HubRow, RowItem, RowList, Section } from '../boards/parts';
 import { usePageTitle } from '../lib/usePageTitle';
-import { useViewer } from '../lib/viewer';
 import { LoadError } from '../posts/PostList';
 import { AddProductLink } from '../products/AddProductDialog';
 import { EmptyState, SkeletonBlock } from '../ui';
 
 /**
- * Category page (`/c/:category`): dedicated view opened from Categories at the
- * bottom of Landing and Explore. Uses `EXPLORE_PAGE` wide layout so all products
- * in the category sit in a 3-column grid.
+ * Category page (`/c/:category`): dedicated view opened from Categories on Home
+ * and `/categories`. Uses `EXPLORE_PAGE` wide layout so all products in the
+ * category sit in a 3-column grid.
  */
 export function CategoryPage() {
   const { category } = useParams();
-  const { viewer } = useViewer();
-  const backTo = viewer ? '/explore' : '/';
-  const fallbackLabel = viewer ? 'Explore' : 'Home';
 
   useEffect(() => {
     if (typeof window !== 'undefined' && !navigator.userAgent.includes('jsdom')) {
@@ -25,7 +21,7 @@ export function CategoryPage() {
     }
   }, [category]);
 
-  if (category === 'all') return <Navigate to="/explore" replace />;
+  if (category === 'all') return <Navigate to="/categories" replace />;
 
   const meta = CATEGORIES.find((c): c is { value: BoardCategory; label: string } => c.value !== 'all' && c.value === category);
   usePageTitle(meta ? meta.label : 'Category not found');
@@ -47,10 +43,10 @@ export function CategoryPage() {
 
   const backAction = (
     <Link
-      to={backTo}
+      to="/categories"
       className="inline-flex h-7 items-center justify-center rounded-md border border-line-strong bg-card px-3 text-sm font-semibold text-ink no-underline transition-colors duration-120 hover:bg-subtle"
     >
-      Back to {fallbackLabel}
+      All categories
     </Link>
   );
 
@@ -62,7 +58,7 @@ export function CategoryPage() {
         </h1>
         <div className="rounded-md border border-line bg-card">
           <EmptyState icon="explore" title="Category not found" action={backAction}>
-            Choose a category from Explore to browse products.
+            Choose a category to browse products.
           </EmptyState>
         </div>
       </section>

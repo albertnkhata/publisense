@@ -20,7 +20,7 @@ describe('AboutPage', () => {
     expect(screen.getByRole('heading', { level: 3, name: 'Share & rank feedback' })).toBeTruthy();
     expect(screen.getByRole('heading', { level: 3, name: 'Teams prove ownership' })).toBeTruthy();
     expect(screen.getByRole('heading', { level: 3, name: 'Follow real progress' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Explore products' }).getAttribute('href')).toBe('/explore');
+    expect(screen.getByRole('link', { name: 'Browse products' }).getAttribute('href')).toBe('/');
 
     fireEvent.click(screen.getByRole('button', { name: 'Claim a product' }));
     expect(await screen.findByRole('dialog', { name: 'Claim your product' })).toBeTruthy();

@@ -1,187 +1,142 @@
 import { useMemo } from 'react';
-import { useSearchParams } from 'react-router';
-import { dedupePosts, useFeed, type FeedScope, type FeedSort } from '../api';
+import { Navigate, useSearchParams } from 'react-router';
+import { isLive, isProductFamily, useBoards, useFollowedScopes, useHubs, useTrending, type Board, type Hub } from '../api';
+import {
+  CategoriesSection,
+  DiscoveryBoardsSection,
+  HubsSection,
+  PopularPostsSection,
+  YourProductsSection,
+} from '../discovery/DiscoverySections';
 import { usePageTitle } from '../lib/usePageTitle';
-import { useSetUrlParams } from '../lib/useUrlParam';
 import { useViewer } from '../lib/viewer';
-import { LoadError, PostList, PostListSkeleton } from '../posts/PostList';
-import { useAuthDialog } from '../shell/auth';
-import { useComposer } from '../shell/composer';
-import { Button, EmptyState, Icon, Menu, MenuItemRadio, MenuLabel, Tabs } from '../ui';
+import { LoadError } from '../posts/PostList';
+import { AddProductLink } from '../products/AddProductDialog';
+import { SearchWell } from '../shell/SearchWell';
+import { SkeletonBlock } from '../ui';
 import { LandingPage } from './LandingPage';
 
 /**
- * Home: signed-out visitors see LandingPage; signed-in members see the Home feed
- * with All / Following scope and Top / New sort. Direct visits to `/?scope=following`
- * while signed out render the explicit Following sign-in gate (GAP-001).
+ * Home (`/`): signed-out visitors see LandingPage; signed-in members see the
+ * unified discovery directory (Search, Your products when following ≥1 board
+ * or hub, Trending, Popular posts by status, Hubs, Categories, and Add a product).
+ * Legacy `/?scope=following` links redirect to `/feed?scope=following`.
  */
-export const SORTS: Array<{ value: FeedSort; label: string; hint: string }> = [
-  { value: 'top', label: 'Top', hint: 'Most upvoted' },
-  { value: 'new', label: 'New', hint: 'Most recent first' },
-];
-
 export function HomePage() {
   const { viewer, ready } = useViewer();
-  const { openAuth } = useAuthDialog();
   const [params] = useSearchParams();
-  const setUrl = useSetUrlParams();
-  const sort: FeedSort = params.get('sort') === 'new' ? 'new' : 'top';
-  const scope: FeedScope = params.get('scope') === 'following' ? 'following' : 'all';
-  usePageTitle(scope === 'following' ? 'Following' : null);
 
-  const set = (key: 'sort' | 'scope', value: string, fallback: string) => setUrl([[key, value, fallback]]);
-
-  if (!viewer && scope === 'following') {
-    return (
-      <section aria-labelledby="page-title" className="flex flex-col gap-4">
-        <h1 id="page-title" className="m-0 text-2xl font-bold text-ink">
-          Following
-        </h1>
-        {ready ? (
-          <div className="rounded-md border border-line bg-card">
-            <EmptyState
-              icon="users"
-              title="Sign in to see what you follow"
-              action={<Button onClick={() => openAuth('signin', 'see what you follow')}>Sign in</Button>}
-            >
-              Follow people, boards and posts to keep up with them here.
-            </EmptyState>
-          </div>
-        ) : null}
-      </section>
-    );
+  if (params.get('scope') === 'following') {
+    const next = new URLSearchParams(params);
+    next.set('scope', 'following');
+    return <Navigate to={`/feed?${next.toString()}`} replace />;
   }
 
   if (!viewer) {
     return ready ? <LandingPage /> : null;
   }
 
+  return <SignedInHome viewerId={viewer.id} />;
+}
+
+function SignedInHome({ viewerId }: { viewerId: string }) {
+  usePageTitle(null);
+  const boards = useBoards();
+  const hubs = useHubs();
+  const follows = useFollowedScopes(viewerId);
+
+  const liveBoards = useMemo(() => (boards.data ?? []).filter(isLive), [boards.data]);
+  const liveHubs = useMemo(() => (hubs.data ?? []).filter((h) => isProductFamily(h.boards.length)), [hubs.data]);
+
   return (
-    <section aria-labelledby="page-title" className="flex flex-col gap-4">
+    <section aria-labelledby="page-title" className="flex flex-col">
       <h1 id="page-title" className="sr-only">
         Home
       </h1>
-      {/* Phones post from the floating button (TabBar) instead. */}
-      <ComposerTrigger />
-      <div className="flex items-center justify-between gap-3 border-b border-line">
-        <Tabs
-          idBase="feed"
-          label="Feed"
-          value={scope}
-          onChange={(v) => set('scope', v, 'all')}
-          bordered={false}
-          items={[
-            { value: 'all', label: 'All' },
-            { value: 'following', label: 'Following' },
-          ]}
+      <SearchWell className="mb-6" triggerClassName="h-9 border-line-strong text-md" />
+      {boards.isPending || hubs.isPending ? (
+        <HomeSkeleton />
+      ) : boards.isError || hubs.isError ? (
+        <LoadError
+          title="We couldn’t load the products"
+          onRetry={() => {
+            void boards.refetch();
+            void hubs.refetch();
+          }}
+          retrying={boards.isRefetching || hubs.isRefetching}
         />
-        <SortMenu sort={sort} onChange={(v) => set('sort', v, 'top')} />
-      </div>
-      <div role="tabpanel" id={`feed-panel-${scope}`} aria-labelledby={`feed-tab-${scope}`}>
-        <Feed scope={scope} sort={sort} viewerId={viewer.id} />
-      </div>
+      ) : (
+        <Discover boards={liveBoards} hubs={liveHubs} followed={follows.data} />
+      )}
+      {boards.isSuccess && hubs.isSuccess ? <MissingProduct /> : null}
     </section>
   );
 }
 
-function SortMenu({ sort, onChange }: { sort: FeedSort; onChange: (s: FeedSort) => void }) {
-  const current = SORTS.find((s) => s.value === sort) ?? SORTS[0];
+function Discover({ boards, hubs, followed }: { boards: Board[]; hubs: Hub[]; followed: Set<string> | undefined }) {
+  const trending = useTrending(boards, 6);
+  const now = useMemo(() => new Date(), []);
+
   return (
-    <Menu
-      align="end"
-      label="Sort feed"
-      trigger={(p) => (
-        <button
-          type="button"
-          {...p}
-          aria-label={`Sort feed: ${current?.label}`}
-          className="inline-flex items-center gap-1 rounded-sm border-0 bg-transparent py-1 pr-1 pl-2 text-sm font-semibold text-ink-secondary hover:bg-subtle hover:text-ink aria-expanded:bg-subtle"
-        >
-          {current?.label}
-          <Icon name="chevron-down" size={14} />
-        </button>
-      )}
-    >
-      <MenuLabel>Sort by</MenuLabel>
-      {SORTS.map((s) => (
-        <MenuItemRadio key={s.value} checked={s.value === sort} description={s.hint} onSelect={() => onChange(s.value)}>
-          {s.label}
-        </MenuItemRadio>
-      ))}
-    </Menu>
+    <>
+      <YourProductsSection id="home-your-products" boards={boards} hubs={hubs} followed={followed} />
+      <DiscoveryBoardsSection id="home-trending" boards={boards} trending={trending.data ?? []} now={now} />
+      <PopularPostsSection id="home-popular" />
+      <HubsSection id="home-hubs" hubs={hubs} />
+      <CategoriesSection id="home-categories" boards={boards} />
+    </>
   );
 }
 
-/**
- * The collapsed composer: a field, not a card — one rule, one line, one quiet action.
- * It shares the feed's grid (PostCard: a pl-gutter column): the plus
- * hangs in the gutter where avatars sit, and the prompt and its rule span exactly
- * the post content's width, so the rule reads as the field's underline.
- */
-function ComposerTrigger() {
-  const { openComposer } = useComposer();
+/** Bottom of Home: the way to add a product that isn't here yet. */
+function MissingProduct() {
   return (
-    <button
-      type="button"
-      onClick={() => openComposer()}
-      className="group flex w-full cursor-pointer items-center border-0 bg-transparent px-0 text-left max-sm:hidden"
-    >
-      <span className="flex w-gutter shrink-0 items-center">
-        <span className="flex size-6 items-center justify-center rounded-pill border border-line-strong text-ink-muted transition-colors duration-120 group-hover:border-ink-muted group-hover:text-ink-secondary">
-          <Icon name="plus" size={11} strokeWidth={2} />
-        </span>
-      </span>
-      <span className="flex min-w-0 flex-1 items-center gap-3 border-b border-line-strong py-2">
-        <span className="min-w-0 flex-1 truncate text-base text-ink-muted transition-colors duration-120 group-hover:text-ink-secondary">
-          Share feedback on a product
-        </span>
-        {/* Looks like the primary sm Button, but is a span: the whole row is already
-            the button, and a button can't nest inside another. Kept at every width:
-            the old filled button was hidden under 640px, which left phones with no action. */}
-        <span className="inline-flex h-7 shrink-0 items-center justify-center rounded-md bg-brand px-3 text-sm font-semibold whitespace-nowrap text-on-brand transition-colors duration-120 ease-out group-hover:bg-brand-hover">
-          Post
-        </span>
-      </span>
-    </button>
+    <p className="m-0 rounded-md border border-dashed border-line-strong bg-card px-4 py-4 text-center text-base text-ink-secondary">
+      Can’t find a product you use? <AddProductLink>Add it</AddProductLink>
+    </p>
   );
 }
 
-function Feed({ scope, sort, viewerId }: { scope: FeedScope; sort: FeedSort; viewerId: string }) {
-  const feed = useFeed(scope, sort, viewerId);
-  const { openComposer } = useComposer();
-  const posts = useMemo(() => dedupePosts(feed.data?.pages ?? []), [feed.data]);
-
-  if (feed.isPending) return <PostListSkeleton />;
-
-  if (feed.isError && posts.length === 0) {
-    return <LoadError title="We couldn’t load the feed" onRetry={() => void feed.refetch()} retrying={feed.isRefetching} />;
-  }
-
-  if (posts.length === 0) {
-    return scope === 'following' ? (
-      <p className="m-0 px-4 py-9 text-center text-sm text-ink-muted">
-        Nothing from what you follow yet. Follow people, boards or posts and they’ll show up here.
-      </p>
-    ) : (
-      <div className="rounded-md border border-line bg-card">
-        <EmptyState
-          icon="reply"
-          title="No posts yet"
-          action={<Button onClick={() => openComposer()}>Post feedback</Button>}
-        >
-          Be the first to share what’s slowing you down, or what you wish a product did.
-        </EmptyState>
+function HomeSkeleton() {
+  return (
+    <div className="flex flex-col gap-6" aria-busy="true">
+      <div>
+        <div className="mb-3 flex items-baseline justify-between gap-3">
+          <SkeletonBlock className="h-4 w-1/3" />
+          <SkeletonBlock className="h-3 w-1/5" />
+        </div>
+        <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-2 max-sm:grid-cols-1">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="flex flex-col gap-3 rounded-md border border-line bg-card p-4">
+              <div className="flex items-center gap-3">
+                <SkeletonBlock className="size-9 rounded-lg" />
+                <div className="flex flex-1 flex-col gap-2">
+                  <SkeletonBlock className="h-3 w-1/2" />
+                  <SkeletonBlock className="h-3 w-3/4" />
+                </div>
+              </div>
+              <SkeletonBlock className="h-3 w-1/3" />
+            </div>
+          ))}
+        </div>
       </div>
-    );
-  }
-
-  return (
-    <PostList
-      posts={posts}
-      hasNextPage={Boolean(feed.hasNextPage)}
-      isFetchingNextPage={feed.isFetchingNextPage}
-      isError={feed.isError}
-      fetchNextPage={feed.fetchNextPage}
-    />
+      <div>
+        <div className="mb-3 flex items-baseline justify-between gap-3">
+          <SkeletonBlock className="h-4 w-1/4" />
+          <SkeletonBlock className="h-3 w-1/4" />
+        </div>
+        <div className="divide-y divide-line rounded-md border border-line bg-card px-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="flex items-center gap-3 px-1 py-3">
+              <SkeletonBlock className="size-7 rounded-sm" />
+              <div className="flex flex-1 flex-col gap-2">
+                <SkeletonBlock className="h-3 w-2/5" />
+                <SkeletonBlock className="h-3 w-1/3" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }

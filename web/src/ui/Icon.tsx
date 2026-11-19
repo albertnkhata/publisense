@@ -12,6 +12,7 @@ const PATHS = {
       <path d="M5.5 9v10a1 1 0 0 0 1 1H10v-6h4v6h3.5a1 1 0 0 0 1-1V9" />
     </>
   ),
+  feed: <path d="M4 6h16M4 12h16M4 18h10" />,
   explore: (
     <>
       <circle cx="12" cy="12" r="9" />

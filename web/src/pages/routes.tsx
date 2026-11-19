@@ -3,6 +3,7 @@
  */
 
 // Step 5: feed and posts.
+export { FeedPage } from './FeedPage';
 export { HomePage } from './HomePage';
 export { PostPage } from './PostPage';
 
