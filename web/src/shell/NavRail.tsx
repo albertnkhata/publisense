@@ -68,7 +68,7 @@ export function NavRail() {
         collapsed ? 'w-nav-collapsed' : 'w-nav',
       )}
     >
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <nav aria-label="Primary" className="mb-3 flex flex-col gap-1">
           <NavRow to="/" icon="home" label="Home" collapsed={collapsed} end />
           <NavRow to="/feed" icon="feed" label="Feed" collapsed={collapsed} />
@@ -83,39 +83,20 @@ export function NavRail() {
       {/* Placed after primary links in the DOM so keyboard users reach Home, Feed, and
           Categories before the sidebar toggle (#141). */}
       {!belowXl ? (
-        <div className="border-t border-line pt-2">
-          {collapsed ? (
-            <Tooltip content="Expand sidebar" kbd="[" side="right" delay={0}>
-              <button
-                type="button"
-                onClick={toggle}
-                aria-label="Expand sidebar"
-                aria-expanded={false}
-                aria-keyshortcuts="["
-                className="flex h-row w-full items-center overflow-hidden rounded-md border-0 bg-transparent text-left text-sm font-medium text-ink-muted transition-colors duration-120 hover:bg-subtle hover:text-ink focus-visible:opacity-100"
-              >
-                <span className="grid h-row w-gutter shrink-0 place-items-center">
-                  <Icon name="sidebar" size={18} strokeWidth={1.75} />
-                </span>
-              </button>
-            </Tooltip>
-          ) : (
+        <div className="flex border-t border-line pt-2">
+          <Tooltip content={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} side="right" disabled={!collapsed} delay={0}>
             <button
               type="button"
               onClick={toggle}
-              aria-label="Collapse sidebar"
-              aria-expanded={true}
+              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              aria-expanded={!collapsed}
               aria-keyshortcuts="["
-              title="Collapse sidebar  ["
-              className="flex h-row w-full items-center overflow-hidden rounded-md border-0 bg-transparent text-left text-sm font-medium text-ink-muted transition-colors duration-120 hover:bg-subtle hover:text-ink focus-visible:opacity-100"
+              title={collapsed ? undefined : 'Collapse sidebar'}
+              className="ml-auto grid h-row w-gutter shrink-0 place-items-center rounded-md border-0 bg-transparent text-ink-muted transition-colors duration-120 hover:bg-subtle hover:text-ink focus-visible:opacity-100"
             >
-              <span className="grid h-row w-gutter shrink-0 place-items-center">
-                <Icon name="sidebar" size={18} strokeWidth={1.75} />
-              </span>
-              <Label collapsed={collapsed}>Collapse</Label>
-              <span className="pr-3 font-mono text-xs text-ink-muted">[</span>
+              <Icon name="sidebar" size={18} strokeWidth={1.75} />
             </button>
-          )}
+          </Tooltip>
         </div>
       ) : null}
     </aside>

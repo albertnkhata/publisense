@@ -12,6 +12,7 @@ import { useTheme } from '../lib/ThemeProvider';
 import { useShortcut } from '../lib/useShortcut';
 import { useViewer } from '../lib/viewer';
 import { ClaimProvider } from '../claim/ClaimDialog';
+import { LandingFooter } from '../pages/LandingPage';
 import { ComposerProvider } from './composer';
 import { AddProductHost, AddProductProvider } from '../products/AddProductDialog';
 import { NavRail } from './NavRail';
@@ -86,8 +87,8 @@ export function AppShell() {
             <div className={cx('flex min-w-0 flex-1 flex-col', fill && 'min-h-0')}>
               <div
                 className={cx(
-                  'mx-auto flex w-full justify-center gap-rail-gap',
-                  fill ? 'min-h-0 flex-1 max-sm:pb-tabbar' : 'px-7 pt-6 pb-10 max-sm:px-3 max-sm:pt-4 max-sm:pb-10',
+                  'mx-auto flex w-full flex-1 justify-center gap-rail-gap',
+                  fill ? 'min-h-0 max-sm:pb-tabbar' : 'px-7 pt-6 pb-10 max-sm:px-3 max-sm:pt-4 max-sm:pb-10',
                 )}
               >
                 <main
@@ -99,6 +100,11 @@ export function AppShell() {
                 </main>
                 {rail ? <RightRail /> : null}
               </div>
+              {!rail && !fill ? (
+                <div className="mt-auto max-sm:pb-tabbar">
+                  <LandingFooter />
+                </div>
+              ) : null}
             </div>
           </div>
           <TabBar showPost={!fill} />

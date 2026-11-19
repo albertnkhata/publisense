@@ -191,8 +191,6 @@ export function LandingPage() {
             <CategoriesSection boards={liveBoards} />
           </>
         ) : null}
-
-        <LandingFooter />
       </div>
     </div>
   );
