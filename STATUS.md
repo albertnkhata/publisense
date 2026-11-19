@@ -97,20 +97,20 @@ _CI steps read from `.github/workflows/ci.yml`; v2 test counts are under v2 buil
 
 <!-- status:live:start — refreshed by `node scripts/status.mjs --live`; may lag until the next scheduled refresh -->
 
-_probed 2026-11-16T06:00:11Z · anything that could not be read says `unknown` rather than guessing_
+_probed 2026-11-19T06:00:13Z · anything that could not be read says `unknown` rather than guessing_
 
 ### Production
 
-- https://publisense.app → **200** · served entry bundle `/assets/index-CNj1wzua.js`
+- https://publisense.app → **200** · served entry bundle `/assets/index-DTwuArzC.js`
 - www → 308 → https://publisense.app/
-- production deployment: `e29a143` (READY, 2026-11-15T08:02:13.925Z)
+- production deployment: `c65fb88` (READY, 2026-11-19T05:07:35.019Z)
 
 ### Data
 
-- board **32** · hub **21** · post **191** · reply **0** · vote **0** · follow **10** · profile **5** · status_event **0**
+- board **32** · hub **21** · post **191** · reply **0** · vote **0** · follow **13** · profile **6** · status_event **0**
 - counted with an authenticated probe; as an anonymous visitor these read: follow = restricted
 - post: **191** total = **191 imported** (no author, sourced elsewhere) + **0 from members**
-- auth users: **5**
+- auth users: **6**
 
 > ⚠️ Imported posts carry no author — each one links to the source it came from (`D-011`). Printed so traction is never claimed without the split.
 

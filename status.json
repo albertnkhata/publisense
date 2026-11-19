@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-16T06:00:11Z",
+  "generatedAt": "2026-11-19T06:00:13Z",
   "repo": {
     "openDecisions": [],
     "resolved": [
@@ -372,12 +372,12 @@
     ]
   },
   "live": {
-    "generatedAt": "2026-11-16T06:00:11Z",
+    "generatedAt": "2026-11-19T06:00:13Z",
     "site": {
       "status": 200,
-      "bundle": "/assets/index-CNj1wzua.js",
+      "bundle": "/assets/index-DTwuArzC.js",
       "wwwRedirect": "308 → https://publisense.app/",
-      "checkedAt": "2026-11-16T06:00:11Z"
+      "checkedAt": "2026-11-19T06:00:13Z"
     },
     "data": {
       "counts": {
@@ -387,7 +387,7 @@
         "reply": 0,
         "vote": 0,
         "follow": "restricted",
-        "profile": 5,
+        "profile": 6,
         "status_event": 0
       },
       "trueCounts": {
@@ -396,8 +396,8 @@
         "post": 191,
         "reply": 0,
         "vote": 0,
-        "follow": 10,
-        "profile": 5,
+        "follow": 13,
+        "profile": 6,
         "status_event": 0
       },
       "fixtures": {
@@ -405,7 +405,7 @@
         "imports": 191,
         "fromMembers": 0
       },
-      "authUsers": 5
+      "authUsers": 6
     },
     "auth": {
       "providers": [
@@ -427,9 +427,9 @@
       "prs": []
     },
     "deployedCommit": {
-      "sha": "e29a143",
+      "sha": "c65fb88",
       "state": "READY",
-      "createdAt": "2026-11-15T08:02:13.925Z"
+      "createdAt": "2026-11-19T05:07:35.019Z"
     },
     "unitTests": "unknown"
   }
