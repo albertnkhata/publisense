@@ -5,7 +5,6 @@ import { useClaim } from '../claim/ClaimDialog';
 import { CategoriesSection, DiscoveryBoardsSection, HubsSection, PopularPostsSection } from '../discovery/DiscoverySections';
 import { usePageTitle } from '../lib/usePageTitle';
 import { LoadError } from '../posts/PostList';
-import { AddProductLink } from '../products/AddProductDialog';
 import { BrandSymbol } from '../shell/BrandMark';
 import { SearchWell } from '../shell/SearchWell';
 import { useAuthDialog } from '../shell/auth';
@@ -161,11 +160,6 @@ export function LandingPage() {
             trending={trending.data ?? []}
             now={now}
             showMostActiveFallback
-            action={
-              <AddProductLink className="font-medium text-ink-muted hover:text-brand">
-                + Add a missing product
-              </AddProductLink>
-            }
           />
         )}
 

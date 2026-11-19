@@ -601,7 +601,7 @@ describe('explore', () => {
     expect(screen.getByRole('link', { name: 'All categories →' }).getAttribute('href')).toBe('/categories');
   });
 
-  it('shows Trending fallback and + Add a missing product on /explore when nothing is trending this week', async () => {
+  it('shows Trending fallback on /explore without + Add a missing product in the section header', async () => {
     boardsApi.fetchTrending.mockResolvedValue([]);
     renderAt('/explore');
     expect(await screen.findByRole('heading', { name: 'Trending' })).toBeTruthy();
@@ -612,7 +612,8 @@ describe('explore', () => {
       'Figma',
       'FigJam',
     ]);
-    expect(screen.getByRole('button', { name: '+ Add a missing product' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '+ Add a missing product' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Add it' })).toBeTruthy();
   });
 
   it('switches Popular posts status tabs (including Open), upvotes optimistically, omits Browse all posts, and opens Categories page from All categories link', async () => {
