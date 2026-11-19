@@ -208,7 +208,7 @@ describe('notifications page', () => {
 });
 
 describe('unread badge', () => {
-  it('the nav rail and the top-bar bell show the unread count', async () => {
+  it('the top-bar bell shows the unread count', async () => {
     api.fetchUnreadCount.mockResolvedValue(3);
     renderWith(
       <ComposerProvider>
@@ -217,7 +217,7 @@ describe('unread badge', () => {
       </ComposerProvider>,
       { viewer: TEST_VIEWER },
     );
-    const links = await screen.findAllByRole('link', { name: 'Notifications, 3 new' });
-    expect(links.length).toBe(2);
+    const link = await screen.findByRole('link', { name: 'Notifications, 3 new' });
+    expect(link).toBeTruthy();
   });
 });

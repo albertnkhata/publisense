@@ -23,7 +23,7 @@ describe('collapsed nav rail names its rows (item 5a)', () => {
       </ComposerProvider>,
       { viewer: TEST_VIEWER },
     );
-    for (const name of ['Home', 'Feed', 'Notifications']) {
+    for (const name of ['Home', 'Feed', 'Categories']) {
       expect(screen.getByRole('link', { name })).toBeTruthy();
     }
   });
@@ -43,10 +43,10 @@ describe('collapsed nav rail names its rows (item 5a)', () => {
     expect(home.getAttribute('aria-describedby')).toBe(tip.id);
 
     fireEvent.pointerLeave(home);
-    const account = screen.getByRole('button', { name: `Account menu for ${TEST_VIEWER.name}` });
-    fireEvent.pointerEnter(account);
-    const accountTip = await screen.findByRole('tooltip');
-    expect(accountTip.textContent).toBe('Account menu');
+    const expand = screen.getByRole('button', { name: 'Expand sidebar' });
+    fireEvent.pointerEnter(expand);
+    const expandTip = await screen.findByRole('tooltip');
+    expect(expandTip.textContent).toContain('Expand sidebar');
   });
 });
 

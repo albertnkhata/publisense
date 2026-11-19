@@ -9,27 +9,14 @@ import { SearchWell } from './SearchWell';
 import { UserMenu } from './UserMenu';
 import { useAuthDialog, useRequireAuth } from './auth';
 import { useComposer } from './composer';
-import type { ShellNav, ShellWidth } from './layout';
 
 /**
- * Global TopBar.
- * - `nav === 'top'` (browsing & consumer routes): always visible sticky navigation
- *   bar with Brand, primary nav links (Home / Feed / Categories), SearchWell,
- *   Post feedback, Messages, Notifications, and UserMenu / Sign in.
- * - `nav === 'rail'` (workspaces with NavRail): shown below lg (unless `always`)
- *   to provide brand, search, notification bell, and sign in.
+ * Full-width sticky TopBar seated above the left NavRail and main column.
+ * - Left: BrandSymbol aligned over the NavRail's 40px icon column + wordmark.
+ * - Center: SearchWell (omitted on `/` and `/search` where the page has its own top search bar).
+ * - Right: Post feedback (C), Messages, Notifications, and UserMenu / Sign in.
  */
-export function TopBar({
-  nav = 'rail',
-  always = false,
-  width = 'narrow',
-  fill = false,
-}: {
-  nav?: ShellNav;
-  always?: boolean;
-  width?: ShellWidth;
-  fill?: boolean;
-}) {
+export function TopBar() {
   const { pathname } = useLocation();
   const { viewer, ready } = useViewer();
   const { openAuth } = useAuthDialog();
@@ -38,95 +25,53 @@ export function TopBar({
   const unread = useUnreadCount(viewer?.id ?? null).data ?? 0;
   const messages = useMessagesEnabled(viewer?.id ?? null);
   const dmUnread = useDmUnread(viewer?.id ?? null);
-  const isTopNav = nav === 'top';
 
   const onPost = () => {
     if (requireAuth('post feedback')) openComposer();
   };
-  useShortcut('c', onPost, { enabled: isTopNav });
+  useShortcut('c', onPost);
 
-  const isHome = pathname === '/';
-  const isFeed = pathname === '/feed';
-  const isCategories = pathname === '/categories' || pathname.startsWith('/c/');
-  const showSearch = pathname !== '/search' && (!isTopNav || pathname !== '/');
-
-  const navLinkClass = (active: boolean) =>
-    cx(
-      'inline-flex h-7 shrink-0 items-center rounded-sm px-2 text-sm font-medium whitespace-nowrap no-underline transition-colors duration-120',
-      active ? 'bg-brand-soft font-semibold text-brand' : 'text-ink-secondary hover:bg-subtle hover:text-ink',
-    );
+  const showSearch = pathname !== '/search' && pathname !== '/';
 
   return (
-    <header
-      className={cx(
-        'sticky top-0 z-20 h-9 border-b border-line bg-glass backdrop-blur-md',
-        !isTopNav && (fill ? 'px-5 max-sm:px-3' : 'px-7 max-sm:px-3'),
-        isTopNav || always ? 'flex items-center' : 'hidden items-center max-lg:flex',
-      )}
-    >
-      <div
-        className={cx(
-          'mx-auto flex w-full items-center gap-3 max-sm:gap-2',
-          isTopNav
-            ? 'max-w-landing px-7 max-sm:px-3'
-            : !fill && (width === 'narrow' ? 'max-w-content' : width === 'landing' ? 'max-w-landing' : 'max-w-wide'),
-        )}
-      >
+    <header className="sticky top-0 z-30 flex h-9 w-full shrink-0 items-center border-b border-line bg-glass px-3 backdrop-blur-md">
+      <div className="flex w-full items-center gap-3 max-sm:gap-2">
         <Link
           to="/"
           aria-label="Publisense home"
-          className={cx(
-            'shrink-0 items-center gap-2 text-md font-bold text-ink no-underline',
-            isTopNav ? 'flex' : 'hidden max-sm:flex',
-          )}
+          className="flex h-8 shrink-0 items-center overflow-hidden rounded-md text-ink no-underline"
         >
-          <BrandSymbol />
-          <span className={isTopNav ? 'hidden max-sm:inline md:inline' : undefined}>Publisense</span>
+          <span className="grid h-8 w-gutter shrink-0 place-items-center">
+            <BrandSymbol />
+          </span>
+          <span className="text-lg font-bold whitespace-nowrap">Publisense</span>
         </Link>
-
-        {isTopNav ? (
-          <nav aria-label="Primary" className="flex items-center gap-1 max-sm:hidden">
-            <NavLink to="/" end className={() => navLinkClass(isHome)}>
-              Home
-            </NavLink>
-            <NavLink to="/feed" className={() => navLinkClass(isFeed)}>
-              Feed
-            </NavLink>
-            <NavLink to="/categories" className={() => navLinkClass(isCategories)}>
-              Categories
-            </NavLink>
-          </nav>
-        ) : null}
 
         {showSearch ? (
           <SearchWell
-            className="min-w-0 max-w-dialog flex-1 max-sm:hidden"
-            triggerClassName={isTopNav ? 'h-7 text-sm' : undefined}
+            className="mx-auto min-w-0 max-w-dialog flex-1 max-sm:hidden"
+            triggerClassName="h-7 text-sm"
           />
         ) : null}
 
-        <span className="ml-auto flex shrink-0 items-center gap-2 max-sm:gap-1">
-          {isTopNav ? (
-            <span className="contents max-sm:hidden">
-              <Button size="sm" icon="plus" aria-label="Post feedback" onClick={onPost}>
-                <span className="max-lg:hidden">Post feedback</span>
-                <span className="hidden max-lg:inline">Post</span>
-              </Button>
-            </span>
-          ) : null}
-          {isTopNav && viewer && messages ? <MessagesLink count={dmUnread} /> : null}
-          {viewer ? <NotificationBell count={unread} desktop={isTopNav} /> : null}
-          {isTopNav && viewer ? (
+        <span className="ml-auto flex shrink-0 items-center gap-2 pr-1 max-sm:gap-1">
+          <span className="contents max-sm:hidden">
+            <Button size="sm" icon="plus" aria-label="Post feedback" onClick={onPost}>
+              <span className="max-lg:hidden">Post feedback</span>
+              <span className="hidden max-lg:inline">Post</span>
+            </Button>
+          </span>
+          {viewer && messages ? <MessagesLink count={dmUnread} /> : null}
+          {viewer ? <NotificationBell count={unread} /> : null}
+          {viewer ? (
             <span className="max-sm:hidden">
               <UserMenu viewer={viewer} placement="topbar" />
             </span>
           ) : null}
           {!viewer && ready ? (
-            <span className={isTopNav ? 'contents' : 'contents lg:hidden'}>
-              <Button size="sm" variant={isTopNav ? 'secondary' : 'primary'} onClick={() => openAuth('signin')}>
-                Sign in
-              </Button>
-            </span>
+            <Button size="sm" variant="secondary" onClick={() => openAuth('signin')}>
+              Sign in
+            </Button>
           ) : null}
         </span>
       </div>
@@ -134,8 +79,8 @@ export function TopBar({
   );
 }
 
-/** The top-bar bell: visible from sm up in `nav === 'top'`, or below lg in `nav === 'rail'`. */
-function NotificationBell({ count, desktop }: { count: number; desktop: boolean }) {
+/** The top-bar bell: visible from sm up (TabBar owns Notifications at sm). */
+function NotificationBell({ count }: { count: number }) {
   return (
     <NavLink
       to="/notifications"
@@ -144,7 +89,6 @@ function NotificationBell({ count, desktop }: { count: number; desktop: boolean 
       className={({ isActive }) =>
         cx(
           'relative grid size-8 place-items-center rounded-md no-underline transition-colors duration-120 hover:bg-subtle hover:text-ink max-sm:hidden',
-          !desktop && 'lg:hidden',
           isActive ? 'text-brand' : 'text-ink-secondary',
         )
       }

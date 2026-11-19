@@ -1,17 +1,25 @@
-import { useCallback, useState, type MouseEvent, type ReactNode } from 'react';
-import { Link, NavLink } from 'react-router';
+import { useCallback, useMemo, useState, type MouseEvent, type ReactNode } from 'react';
+import { NavLink, useLocation } from 'react-router';
+import {
+  followKey,
+  isLive,
+  isProductFamily,
+  logoSrc,
+  useBoards,
+  useFollowedScopes,
+  useHubs,
+  useIsPlatformAdmin,
+  type Board,
+  type Hub,
+} from '../api';
 import { cx } from '../lib/cx';
 import { MQ, useMediaQuery } from '../lib/useMediaQuery';
 import { useShortcut } from '../lib/useShortcut';
-import { useDmUnread, useIsPlatformAdmin, useMessagesEnabled, useUnreadCount } from '../api';
 import { useViewer } from '../lib/viewer';
-import { Icon, Tooltip, type IconName } from '../ui';
-import { BrandSymbol } from './BrandMark';
-import { useAuthDialog, useRequireAuth } from './auth';
-import { useComposer } from './composer';
-import { UserMenu } from './UserMenu';
+import { BoardAvatar, HubAvatar, Icon, Tooltip, type IconName } from '../ui';
 
 const NAV_KEY = 'publisense:nav-collapsed';
+const FOLLOWED_RAIL_LIMIT = 8;
 
 function readCollapsed(): boolean {
   try {
@@ -22,25 +30,21 @@ function readCollapsed(): boolean {
 }
 
 /**
- * Left navigation rail (mockup "vertical-nav"). Every row shares one 40px
- * icon column, so collapsing only hides labels: icons never move.
+ * Left navigation rail seated beneath the global TopBar. Every row shares one
+ * 40px icon column (aligned directly under the BrandSymbol in TopBar), so
+ * collapsing only hides labels: icons never move.
  * 248px wide; 64px when collapsed by the user ("[") or below xl (1336px), so it
  * gives up its width before the right rail (hidden below lg) or the feed do.
- * Hidden at sm, where the TabBar takes over. Terms · Privacy · © sit at its
- * foot (a ⋯ menu when collapsed), so they are on every page above sm.
+ * Hidden at sm, where the TabBar takes over.
  */
 export function NavRail() {
-  const { viewer, ready } = useViewer();
-  const { openComposer } = useComposer();
-  const { openAuth } = useAuthDialog();
-  const requireAuth = useRequireAuth();
+  const { pathname } = useLocation();
+  const { viewer } = useViewer();
   const belowXl = useMediaQuery(MQ.xl);
   const [manual, setManual] = useState<boolean>(readCollapsed);
   const collapsed = manual || belowXl;
-  const unread = useUnreadCount(viewer?.id ?? null).data ?? 0;
   const staff = useIsPlatformAdmin(viewer?.id ?? null).data ?? false;
-  const messages = useMessagesEnabled(viewer?.id ?? null);
-  const dmUnread = useDmUnread(viewer?.id ?? null);
+  const isCategories = pathname === '/categories' || pathname.startsWith('/c/');
 
   const toggle = useCallback(() => {
     setManual((c) => {
@@ -52,147 +56,132 @@ export function NavRail() {
       return !c;
     });
   }, []);
-  const onPost = () => {
-    if (requireAuth('post feedback')) openComposer();
-  };
   useShortcut('[', toggle, { enabled: !belowXl });
-  useShortcut('c', onPost);
 
   return (
     <aside
       aria-label="Main navigation"
       data-collapsed={collapsed || undefined}
       className={cx(
-        'group sticky top-0 z-30 flex h-dvh shrink-0 flex-col border-r border-line bg-transparent px-3 pt-0 pb-3 select-none',
+        'group sticky top-9 z-20 flex h-nav-height shrink-0 flex-col border-r border-line bg-transparent px-3 pt-3 pb-3 select-none',
         'transition-all duration-180 ease-out max-sm:hidden',
         collapsed ? 'w-nav-collapsed' : 'w-nav',
       )}
     >
-      <div className="relative mb-4 flex h-9 shrink-0 items-center">
-        {collapsed && !belowXl ? (
-          <Tooltip content="Expand sidebar" kbd="[" side="right">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+        <nav aria-label="Primary" className="mb-3 flex flex-col gap-1">
+          <NavRow to="/" icon="home" label="Home" collapsed={collapsed} end />
+          <NavRow to="/feed" icon="feed" label="Feed" collapsed={collapsed} />
+          <NavRow to="/categories" icon="hub" label="Categories" collapsed={collapsed} active={isCategories} />
+        </nav>
+
+        {viewer ? <FollowedProducts viewerId={viewer.id} collapsed={collapsed} /> : null}
+
+        {staff ? <AdminSections collapsed={collapsed} /> : null}
+      </div>
+
+      {/* Placed after primary links in the DOM so keyboard users reach Home, Feed, and
+          Categories before the sidebar toggle (#141). */}
+      {!belowXl ? (
+        <div className="border-t border-line pt-2">
+          {collapsed ? (
+            <Tooltip content="Expand sidebar" kbd="[" side="right" delay={0}>
+              <button
+                type="button"
+                onClick={toggle}
+                aria-label="Expand sidebar"
+                aria-expanded={false}
+                aria-keyshortcuts="["
+                className="flex h-row w-full items-center overflow-hidden rounded-md border-0 bg-transparent text-left text-sm font-medium text-ink-muted transition-colors duration-120 hover:bg-subtle hover:text-ink focus-visible:opacity-100"
+              >
+                <span className="grid h-row w-gutter shrink-0 place-items-center">
+                  <Icon name="sidebar" size={18} strokeWidth={1.75} />
+                </span>
+              </button>
+            </Tooltip>
+          ) : (
             <button
               type="button"
               onClick={toggle}
-              aria-label="Expand sidebar"
-              aria-expanded={false}
-              className="group/brand flex h-8 w-full items-center rounded-md border-0 bg-transparent text-ink hover:bg-subtle"
-            >
-              <span className="relative grid h-8 w-gutter place-items-center">
-                <BrandSymbol className="group-hover/brand:opacity-0 group-focus-visible/brand:opacity-0" />
-                <span className="absolute inset-0 hidden place-items-center text-ink-secondary group-hover/brand:grid group-focus-visible/brand:grid">
-                  <Icon name="sidebar" size={18} strokeWidth={1.75} />
-                </span>
-              </span>
-            </button>
-          </Tooltip>
-        ) : (
-          <Link to="/" aria-label="Publisense home" className="flex h-8 items-center overflow-hidden rounded-md text-ink no-underline">
-            <span className="grid h-8 w-gutter shrink-0 place-items-center">
-              <BrandSymbol />
-            </span>
-            <span className={cx('text-lg font-bold whitespace-nowrap transition-opacity duration-120', collapsed && 'pointer-events-none opacity-0')}>
-              Publisense
-            </span>
-          </Link>
-        )}
-      </div>
-
-      <nav aria-label="Primary" className="mb-4 flex flex-col gap-1">
-        <NavRow to="/" icon="home" label="Home" collapsed={collapsed} end />
-        <NavRow to="/feed" icon="feed" label="Feed" collapsed={collapsed} />
-        {!viewer ? <div aria-hidden="true" className="my-1 border-t border-line" /> : null}
-        <NavRow
-          to="/notifications"
-          icon="bell"
-          label="Notifications"
-          collapsed={collapsed}
-          count={unread}
-          muted={!viewer}
-          tipSuffix={!viewer ? 'Sign in' : undefined}
-          onClick={(e) => {
-            if (!viewer) {
-              e.preventDefault();
-              requireAuth('see notifications');
-            }
-          }}
-        />
-        {messages || !viewer ? (
-          <NavRow
-            to="/messages"
-            icon="mail"
-            label="Messages"
-            collapsed={collapsed}
-            count={dmUnread}
-            muted={!viewer}
-            tipSuffix={!viewer ? 'Sign in' : undefined}
-            onClick={(e) => {
-              if (!viewer) {
-                e.preventDefault();
-                requireAuth('see your messages');
-              }
-            }}
-          />
-        ) : null}
-      </nav>
-
-      {staff ? <AdminSections collapsed={collapsed} /> : null}
-
-      {/* Sits beside the logo but comes AFTER the primary links in the DOM, so a keyboard
-          user's first stop in the nav is Home, not a control that only appears on hover
-          (#141). It shows on hover, and whenever it has keyboard focus. */}
-      {!collapsed ? (
-        <div className="absolute top-2 right-4 grid h-8 place-items-center">
-          <button
-            type="button"
-            onClick={toggle}
-            aria-label="Collapse sidebar"
-            aria-expanded={true}
-            aria-keyshortcuts="["
-            title="Collapse sidebar  ["
-            className="grid size-7 place-items-center rounded-md border-0 bg-transparent text-ink-muted opacity-0 transition-opacity duration-120 group-hover:opacity-100 hover:bg-subtle hover:text-ink focus-visible:opacity-100"
-          >
-            <Icon name="sidebar" size={17} strokeWidth={1.75} />
-          </button>
-        </div>
-      ) : null}
-
-      <Tooltip content="Post feedback" kbd="C" side="right" disabled={!collapsed}>
-        <button
-          type="button"
-          aria-label="Post feedback"
-          onClick={onPost}
-          className="flex h-row w-full items-center overflow-hidden rounded-md border-0 bg-brand text-left text-sm font-semibold whitespace-nowrap text-on-brand transition-colors duration-120 hover:bg-brand-hover"
-        >
-          <span className="grid h-row w-gutter shrink-0 place-items-center">
-            <Icon name="plus" size={18} strokeWidth={1.75} />
-          </span>
-          <Label collapsed={collapsed}>Post feedback</Label>
-          <span className={cx('pr-3 font-mono text-xs opacity-70 transition-opacity duration-120', collapsed && 'opacity-0')}>C</span>
-        </button>
-      </Tooltip>
-
-      <div className="flex-1" />
-
-      {viewer ? (
-        <UserMenu viewer={viewer} collapsed={collapsed} />
-      ) : !ready ? null : (
-        <div className="border-t border-line pt-3 max-lg:hidden">
-          <Tooltip content="Sign in" side="right" disabled={!collapsed}>
-            <button
-              type="button"
-              onClick={() => openAuth('signin')}
-              className="flex h-row w-full items-center overflow-hidden rounded-md border-0 bg-transparent text-left text-sm font-medium text-ink-secondary transition-colors duration-120 hover:bg-subtle hover:text-ink"
+              aria-label="Collapse sidebar"
+              aria-expanded={true}
+              aria-keyshortcuts="["
+              title="Collapse sidebar  ["
+              className="flex h-row w-full items-center overflow-hidden rounded-md border-0 bg-transparent text-left text-sm font-medium text-ink-muted transition-colors duration-120 hover:bg-subtle hover:text-ink focus-visible:opacity-100"
             >
               <span className="grid h-row w-gutter shrink-0 place-items-center">
-                <Icon name="sign-in" size={18} strokeWidth={1.75} />
+                <Icon name="sidebar" size={18} strokeWidth={1.75} />
               </span>
-              <Label collapsed={collapsed}>Sign in</Label>
+              <Label collapsed={collapsed}>Collapse</Label>
+              <span className="pr-3 font-mono text-xs text-ink-muted">[</span>
             </button>
-          </Tooltip>
+          )}
         </div>
-      )}
+      ) : null}
     </aside>
+  );
+}
+
+type FollowedEntry = { kind: 'board'; board: Board } | { kind: 'hub'; hub: Hub };
+
+function FollowedProducts({ viewerId, collapsed }: { viewerId: string; collapsed: boolean }) {
+  const boards = useBoards();
+  const hubs = useHubs();
+  const followed = useFollowedScopes(viewerId).data;
+
+  const items = useMemo<FollowedEntry[]>(() => {
+    if (!followed || followed.size === 0) return [];
+    const followedBoards: FollowedEntry[] = (boards.data ?? [])
+      .filter((b) => isLive(b) && followed.has(followKey('board', b.id)))
+      .slice()
+      .sort((a, b) => b.post_count - a.post_count || b.follower_count - a.follower_count || a.name.localeCompare(b.name))
+      .map((board) => ({ kind: 'board', board }));
+    const followedHubs: FollowedEntry[] = (hubs.data ?? [])
+      .filter((h) => isProductFamily(h.boards.length) && followed.has(followKey('hub', h.id)))
+      .slice()
+      .sort((a, b) => b.follower_count - a.follower_count || a.name.localeCompare(b.name))
+      .map((hub) => ({ kind: 'hub', hub }));
+    return [...followedBoards, ...followedHubs].slice(0, FOLLOWED_RAIL_LIMIT);
+  }, [boards.data, hubs.data, followed]);
+
+  if (items.length === 0) return null;
+
+  return (
+    <nav aria-label="Your products" className="mb-3 flex flex-col gap-1 border-t border-line pt-3">
+      {collapsed ? null : <div className="px-3 pb-1 text-xs font-semibold text-ink-muted uppercase">Your products</div>}
+      {items.map((item) => {
+        const to = item.kind === 'board' ? `/b/${item.board.slug}` : `/h/${item.hub.slug}`;
+        const label = item.kind === 'board' ? item.board.name : `${item.hub.name} hub`;
+        return (
+          <Tooltip key={`${item.kind}:${item.kind === 'board' ? item.board.id : item.hub.id}`} content={label} side="right" disabled={!collapsed} delay={0}>
+            <NavLink
+              to={to}
+              aria-label={label}
+              className={({ isActive }) =>
+                cx(
+                  'relative flex h-row w-full items-center overflow-hidden rounded-md text-sm font-medium whitespace-nowrap no-underline transition-colors duration-120',
+                  isActive ? 'bg-brand-soft font-semibold text-brand' : 'text-ink-secondary hover:bg-subtle hover:text-ink',
+                )
+              }
+            >
+              <span className="relative grid h-row w-gutter shrink-0 place-items-center">
+                {item.kind === 'board' ? (
+                  <BoardAvatar name={item.board.name} color={item.board.color} logoSrc={logoSrc(item.board)} size="xs" decorative />
+                ) : (
+                  <HubAvatar
+                    name={`${item.hub.name} hub`}
+                    size="xs"
+                    boards={item.hub.boards.map((b) => ({ name: b.name, color: b.color, logoSrc: logoSrc(b) }))}
+                    reserve
+                  />
+                )}
+              </span>
+              <Label collapsed={collapsed}>{label}</Label>
+            </NavLink>
+          </Tooltip>
+        );
+      })}
+    </nav>
   );
 }
 
@@ -211,7 +200,7 @@ const ADMIN_SECTIONS: Array<{ to: string; icon: IconName; label: string; end?: b
 
 function AdminSections({ collapsed }: { collapsed: boolean }) {
   return (
-    <nav aria-label="Admin" className="mb-4 flex flex-col gap-1 border-t border-line pt-3">
+    <nav aria-label="Admin" className="mb-3 flex flex-col gap-1 border-t border-line pt-3">
       {collapsed ? null : <div className="px-3 pb-1 text-xs font-semibold text-ink-muted uppercase">Admin</div>}
       {ADMIN_SECTIONS.map((s) => (
         <NavRow key={s.to} to={s.to} icon={s.icon} label={s.label} collapsed={collapsed} end={s.end} />

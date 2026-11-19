@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen, within } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { TopBar } from '../shell/TopBar';
 import { ComposerProvider } from '../shell/composer';
 import { renderWith, TEST_VIEWER } from './renderApp';
@@ -14,20 +14,16 @@ vi.mock('../api/messageHooks', async (importOriginal) => {
   return { ...real, useMessagesEnabled: () => true, useDmUnread: () => 2 };
 });
 
-describe('TopBar (nav="top")', () => {
-  it('shows Home, Feed and Categories when signed out and prompts sign-in for Post feedback', async () => {
+describe('TopBar', () => {
+  it('shows brand, SearchWell, Post feedback and Sign in when signed out, and prompts sign-in for Post feedback', async () => {
     renderWith(
       <ComposerProvider>
-        <TopBar nav="top" />
+        <TopBar />
       </ComposerProvider>,
       { viewer: null, path: '/b/cursor' },
     );
 
-    const nav = screen.getByRole('navigation', { name: 'Primary' });
-    expect(within(nav).getByRole('link', { name: 'Home' }).getAttribute('href')).toBe('/');
-    expect(within(nav).getByRole('link', { name: 'Feed' }).getAttribute('href')).toBe('/feed');
-    expect(within(nav).getByRole('link', { name: 'Categories' }).getAttribute('href')).toBe('/categories');
-    expect(within(nav).queryByRole('link', { name: 'Explore' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Publisense home' }).getAttribute('href')).toBe('/');
     expect(screen.getByRole('button', { name: 'Search products, posts, hubs' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Sign in' })).toBeTruthy();
 
@@ -36,18 +32,15 @@ describe('TopBar (nav="top")', () => {
     expect(screen.getByText(/Sign in to post feedback/)).toBeTruthy();
   });
 
-  it('shows Home, Feed, Categories, Messages, Notifications, UserMenu and c shortcut when signed in', async () => {
+  it('shows Messages, Notifications, UserMenu and c shortcut when signed in', async () => {
     renderWith(
       <ComposerProvider>
-        <TopBar nav="top" />
+        <TopBar />
       </ComposerProvider>,
       { viewer: TEST_VIEWER, path: '/b/cursor' },
     );
 
-    const nav = screen.getByRole('navigation', { name: 'Primary' });
-    expect(within(nav).getByRole('link', { name: 'Home' }).getAttribute('href')).toBe('/');
-    expect(within(nav).getByRole('link', { name: 'Feed' }).getAttribute('href')).toBe('/feed');
-    expect(within(nav).getByRole('link', { name: 'Categories' }).getAttribute('href')).toBe('/categories');
+    expect(screen.getByRole('link', { name: 'Publisense home' }).getAttribute('href')).toBe('/');
     expect(screen.getByRole('link', { name: 'Messages, 2 unread' }).getAttribute('href')).toBe('/messages');
     expect(screen.getByRole('link', { name: 'Notifications, 4 new' }).getAttribute('href')).toBe('/notifications');
     expect(screen.getByRole('button', { name: `Account menu for ${TEST_VIEWER.name}` })).toBeTruthy();
@@ -59,7 +52,7 @@ describe('TopBar (nav="top")', () => {
   it('omits duplicate SearchWell on signed-in / and /search', () => {
     const { unmount } = renderWith(
       <ComposerProvider>
-        <TopBar nav="top" />
+        <TopBar />
       </ComposerProvider>,
       { viewer: TEST_VIEWER, path: '/' },
     );
@@ -68,7 +61,7 @@ describe('TopBar (nav="top")', () => {
 
     renderWith(
       <ComposerProvider>
-        <TopBar nav="top" />
+        <TopBar />
       </ComposerProvider>,
       { viewer: TEST_VIEWER, path: '/search' },
     );
