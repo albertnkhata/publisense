@@ -12,7 +12,7 @@ import { CategoryPage } from '../pages/CategoryPage';
 import { ExplorePage } from '../pages/ExplorePage';
 import { HomePage } from '../pages/HomePage';
 import { HubPage } from '../pages/HubPage';
-import { LandingFooter, LandingHeader, LandingPage } from '../pages/LandingPage';
+import { LandingHeader, LandingPage } from '../pages/LandingPage';
 import { SearchPage } from '../pages/SearchPage';
 import { ClaimProvider } from '../claim/ClaimDialog';
 import { savePendingComposerIntent } from '../lib/postDraft';
@@ -76,7 +76,7 @@ function renderAt(path: string, signedIn = false, client?: QueryClient) {
             <Route path="/search" element={<SearchPage />} />
             <Route path="/well" element={<SearchWell />} />
             <Route path="/post/:id" element={<h1>Post page</h1>} />
-            <Route path="/landing" element={<><LandingHeader /><LandingPage /><LandingFooter /></>} />
+            <Route path="/landing" element={<><LandingHeader /><LandingPage /></>} />
             <Route path="/" element={<HomePage />} />
           </Routes>
         </AddProductProvider>

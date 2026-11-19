@@ -12,7 +12,6 @@ import { useTheme } from '../lib/ThemeProvider';
 import { useShortcut } from '../lib/useShortcut';
 import { useViewer } from '../lib/viewer';
 import { ClaimProvider } from '../claim/ClaimDialog';
-import { LandingFooter, LandingHeader } from '../pages/LandingPage';
 import { ComposerProvider } from './composer';
 import { AddProductHost, AddProductProvider } from '../products/AddProductDialog';
 import { NavRail } from './NavRail';
@@ -38,11 +37,10 @@ export function AppShell() {
   const onTheme = useCallback(() => toggle(), [toggle]);
   useShortcut('d', onTheme, { ctrl: true });
   const { pathname, search } = useLocation();
-  const { viewer, ready } = useViewer();
+  const { ready } = useViewer();
   const { rail, width, chrome, fill } = useShellLayout();
   const isFollowingGate = new URLSearchParams(search).get('scope') === 'following';
   const isHomeRoot = chrome !== 'site' && pathname === '/' && !isFollowingGate;
-  const isLanding = isHomeRoot && !viewer;
 
   useEffect(() => {
     // Board pages (/b/:slug) log their own page_view with boardId once the board loads;
@@ -80,14 +78,6 @@ export function AppShell() {
         </div>
       ) : isHomeRoot && !ready ? (
         <div className="min-h-dvh bg-page" />
-      ) : isLanding ? (
-        <div className="flex min-h-dvh flex-col bg-page text-ink">
-          <LandingHeader />
-          <main id="main" tabIndex={-1} className="w-full min-w-0 flex-1 outline-none">
-            <Outlet />
-          </main>
-          <LandingFooter />
-        </div>
       ) : (
         <div className={cx('flex flex-col bg-page text-ink', fill ? 'h-dvh overflow-hidden' : 'min-h-dvh')}>
           <TopBar />

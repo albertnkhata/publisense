@@ -154,16 +154,16 @@ describe('routes', () => {
     expect(main.className).not.toContain('max-w-wide');
   });
 
-  it.each(LANDING)('%s signed out uses the dedicated landing header and footer without nav rail or right rail', (path) => {
+  it.each(LANDING)('%s signed out uses the unified TopBar + NavRail shell with the landing content and footer', (path) => {
     renderAt(path);
-    expect(screen.queryByRole('complementary', { name: 'Main navigation' })).toBeNull();
+    expect(screen.getByRole('complementary', { name: 'Main navigation' })).toBeTruthy();
     expect(screen.queryByRole('complementary', { name: 'Sidebar' })).toBeNull();
-    expect(screen.queryByRole('navigation', { name: 'Primary' })).toBeNull();
     const header = screen.getByRole('banner');
     expect(within(header).getByRole('link', { name: 'Publisense home' }).getAttribute('href')).toBe('/');
     expect(within(header).getByRole('button', { name: 'Sign in' })).toBeTruthy();
     expect(within(header).queryByRole('button', { name: 'Join Publisense' })).toBeNull();
     expect(within(header).queryByRole('link', { name: 'Explore' })).toBeNull();
+    expect(document.getElementById('main')!.className).toContain('max-w-wide');
     const footer = screen.getByRole('contentinfo', { name: 'Site footer' });
     expect(within(footer).getByText('© 2026 Publisense')).toBeTruthy();
     expect(within(footer).queryByText('Publisense · Public feedback index')).toBeNull();
