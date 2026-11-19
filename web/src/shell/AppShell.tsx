@@ -40,7 +40,7 @@ export function AppShell() {
   useShortcut('d', onTheme, { ctrl: true });
   const { pathname, search } = useLocation();
   const { viewer, ready } = useViewer();
-  const { rail, width, chrome, topBar, fill } = useShellLayout();
+  const { nav, rail, width, chrome, topBar, fill } = useShellLayout();
   const isFollowingGate = new URLSearchParams(search).get('scope') === 'following';
   const isHomeRoot = chrome !== 'site' && pathname === '/' && !isFollowingGate;
   const isLanding = isHomeRoot && !viewer;
@@ -89,11 +89,11 @@ export function AppShell() {
           </main>
           <LandingFooter />
         </div>
-      ) : (
+      ) : nav === 'rail' ? (
         <div className={cx('flex bg-page text-ink', fill ? 'h-dvh overflow-hidden' : 'min-h-dvh')}>
           <NavRail />
           <div className={cx('flex min-w-0 flex-1 flex-col', fill && 'min-h-0')}>
-            <TopBar always={!rail && topBar} width={width} fill={fill} />
+            <TopBar nav="rail" always={!rail && topBar} width={width} fill={fill} />
             <div
               className={cx(
                 'mx-auto flex w-full justify-center gap-rail-gap',
@@ -111,6 +111,35 @@ export function AppShell() {
             </div>
           </div>
           <TabBar showPost={!fill} />
+        </div>
+      ) : (
+        <div className="flex min-h-dvh flex-col bg-page text-ink">
+          <TopBar nav="top" always width={width} fill={false} />
+          <div className="mx-auto flex w-full max-w-landing flex-1 justify-center gap-10 px-7 pt-6 pb-10 max-sm:px-3 max-sm:pt-4 max-sm:pb-10">
+            <main
+              id="main"
+              tabIndex={-1}
+              className={cx(
+                'w-full min-w-0 flex-1 outline-none',
+                rail
+                  ? 'max-w-feed'
+                  : width === 'narrow'
+                    ? 'max-w-content'
+                    : width === 'landing'
+                      ? 'max-w-landing'
+                      : 'max-w-wide',
+              )}
+            >
+              <Outlet />
+            </main>
+            {rail ? <RightRail /> : null}
+          </div>
+          {!rail ? (
+            <div className="max-sm:pb-tabbar">
+              <LandingFooter />
+            </div>
+          ) : null}
+          <TabBar showPost />
         </div>
       )}
     </ClaimProvider>
