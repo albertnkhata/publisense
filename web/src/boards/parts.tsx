@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link } from 'react-router';
 import {
   compactCount,
   logoSrc,
@@ -330,50 +330,5 @@ export function CardGrid({ children, label, cols = 2 }: { children: ReactNode; l
     >
       {children}
     </ul>
-  );
-}
-
-export function BackLink({
-  to = '/',
-  children = 'Back',
-  smart = to === '/',
-  fallbackLabel = to === '/' ? 'Home' : undefined,
-  onClick,
-  className,
-}: {
-  to?: string;
-  children?: ReactNode;
-  /** When true (default when `to` is '/'), uses browser history if available; otherwise falls back to `to`. */
-  smart?: boolean;
-  /**
-   * What a smart link says when there is no history to go back to, so it names where it
-   * actually goes (Home, or the board's company) instead of "Back". Defaults to Home for '/'.
-   */
-  fallbackLabel?: string;
-  onClick?: () => void;
-  className?: string;
-}) {
-  const navigate = useNavigate();
-  const canGoBack = smart && typeof window !== 'undefined' && Number((window.history.state as { idx?: number } | null)?.idx ?? 0) > 0;
-  const named = smart && !canGoBack && fallbackLabel ? fallbackLabel : null;
-  return (
-    <Link
-      to={to}
-      aria-label={named ? `Back to ${named}` : undefined}
-      onClick={(e) => {
-        onClick?.();
-        if (canGoBack) {
-          e.preventDefault();
-          void navigate(-1);
-        }
-      }}
-      className={cx(
-        'hidden h-8 items-center gap-2 self-start rounded-md border border-line bg-card px-3 text-sm font-medium text-ink-secondary no-underline transition-colors duration-120 hover:border-line-strong hover:text-ink active:bg-subtle max-md:inline-flex',
-        className,
-      )}
-    >
-      <Icon name="arrow-left" size={14} />
-      {named ?? children}
-    </Link>
   );
 }

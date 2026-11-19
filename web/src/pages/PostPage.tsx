@@ -6,7 +6,6 @@ import { PostCard } from '../posts/PostCard';
 import { FEED_LIST } from '../posts/PostList';
 import { ReplySection } from '../posts/Replies';
 import { StatusTimeline } from '../posts/StatusTimeline';
-import { BackLink } from '../boards/parts';
 import { Button, EmptyState, Icon, Skeleton, useToast } from '../ui';
 
 /**
@@ -26,7 +25,6 @@ export function PostPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <BackLink />
       {post.isPending ? (
         <Skeleton />
       ) : post.isError ? (
@@ -156,7 +154,6 @@ function NotFoundPost() {
   const navigate = useNavigate();
   return (
     <section aria-labelledby="page-title" className="flex flex-col gap-4">
-      <BackLink />
       <div className="rounded-md border border-line bg-card">
         <h1 id="page-title" className="sr-only">
           Post not found

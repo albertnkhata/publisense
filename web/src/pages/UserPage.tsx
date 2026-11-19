@@ -26,7 +26,6 @@ import {
   type Managed,
   type PublicProfile,
 } from '../api';
-import { BackLink } from '../boards/parts';
 import { cx } from '../lib/cx';
 import { shareLink } from '../lib/share';
 import { usePageTitle } from '../lib/usePageTitle';
@@ -64,7 +63,6 @@ export function UserPage() {
     return (
       <div className="flex flex-col gap-4">
         <h1 className="sr-only">@{handle}</h1>
-        <BackLink />
         <Card>
           <Skeleton variant="header" className="pb-0" />
         </Card>
@@ -76,7 +74,6 @@ export function UserPage() {
     return (
       <div className="flex flex-col gap-4">
         <h1 className="sr-only">@{handle}</h1>
-        <BackLink />
         <LoadError title="We couldn’t load this profile" onRetry={() => void person.refetch()} retrying={person.isRefetching} />
       </div>
     );
@@ -99,9 +96,6 @@ function Profile({ person }: { person: PublicProfile }) {
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
-      <div className="mb-4 hidden max-md:block">
-        <BackLink />
-      </div>
       <Card className="mb-5">
         <header className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-4 max-md:gap-3">
@@ -493,7 +487,6 @@ function Empty({ icon, action, children }: { icon: IconName; action?: ReactNode;
 function PersonNotFound() {
   return (
     <section aria-labelledby="page-title" className="flex flex-col gap-4">
-      <BackLink />
       <div className="rounded-md border border-line bg-card">
         <h1 id="page-title" className="sr-only">
           Person not found

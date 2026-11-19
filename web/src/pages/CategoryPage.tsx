@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { Link, Navigate, useParams } from 'react-router';
 import { CATEGORIES, isLive, isProductFamily, plural, useBoards, useHubs, type Board, type BoardCategory } from '../api';
-import { BackLink, BoardCard, CardGrid, HubRow, RowItem, RowList, Section } from '../boards/parts';
+import { BoardCard, CardGrid, HubRow, RowItem, RowList, Section } from '../boards/parts';
 import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { LoadError } from '../posts/PostList';
@@ -11,7 +11,7 @@ import { EmptyState, SkeletonBlock } from '../ui';
 /**
  * Category page (`/c/:category`): dedicated view opened from Categories at the
  * bottom of Landing and Explore. Uses `EXPLORE_PAGE` wide layout so all products
- * in the category sit in a 3-column grid with a smart Back link.
+ * in the category sit in a 3-column grid.
  */
 export function CategoryPage() {
   const { category } = useParams();
@@ -57,9 +57,6 @@ export function CategoryPage() {
   if (!meta) {
     return (
       <section aria-labelledby="page-title" className="flex flex-col">
-        <div className="mb-4 hidden max-md:block">
-          <BackLink to={backTo} smart fallbackLabel={fallbackLabel} />
-        </div>
         <h1 id="page-title" className="sr-only">
           Category not found
         </h1>
@@ -74,9 +71,6 @@ export function CategoryPage() {
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
-      <div className="mb-4 hidden max-md:block">
-        <BackLink to={backTo} smart fallbackLabel={fallbackLabel} />
-      </div>
       <div className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
         <div className="flex flex-wrap items-baseline gap-3">
           <h1 id="page-title" className="m-0 text-2xl font-bold text-ink">

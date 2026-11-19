@@ -1,9 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router';
 import { CATEGORIES, plural, summarizeCategories, useBoards, type BoardCategory, type CategorySummary } from '../api';
-import { BackLink } from '../boards/parts';
 import { usePageTitle } from '../lib/usePageTitle';
-import { useViewer } from '../lib/viewer';
 import { LoadError } from '../posts/PostList';
 import { AddProductLink } from '../products/AddProductDialog';
 import { SkeletonBlock } from '../ui';
@@ -17,9 +15,6 @@ const ALL_CATEGORIES = CATEGORIES.filter((c): c is { value: BoardCategory; label
  */
 export function CategoriesPage() {
   usePageTitle('Categories');
-  const { viewer } = useViewer();
-  const backTo = viewer ? '/explore' : '/';
-  const fallbackLabel = viewer ? 'Explore' : 'Home';
   const boards = useBoards();
 
   useEffect(() => {
@@ -38,9 +33,6 @@ export function CategoriesPage() {
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
-      <div className="mb-4 hidden max-md:block">
-        <BackLink to={backTo} smart fallbackLabel={fallbackLabel} />
-      </div>
       <div className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
         <div className="flex flex-wrap items-baseline gap-3">
           <h1 id="page-title" className="m-0 text-2xl font-bold text-ink">
