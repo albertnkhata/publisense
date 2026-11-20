@@ -140,17 +140,18 @@
   --spacing-10: 64px;
 
   /* Layout */
-  --spacing-nav: 248px;
+  --spacing-nav: 240px;
   --spacing-nav-collapsed: 64px;
   --spacing-nav-height: calc(100dvh - 48px);
   --spacing-gutter: 40px;
   --spacing-row: 38px;
-  --spacing-content: 680px;
+  --spacing-content: 744px;
   --spacing-feed: 752px;       /* top-bar reading column: 752 + gap-10 (64) + rail (320) = 1136 inner inside max-w-landing */
   --spacing-hero: 840px;       /* signed-out landing hero headline measure */
   --spacing-rail: 320px;
-  --spacing-rail-gap: clamp(24px, calc((100% - 1000px) / 3), 64px); /* not in §3: feed-to-rail gap; grows with spare width so it roughly matches the nav-side margin (content 680 + rail 320) */
-  --spacing-wide: 1024px;       /* not in §3: content + gap-6 + rail, for routes without the right rail (shell/layout.ts) */
+  --spacing-rail-top: 68px;    /* TopBar (48px) + canvas top padding (pt-5 = 20px) so RightRail never jumps on scroll */
+  --spacing-rail-gap: 24px;    /* fixed feed-to-rail gutter so main column and RightRail stay locked together */
+  --spacing-wide: 1088px;      /* content (744) + rail-gap (24) + rail (320) so wide and feed+rail pages share identical grid edges */
   --spacing-landing: 1200px;    /* signed-out landing page max container width */
   --spacing-dialog: 440px;      /* not in §3: standard dialog width (mockup 400–460) */
   --spacing-dialog-lg: 600px;   /* not in §3: composer-size dialog (mockup 600) */
@@ -173,11 +174,10 @@
   --breakpoint-sm: 520px;
   --breakpoint-md: 720px;
   /* Collapse order as the window narrows (#206): the nav collapses first (below xl:
-     nav 248 + padding 64 + content 680 + gap 24 + rail 320), then the right rail
-     hides (below lg: the same with the 64px collapsed nav), and only then does the
+     1280px), then the right rail hides (below lg: 1152px), and only then does the
      feed column give up width. */
   --breakpoint-lg: 1152px;
-  --breakpoint-xl: 1336px;
+  --breakpoint-xl: 1280px;
 
   /* Motion: 120 ms hover/press, 180 ms overlays, ease-out */
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);

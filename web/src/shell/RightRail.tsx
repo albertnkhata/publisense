@@ -15,7 +15,7 @@ import { trendingTitle } from '../lib/trendingCopy';
  */
 export function RightRail() {
   return (
-    <aside aria-label="Sidebar" className="sticky top-10 flex w-rail shrink-0 flex-col gap-4 self-start max-lg:hidden">
+    <aside aria-label="Sidebar" className="sticky top-rail-top flex w-rail shrink-0 flex-col gap-4 self-start max-lg:hidden">
       {hasSupabaseConfig ? (
         <RailBoards />
       ) : (

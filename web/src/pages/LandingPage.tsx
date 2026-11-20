@@ -67,7 +67,7 @@ export function LandingHeader() {
 export function LandingFooter() {
   return (
     <footer aria-label="Site footer" className="border-t border-line py-6">
-      <div className="mx-auto flex w-full max-w-landing flex-wrap items-center justify-center gap-4 px-7 text-sm text-ink-muted max-sm:px-3">
+      <div className="mx-auto flex w-full max-w-wide flex-wrap items-center justify-center gap-4 px-6 text-sm text-ink-muted max-sm:px-3">
         <nav aria-label="Footer links" className="flex flex-wrap items-center gap-4">
           <Link to="/about" className="text-ink-muted no-underline transition-colors duration-120 hover:text-ink">
             About

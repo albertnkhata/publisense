@@ -88,7 +88,7 @@ export function AppShell() {
               <div
                 className={cx(
                   'mx-auto flex w-full flex-1 justify-center gap-rail-gap',
-                  fill ? 'min-h-0 max-sm:pb-tabbar' : 'px-7 pt-6 pb-10 max-sm:px-3 max-sm:pt-4 max-sm:pb-10',
+                  fill ? 'min-h-0 max-sm:pb-tabbar' : 'px-6 pt-5 pb-10 max-sm:px-3 max-sm:pt-4 max-sm:pb-10',
                 )}
               >
                 <main
