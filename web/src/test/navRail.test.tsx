@@ -112,7 +112,7 @@ describe('NavRail links and layout', () => {
     expect(screen.queryByRole('navigation', { name: 'Legal links' })).toBeNull();
   });
 
-  it('shows populated Topics only when expanded, and hides them when collapsed', () => {
+  it('shows populated Categories only when expanded, and hides them when collapsed', () => {
     boardsState.followed = new Set();
     renderWith(
       <ComposerProvider>
@@ -121,18 +121,18 @@ describe('NavRail links and layout', () => {
       </ComposerProvider>,
       { viewer: null },
     );
-    const topicsNav = screen.getByRole('navigation', { name: 'Topics' });
-    expect(within(topicsNav).getByRole('link', { name: 'Code editors' }).getAttribute('href')).toBe('/c/code');
+    const categoriesNav = screen.getByRole('navigation', { name: 'Categories' });
+    expect(within(categoriesNav).getByRole('link', { name: 'Code editors' }).getAttribute('href')).toBe('/c/code');
     expect(screen.queryByRole('navigation', { name: 'Your products' })).toBeNull();
     expect(screen.queryByRole('navigation', { name: 'Popular products' })).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }));
-    expect(screen.queryByRole('navigation', { name: 'Topics' })).toBeNull();
+    expect(screen.queryByRole('navigation', { name: 'Categories' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }));
-    expect(screen.getByRole('navigation', { name: 'Topics' })).toBeTruthy();
+    expect(screen.getByRole('navigation', { name: 'Categories' })).toBeTruthy();
   });
 
-  it('shows Your products alongside Topics when signed in and following, and hides both when collapsed', () => {
+  it('shows Your products alongside Categories when signed in and following, and hides both when collapsed', () => {
     boardsState.followed = new Set([followKey('board', CURSOR.id), followKey('hub', FIGMA_HUB.id)]);
     renderWith(
       <ComposerProvider>
@@ -144,14 +144,14 @@ describe('NavRail links and layout', () => {
     const nav = screen.getByRole('navigation', { name: 'Your products' });
     expect(within(nav).getByRole('link', { name: 'Cursor' }).getAttribute('href')).toBe('/b/cursor');
     expect(within(nav).getByRole('link', { name: 'Figma hub' }).getAttribute('href')).toBe('/h/figma');
-    expect(screen.getByRole('navigation', { name: 'Topics' })).toBeTruthy();
+    expect(screen.getByRole('navigation', { name: 'Categories' })).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }));
     expect(screen.queryByRole('navigation', { name: 'Your products' })).toBeNull();
-    expect(screen.queryByRole('navigation', { name: 'Topics' })).toBeNull();
+    expect(screen.queryByRole('navigation', { name: 'Categories' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }));
     expect(screen.getByRole('navigation', { name: 'Your products' })).toBeTruthy();
-    expect(screen.getByRole('navigation', { name: 'Topics' })).toBeTruthy();
+    expect(screen.getByRole('navigation', { name: 'Categories' })).toBeTruthy();
     boardsState.followed = new Set();
   });
 
@@ -174,12 +174,12 @@ describe('NavRail links and layout', () => {
       const rail = screen.getByRole('complementary', { name: 'Main navigation' });
       expect(rail.getAttribute('data-collapsed')).toBe('true');
       expect(rail.getAttribute('data-overlay')).toBeNull();
-      expect(screen.queryByRole('navigation', { name: 'Topics' })).toBeNull();
+      expect(screen.queryByRole('navigation', { name: 'Categories' })).toBeNull();
 
       fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }));
       expect(rail.getAttribute('data-collapsed')).toBeNull();
       expect(rail.getAttribute('data-overlay')).toBe('true');
-      expect(screen.getByRole('navigation', { name: 'Topics' })).toBeTruthy();
+      expect(screen.getByRole('navigation', { name: 'Categories' })).toBeTruthy();
 
       fireEvent.keyDown(window, { key: 'Escape' });
       expect(rail.getAttribute('data-collapsed')).toBe('true');

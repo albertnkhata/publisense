@@ -136,7 +136,7 @@ export function NavRail() {
 
           {viewer ? <FollowedProducts viewerId={viewer.id} collapsed={collapsed} /> : null}
 
-          <RailTopics collapsed={collapsed} />
+          <RailCategories collapsed={collapsed} />
 
           {staff ? <AdminSections collapsed={collapsed} /> : null}
         </div>
@@ -207,20 +207,20 @@ function FollowedProducts({ viewerId, collapsed }: { viewerId: string; collapsed
   );
 }
 
-/** Populated categories as direct topic jumps in the expanded rail (never duplicates RightRail's Trending products). */
-function RailTopics({ collapsed }: { collapsed: boolean }) {
+/** Populated categories as direct jumps in the expanded rail (never duplicates RightRail's Trending products). */
+function RailCategories({ collapsed }: { collapsed: boolean }) {
   const boards = useBoards();
-  const topics = useMemo(() => summarizeCategories(boards.data ?? []).slice(0, TOPIC_RAIL_LIMIT), [boards.data]);
+  const categories = useMemo(() => summarizeCategories(boards.data ?? []).slice(0, TOPIC_RAIL_LIMIT), [boards.data]);
 
-  if (collapsed || topics.length === 0) return null;
+  if (collapsed || categories.length === 0) return null;
 
   return (
-    <nav aria-label="Topics" className="mb-3 flex flex-col gap-1 border-t border-line pt-3">
-      <div className="px-3 pb-1 text-xs font-semibold text-ink-muted uppercase">Topics</div>
-      {topics.map((t) => (
+    <nav aria-label="Categories" className="mb-3 flex flex-col gap-1 border-t border-line pt-3">
+      <div className="px-3 pb-1 text-xs font-semibold text-ink-muted uppercase">Categories</div>
+      {categories.map((c) => (
         <NavLink
-          key={t.category}
-          to={`/c/${t.category}`}
+          key={c.category}
+          to={`/c/${c.category}`}
           className={({ isActive }) =>
             cx(
               'flex h-row w-full items-center rounded-md px-3 text-sm font-medium whitespace-nowrap no-underline transition-colors duration-120',
@@ -228,7 +228,7 @@ function RailTopics({ collapsed }: { collapsed: boolean }) {
             )
           }
         >
-          <span className="min-w-0 flex-1 truncate">{t.label}</span>
+          <span className="min-w-0 flex-1 truncate">{c.label}</span>
         </NavLink>
       ))}
     </nav>
