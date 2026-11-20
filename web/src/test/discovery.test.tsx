@@ -678,14 +678,15 @@ describe('signed-in discovery home', () => {
     const shippedPanel = screen.getByRole('tabpanel', { name: 'Shipped' });
     expect(within(shippedPanel).getByText('Shipped')).toBeTruthy();
 
-    // All categories → navigates to the /categories directory
+    // All categories → navigates to the /categories directory (only categories with live products)
     fireEvent.click(screen.getByRole('link', { name: 'All categories →' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/categories'));
     expect(await screen.findByRole('heading', { level: 1, name: 'Categories' })).toBeTruthy();
+    expect(screen.getByText('3 categories')).toBeTruthy();
     const allCats = screen.getByRole('list', { name: 'Categories' });
-    expect(within(allCats).getAllByRole('link')).toHaveLength(16);
+    expect(within(allCats).getAllByRole('link')).toHaveLength(3);
     expect(within(allCats).getByRole('link', { name: /Dev platforms/ }).getAttribute('href')).toBe('/c/dev');
-    expect(within(allCats).getByRole('link', { name: /Travel/ }).textContent).toContain('No products yet');
+    expect(within(allCats).queryByRole('link', { name: /Travel/ })).toBeNull();
   });
 
   it('defaults Popular posts to the first non-empty tab and hides the section when every tab is empty', async () => {
@@ -770,7 +771,7 @@ describe('landing page & auth handoff', () => {
     expect(screen.getByRole('contentinfo', { name: 'Site footer' })).toBeTruthy();
   });
 
-  it('retries CategoriesPage on load error and lists all categories', async () => {
+  it('retries CategoriesPage on load error and lists populated categories', async () => {
     boardsApi.fetchBoards.mockRejectedValueOnce(new Error('network down'));
     renderAt('/categories');
     expect(await screen.findByText('We couldn’t load categories')).toBeTruthy();
@@ -778,7 +779,7 @@ describe('landing page & auth handoff', () => {
     boardsApi.fetchBoards.mockResolvedValueOnce([CURSOR, FIGJAM, FIGMA, SUPABASE]);
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     const cats = await screen.findByRole('list', { name: 'Categories' });
-    expect(within(cats).getAllByRole('link')).toHaveLength(16);
+    expect(within(cats).getAllByRole('link')).toHaveLength(3);
   });
 
   it('hides Popular posts on the landing page when every status tab is empty', async () => {

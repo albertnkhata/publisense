@@ -1,17 +1,16 @@
 import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router';
-import { CATEGORIES, plural, summarizeCategories, useBoards, type BoardCategory, type CategorySummary } from '../api';
+import { plural, summarizeCategories, useBoards } from '../api';
 import { usePageTitle } from '../lib/usePageTitle';
 import { LoadError } from '../posts/PostList';
 import { AddProductLink } from '../products/AddProductDialog';
 import { SkeletonBlock } from '../ui';
 
-const ALL_CATEGORIES = CATEGORIES.filter((c): c is { value: BoardCategory; label: string } => c.value !== 'all');
-
 /**
  * Categories directory (`/categories`): dedicated view opened from the
- * "All categories →" link above Categories on Landing and Explore. Lists every
- * category in canonical order in a 3-column grid linking to `/c/:category`.
+ * "All categories →" link above Categories on Landing and Home, or the
+ * Categories link in NavRail. Lists populated categories in canonical order
+ * in a 3-column grid linking to `/c/:category`.
  */
 export function CategoriesPage() {
   usePageTitle('Categories');
@@ -23,13 +22,7 @@ export function CategoriesPage() {
     }
   }, []);
 
-  const byCategory = useMemo(() => {
-    const map = new Map<BoardCategory, CategorySummary>();
-    for (const summary of summarizeCategories(boards.data ?? [])) {
-      map.set(summary.category, summary);
-    }
-    return map;
-  }, [boards.data]);
+  const categories = useMemo(() => summarizeCategories(boards.data ?? []), [boards.data]);
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
@@ -37,9 +30,11 @@ export function CategoriesPage() {
         <h1 id="page-title" className="m-0 text-2xl font-bold text-ink">
           Categories
         </h1>
-        <span className="font-mono text-sm text-ink-muted tabular-nums">
-          {plural(ALL_CATEGORIES.length, 'category', 'categories')}
-        </span>
+        {boards.isSuccess && categories.length > 0 ? (
+          <span className="font-mono text-sm text-ink-muted tabular-nums">
+            {plural(categories.length, 'category', 'categories')}
+          </span>
+        ) : null}
       </div>
 
       {boards.isPending ? (
@@ -57,25 +52,24 @@ export function CategoriesPage() {
           onRetry={() => void boards.refetch()}
           retrying={boards.isRefetching}
         />
+      ) : categories.length === 0 ? (
+        <p className="mb-6 rounded-md border border-dashed border-line-strong bg-card px-4 py-6 text-center text-sm text-ink-muted">
+          No categories with products yet.
+        </p>
       ) : (
         <div className="mb-6">
           <ul aria-label="Categories" className="m-0 grid list-none grid-cols-3 gap-3 p-0 max-lg:grid-cols-2 max-sm:grid-cols-1">
-            {ALL_CATEGORIES.map((c) => {
-              const summary = byCategory.get(c.value);
-              return (
-                <li key={c.value} className="min-w-0">
-                  <Link
-                    to={`/c/${c.value}`}
-                    className="flex h-full flex-col gap-1 rounded-md border border-line bg-card p-4 text-ink no-underline transition-colors duration-120 hover:border-line-strong"
-                  >
-                    <span className="text-base font-semibold text-ink">{c.label}</span>
-                    <span className="truncate text-sm text-ink-muted">
-                      {summary ? summary.examples.join(', ') : 'No products yet'}
-                    </span>
-                  </Link>
-                </li>
-              );
-            })}
+            {categories.map((c) => (
+              <li key={c.category} className="min-w-0">
+                <Link
+                  to={`/c/${c.category}`}
+                  className="flex h-full flex-col gap-1 rounded-md border border-line bg-card p-4 text-ink no-underline transition-colors duration-120 hover:border-line-strong"
+                >
+                  <span className="text-base font-semibold text-ink">{c.label}</span>
+                  <span className="truncate text-sm text-ink-muted">{c.examples.join(', ')}</span>
+                </Link>
+              </li>
+            ))}
           </ul>
         </div>
       )}
