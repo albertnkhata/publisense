@@ -21,7 +21,7 @@ const dm = vi.hoisted(() => ({
   subscribeToDmMessages: vi.fn(),
 }));
 const mod = vi.hoisted(() => ({ fetchIsPlatformAdmin: vi.fn() }));
-const people = vi.hoisted(() => ({ fetchProfileByHandle: vi.fn() }));
+const people = vi.hoisted(() => ({ fetchProfileByHandle: vi.fn(), searchPeople: vi.fn() }));
 vi.mock('../api/messages', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/messages')>()), ...dm }));
 vi.mock('../api/moderation', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/moderation')>()), ...mod }));
 vi.mock('../api/people', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/people')>()), ...people }));
@@ -108,10 +108,20 @@ describe('two-pane layout', () => {
     expect(await screen.findByRole('region', { name: 'Conversation with @jmwamba' })).toBeTruthy();
   });
 
-  it('shows Select a message with nothing open', async () => {
+  it('shows Start a conversation with nothing open and lets you start a New chat', async () => {
     dm.fetchConversations.mockResolvedValue([conv()]);
-    renderAt('/messages');
-    expect(await screen.findByText('Select a message')).toBeTruthy();
+    people.searchPeople.mockResolvedValue([ME, STRANGER]);
+    people.fetchProfileByHandle.mockResolvedValue({ ...STRANGER, bio: '', created_at: iso(100), follower_count: 0 });
+    const { router } = renderAt('/messages');
+    expect(await screen.findByText('Start a conversation')).toBeTruthy();
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'New chat' })[1]!);
+    const dialog = await screen.findByRole('dialog', { name: 'New chat' });
+    fireEvent.change(within(dialog).getByLabelText('Search people'), { target: { value: 'sam' } });
+    const list = await within(dialog).findByRole('list', { name: 'People' });
+    expect(within(list).queryByText(/@alice/)).toBeNull();
+    fireEvent.click(within(list).getByRole('button', { name: /Sam Stranger/ }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/messages/to/stranger'));
   });
 
   it('opens on Requests when the open conversation is a request', async () => {

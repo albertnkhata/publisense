@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { Link, Navigate, NavLink, Outlet, useNavigate, useParams } from 'react-router';
 import {
   avatarSrc,
@@ -11,6 +11,7 @@ import {
   useMessages,
   useMessagesEnabled,
   useMuteConversation,
+  usePeopleSearch,
   usePerson,
   useSendMessage,
   useSetPersonBlocked,
@@ -24,7 +25,7 @@ import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { LoadError } from '../posts/PostList';
 import { useAuthDialog } from '../shell/auth';
-import { Button, EmptyState, Icon, IconButton, Menu, MenuItem, MenuSeparator, Spinner, Tabs, Textarea, UserAvatar, useToast } from '../ui';
+import { Button, Dialog, EmptyState, Icon, IconButton, Input, Menu, MenuItem, MenuSeparator, Spinner, Tabs, Textarea, UserAvatar, useToast } from '../ui';
 import { NotFound } from './NotFound';
 
 /*
@@ -41,6 +42,8 @@ import { NotFound } from './NotFound';
  */
 
 type Tab = 'inbox' | 'requests';
+
+const NewChatContext = createContext<(() => void) | null>(null);
 
 function useGate() {
   const { viewer, ready } = useViewer();
@@ -65,6 +68,7 @@ function SignedOut() {
 export function MessagesPage() {
   const { viewer, ready, enabled } = useGate();
   const { id, handle } = useParams();
+  const [newChatOpen, setNewChatOpen] = useState(false);
   const open = Boolean(id || handle);
   usePageTitle(open ? null : 'Messages');
   if (ready && viewer && !enabled) return <NotFound />;
@@ -86,33 +90,124 @@ export function MessagesPage() {
     );
   }
   if (!enabled) return null;
+  const openNewChat = () => setNewChatOpen(true);
   return (
-    <div className="flex min-h-0 flex-1 bg-card">
-      <section
-        aria-labelledby="page-title"
-        className={cx('flex min-h-0 w-list-pane shrink-0 flex-col border-r border-line max-lg:w-full max-lg:border-r-0', open && 'max-lg:hidden')}
-      >
-        <ConversationList viewerId={viewer.id} activeId={id ?? null} />
-      </section>
-      <div className={cx('flex min-h-0 min-w-0 flex-1 flex-col', !open && 'max-lg:hidden')}>
-        <Outlet />
+    <NewChatContext.Provider value={openNewChat}>
+      <div className="flex min-h-0 flex-1 bg-card">
+        <section
+          aria-labelledby="page-title"
+          className={cx('flex min-h-0 w-list-pane shrink-0 flex-col border-r border-line max-lg:w-full max-lg:border-r-0', open && 'max-lg:hidden')}
+        >
+          <ConversationList viewerId={viewer.id} activeId={id ?? null} onNewChat={openNewChat} />
+        </section>
+        <div className={cx('flex min-h-0 min-w-0 flex-1 flex-col', !open && 'max-lg:hidden')}>
+          <Outlet />
+        </div>
       </div>
-    </div>
+      <NewChatDialog open={newChatOpen} onClose={() => setNewChatOpen(false)} viewerId={viewer.id} />
+    </NewChatContext.Provider>
   );
 }
 
 /** The right pane with nothing open (desktop only; below lg the list fills the screen). */
 export function NoConversationPage() {
+  const openNewChat = useContext(NewChatContext);
   return (
-    <div className="grid flex-1 place-items-center">
-      <EmptyState icon="mail" title="Select a message">
-        Choose a conversation, or open someone’s profile and tap Message to start one.
-      </EmptyState>
+    <div className="grid flex-1 place-items-center p-6">
+      <div className="flex max-w-alert flex-col items-center text-center">
+        <span className="mb-4 grid size-10 place-items-center rounded-pill bg-elevated text-ink" aria-hidden="true">
+          <Icon name="reply" size={24} strokeWidth={1.8} />
+        </span>
+        <h2 className="m-0 text-xl font-bold text-ink">Start a conversation</h2>
+        <p className="mt-2 mb-0 text-base text-ink-muted">
+          Choose from your existing conversations, or start a new one.
+        </p>
+        {openNewChat ? (
+          <div className="mt-5">
+            <Button onClick={openNewChat}>New chat</Button>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
 
-function ConversationList({ viewerId, activeId }: { viewerId: string; activeId: string | null }) {
+function NewChatDialog({ open, onClose, viewerId }: { open: boolean; onClose: () => void; viewerId: string }) {
+  const navigate = useNavigate();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [query, setQuery] = useState('');
+  const term = query.trim();
+  const search = usePeopleSearch(term);
+  const results = useMemo(() => (search.data ?? []).filter((p) => p.id !== viewerId), [search.data, viewerId]);
+
+  useEffect(() => {
+    if (!open) setQuery('');
+  }, [open]);
+
+  const pick = (person: PersonRef) => {
+    onClose();
+    void navigate(`/messages/to/${person.handle}`);
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} title="New chat" initialFocus={inputRef} mobileFull>
+      <div className="flex flex-col gap-3">
+        <Input
+          ref={inputRef}
+          type="search"
+          aria-label="Search people"
+          placeholder="Search by name or @handle"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        {term.length < 2 ? (
+          <p className="m-0 py-4 text-center text-sm text-ink-muted">Type at least 2 characters to find someone to message.</p>
+        ) : search.isPending ? (
+          <div className="grid place-items-center py-6">
+            <Spinner />
+          </div>
+        ) : search.isError ? (
+          <p role="alert" className="m-0 py-4 text-center text-sm text-danger">
+            We couldn’t search right now. Try again.
+          </p>
+        ) : results.length === 0 ? (
+          <p className="m-0 py-4 text-center text-sm text-ink-muted">No one matched “{term}”.</p>
+        ) : (
+          <ul className="m-0 flex list-none flex-col gap-1 p-0" aria-label="People">
+            {results.map((p) => {
+              const name = p.name || `@${p.handle}`;
+              return (
+                <li key={p.id}>
+                  <button
+                    type="button"
+                    onClick={() => pick(p)}
+                    className="flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-2 py-2 text-left text-ink transition-colors duration-120 hover:bg-subtle"
+                  >
+                    <UserAvatar size="md" name={name} src={avatarSrc(p)} />
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate text-base font-semibold text-ink">{name}</span>
+                      <span className="truncate text-sm text-ink-muted">@{p.handle}</span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    </Dialog>
+  );
+}
+
+function ConversationList({
+  viewerId,
+  activeId,
+  onNewChat,
+}: {
+  viewerId: string;
+  activeId: string | null;
+  onNewChat: () => void;
+}) {
   const list = useConversations(viewerId);
   const all = list.data ?? [];
   const inbox = all.filter((c) => c.state === 'inbox');
@@ -130,9 +225,12 @@ function ConversationList({ viewerId, activeId }: { viewerId: string; activeId: 
   return (
     <>
       <div className="shrink-0 px-4 pt-4">
-        <h1 id="page-title" className="mt-0 mb-2 text-xl font-bold text-ink">
-          Messages
-        </h1>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h1 id="page-title" className="m-0 text-xl font-bold text-ink">
+            Messages
+          </h1>
+          <IconButton icon="edit" label="New chat" onClick={onNewChat} />
+        </div>
         <Tabs
           idBase="messages"
           label="Messages"
@@ -155,8 +253,12 @@ function ConversationList({ viewerId, activeId }: { viewerId: string; activeId: 
           </div>
         ) : shown.length === 0 ? (
           tab === 'inbox' ? (
-            <EmptyState icon="mail" title="No messages yet">
-              Open someone’s profile and tap Message to start a conversation.
+            <EmptyState
+              icon="reply"
+              title="No messages yet"
+              action={<Button onClick={onNewChat}>New chat</Button>}
+            >
+              Start a conversation with anyone on Publisense.
             </EmptyState>
           ) : (
             <EmptyState icon="mail" title="No message requests">
