@@ -92,7 +92,7 @@ export function TabBar({ showPost = true }: { showPost?: boolean } = {}) {
       </nav>
 
       {viewer ? (
-        <Dialog open={sheet} onClose={() => setSheet(false)} title={viewer.name}>
+        <Dialog open={sheet} onClose={() => setSheet(false)} title={viewer.name} mobileSheet>
           <div className="-mx-2 flex flex-col">
             <SheetLink to={`/u/${viewer.handle}`} icon="user" onClick={() => setSheet(false)}>
               Profile

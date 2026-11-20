@@ -7,7 +7,8 @@ import { IconButton } from './IconButton';
 /**
  * Modal dialog (FOUNDATION §4): focus trap, Escape closes, focus returns to
  * whatever opened it, aria-labelledby the title, page scroll locked.
- * At sm (≤520px) the same dialog renders as a bottom sheet.
+ * At sm (≤520px) renders full-page so virtual keyboard activation never shifts
+ * the dialog vertically; non-input menus can pass `mobileSheet` for a bottom sheet.
  */
 export interface DialogProps {
   open: boolean;
@@ -27,6 +28,8 @@ export interface DialogProps {
   headerAction?: ReactNode;
   /** A prompt is open on top (AlertDialog): leave Escape and Tab to it. */
   paused?: boolean;
+  /** Render as a bottom-anchored sheet at sm instead of a full-page screen. */
+  mobileSheet?: boolean;
 }
 
 export function Dialog({
@@ -42,6 +45,7 @@ export function Dialog({
   dismissable = true,
   paused = false,
   headerAction,
+  mobileSheet = false,
 }: DialogProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const returnTo = useRef<HTMLElement | null>(null);
@@ -95,10 +99,16 @@ export function Dialog({
   if (!open) return null;
 
   return createPortal(
-    <div data-theme={theme} className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-10 pb-4 max-sm:items-end max-sm:p-0">
+    <div
+      data-theme={theme}
+      className={cx(
+        'fixed inset-0 z-50 flex items-start justify-center px-4 pt-10 pb-4 max-sm:p-0',
+        mobileSheet && 'max-sm:items-end',
+      )}
+    >
       <div
         aria-hidden="true"
-        className="absolute inset-0 animate-fade-in bg-overlay"
+        className={cx('absolute inset-0 animate-fade-in bg-overlay', !mobileSheet && 'max-sm:hidden')}
         onClick={dismissable ? () => onCloseRef.current() : undefined}
       />
       <div
@@ -111,10 +121,14 @@ export function Dialog({
         className={cx(
           'relative flex max-h-full w-full animate-rise-in flex-col rounded-lg border border-line bg-card text-ink shadow-overlay outline-none',
           size === 'lg' ? 'max-w-dialog-lg' : 'max-w-dialog',
-          'max-sm:max-w-none max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 max-sm:pb-4',
+          mobileSheet
+            ? 'max-sm:max-w-none max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 max-sm:pb-4'
+            : 'max-sm:h-full max-sm:max-w-none max-sm:rounded-none max-sm:border-0 max-sm:shadow-none',
         )}
       >
-        <div aria-hidden="true" className="mx-auto mt-2 hidden h-1 w-8 rounded-pill bg-line-strong max-sm:block" />
+        {mobileSheet ? (
+          <div aria-hidden="true" className="mx-auto mt-2 hidden h-1 w-8 rounded-pill bg-line-strong max-sm:block" />
+        ) : null}
         <header className={cx('flex items-center gap-2 py-3 pr-3 pl-5', !hideTitle && 'border-b border-line')}>
           <h2 id={titleId} className={cx('m-0 flex-1 text-md font-semibold text-ink', hideTitle && 'sr-only')}>
             {title}

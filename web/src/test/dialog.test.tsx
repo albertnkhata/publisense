@@ -64,4 +64,14 @@ describe('Dialog', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(document.activeElement).toBe(opener);
   });
+
+  it('renders full-page at max-sm by default so virtual keyboards do not shift it vertically', () => {
+    render(<Harness />);
+    act(() => fireEvent.click(screen.getByText('Open')));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.className).toContain('max-sm:h-full');
+    expect(dialog.className).toContain('max-sm:rounded-none');
+    expect(dialog.className).toContain('max-sm:border-0');
+    expect(dialog.parentElement?.className).not.toContain('max-sm:items-end');
+  });
 });
