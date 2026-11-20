@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useSyncExternalStore, type MouseEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useSyncExternalStore, type MouseEvent, type ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router';
 import {
   followKey,
@@ -21,6 +21,11 @@ const NAV_KEY = 'publisense:nav-collapsed';
 const FOLLOWED_RAIL_LIMIT = 8;
 const POPULAR_RAIL_LIMIT = 6;
 const navListeners = new Set<() => void>();
+let drawerOpenState = false;
+
+function notifyNav(): void {
+  for (const fn of navListeners) fn();
+}
 
 function readCollapsed(): boolean {
   try {
@@ -30,68 +35,108 @@ function readCollapsed(): boolean {
   }
 }
 
+function subscribeNav(onStoreChange: () => void): () => void {
+  navListeners.add(onStoreChange);
+  return () => navListeners.delete(onStoreChange);
+}
+
 export function useNavCollapsed() {
   const belowXl = useMediaQuery(MQ.xl);
-  const manual = useSyncExternalStore(
-    (onStoreChange) => {
-      navListeners.add(onStoreChange);
-      return () => navListeners.delete(onStoreChange);
-    },
-    readCollapsed,
-    () => false,
-  );
-  const collapsed = manual || belowXl;
+  const manual = useSyncExternalStore(subscribeNav, readCollapsed, () => false);
+  const drawerOpen = useSyncExternalStore(subscribeNav, () => drawerOpenState, () => false);
+
+  const collapsed = belowXl ? !drawerOpen : manual;
+  const overlay = belowXl && drawerOpen;
+
+  const closeOverlay = useCallback(() => {
+    if (!drawerOpenState) return;
+    drawerOpenState = false;
+    notifyNav();
+  }, []);
 
   const toggle = useCallback(() => {
+    if (belowXl) {
+      drawerOpenState = !drawerOpenState;
+      notifyNav();
+      return;
+    }
     try {
       const next = !readCollapsed();
       window.localStorage.setItem(NAV_KEY, next ? '1' : '0');
     } catch {
       /* ignore */
     }
-    for (const fn of navListeners) fn();
-  }, []);
+    notifyNav();
+  }, [belowXl]);
 
-  return { collapsed, belowXl, toggle };
+  return { collapsed, belowXl, overlay, toggle, closeOverlay };
 }
 
 /**
  * Left navigation rail seated beneath the global TopBar. Every row shares one
  * 40px icon column (aligned directly under the sidebar toggle in TopBar), so
  * collapsing only hides labels: icons never move.
- * 248px wide; 64px when collapsed by the user ("[") or below xl (1336px), so it
- * gives up its width before the right rail (hidden below lg) or the feed do.
+ * 240px wide at xl+ (1280px+); defaults to 64px below xl and expands as a
+ * left-edge overlay drawer when toggled so the main column never squishes.
  * Hidden at sm, where the TabBar takes over.
  */
 export function NavRail() {
   const { pathname } = useLocation();
   const { viewer } = useViewer();
-  const { collapsed } = useNavCollapsed();
+  const { collapsed, overlay, closeOverlay } = useNavCollapsed();
   const staff = useIsPlatformAdmin(viewer?.id ?? null).data ?? false;
   const isCategories = pathname === '/categories' || pathname.startsWith('/c/');
 
+  // Close the below-xl overlay drawer whenever the user navigates or presses Escape.
+  useEffect(() => {
+    closeOverlay();
+  }, [pathname, closeOverlay]);
+
+  useEffect(() => {
+    if (!overlay) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeOverlay();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [overlay, closeOverlay]);
+
   return (
-    <aside
-      aria-label="Main navigation"
-      data-collapsed={collapsed || undefined}
-      className={cx(
-        'group sticky top-9 z-20 flex h-nav-height shrink-0 flex-col border-r border-line bg-transparent px-3 pt-3 pb-3 select-none',
-        'transition-all duration-180 ease-out max-sm:hidden',
-        collapsed ? 'w-nav-collapsed' : 'w-nav',
-      )}
-    >
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <nav aria-label="Primary" className="mb-3 flex flex-col gap-1">
-          <NavRow to="/" icon="home" label="Home" collapsed={collapsed} end />
-          <NavRow to="/feed" icon="feed" label="Feed" collapsed={collapsed} />
-          <NavRow to="/categories" icon="hub" label="Categories" collapsed={collapsed} active={isCategories} />
-        </nav>
+    <>
+      {overlay ? (
+        <>
+          {/* Keep the 64px rail slot reserved so main content does not shift while the drawer overlays it. */}
+          <div aria-hidden="true" className="w-nav-collapsed shrink-0 max-sm:hidden" />
+          <div
+            aria-hidden="true"
+            onClick={closeOverlay}
+            className="fixed inset-x-0 top-9 bottom-0 z-20 animate-fade-in bg-overlay max-sm:hidden"
+          />
+        </>
+      ) : null}
+      <aside
+        aria-label="Main navigation"
+        data-collapsed={collapsed || undefined}
+        data-overlay={overlay || undefined}
+        className={cx(
+          'group flex h-nav-height shrink-0 flex-col border-r border-line px-3 pt-3 pb-3 select-none',
+          'transition-all duration-180 ease-out max-sm:hidden',
+          overlay ? 'fixed top-9 left-0 z-30 w-nav bg-page shadow-overlay' : cx('sticky top-9 z-20 bg-transparent', collapsed ? 'w-nav-collapsed' : 'w-nav'),
+        )}
+      >
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <nav aria-label="Primary" className="mb-3 flex flex-col gap-1">
+            <NavRow to="/" icon="home" label="Home" collapsed={collapsed} end />
+            <NavRow to="/feed" icon="feed" label="Feed" collapsed={collapsed} />
+            <NavRow to="/categories" icon="hub" label="Categories" collapsed={collapsed} active={isCategories} />
+          </nav>
 
-        <RailProducts viewerId={viewer?.id ?? null} collapsed={collapsed} />
+          <RailProducts viewerId={viewer?.id ?? null} collapsed={collapsed} />
 
-        {staff ? <AdminSections collapsed={collapsed} /> : null}
-      </div>
-    </aside>
+          {staff ? <AdminSections collapsed={collapsed} /> : null}
+        </div>
+      </aside>
+    </>
   );
 }
 

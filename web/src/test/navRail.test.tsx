@@ -176,4 +176,38 @@ describe('NavRail links and layout', () => {
     boardsState.followed = new Set();
     boardsState.followedPending = false;
   });
+
+  it('keeps the sidebar toggle visible below xl and expands NavRail as an overlay drawer', () => {
+    const origMatchMedia = window.matchMedia;
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: query.includes('1279.98'),
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+    try {
+      renderWith(
+        <ComposerProvider>
+          <TopBar />
+          <NavRail />
+        </ComposerProvider>,
+        { viewer: null },
+      );
+      const rail = screen.getByRole('complementary', { name: 'Main navigation' });
+      expect(rail.getAttribute('data-collapsed')).toBe('true');
+      expect(rail.getAttribute('data-overlay')).toBeNull();
+      expect(screen.queryByRole('navigation', { name: 'Popular products' })).toBeNull();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }));
+      expect(rail.getAttribute('data-collapsed')).toBeNull();
+      expect(rail.getAttribute('data-overlay')).toBe('true');
+      expect(screen.getByRole('navigation', { name: 'Popular products' })).toBeTruthy();
+
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(rail.getAttribute('data-collapsed')).toBe('true');
+      expect(rail.getAttribute('data-overlay')).toBeNull();
+    } finally {
+      window.matchMedia = origMatchMedia;
+    }
+  });
 });
