@@ -130,7 +130,7 @@ function RailProducts({ viewerId, collapsed }: { viewerId: string | null; collap
     return { kind: 'popular', heading: 'Popular products', items: popularBoards };
   }, [waitingForFollows, viewerId, boards.data, hubs.data, followed]);
 
-  if (!section || section.items.length === 0 || (collapsed && section.kind === 'popular')) return null;
+  if (collapsed || !section || section.items.length === 0) return null;
 
   const { heading, items } = section;
 
