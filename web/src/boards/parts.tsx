@@ -233,13 +233,15 @@ export function PostRow({ post }: { post: PostSummary }) {
 }
 
 /**
- * Explore's board card: tile, name, tagline, Follow, and stats. Post and
- * follower counts show only above zero (#156); a board with neither shows when
- * it was added instead, so the card never leads with "0 posts · 0 followers".
+ * Discovery board card: tile, name, tagline, Follow, and post activity.
+ * Stretches to the full row height (`h-full`) with bottom-pinned stats (`mt-auto`)
+ * so 1-line and 2-line taglines in the same grid row always render at equal height.
+ * Post count shows only above zero (#156); a board with no posts yet shows when
+ * it was added instead, so the card footer is never blank or "0 posts".
  */
 export function BoardCard({ board, now = new Date() }: { board: Board; now?: Date }) {
   const addedDays = Math.floor((now.getTime() - new Date(board.created_at).getTime()) / 86400_000);
-  const quiet = board.post_count <= 0 && board.follower_count <= 0;
+  const quiet = board.post_count <= 0;
   const age = shortAge(board.created_at, now);
   const added =
     addedDays >= 0 && addedDays <= 7
@@ -248,7 +250,7 @@ export function BoardCard({ board, now = new Date() }: { board: Board; now?: Dat
         ? `Added ${/^\d+w$/.test(age) ? `${age} ago` : age}`
         : null;
   return (
-    <article className="relative flex min-w-0 flex-col gap-3 rounded-md border border-line bg-card p-4 transition-colors duration-120 hover:border-line-strong">
+    <article className="relative flex h-full min-w-0 flex-col gap-3 rounded-md border border-line bg-card p-4 transition-colors duration-120 hover:border-line-strong">
       <div className="flex min-w-0 items-center gap-3">
         <BoardAvatar name={board.name} color={board.color} logoSrc={logoSrc(board)} size="xl" decorative />
         <span className="flex min-w-0 flex-1 flex-col">
@@ -265,15 +267,10 @@ export function BoardCard({ board, now = new Date() }: { board: Board; now?: Dat
         </span>
         <FollowScopeButton target="board" id={board.id} name={board.name} size="sm" className="relative z-1" />
       </div>
-      <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-ink-muted">
+      <div className="mt-auto flex flex-wrap gap-x-3 gap-y-1 text-sm text-ink-muted">
         {board.post_count > 0 ? (
           <span>
             <b className="font-semibold text-ink">{compactCount(board.post_count)}</b> {board.post_count === 1 ? 'post' : 'posts'}
-          </span>
-        ) : null}
-        {board.follower_count > 0 ? (
-          <span>
-            <b className="font-semibold text-ink">{compactCount(board.follower_count)}</b> {board.follower_count === 1 ? 'follower' : 'followers'}
           </span>
         ) : null}
         {board.claimed_at ? (

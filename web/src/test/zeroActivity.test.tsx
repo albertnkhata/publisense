@@ -150,10 +150,12 @@ describe('claim line', () => {
 });
 
 describe('cards at zero', () => {
-  it('board card shows real counts, and recency instead of zeros', () => {
+  it('board card stretches full height and shows post counts without follower counts', () => {
     renderWith(<BoardCard board={FIGMA} />);
+    const card = screen.getByRole('article');
+    expect(card.className).toContain('h-full');
     expect(screen.getByText('posts', { exact: false }).textContent).toContain('5');
-    expect(screen.getByText(/followers/).textContent).toContain('30');
+    expect(screen.queryByText(/follower/)).toBeNull();
   });
 
   it('a big board keeps its counts without an "Added" line', () => {
