@@ -7,8 +7,9 @@ import { IconButton } from './IconButton';
 /**
  * Modal dialog (FOUNDATION §4): focus trap, Escape closes, focus returns to
  * whatever opened it, aria-labelledby the title, page scroll locked.
- * At sm (≤520px) renders full-page so virtual keyboard activation never shifts
- * the dialog vertically; non-input menus can pass `mobileSheet` for a bottom sheet.
+ * At sm (≤520px) renders as a bottom sheet by default, or as a top-anchored
+ * full-page screen when `mobileFull` is set (AuthDialog, Composer) so virtual
+ * keyboard activation never shifts the form or hides the footer behind the keyboard.
  */
 export interface DialogProps {
   open: boolean;
@@ -28,8 +29,8 @@ export interface DialogProps {
   headerAction?: ReactNode;
   /** A prompt is open on top (AlertDialog): leave Escape and Tab to it. */
   paused?: boolean;
-  /** Render as a bottom-anchored sheet at sm instead of a full-page screen. */
-  mobileSheet?: boolean;
+  /** Render as a top-anchored full-page screen at sm instead of a bottom sheet. */
+  mobileFull?: boolean;
 }
 
 export function Dialog({
@@ -45,7 +46,7 @@ export function Dialog({
   dismissable = true,
   paused = false,
   headerAction,
-  mobileSheet = false,
+  mobileFull = false,
 }: DialogProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const returnTo = useRef<HTMLElement | null>(null);
@@ -103,12 +104,12 @@ export function Dialog({
       data-theme={theme}
       className={cx(
         'fixed inset-0 z-50 flex items-start justify-center px-4 pt-10 pb-4 max-sm:p-0',
-        mobileSheet && 'max-sm:items-end',
+        !mobileFull && 'max-sm:items-end',
       )}
     >
       <div
         aria-hidden="true"
-        className={cx('absolute inset-0 animate-fade-in bg-overlay', !mobileSheet && 'max-sm:hidden')}
+        className={cx('absolute inset-0 animate-fade-in bg-overlay', mobileFull && 'max-sm:hidden')}
         onClick={dismissable ? () => onCloseRef.current() : undefined}
       />
       <div
@@ -121,22 +122,22 @@ export function Dialog({
         className={cx(
           'relative flex max-h-full w-full animate-rise-in flex-col rounded-lg border border-line bg-card text-ink shadow-overlay outline-none',
           size === 'lg' ? 'max-w-dialog-lg' : 'max-w-dialog',
-          mobileSheet
-            ? 'max-sm:max-w-none max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 max-sm:pb-4'
-            : 'max-sm:h-full max-sm:max-w-none max-sm:rounded-none max-sm:border-0 max-sm:shadow-none',
+          mobileFull
+            ? 'max-sm:h-full max-sm:max-w-none max-sm:overflow-y-auto max-sm:rounded-none max-sm:border-0 max-sm:shadow-none'
+            : 'max-sm:max-w-none max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 max-sm:pb-4',
         )}
       >
-        {mobileSheet ? (
+        {!mobileFull ? (
           <div aria-hidden="true" className="mx-auto mt-2 hidden h-1 w-8 rounded-pill bg-line-strong max-sm:block" />
         ) : null}
-        <header className={cx('flex items-center gap-2 py-3 pr-3 pl-5', !hideTitle && 'border-b border-line')}>
+        <header className={cx('flex shrink-0 items-center gap-2 py-3 pr-3 pl-5', !hideTitle && 'border-b border-line')}>
           <h2 id={titleId} className={cx('m-0 flex-1 text-md font-semibold text-ink', hideTitle && 'sr-only')}>
             {title}
           </h2>
           {headerAction}
           <IconButton icon="close" label="Close" onClick={() => onCloseRef.current()} data-dialog-close="true" />
         </header>
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div className={cx('flex-1 overflow-y-auto px-5 py-4', mobileFull && 'max-sm:flex-none max-sm:overflow-visible')}>
           {description ? (
             <p id={descId} className="mt-0 mb-4 text-base text-ink-secondary">
               {description}
@@ -144,7 +145,7 @@ export function Dialog({
           ) : null}
           {children}
         </div>
-        {footer ? <footer className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">{footer}</footer> : null}
+        {footer ? <footer className="flex shrink-0 items-center justify-end gap-2 border-t border-line px-5 py-3">{footer}</footer> : null}
       </div>
     </div>,
     document.body,

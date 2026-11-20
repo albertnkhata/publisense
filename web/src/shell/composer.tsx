@@ -389,6 +389,7 @@ function Composer({ opts, onClose, onOpenDraft }: { opts: ComposerOptions; onClo
         ? { description: `${board.name} is waiting for review. Until it’s approved, only you can see it and what you post on it.` }
         : {})}
       size="lg"
+      mobileFull
       initialFocus={initialFocus}
       dismissable={!create.isPending}
       footer={

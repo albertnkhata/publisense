@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { Dialog } from '../ui/Dialog';
 
-function Harness({ onClose }: { onClose?: () => void }) {
+function Harness({ onClose, mobileFull }: { onClose?: () => void; mobileFull?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -16,6 +16,7 @@ function Harness({ onClose }: { onClose?: () => void }) {
         }}
         title="Claim a board"
         footer={<button>Continue</button>}
+        mobileFull={mobileFull}
       >
         <input aria-label="Work email" />
       </Dialog>
@@ -65,13 +66,16 @@ describe('Dialog', () => {
     expect(document.activeElement).toBe(opener);
   });
 
-  it('renders full-page at max-sm by default so virtual keyboards do not shift it vertically', () => {
-    render(<Harness />);
+  it('renders full-page at max-sm with natural body-to-footer flow when mobileFull is set', () => {
+    render(<Harness mobileFull />);
     act(() => fireEvent.click(screen.getByText('Open')));
     const dialog = screen.getByRole('dialog');
     expect(dialog.className).toContain('max-sm:h-full');
+    expect(dialog.className).toContain('max-sm:overflow-y-auto');
     expect(dialog.className).toContain('max-sm:rounded-none');
     expect(dialog.className).toContain('max-sm:border-0');
     expect(dialog.parentElement?.className).not.toContain('max-sm:items-end');
+    const body = screen.getByLabelText('Work email').parentElement!;
+    expect(body.className).toContain('max-sm:flex-none');
   });
 });
