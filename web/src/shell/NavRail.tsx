@@ -83,7 +83,7 @@ export function useNavCollapsed() {
 export function NavRail() {
   const { pathname } = useLocation();
   const { viewer } = useViewer();
-  const { collapsed, overlay, closeOverlay } = useNavCollapsed();
+  const { collapsed, belowXl, overlay, closeOverlay } = useNavCollapsed();
   const staff = useIsPlatformAdmin(viewer?.id ?? null).data ?? false;
   const isCategories = pathname === '/categories' || pathname.startsWith('/c/');
 
@@ -103,16 +103,16 @@ export function NavRail() {
 
   return (
     <>
+      {belowXl ? (
+        /* Permanently reserve the 64px rail slot below xl so expanding/collapsing the fixed drawer never causes body reflow or jitter. */
+        <div aria-hidden="true" className="w-nav-collapsed shrink-0 max-sm:hidden" />
+      ) : null}
       {overlay ? (
-        <>
-          {/* Keep the 64px rail slot reserved so main content does not shift while the drawer overlays it. */}
-          <div aria-hidden="true" className="w-nav-collapsed shrink-0 max-sm:hidden" />
-          <div
-            aria-hidden="true"
-            onClick={closeOverlay}
-            className="fixed inset-x-0 top-9 bottom-0 z-20 animate-fade-in bg-overlay max-sm:hidden"
-          />
-        </>
+        <div
+          aria-hidden="true"
+          onClick={closeOverlay}
+          className="fixed inset-x-0 top-9 bottom-0 z-20 animate-fade-in bg-overlay max-sm:hidden"
+        />
       ) : null}
       <aside
         aria-label="Main navigation"
@@ -121,7 +121,9 @@ export function NavRail() {
         className={cx(
           'group flex h-nav-height shrink-0 flex-col border-r border-line px-3 pt-3 pb-3 select-none',
           'transition-all duration-180 ease-out max-sm:hidden',
-          overlay ? 'fixed top-9 left-0 z-30 w-nav bg-page shadow-overlay' : cx('sticky top-9 z-20 bg-transparent', collapsed ? 'w-nav-collapsed' : 'w-nav'),
+          belowXl
+            ? cx('fixed top-9 left-0 z-30 bg-page', overlay ? 'w-nav shadow-overlay' : 'w-nav-collapsed')
+            : cx('sticky top-9 z-20 bg-transparent', collapsed ? 'w-nav-collapsed' : 'w-nav'),
         )}
       >
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
