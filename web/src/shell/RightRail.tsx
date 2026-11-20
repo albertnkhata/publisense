@@ -101,13 +101,22 @@ export function RailBoards() {
       </Card>
     );
   }
+  const live = (boards.data ?? []).filter(isLive);
   const hot = trending.data ?? [];
-  const hotIds = new Set(hot.map((b) => b.id));
-  const newest = (boards.data ?? [])
-    .filter((b) => isLive(b) && !hotIds.has(b.id))
+  const fallback =
+    hot.length === 0
+      ? live
+          .filter((b) => b.post_count > 0 || b.follower_count > 0)
+          .slice()
+          .sort((a, b) => b.post_count - a.post_count || b.follower_count - a.follower_count || a.name.localeCompare(b.name))
+          .slice(0, 5)
+      : [];
+  const shownIds = new Set((hot.length ? hot : fallback).map((b) => b.id));
+  const newest = live
+    .filter((b) => !shownIds.has(b.id))
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
     .slice(0, 5);
-  if (hot.length === 0 && newest.length === 0) {
+  if (hot.length === 0 && fallback.length === 0 && newest.length === 0) {
     return (
       <Card padding="md">
         <RailEmpty />
@@ -126,6 +135,19 @@ export function RailBoards() {
               const n = (b as Board & { recent: number }).recent;
               return { text: `${compactCount(n)} new`, title: `${n} new ${n === 1 ? 'post' : 'posts'} this week` };
             }}
+          />
+        </Card>
+      ) : fallback.length ? (
+        <Card padding="md">
+          <RailHeading>Trending</RailHeading>
+          <RailList
+            label="Trending boards"
+            boards={fallback}
+            meta={(b) =>
+              b.post_count > 0
+                ? { text: `${compactCount(b.post_count)} ${b.post_count === 1 ? 'post' : 'posts'}`, title: `${b.post_count} ${b.post_count === 1 ? 'post' : 'posts'}` }
+                : { text: `${compactCount(b.follower_count)} ${b.follower_count === 1 ? 'follower' : 'followers'}`, title: `${b.follower_count} ${b.follower_count === 1 ? 'follower' : 'followers'}` }
+            }
           />
         </Card>
       ) : null}

@@ -82,6 +82,18 @@ describe('right rail boards card', () => {
     const recent = within(screen.getByRole('list', { name: 'Recently added boards' })).getAllByRole('link');
     expect(recent.map((a) => a.getAttribute('href'))).toEqual(['/b/notion', '/b/linear']);
   });
+
+  it('falls back to activity-ordered Trending when boards have posts older than a week, without repeating them in Recently added', async () => {
+    boardsApi.fetchTrending.mockResolvedValue([]);
+    boardsApi.fetchBoards.mockResolvedValue([CURSOR, SUPABASE, QUIET_NEW]);
+    renderWith(<RailBoards />);
+    expect(await screen.findByRole('heading', { name: 'Trending' })).toBeTruthy();
+    const trending = within(screen.getByRole('list', { name: 'Trending boards' })).getAllByRole('link');
+    expect(trending.map((a) => a.getAttribute('href'))).toEqual(['/b/cursor', '/b/supabase']);
+    expect(screen.getByText('92 posts')).toBeTruthy();
+    const recent = within(screen.getByRole('list', { name: 'Recently added boards' })).getAllByRole('link');
+    expect(recent.map((a) => a.getAttribute('href'))).toEqual(['/b/notion']);
+  });
 });
 
 describe('discovery home while quiet', () => {
