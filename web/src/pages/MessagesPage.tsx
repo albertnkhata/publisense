@@ -21,6 +21,7 @@ import {
   type PersonRef,
 } from '../api';
 import { cx } from '../lib/cx';
+import { useDebounced } from '../lib/useDebounced';
 import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { LoadError } from '../posts/PostList';
@@ -111,7 +112,10 @@ export function MessagesPage() {
 
 /** The right pane with nothing open (desktop only; below lg the list fills the screen). */
 export function NoConversationPage() {
+  const { viewer } = useViewer();
   const openNewChat = useContext(NewChatContext);
+  const conversations = useConversations(viewer?.id ?? null);
+  const hasConversations = (conversations.data?.length ?? 0) > 0;
   return (
     <div className="grid flex-1 place-items-center p-6">
       <div className="flex max-w-alert flex-col items-center text-center">
@@ -120,7 +124,9 @@ export function NoConversationPage() {
         </span>
         <h2 className="m-0 text-xl font-bold text-ink">Start a conversation</h2>
         <p className="mt-2 mb-0 text-base text-ink-muted">
-          Choose from your existing conversations, or start a new one.
+          {hasConversations
+            ? 'Choose from your existing conversations, or start a new one.'
+            : 'Send a direct message to anyone on Publisense.'}
         </p>
         {openNewChat ? (
           <div className="mt-5">
@@ -137,7 +143,9 @@ function NewChatDialog({ open, onClose, viewerId }: { open: boolean; onClose: ()
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
   const term = query.trim();
-  const search = usePeopleSearch(term);
+  const debounced = useDebounced(term, 150);
+  const search = usePeopleSearch(open ? debounced : '');
+  const settling = term.length >= 2 && debounced !== term;
   const results = useMemo(() => (search.data ?? []).filter((p) => p.id !== viewerId), [search.data, viewerId]);
 
   useEffect(() => {
@@ -162,7 +170,7 @@ function NewChatDialog({ open, onClose, viewerId }: { open: boolean; onClose: ()
         />
         {term.length < 2 ? (
           <p className="m-0 py-4 text-center text-sm text-ink-muted">Type at least 2 characters to find someone to message.</p>
-        ) : search.isPending ? (
+        ) : settling || search.isPending ? (
           <div className="grid place-items-center py-6">
             <Spinner />
           </div>

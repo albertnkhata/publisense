@@ -27,7 +27,7 @@ _derived from `docs/archive/BUILD.md` checkbox state · one PR per step, see `do
 - [x] 8. Moderation and people
 - [x] 9. Cutover
 
-- v2 web tests (`web/src/**/*.test.ts(x)`): **56** files, **714** declared cases
+- v2 web tests (`web/src/**/*.test.ts(x)`): **56** files, **717** declared cases
 
 ### Open decisions and risks
 

@@ -14,7 +14,8 @@ vi.mock('../api/moderationHooks', async (importOriginal) => {
 });
 
 const boardsState = vi.hoisted(() => ({
-  followed: new Set<string>(),
+  followed: new Set<string>() as Set<string> | undefined,
+  followedPending: false,
 }));
 vi.mock('../api/boardHooks', async (importOriginal) => {
   const real = await importOriginal<typeof import('../api/boardHooks')>();
@@ -22,7 +23,7 @@ vi.mock('../api/boardHooks', async (importOriginal) => {
     ...real,
     useBoards: () => ({ data: [CURSOR] }),
     useHubs: () => ({ data: [FIGMA_HUB] }),
-    useFollowedScopes: () => ({ data: boardsState.followed }),
+    useFollowedScopes: () => ({ data: boardsState.followed, isPending: boardsState.followedPending, isError: false }),
   };
 });
 
@@ -158,5 +159,20 @@ describe('NavRail links and layout', () => {
     expect(screen.getByRole('navigation', { name: 'Your products' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }));
     boardsState.followed = new Set();
+  });
+
+  it('waits for followed scopes to load before showing Popular products for signed-in viewers', () => {
+    boardsState.followed = undefined;
+    boardsState.followedPending = true;
+    renderWith(
+      <ComposerProvider>
+        <NavRail />
+      </ComposerProvider>,
+      { viewer: TEST_VIEWER },
+    );
+    expect(screen.queryByRole('navigation', { name: 'Popular products' })).toBeNull();
+    expect(screen.queryByRole('navigation', { name: 'Your products' })).toBeNull();
+    boardsState.followed = new Set();
+    boardsState.followedPending = false;
   });
 });

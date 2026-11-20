@@ -108,20 +108,37 @@ describe('two-pane layout', () => {
     expect(await screen.findByRole('region', { name: 'Conversation with @jmwamba' })).toBeTruthy();
   });
 
-  it('shows Start a conversation with nothing open and lets you start a New chat', async () => {
+  it('shows Start a conversation with nothing open, debounces people search, and lets you start a New chat', async () => {
     dm.fetchConversations.mockResolvedValue([conv()]);
     people.searchPeople.mockResolvedValue([ME, STRANGER]);
     people.fetchProfileByHandle.mockResolvedValue({ ...STRANGER, bio: '', created_at: iso(100), follower_count: 0 });
     const { router } = renderAt('/messages');
     expect(await screen.findByText('Start a conversation')).toBeTruthy();
+    expect(await screen.findByText('Choose from your existing conversations, or start a new one.')).toBeTruthy();
 
     fireEvent.click(screen.getAllByRole('button', { name: 'New chat' })[1]!);
     const dialog = await screen.findByRole('dialog', { name: 'New chat' });
-    fireEvent.change(within(dialog).getByLabelText('Search people'), { target: { value: 'sam' } });
+    const input = within(dialog).getByLabelText('Search people');
+
+    // Below 2 chars does not hit the API, and rapid typing debounces to one call
+    fireEvent.change(input, { target: { value: 's' } });
+    fireEvent.change(input, { target: { value: 'sa' } });
+    fireEvent.change(input, { target: { value: 'sam' } });
+    expect(people.searchPeople).not.toHaveBeenCalled();
+
     const list = await within(dialog).findByRole('list', { name: 'People' });
+    expect(people.searchPeople).toHaveBeenCalledTimes(1);
+    expect(people.searchPeople).toHaveBeenCalledWith('sam');
     expect(within(list).queryByText(/@alice/)).toBeNull();
     fireEvent.click(within(list).getByRole('button', { name: /Sam Stranger/ }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/messages/to/stranger'));
+  });
+
+  it('uses empty-inbox copy on Start a conversation when there are no conversations yet', async () => {
+    dm.fetchConversations.mockResolvedValue([]);
+    renderAt('/messages');
+    expect(await screen.findByText('Send a direct message to anyone on Publisense.')).toBeTruthy();
+    expect(screen.queryByText(/existing conversations/)).toBeNull();
   });
 
   it('opens on Requests when the open conversation is a request', async () => {
@@ -276,5 +293,24 @@ describe('phone tab bar', () => {
     unmount();
     renderWith(<ComposerProvider><TabBar showPost={false} /></ComposerProvider>, { viewer: TEST_VIEWER });
     expect(screen.queryByRole('button', { name: 'Post feedback' })).toBeNull();
+  });
+
+  it('hides the fixed bar while a text input has focus and restores it on blur', () => {
+    renderWith(
+      <ComposerProvider>
+        <input aria-label="Reply" />
+        <TabBar />
+      </ComposerProvider>,
+      { viewer: TEST_VIEWER },
+    );
+    const nav = screen.getByRole('navigation', { name: 'Primary' });
+    const input = screen.getByLabelText('Reply');
+    expect(nav.className).toContain('max-sm:grid');
+
+    fireEvent.focusIn(input);
+    expect(nav.className).not.toContain('max-sm:grid');
+
+    fireEvent.focusOut(input, { relatedTarget: null });
+    expect(nav.className).toContain('max-sm:grid');
   });
 });

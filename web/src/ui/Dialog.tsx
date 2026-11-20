@@ -145,7 +145,16 @@ export function Dialog({
           ) : null}
           {children}
         </div>
-        {footer ? <footer className="flex shrink-0 items-center justify-end gap-2 border-t border-line px-5 py-3">{footer}</footer> : null}
+        {footer ? (
+          <footer
+            className={cx(
+              'flex shrink-0 items-center justify-end gap-2 border-t border-line px-5 py-3',
+              mobileFull && 'max-sm:sticky max-sm:bottom-0 max-sm:bg-card',
+            )}
+          >
+            {footer}
+          </footer>
+        ) : null}
       </div>
     </div>,
     document.body,

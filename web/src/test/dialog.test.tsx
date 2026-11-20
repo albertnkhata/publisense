@@ -77,5 +77,9 @@ describe('Dialog', () => {
     expect(dialog.parentElement?.className).not.toContain('max-sm:items-end');
     const body = screen.getByLabelText('Work email').parentElement!;
     expect(body.className).toContain('max-sm:flex-none');
+    const footer = screen.getByText('Continue').parentElement!;
+    expect(footer.className).toContain('max-sm:sticky');
+    expect(footer.className).toContain('max-sm:bottom-0');
+    expect(footer.className).toContain('max-sm:bg-card');
   });
 });

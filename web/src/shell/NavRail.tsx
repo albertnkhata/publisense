@@ -100,9 +100,12 @@ type RailProductEntry = { kind: 'board'; board: Board } | { kind: 'hub'; hub: Hu
 function RailProducts({ viewerId, collapsed }: { viewerId: string | null; collapsed: boolean }) {
   const boards = useBoards();
   const hubs = useHubs();
-  const followed = useFollowedScopes(viewerId).data;
+  const followedQuery = useFollowedScopes(viewerId);
+  const followed = followedQuery.data;
+  const waitingForFollows = Boolean(viewerId && (followedQuery.isPending || (followed === undefined && !followedQuery.isError)));
 
-  const { heading, items } = useMemo<{ heading: string; items: RailProductEntry[] }>(() => {
+  const section = useMemo<{ kind: 'followed' | 'popular'; heading: string; items: RailProductEntry[] } | null>(() => {
+    if (waitingForFollows) return null;
     const liveBoards = (boards.data ?? []).filter(isLive);
 
     if (viewerId && followed && followed.size > 0) {
@@ -116,7 +119,7 @@ function RailProducts({ viewerId, collapsed }: { viewerId: string | null; collap
         .sort((a, b) => b.follower_count - a.follower_count || a.name.localeCompare(b.name))
         .map((hub) => ({ kind: 'hub', hub }));
       const picked = [...followedBoards, ...followedHubs].slice(0, FOLLOWED_RAIL_LIMIT);
-      if (picked.length > 0) return { heading: 'Your products', items: picked };
+      if (picked.length > 0) return { kind: 'followed', heading: 'Your products', items: picked };
     }
 
     const popularBoards: RailProductEntry[] = liveBoards
@@ -124,10 +127,12 @@ function RailProducts({ viewerId, collapsed }: { viewerId: string | null; collap
       .sort((a, b) => b.post_count - a.post_count || b.follower_count - a.follower_count || a.name.localeCompare(b.name))
       .slice(0, POPULAR_RAIL_LIMIT)
       .map((board) => ({ kind: 'board', board }));
-    return { heading: 'Popular products', items: popularBoards };
-  }, [viewerId, boards.data, hubs.data, followed]);
+    return { kind: 'popular', heading: 'Popular products', items: popularBoards };
+  }, [waitingForFollows, viewerId, boards.data, hubs.data, followed]);
 
-  if (items.length === 0 || (collapsed && heading === 'Popular products')) return null;
+  if (!section || section.items.length === 0 || (collapsed && section.kind === 'popular')) return null;
+
+  const { heading, items } = section;
 
   return (
     <nav aria-label={heading} className="mb-3 flex flex-col gap-1 border-t border-line pt-3">

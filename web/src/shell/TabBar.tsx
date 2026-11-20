@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, NavLink } from 'react-router';
+import { useEffect, useState } from 'react';
+import { Link, NavLink, useLocation } from 'react-router';
 import { useDmUnread, useIsPlatformAdmin, useMessagesEnabled, useUnreadCount } from '../api';
 import { cx } from '../lib/cx';
 import { THEME_OPTIONS, THEME_SHORT_LABEL } from '../lib/theme';
@@ -10,9 +10,20 @@ import { useAuthDialog, useRequireAuth } from './auth';
 import { useComposer } from './composer';
 import { LegalLinks } from './LegalLinks';
 
+const NON_TEXT_INPUT_TYPES = new Set(['button', 'checkbox', 'color', 'file', 'hidden', 'image', 'radio', 'range', 'reset', 'submit']);
+
+function isTextInput(el: EventTarget | null): boolean {
+  if (!(el instanceof HTMLElement)) return false;
+  if (el.isContentEditable) return true;
+  if (el instanceof HTMLTextAreaElement) return !el.disabled && !el.readOnly;
+  if (el instanceof HTMLInputElement) return !el.disabled && !el.readOnly && !NON_TEXT_INPUT_TYPES.has(el.type);
+  return false;
+}
+
 /** Icon-only tab bar at sm (≤520px), replacing the nav rail, with inline Post action. */
 /** `showPost` is false on full-screen pages (Messages), where the inline composer owns Send. */
 export function TabBar({ showPost = true }: { showPost?: boolean } = {}) {
+  const { pathname } = useLocation();
   const { viewer, signOut } = useViewer();
   const { openAuth } = useAuthDialog();
   const { toast } = useToast();
@@ -21,10 +32,26 @@ export function TabBar({ showPost = true }: { showPost?: boolean } = {}) {
   const { theme, pref, setPref } = useTheme();
   const [sheet, setSheet] = useState(false);
   const [sheetView, setSheetView] = useState<'root' | 'appearance'>('root');
+  const [inputFocused, setInputFocused] = useState(() => (typeof document !== 'undefined' ? isTextInput(document.activeElement) : false));
   const unread = useUnreadCount(viewer?.id ?? null).data ?? 0;
   const staff = useIsPlatformAdmin(viewer?.id ?? null).data ?? false;
   const messages = useMessagesEnabled(viewer?.id ?? null);
   const dmUnread = useDmUnread(viewer?.id ?? null);
+
+  useEffect(() => {
+    const onFocusIn = (e: FocusEvent) => setInputFocused(isTextInput(e.target));
+    const onFocusOut = (e: FocusEvent) => setInputFocused(isTextInput(e.relatedTarget));
+    document.addEventListener('focusin', onFocusIn);
+    document.addEventListener('focusout', onFocusOut);
+    return () => {
+      document.removeEventListener('focusin', onFocusIn);
+      document.removeEventListener('focusout', onFocusOut);
+    };
+  }, []);
+
+  useEffect(() => {
+    setInputFocused(isTextInput(document.activeElement));
+  }, [pathname]);
 
   const closeSheet = () => {
     setSheet(false);
@@ -38,7 +65,10 @@ export function TabBar({ showPost = true }: { showPost?: boolean } = {}) {
     <>
       <nav
         aria-label="Primary"
-        className="fixed inset-x-0 bottom-0 z-30 hidden auto-cols-fr grid-flow-col border-t border-line bg-glass px-1 pt-2 pb-2 backdrop-blur-md max-sm:grid"
+        className={cx(
+          'fixed inset-x-0 bottom-0 z-30 hidden auto-cols-fr grid-flow-col border-t border-line bg-glass px-1 pt-2 pb-2 backdrop-blur-md',
+          !inputFocused && 'max-sm:grid',
+        )}
       >
         <NavLink to="/" end aria-label="Home" className={tabClass}>
           {({ isActive }) => <TabIcon name="home" active={isActive} />}
