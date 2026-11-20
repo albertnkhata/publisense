@@ -63,7 +63,7 @@ export function CategoriesPage() {
               <li key={c.category} className="min-w-0">
                 <Link
                   to={`/c/${c.category}`}
-                  className="flex h-full flex-col gap-1 rounded-md border border-line bg-card p-4 text-ink no-underline transition-colors duration-120 hover:border-line-strong"
+                  className="flex h-full flex-col gap-1 rounded-md border border-line bg-card p-4 text-ink no-underline transition-colors duration-120 hover:border-line-strong hover:bg-subtle/35"
                 >
                   <span className="text-base font-semibold text-ink">{c.label}</span>
                   <span className="truncate text-sm text-ink-muted">{c.examples.join(', ')}</span>

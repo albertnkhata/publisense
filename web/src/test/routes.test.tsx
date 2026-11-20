@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { routes } from '../App';
+import { RouteError } from '../pages/RouteError';
 import { Providers } from '../Providers';
 import { ThemeProvider } from '../lib/ThemeProvider';
 import { StaticViewerProvider, type Viewer } from '../lib/viewer';
@@ -265,12 +266,46 @@ describe('shellLayoutFor', () => {
   });
 });
 
-describe('vercel.json SPA rewrites', () => {
-  it('rewrites public site and app entry paths to /index.html', async () => {
+describe('vercel.json SPA rewrites and security headers', () => {
+  it('rewrites public site and app entry paths to /index.html without exposing /dev/kit', async () => {
     const { default: vercel } = await import('../../vercel.json');
     const spaSources = new Set(vercel.rewrites.filter((r) => r.destination === '/index.html').map((r) => r.source));
     for (const path of ['/feed', '/explore', '/categories', '/c/:category', '/search', '/notifications', '/messages', '/settings', '/about', '/privacy', '/terms', '/unsubscribe', '/auth/reset']) {
       expect(spaSources.has(path)).toBe(true);
+    }
+    expect(spaSources.has('/dev/kit')).toBe(false);
+
+    const globalHeaders = vercel.headers.find((h) => h.source === '/(.*)')?.headers ?? [];
+    const keys = new Set(globalHeaders.map((h) => h.key));
+    expect(keys.has('Content-Security-Policy')).toBe(true);
+    expect(keys.has('Permissions-Policy')).toBe(true);
+    expect(keys.has('Strict-Transport-Security')).toBe(true);
+  });
+});
+
+describe('RouteError', () => {
+  it('renders a branded recovery screen for runtime and stale-chunk errors', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const Boom = () => {
+        throw new Error('Unexpected boom');
+      };
+      const router1 = createMemoryRouter([{ path: '/', element: <Boom />, errorElement: <RouteError /> }], { initialEntries: ['/'] });
+      const first = render(<RouterProvider router={router1} />);
+      expect(screen.getByRole('heading', { level: 1, name: 'Something went wrong' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Reload page' })).toBeTruthy();
+      expect(screen.getByRole('link', { name: 'Go home' }).getAttribute('href')).toBe('/');
+      first.unmount();
+
+      const StaleChunk = () => {
+        throw new Error('Failed to fetch dynamically imported module: /assets/index.js');
+      };
+      const router2 = createMemoryRouter([{ path: '/', element: <StaleChunk />, errorElement: <RouteError /> }], { initialEntries: ['/'] });
+      render(<RouterProvider router={router2} />);
+      expect(screen.getByRole('heading', { level: 1, name: 'A new version of Publisense is available' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Reload page' })).toBeTruthy();
+    } finally {
+      spy.mockRestore();
     }
   });
 });

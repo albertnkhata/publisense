@@ -3,6 +3,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router';
 import { AppShell } from './shell/AppShell';
 import { EXPLORE_PAGE, MANAGE_PAGE, MESSAGES_PAGE, NO_RAIL_NARROW, SITE_PAGE, STAFF_PAGE } from './shell/layout';
 import { NotFound } from './pages/NotFound';
+import { RouteError } from './pages/RouteError';
 import {
   AboutPage,
   AdminDisputesPage,
@@ -35,7 +36,7 @@ import {
   UserPage,
 } from './pages/routes';
 
-const DevKit = lazy(() => import('./pages/DevKit'));
+const DevKit = import.meta.env.DEV ? lazy(() => import('./pages/DevKit')) : null;
 
 /**
  * FOUNDATION §9 route table. Real paths; the mockup's #hash routes do not carry over.
@@ -50,6 +51,7 @@ export const routes = [
   {
     path: '/',
     element: <AppShell />,
+    errorElement: <RouteError />,
     children: [
       { index: true, handle: EXPLORE_PAGE, element: <HomePage /> },
       { path: 'feed', element: <FeedPage /> },
@@ -96,14 +98,19 @@ export const routes = [
       { path: '*', element: <NotFound /> },
     ],
   },
-  {
-    path: '/dev/kit',
-    element: (
-      <Suspense fallback={null}>
-        <DevKit />
-      </Suspense>
-    ),
-  },
+  ...(DevKit
+    ? [
+        {
+          path: '/dev/kit',
+          errorElement: <RouteError />,
+          element: (
+            <Suspense fallback={null}>
+              <DevKit />
+            </Suspense>
+          ),
+        },
+      ]
+    : []),
 ];
 
 const router = createBrowserRouter(routes);

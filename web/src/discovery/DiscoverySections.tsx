@@ -81,7 +81,7 @@ export function YourProductsSection({
             <li key={`board:${item.board.id}`} className="min-w-0">
               <Link
                 to={`/b/${item.board.slug}`}
-                className="flex h-full items-center gap-3 rounded-md border border-line bg-card p-3 text-ink no-underline transition-colors duration-120 hover:border-line-strong"
+                className="flex h-full items-center gap-3 rounded-md border border-line bg-card p-3 text-ink no-underline transition-colors duration-120 hover:border-line-strong hover:bg-subtle/35"
               >
                 <BoardAvatar name={item.board.name} color={item.board.color} logoSrc={logoSrc(item.board)} size="md" decorative />
                 <span className="flex min-w-0 flex-1 flex-col">
@@ -96,7 +96,7 @@ export function YourProductsSection({
             <li key={`hub:${item.hub.id}`} className="min-w-0">
               <Link
                 to={`/h/${item.hub.slug}`}
-                className="flex h-full items-center gap-3 rounded-md border border-line bg-card p-3 text-ink no-underline transition-colors duration-120 hover:border-line-strong"
+                className="flex h-full items-center gap-3 rounded-md border border-line bg-card p-3 text-ink no-underline transition-colors duration-120 hover:border-line-strong hover:bg-subtle/35"
               >
                 <HubAvatar
                   name={`${item.hub.name} hub`}
@@ -252,7 +252,7 @@ export function PopularPostsSection({ id = 'disc-popular' }: { id?: string }) {
             {posts.map((p) => {
               const voteLabel = `${p.voted ? 'Remove upvote' : 'Upvote'}, ${p.vote_count} ${p.vote_count === 1 ? 'vote' : 'votes'}`;
               return (
-                <li key={p.id} className="flex items-center gap-3 px-4 py-3">
+                <li key={p.id} className="flex items-center gap-3 px-4 py-3 transition-colors duration-120 hover:bg-subtle/35">
                   <button
                     type="button"
                     aria-pressed={p.voted}
@@ -274,7 +274,7 @@ export function PopularPostsSection({ id = 'disc-popular' }: { id?: string }) {
                       'inline-flex min-w-8 shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-sm border px-2 py-1 font-mono text-xs leading-none font-semibold tabular-nums transition-colors duration-120',
                       p.voted
                         ? 'border-brand bg-brand-soft text-brand'
-                        : 'border-line bg-subtle text-ink-secondary hover:border-line-strong hover:text-ink',
+                        : 'border-line-strong bg-card text-ink-secondary hover:border-brand hover:bg-brand-soft hover:text-brand',
                     )}
                   >
                     <Icon name="arrow-up" size={12} />
@@ -341,7 +341,7 @@ export function CategoriesSection({ boards, id = 'disc-categories' }: { boards: 
           <li key={c.category} className="min-w-0">
             <Link
               to={`/c/${c.category}`}
-              className="flex h-full flex-col gap-1 rounded-md border border-line bg-card p-4 text-ink no-underline transition-colors duration-120 hover:border-line-strong"
+              className="flex h-full flex-col gap-1 rounded-md border border-line bg-card p-4 text-ink no-underline transition-colors duration-120 hover:border-line-strong hover:bg-subtle/35"
             >
               <span className="text-base font-semibold text-ink">{c.label}</span>
               <span className="truncate text-sm text-ink-muted">{c.examples.join(', ')}</span>

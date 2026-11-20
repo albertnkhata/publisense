@@ -34,7 +34,7 @@ export function FeedPage() {
   const isFollowingGate = !viewer && scope === 'following';
 
   return (
-    <section aria-labelledby="page-title" className="flex flex-col gap-4">
+    <section aria-labelledby="page-title" className="flex flex-col">
       <h1 id="page-title" className="sr-only">
         {scope === 'following' ? 'Following' : 'Feed'}
       </h1>
@@ -55,7 +55,7 @@ export function FeedPage() {
       <div role="tabpanel" id={`feed-panel-${scope}`} aria-labelledby={`feed-tab-${scope}`}>
         {isFollowingGate ? (
           ready ? (
-            <div className="rounded-md border border-line bg-card">
+            <div className="mt-4 rounded-md border border-line bg-card">
               <EmptyState
                 icon="users"
                 title="Sign in to see what you follow"
@@ -110,7 +110,11 @@ function Feed({ scope, sort, viewerId }: { scope: FeedScope; sort: FeedSort; vie
   if (feed.isPending) return <PostListSkeleton />;
 
   if (feed.isError && posts.length === 0) {
-    return <LoadError title="We couldn’t load the feed" onRetry={() => void feed.refetch()} retrying={feed.isRefetching} />;
+    return (
+      <div className="mt-4">
+        <LoadError title="We couldn’t load the feed" onRetry={() => void feed.refetch()} retrying={feed.isRefetching} />
+      </div>
+    );
   }
 
   if (posts.length === 0) {
@@ -119,7 +123,7 @@ function Feed({ scope, sort, viewerId }: { scope: FeedScope; sort: FeedSort; vie
         Nothing from what you follow yet. Follow people, boards or posts and they’ll show up here.
       </p>
     ) : (
-      <div className="rounded-md border border-line bg-card">
+      <div className="mt-4 rounded-md border border-line bg-card">
         <EmptyState
           icon="reply"
           title="No posts yet"

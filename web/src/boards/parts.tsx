@@ -250,7 +250,7 @@ export function BoardCard({ board, now = new Date() }: { board: Board; now?: Dat
         ? `Added ${/^\d+w$/.test(age) ? `${age} ago` : age}`
         : null;
   return (
-    <article className="relative flex h-full min-w-0 flex-col gap-3 rounded-md border border-line bg-card p-4 transition-colors duration-120 hover:border-line-strong">
+    <article className="relative flex h-full min-w-0 flex-col gap-3 rounded-md border border-line bg-card p-4 transition-colors duration-120 hover:border-line-strong hover:bg-subtle/35">
       <div className="flex min-w-0 items-center gap-3">
         <BoardAvatar name={board.name} color={board.color} logoSrc={logoSrc(board)} size="xl" decorative />
         <span className="flex min-w-0 flex-1 flex-col">

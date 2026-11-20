@@ -27,6 +27,12 @@ export function initMonitoring(): void {
   });
 }
 
+/** Report a route or boundary error to Sentry when monitoring is enabled. */
+export function reportError(error: unknown): void {
+  if (!dsn) return;
+  Sentry.captureException(error);
+}
+
 /** Root options for createRoot: report React render errors when monitoring is on. */
 export const rootErrorOptions = dsn
   ? {

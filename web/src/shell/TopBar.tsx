@@ -114,7 +114,7 @@ function NotificationBell({ count }: { count: number }) {
       {count > 0 ? (
         <span
           aria-hidden="true"
-          className="absolute top-1 right-0 min-w-4 rounded-pill bg-brand px-1 text-center font-mono text-xs leading-4 font-semibold text-on-brand tabular-nums ring-2 ring-card"
+          className="absolute top-0 right-0 min-w-4 rounded-pill bg-brand px-1 text-center font-mono text-xs leading-4 font-semibold text-on-brand tabular-nums ring-2 ring-card"
         >
           {count > 99 ? '99+' : count}
         </span>
@@ -140,7 +140,7 @@ function MessagesLink({ count }: { count: number }) {
       {count > 0 ? (
         <span
           aria-hidden="true"
-          className="absolute top-1 right-0 min-w-4 rounded-pill bg-brand px-1 text-center font-mono text-xs leading-4 font-semibold text-on-brand tabular-nums ring-2 ring-card"
+          className="absolute top-0 right-0 min-w-4 rounded-pill bg-brand px-1 text-center font-mono text-xs leading-4 font-semibold text-on-brand tabular-nums ring-2 ring-card"
         >
           {count > 99 ? '99+' : count}
         </span>
