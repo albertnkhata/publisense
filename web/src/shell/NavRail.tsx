@@ -19,6 +19,7 @@ import { BoardAvatar, HubAvatar, Icon, Tooltip, type IconName } from '../ui';
 
 const NAV_KEY = 'publisense:nav-collapsed';
 const FOLLOWED_RAIL_LIMIT = 8;
+const POPULAR_RAIL_LIMIT = 6;
 const navListeners = new Set<() => void>();
 
 function readCollapsed(): boolean {
@@ -86,7 +87,7 @@ export function NavRail() {
           <NavRow to="/categories" icon="hub" label="Categories" collapsed={collapsed} active={isCategories} />
         </nav>
 
-        {viewer ? <FollowedProducts viewerId={viewer.id} collapsed={collapsed} /> : null}
+        <RailProducts viewerId={viewer?.id ?? null} collapsed={collapsed} />
 
         {staff ? <AdminSections collapsed={collapsed} /> : null}
       </div>
@@ -94,33 +95,43 @@ export function NavRail() {
   );
 }
 
-type FollowedEntry = { kind: 'board'; board: Board } | { kind: 'hub'; hub: Hub };
+type RailProductEntry = { kind: 'board'; board: Board } | { kind: 'hub'; hub: Hub };
 
-function FollowedProducts({ viewerId, collapsed }: { viewerId: string; collapsed: boolean }) {
+function RailProducts({ viewerId, collapsed }: { viewerId: string | null; collapsed: boolean }) {
   const boards = useBoards();
   const hubs = useHubs();
   const followed = useFollowedScopes(viewerId).data;
 
-  const items = useMemo<FollowedEntry[]>(() => {
-    if (!followed || followed.size === 0) return [];
-    const followedBoards: FollowedEntry[] = (boards.data ?? [])
-      .filter((b) => isLive(b) && followed.has(followKey('board', b.id)))
+  const { heading, items } = useMemo<{ heading: string; items: RailProductEntry[] }>(() => {
+    const liveBoards = (boards.data ?? []).filter(isLive);
+
+    if (viewerId && followed && followed.size > 0) {
+      const followedBoards: RailProductEntry[] = liveBoards
+        .filter((b) => followed.has(followKey('board', b.id)))
+        .sort((a, b) => b.post_count - a.post_count || b.follower_count - a.follower_count || a.name.localeCompare(b.name))
+        .map((board) => ({ kind: 'board', board }));
+      const followedHubs: RailProductEntry[] = (hubs.data ?? [])
+        .filter((h) => isProductFamily(h.boards.length) && followed.has(followKey('hub', h.id)))
+        .slice()
+        .sort((a, b) => b.follower_count - a.follower_count || a.name.localeCompare(b.name))
+        .map((hub) => ({ kind: 'hub', hub }));
+      const picked = [...followedBoards, ...followedHubs].slice(0, FOLLOWED_RAIL_LIMIT);
+      if (picked.length > 0) return { heading: 'Your products', items: picked };
+    }
+
+    const popularBoards: RailProductEntry[] = liveBoards
       .slice()
       .sort((a, b) => b.post_count - a.post_count || b.follower_count - a.follower_count || a.name.localeCompare(b.name))
+      .slice(0, POPULAR_RAIL_LIMIT)
       .map((board) => ({ kind: 'board', board }));
-    const followedHubs: FollowedEntry[] = (hubs.data ?? [])
-      .filter((h) => isProductFamily(h.boards.length) && followed.has(followKey('hub', h.id)))
-      .slice()
-      .sort((a, b) => b.follower_count - a.follower_count || a.name.localeCompare(b.name))
-      .map((hub) => ({ kind: 'hub', hub }));
-    return [...followedBoards, ...followedHubs].slice(0, FOLLOWED_RAIL_LIMIT);
-  }, [boards.data, hubs.data, followed]);
+    return { heading: 'Popular products', items: popularBoards };
+  }, [viewerId, boards.data, hubs.data, followed]);
 
   if (items.length === 0) return null;
 
   return (
-    <nav aria-label="Your products" className="mb-3 flex flex-col gap-1 border-t border-line pt-3">
-      {collapsed ? null : <div className="px-3 pb-1 text-xs font-semibold text-ink-muted uppercase">Your products</div>}
+    <nav aria-label={heading} className="mb-3 flex flex-col gap-1 border-t border-line pt-3">
+      {collapsed ? null : <div className="px-3 pb-1 text-xs font-semibold text-ink-muted uppercase">{heading}</div>}
       {items.map((item) => {
         const to = item.kind === 'board' ? `/b/${item.board.slug}` : `/h/${item.hub.slug}`;
         const label = item.kind === 'board' ? item.board.name : `${item.hub.name} hub`;
@@ -143,8 +154,8 @@ function FollowedProducts({ viewerId, collapsed }: { viewerId: string; collapsed
                   <HubAvatar
                     name={`${item.hub.name} hub`}
                     size="xs"
+                    max={2}
                     boards={item.hub.boards.map((b) => ({ name: b.name, color: b.color, logoSrc: logoSrc(b) }))}
-                    reserve
                   />
                 )}
               </span>

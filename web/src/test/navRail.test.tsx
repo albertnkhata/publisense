@@ -44,7 +44,7 @@ describe('NavRail keyboard order and TopBar toggle (#141)', () => {
     );
     const rail = screen.getByRole('complementary', { name: 'Main navigation' });
     const order = tabOrder(rail);
-    expect(order).toEqual(['Home', 'Feed', 'Categories']);
+    expect(order.slice(0, 3)).toEqual(['Home', 'Feed', 'Categories']);
     const btn = screen.getByRole('button', { name: 'Collapse sidebar' });
     expect(btn.getAttribute('aria-keyshortcuts')).toBe('[');
     expect(btn.className).toContain('focus-visible:opacity-100');
@@ -111,7 +111,30 @@ describe('NavRail links and layout', () => {
     expect(screen.queryByRole('navigation', { name: 'Legal links' })).toBeNull();
   });
 
-  it('lists followed boards and hubs under Your products when signed in', () => {
+  it('shows Popular products when signed out or following nothing yet', () => {
+    boardsState.followed = new Set();
+    const { unmount } = renderWith(
+      <ComposerProvider>
+        <NavRail />
+      </ComposerProvider>,
+      { viewer: null },
+    );
+    const signedOutNav = screen.getByRole('navigation', { name: 'Popular products' });
+    expect(within(signedOutNav).getByRole('link', { name: 'Cursor' }).getAttribute('href')).toBe('/b/cursor');
+    expect(screen.queryByRole('navigation', { name: 'Your products' })).toBeNull();
+    unmount();
+
+    renderWith(
+      <ComposerProvider>
+        <NavRail />
+      </ComposerProvider>,
+      { viewer: TEST_VIEWER },
+    );
+    const dayOneNav = screen.getByRole('navigation', { name: 'Popular products' });
+    expect(within(dayOneNav).getByRole('link', { name: 'Cursor' }).getAttribute('href')).toBe('/b/cursor');
+  });
+
+  it('switches to Your products when signed in and following boards or hubs', () => {
     boardsState.followed = new Set([followKey('board', CURSOR.id), followKey('hub', FIGMA_HUB.id)]);
     renderWith(
       <ComposerProvider>
@@ -122,6 +145,7 @@ describe('NavRail links and layout', () => {
     const nav = screen.getByRole('navigation', { name: 'Your products' });
     expect(within(nav).getByRole('link', { name: 'Cursor' }).getAttribute('href')).toBe('/b/cursor');
     expect(within(nav).getByRole('link', { name: 'Figma hub' }).getAttribute('href')).toBe('/h/figma');
+    expect(screen.queryByRole('navigation', { name: 'Popular products' })).toBeNull();
     boardsState.followed = new Set();
   });
 });
