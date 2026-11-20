@@ -127,7 +127,7 @@ function RailProducts({ viewerId, collapsed }: { viewerId: string | null; collap
     return { heading: 'Popular products', items: popularBoards };
   }, [viewerId, boards.data, hubs.data, followed]);
 
-  if (items.length === 0) return null;
+  if (items.length === 0 || (collapsed && heading === 'Popular products')) return null;
 
   return (
     <nav aria-label={heading} className="mb-3 flex flex-col gap-1 border-t border-line pt-3">
