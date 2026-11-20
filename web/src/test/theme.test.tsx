@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { ThemeProvider, useTheme } from '../lib/ThemeProvider';
 import { readThemePref, resolveTheme, THEME_KEY, toggledPref, writeThemePref } from '../lib/theme';
+import { ComposerProvider } from '../shell/composer';
+import { TabBar } from '../shell/TabBar';
+import { UserMenu } from '../shell/UserMenu';
+import { renderWith, TEST_VIEWER } from './renderApp';
 
 describe('theme preference', () => {
   it('defaults to system when nothing is stored', () => {
@@ -78,5 +82,73 @@ describe('ThemeProvider toggle', () => {
     );
     expect(screen.getByTestId('state').textContent).toBe('dark/dark');
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+  });
+});
+
+describe('Appearance submenu', () => {
+  it('drills into Appearance in UserMenu, switches themes, supports keyboard back, and resets on reopen', () => {
+    renderWith(<UserMenu viewer={TEST_VIEWER} placement="topbar" />, { viewer: TEST_VIEWER });
+
+    const trigger = screen.getByRole('button', { name: `Account menu for ${TEST_VIEWER.name}` });
+    fireEvent.click(trigger);
+
+    const appearanceRow = screen.getByRole('menuitem', { name: /Appearance/ });
+    expect(appearanceRow.textContent).toContain('Device');
+
+    // Open submenu with ArrowRight
+    fireEvent.keyDown(appearanceRow, { key: 'ArrowRight' });
+    const deviceOption = screen.getByRole('menuitemradio', { name: 'Use device theme' });
+    const darkOption = screen.getByRole('menuitemradio', { name: 'Dark theme' });
+    const lightOption = screen.getByRole('menuitemradio', { name: 'Light theme' });
+
+    expect(deviceOption.getAttribute('aria-checked')).toBe('true');
+    expect(darkOption.getAttribute('aria-checked')).toBe('false');
+    expect(lightOption.getAttribute('aria-checked')).toBe('false');
+
+    // ArrowLeft returns to the root menu
+    fireEvent.keyDown(darkOption, { key: 'ArrowLeft' });
+    expect(screen.getByRole('menuitem', { name: 'Profile' })).toBeTruthy();
+
+    // Click Appearance again and pick Dark theme
+    fireEvent.click(screen.getByRole('menuitem', { name: /Appearance/ }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Dark theme' }));
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+    expect(window.localStorage.getItem(THEME_KEY)).toBe('dark');
+
+    // Reopening starts at the root menu with the updated label
+    fireEvent.click(trigger);
+    expect(screen.getByRole('menuitem', { name: 'Profile' })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: /Appearance/ }).textContent).toContain('Dark');
+
+    // Pick Light theme, then back to Use device theme
+    fireEvent.click(screen.getByRole('menuitem', { name: /Appearance/ }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Light theme' }));
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
+    expect(window.localStorage.getItem(THEME_KEY)).toBe('light');
+
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole('menuitem', { name: /Appearance/ }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Use device theme' }));
+    expect(window.localStorage.getItem(THEME_KEY)).toBeNull();
+  });
+
+  it('drills into Appearance in the mobile TabBar sheet and switches theme', () => {
+    renderWith(
+      <ComposerProvider>
+        <TabBar />
+      </ComposerProvider>,
+      { viewer: TEST_VIEWER },
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'You' }));
+    const appearanceBtn = screen.getByRole('button', { name: /Appearance/ });
+    expect(appearanceBtn.textContent).toContain('Device');
+
+    fireEvent.click(appearanceBtn);
+    expect(screen.getByRole('radio', { name: 'Use device theme' }).getAttribute('aria-checked')).toBe('true');
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Dark theme' }));
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+    expect(window.localStorage.getItem(THEME_KEY)).toBe('dark');
   });
 });

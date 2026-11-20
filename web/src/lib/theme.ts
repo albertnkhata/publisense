@@ -41,7 +41,19 @@ export function applyTheme(theme: ResolvedTheme, root: HTMLElement = document.do
   root.setAttribute('data-theme', theme);
 }
 
-/** The toggle in the avatar menu: flips the resolved theme and stores an explicit choice. */
+export const THEME_OPTIONS: ReadonlyArray<{ value: ThemePref; label: string; shortLabel: string }> = [
+  { value: 'system', label: 'Use device theme', shortLabel: 'Device' },
+  { value: 'dark', label: 'Dark theme', shortLabel: 'Dark' },
+  { value: 'light', label: 'Light theme', shortLabel: 'Light' },
+];
+
+export const THEME_SHORT_LABEL: Record<ThemePref, string> = {
+  system: 'Device',
+  dark: 'Dark',
+  light: 'Light',
+};
+
+/** The ⌃D shortcut toggle: flips the resolved theme and stores an explicit choice. */
 export function toggledPref(current: ResolvedTheme): ThemePref {
   return current === 'dark' ? 'light' : 'dark';
 }

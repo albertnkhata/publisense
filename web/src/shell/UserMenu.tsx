@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { useIsPlatformAdmin } from '../api';
+import { cx } from '../lib/cx';
+import { THEME_OPTIONS, THEME_SHORT_LABEL } from '../lib/theme';
 import { useTheme } from '../lib/ThemeProvider';
 import { useViewer, type Viewer } from '../lib/viewer';
-import { cx } from '../lib/cx';
-import { Icon, Menu, MenuItem, MenuSeparator, Tooltip, UserAvatar, useToast } from '../ui';
+import { Icon, Menu, MenuItem, MenuItemRadio, MenuSeparator, Tooltip, UserAvatar, useToast } from '../ui';
 
 /**
  * Account menu rendered either at the foot of the workspace NavRail or as a
@@ -17,16 +19,22 @@ export function UserMenu({
   collapsed?: boolean;
   placement?: 'rail' | 'topbar';
 }) {
-  const { theme, pref, toggle, setPref } = useTheme();
+  const { theme, pref, setPref } = useTheme();
   const { signOut } = useViewer();
   const { toast } = useToast();
   const staff = useIsPlatformAdmin(viewer.id).data ?? false;
+  const [view, setView] = useState<'root' | 'appearance'>('root');
   const topbar = placement === 'topbar';
   return (
     <Menu
       side={topbar ? 'bottom' : 'top'}
       align={topbar ? 'end' : 'start'}
-      label="Account"
+      label={view === 'appearance' ? 'Appearance' : 'Account'}
+      viewKey={view}
+      onOpenChange={(open) => {
+        if (!open) setView('root');
+      }}
+      onBack={view === 'appearance' ? () => setView('root') : undefined}
       trigger={(props) =>
         topbar ? (
           <button
@@ -60,40 +68,67 @@ export function UserMenu({
         )
       }
     >
-      <MenuItem icon="user" to={`/u/${viewer.handle}`}>
-        Profile
-      </MenuItem>
-      <MenuItem icon="settings" to="/settings">
-        Settings
-      </MenuItem>
-      {staff ? (
-        <MenuItem icon="shield" to="/admin" description="Command centre, new products, reports, disputes and the admin team">
-          Admin
-        </MenuItem>
-      ) : null}
-      <MenuItem icon={theme === 'dark' ? 'sun' : 'moon'} kbd="⌃D" onSelect={toggle}>
-        {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-      </MenuItem>
-      {pref !== 'system' ? (
-        <MenuItem icon="settings" onSelect={() => setPref('system')} description="Follow your device setting">
-          Use system theme
-        </MenuItem>
-      ) : null}
-      <MenuSeparator />
-      <MenuItem to="/about">About</MenuItem>
-      <MenuItem to="/terms">Terms</MenuItem>
-      <MenuItem to="/privacy">Privacy</MenuItem>
-      <MenuSeparator />
-      <MenuItem
-        icon="sign-out"
-        danger
-        onSelect={async () => {
-          await signOut();
-          toast('Signed out');
-        }}
-      >
-        Sign out
-      </MenuItem>
+      {view === 'appearance' ? (
+        <>
+          <MenuItem icon="arrow-left" keepOpen onSelect={() => setView('root')}>
+            Appearance
+          </MenuItem>
+          <MenuSeparator />
+          {THEME_OPTIONS.map((opt) => (
+            <MenuItemRadio key={opt.value} checked={pref === opt.value} onSelect={() => setPref(opt.value)}>
+              {opt.label}
+            </MenuItemRadio>
+          ))}
+        </>
+      ) : (
+        <>
+          <MenuItem icon="user" to={`/u/${viewer.handle}`}>
+            Profile
+          </MenuItem>
+          <MenuItem icon="settings" to="/settings">
+            Settings
+          </MenuItem>
+          {staff ? (
+            <MenuItem icon="shield" to="/admin" description="Command centre, new products, reports, disputes and the admin team">
+              Admin
+            </MenuItem>
+          ) : null}
+          <MenuItem
+            icon={theme === 'dark' ? 'moon' : 'sun'}
+            keepOpen
+            trailing={
+              <>
+                <span>{THEME_SHORT_LABEL[pref]}</span>
+                <Icon name="chevron-right" size={14} strokeWidth={2} />
+              </>
+            }
+            onSelect={() => setView('appearance')}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                setView('appearance');
+              }
+            }}
+          >
+            Appearance
+          </MenuItem>
+          <MenuSeparator />
+          <MenuItem to="/about">About</MenuItem>
+          <MenuItem to="/terms">Terms</MenuItem>
+          <MenuItem to="/privacy">Privacy</MenuItem>
+          <MenuSeparator />
+          <MenuItem
+            icon="sign-out"
+            danger
+            onSelect={async () => {
+              await signOut();
+              toast('Signed out');
+            }}
+          >
+            Sign out
+          </MenuItem>
+        </>
+      )}
     </Menu>
   );
 }

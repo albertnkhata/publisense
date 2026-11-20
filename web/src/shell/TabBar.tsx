@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, NavLink } from 'react-router';
 import { useDmUnread, useIsPlatformAdmin, useMessagesEnabled, useUnreadCount } from '../api';
 import { cx } from '../lib/cx';
+import { THEME_OPTIONS, THEME_SHORT_LABEL } from '../lib/theme';
 import { useTheme } from '../lib/ThemeProvider';
 import { useViewer } from '../lib/viewer';
 import { Dialog, Icon, UserAvatar, useToast, type IconName } from '../ui';
@@ -17,12 +18,18 @@ export function TabBar({ showPost = true }: { showPost?: boolean } = {}) {
   const { toast } = useToast();
   const { openComposer } = useComposer();
   const requireAuth = useRequireAuth();
-  const { theme, pref, toggle, setPref } = useTheme();
+  const { theme, pref, setPref } = useTheme();
   const [sheet, setSheet] = useState(false);
+  const [sheetView, setSheetView] = useState<'root' | 'appearance'>('root');
   const unread = useUnreadCount(viewer?.id ?? null).data ?? 0;
   const staff = useIsPlatformAdmin(viewer?.id ?? null).data ?? false;
   const messages = useMessagesEnabled(viewer?.id ?? null);
   const dmUnread = useDmUnread(viewer?.id ?? null);
+
+  const closeSheet = () => {
+    setSheet(false);
+    setSheetView('root');
+  };
 
   const tabClass = ({ isActive }: { isActive: boolean }) =>
     cx('relative flex h-8 items-center justify-center no-underline', isActive ? 'text-ink' : 'text-ink-muted');
@@ -92,53 +99,82 @@ export function TabBar({ showPost = true }: { showPost?: boolean } = {}) {
       </nav>
 
       {viewer ? (
-        <Dialog open={sheet} onClose={() => setSheet(false)} title={viewer.name}>
-          <div className="-mx-2 flex flex-col">
-            <SheetLink to={`/u/${viewer.handle}`} icon="user" onClick={() => setSheet(false)}>
-              Profile
-            </SheetLink>
-            <SheetLink to="/settings" icon="settings" onClick={() => setSheet(false)}>
-              Settings
-            </SheetLink>
-            {staff ? (
-              <SheetLink to="/admin" icon="shield" onClick={() => setSheet(false)}>
-                Admin
-              </SheetLink>
-            ) : null}
-            <button type="button" onClick={toggle} className={sheetItem}>
-              <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={20} strokeWidth={1.75} />
-              {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-            </button>
-            {pref !== 'system' ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setPref('system');
-                  setSheet(false);
-                  toast('Theme set to system');
-                }}
-                className={sheetItem}
-              >
-                <Icon name="settings" size={20} strokeWidth={1.75} />
-                Use system theme
+        <Dialog open={sheet} onClose={closeSheet} title={sheetView === 'appearance' ? 'Appearance' : viewer.name}>
+          {sheetView === 'appearance' ? (
+            <div className="-mx-2 flex flex-col">
+              <button type="button" onClick={() => setSheetView('root')} className={sheetItem}>
+                <span className="text-ink-secondary">
+                  <Icon name="arrow-left" size={20} strokeWidth={1.75} />
+                </span>
+                Back
               </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={async () => {
-                setSheet(false);
-                await signOut();
-                toast('Signed out');
-              }}
-              className={cx(sheetItem, 'text-danger')}
-            >
-              <Icon name="sign-out" size={20} strokeWidth={1.75} />
-              Sign out
-            </button>
-          </div>
-          <div className="mt-2 border-t border-line pt-4">
-            <LegalLinks />
-          </div>
+              <div className="my-1 h-px bg-line" />
+              <div role="radiogroup" aria-label="Appearance" className="flex flex-col">
+                {THEME_OPTIONS.map((opt) => {
+                  const checked = pref === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={checked}
+                      onClick={() => {
+                        setPref(opt.value);
+                        closeSheet();
+                      }}
+                      className={cx(sheetItem, 'justify-between', checked && 'font-semibold')}
+                    >
+                      <span>{opt.label}</span>
+                      <span className={cx('text-brand', !checked && 'invisible')}>
+                        <Icon name="check" size={18} strokeWidth={2.25} />
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="-mx-2 flex flex-col">
+                <SheetLink to={`/u/${viewer.handle}`} icon="user" onClick={closeSheet}>
+                  Profile
+                </SheetLink>
+                <SheetLink to="/settings" icon="settings" onClick={closeSheet}>
+                  Settings
+                </SheetLink>
+                {staff ? (
+                  <SheetLink to="/admin" icon="shield" onClick={closeSheet}>
+                    Admin
+                  </SheetLink>
+                ) : null}
+                <button type="button" onClick={() => setSheetView('appearance')} className={sheetItem}>
+                  <span className="text-ink-secondary">
+                    <Icon name={theme === 'dark' ? 'moon' : 'sun'} size={20} strokeWidth={1.75} />
+                  </span>
+                  <span className="flex-1">Appearance</span>
+                  <span className="inline-flex items-center gap-1 text-sm font-normal text-ink-muted">
+                    {THEME_SHORT_LABEL[pref]}
+                    <Icon name="chevron-right" size={16} strokeWidth={1.75} />
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    closeSheet();
+                    await signOut();
+                    toast('Signed out');
+                  }}
+                  className={cx(sheetItem, 'text-danger')}
+                >
+                  <Icon name="sign-out" size={20} strokeWidth={1.75} />
+                  Sign out
+                </button>
+              </div>
+              <div className="mt-2 border-t border-line pt-4">
+                <LegalLinks />
+              </div>
+            </>
+          )}
         </Dialog>
       ) : null}
     </>

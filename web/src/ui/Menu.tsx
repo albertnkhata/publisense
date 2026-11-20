@@ -46,30 +46,59 @@ export interface MenuProps {
   className?: string;
   /** Panel width: auto (min 224) or match the trigger's container. */
   fullWidth?: boolean;
+  /** Called whenever the menu opens or closes. */
+  onOpenChange?: (open: boolean) => void;
+  /** Optional key for in-place submenu views; refocuses the first item when it changes while open. */
+  viewKey?: string;
+  /** Called when ArrowLeft is pressed inside an in-place submenu view. */
+  onBack?: () => void;
 }
 
 const ITEM_SELECTOR = '[role="menuitem"]:not([aria-disabled="true"]),[role="menuitemradio"]:not([aria-disabled="true"]),[role="menuitemcheckbox"]:not([aria-disabled="true"])';
 
-export function Menu({ trigger, children, label, side = 'bottom', align = 'start', className, fullWidth }: MenuProps) {
+export function Menu({
+  trigger,
+  children,
+  label,
+  side = 'bottom',
+  align = 'start',
+  className,
+  fullWidth,
+  onOpenChange,
+  viewKey,
+  onBack,
+}: MenuProps) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const pendingFocus = useRef<'first' | 'last' | null>(null);
   const typeahead = useRef({ text: '', at: 0 });
+  const prevViewKey = useRef(viewKey);
   const triggerId = useId();
   const panelId = useId();
 
   const items = () => Array.from(panelRef.current?.querySelectorAll<HTMLElement>(ITEM_SELECTOR) ?? []);
 
-  const close = useCallback((restoreFocus = true) => {
-    setOpen(false);
-    if (restoreFocus) triggerRef.current?.focus();
-  }, []);
+  const setOpenState = useCallback(
+    (next: boolean) => {
+      setOpen(next);
+      onOpenChange?.(next);
+    },
+    [onOpenChange],
+  );
+
+  const close = useCallback(
+    (restoreFocus = true) => {
+      setOpenState(false);
+      if (restoreFocus) triggerRef.current?.focus();
+    },
+    [setOpenState],
+  );
 
   const openWith = (focus: 'first' | 'last') => {
     pendingFocus.current = focus;
-    setOpen(true);
+    setOpenState(true);
   };
 
   useEffect(() => {
@@ -80,11 +109,19 @@ export function Menu({ trigger, children, label, side = 'bottom', align = 'start
     pendingFocus.current = null;
 
     const onPointerDown = (e: PointerEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+      if (!wrapRef.current?.contains(e.target as Node)) setOpenState(false);
     };
     document.addEventListener('pointerdown', onPointerDown);
     return () => document.removeEventListener('pointerdown', onPointerDown);
-  }, [open]);
+  }, [open, setOpenState]);
+
+  useEffect(() => {
+    const changed = prevViewKey.current !== viewKey;
+    prevViewKey.current = viewKey;
+    if (!open || !changed) return;
+    const list = items();
+    (list[0] ?? panelRef.current)?.focus();
+  }, [open, viewKey]);
 
   const onTriggerKeyDown = (e: ReactKeyboardEvent<HTMLButtonElement>) => {
     if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
@@ -109,6 +146,12 @@ export function Menu({ trigger, children, label, side = 'bottom', align = 'start
       case 'ArrowUp':
         e.preventDefault();
         focusAt(index < 0 ? list.length - 1 : index - 1);
+        break;
+      case 'ArrowLeft':
+        if (onBack) {
+          e.preventDefault();
+          onBack();
+        }
         break;
       case 'Home':
         e.preventDefault();
@@ -186,14 +229,19 @@ export interface MenuItemProps {
   description?: ReactNode;
   /** Keyboard hint shown on the right, e.g. "⌃D". */
   kbd?: string;
+  /** Right-aligned secondary content, e.g. current value and chevron for a submenu. */
+  trailing?: ReactNode;
   danger?: boolean;
   disabled?: boolean;
+  /** Keep the menu open on select (e.g. when switching to an in-place submenu view). */
+  keepOpen?: boolean;
   onSelect?: () => void;
+  onKeyDown?: (e: ReactKeyboardEvent<HTMLButtonElement>) => void;
   /** Render as an in-app link. */
   to?: string;
 }
 
-function ItemContent({ icon, description, kbd, children }: Pick<MenuItemProps, 'icon' | 'description' | 'kbd' | 'children'>) {
+function ItemContent({ icon, description, kbd, trailing, children }: Pick<MenuItemProps, 'icon' | 'description' | 'kbd' | 'trailing' | 'children'>) {
   return (
     <>
       {icon ? (
@@ -205,20 +253,25 @@ function ItemContent({ icon, description, kbd, children }: Pick<MenuItemProps, '
         <span>{children}</span>
         {description ? <span className="text-xs font-normal text-ink-muted">{description}</span> : null}
       </span>
+      {trailing ? <span className="ml-auto flex shrink-0 items-center gap-1 text-xs font-normal text-ink-muted">{trailing}</span> : null}
       {kbd ? <kbd className="ml-auto font-mono text-xs text-ink-muted">{kbd}</kbd> : null}
     </>
   );
 }
 
-export function MenuItem({ children, icon, description, kbd, danger, disabled, onSelect, to }: MenuItemProps) {
+export function MenuItem({ children, icon, description, kbd, trailing, danger, disabled, keepOpen, onSelect, onKeyDown, to }: MenuItemProps) {
   const ctx = useContext(MenuContext);
   const select = () => {
     if (disabled) return;
     onSelect?.();
-    ctx?.close(!to);
+    if (!keepOpen) ctx?.close(!to);
   };
   const classes = cx('group', itemClass, danger ? 'text-danger' : 'text-ink');
-  const content = <ItemContent icon={icon} description={description} kbd={kbd}>{children}</ItemContent>;
+  const content = (
+    <ItemContent icon={icon} description={description} kbd={kbd} trailing={trailing}>
+      {children}
+    </ItemContent>
+  );
   if (to && !disabled) {
     return (
       <Link to={to} role="menuitem" tabIndex={-1} data-danger={danger || undefined} className={classes} onClick={select}>
@@ -235,6 +288,7 @@ export function MenuItem({ children, icon, description, kbd, danger, disabled, o
       data-danger={danger || undefined}
       className={classes}
       onClick={select}
+      onKeyDown={onKeyDown}
     >
       {content}
     </button>
