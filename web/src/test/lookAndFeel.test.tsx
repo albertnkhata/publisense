@@ -24,7 +24,7 @@ describe('collapsed nav rail names its rows (item 5a)', () => {
       </ComposerProvider>,
       { viewer: TEST_VIEWER },
     );
-    for (const name of ['Home', 'Feed', 'Categories']) {
+    for (const name of ['Home', 'Feed']) {
       expect(screen.getByRole('link', { name })).toBeTruthy();
     }
   });

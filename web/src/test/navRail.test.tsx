@@ -35,7 +35,7 @@ function tabOrder(root: HTMLElement): string[] {
 }
 
 describe('NavRail keyboard order and TopBar toggle (#141)', () => {
-  it('orders Home, Feed and Categories in NavRail and toggles collapse from TopBar', () => {
+  it('orders Home and Feed in NavRail and toggles collapse from TopBar', () => {
     renderWith(
       <ComposerProvider>
         <TopBar />
@@ -45,7 +45,7 @@ describe('NavRail keyboard order and TopBar toggle (#141)', () => {
     );
     const rail = screen.getByRole('complementary', { name: 'Main navigation' });
     const order = tabOrder(rail);
-    expect(order.slice(0, 3)).toEqual(['Home', 'Feed', 'Categories']);
+    expect(order.slice(0, 2)).toEqual(['Home', 'Feed']);
     const btn = screen.getByRole('button', { name: 'Collapse sidebar' });
     expect(btn.getAttribute('aria-keyshortcuts')).toBe('[');
     expect(btn.className).toContain('focus-visible:opacity-100');
@@ -97,7 +97,6 @@ describe('NavRail links and layout', () => {
     );
     expect(screen.getByRole('link', { name: 'Home' }).getAttribute('href')).toBe('/');
     expect(screen.getByRole('link', { name: 'Feed' }).getAttribute('href')).toBe('/feed');
-    expect(screen.getByRole('link', { name: 'Categories' }).getAttribute('href')).toBe('/categories');
     unmount();
 
     renderWith(
@@ -108,7 +107,6 @@ describe('NavRail links and layout', () => {
     );
     expect(screen.getByRole('link', { name: 'Home' }).getAttribute('href')).toBe('/');
     expect(screen.getByRole('link', { name: 'Feed' }).className).toContain('text-ink-secondary');
-    expect(screen.getByRole('link', { name: 'Categories' }).getAttribute('href')).toBe('/categories');
     expect(screen.queryByRole('navigation', { name: 'Legal links' })).toBeNull();
   });
 
@@ -122,6 +120,7 @@ describe('NavRail links and layout', () => {
       { viewer: null },
     );
     const categoriesNav = screen.getByRole('navigation', { name: 'Categories' });
+    expect(within(categoriesNav).getByRole('link', { name: 'All' }).getAttribute('href')).toBe('/categories');
     expect(within(categoriesNav).getByRole('link', { name: 'Code editors' }).getAttribute('href')).toBe('/c/code');
     expect(screen.queryByRole('navigation', { name: 'Your products' })).toBeNull();
     expect(screen.queryByRole('navigation', { name: 'Popular products' })).toBeNull();

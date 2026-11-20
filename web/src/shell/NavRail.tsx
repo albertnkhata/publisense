@@ -86,7 +86,6 @@ export function NavRail() {
   const { viewer } = useViewer();
   const { collapsed, belowXl, overlay, closeOverlay } = useNavCollapsed();
   const staff = useIsPlatformAdmin(viewer?.id ?? null).data ?? false;
-  const isCategories = collapsed ? pathname === '/categories' || pathname.startsWith('/c/') : pathname === '/categories';
 
   // Close the below-xl overlay drawer whenever the user navigates or presses Escape.
   useEffect(() => {
@@ -131,7 +130,6 @@ export function NavRail() {
           <nav aria-label="Primary" className="mb-3 flex flex-col gap-1">
             <NavRow to="/" icon="home" label="Home" collapsed={collapsed} end />
             <NavRow to="/feed" icon="feed" label="Feed" collapsed={collapsed} />
-            <NavRow to="/categories" icon="hub" label="Categories" collapsed={collapsed} active={isCategories} />
           </nav>
 
           {viewer ? <FollowedProducts viewerId={viewer.id} collapsed={collapsed} /> : null}
@@ -215,15 +213,28 @@ function RailCategories({ collapsed }: { collapsed: boolean }) {
   if (collapsed || categories.length === 0) return null;
 
   return (
-    <nav aria-label="Categories" className="mb-3 flex flex-col gap-1 border-t border-line pt-3">
-      <div className="px-3 pb-1 text-xs font-semibold text-ink-muted uppercase">Categories</div>
+    <nav aria-label="Categories" className="mb-3 flex flex-col border-t border-line pt-3">
+      <div className="flex items-center justify-between px-3 pb-1">
+        <span className="text-xs font-semibold text-ink-muted uppercase">Categories</span>
+        <NavLink
+          to="/categories"
+          className={({ isActive }) =>
+            cx(
+              'text-xs font-semibold no-underline transition-colors duration-120',
+              isActive ? 'text-brand' : 'text-ink-muted hover:text-ink',
+            )
+          }
+        >
+          All
+        </NavLink>
+      </div>
       {categories.map((c) => (
         <NavLink
           key={c.category}
           to={`/c/${c.category}`}
           className={({ isActive }) =>
             cx(
-              'flex h-row w-full items-center rounded-md px-3 text-sm font-medium whitespace-nowrap no-underline transition-colors duration-120',
+              'flex h-7 w-full items-center rounded-md px-3 text-sm font-medium whitespace-nowrap no-underline transition-colors duration-120',
               isActive ? 'bg-brand-soft font-semibold text-brand' : 'text-ink-secondary hover:bg-subtle hover:text-ink',
             )
           }
