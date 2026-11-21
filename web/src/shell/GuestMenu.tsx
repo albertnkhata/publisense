@@ -33,7 +33,7 @@ export function GuestMenu({ className, showLegal = true }: { className?: string;
             className,
           )}
         >
-          <Icon name="more" size={18} strokeWidth={1.75} />
+          <Icon name="more-vertical" size={18} strokeWidth={1.75} />
         </button>
       )}
     >

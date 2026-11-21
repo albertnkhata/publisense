@@ -114,7 +114,7 @@ export function TabBar({ showPost = true }: { showPost?: boolean } = {}) {
             onClick={() => setSheet(true)}
             className={cx('flex h-8 items-center justify-center border-0 bg-transparent', sheet ? 'text-ink' : 'text-ink-muted')}
           >
-            <TabIcon name="more" active={sheet} />
+            <TabIcon name="more-vertical" active={sheet} />
           </button>
         )}
       </nav>
