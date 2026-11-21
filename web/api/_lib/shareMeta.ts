@@ -9,7 +9,7 @@
 export const SITE = 'https://publisense.app';
 export const DEFAULT_TITLE = 'Publisense';
 export const DEFAULT_DESCRIPTION =
-  'Public feedback boards for the products you use. Upvote, follow and share feedback with the teams who build your tools.';
+  'Public feedback boards for the software you use. Report bugs, request features, upvote what matters and hear back from the teams who build it.';
 
 export interface ShareMeta {
   title: string;

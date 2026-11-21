@@ -124,7 +124,7 @@ export function LandingPage() {
               onClick={() => openComposer()}
               className="cursor-pointer border-0 bg-transparent p-0 font-semibold text-brand hover:underline"
             >
-              Share a post →
+              Post it →
             </button>
           </div>
         </div>
@@ -177,7 +177,7 @@ export function LandingPage() {
               Building one of these products?
             </h2>
             <p className="m-0 text-base text-ink-secondary">
-              Reply directly to users and keep everyone posted as features ship.
+              Claim its board for free to reply as the verified team, set statuses and show what shipped.
             </p>
           </div>
           <Button variant="secondary" onClick={() => openClaim()}>

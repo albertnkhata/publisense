@@ -217,7 +217,7 @@ describe('signed-out landing', () => {
 
   it('Share a post opens Sign in to post feedback when signed out', async () => {
     renderApp({ path: '/' });
-    fireEvent.click(await screen.findByRole('button', { name: 'Share a post →' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Post it →' }));
     const dialog = await screen.findByRole('dialog', { name: 'Sign in to Publisense' });
     expect(within(dialog).getByText(/Sign in to post feedback/)).toBeTruthy();
   });

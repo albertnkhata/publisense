@@ -137,7 +137,7 @@ const POPULAR_EMPTY: Record<PopularStatus, string> = {
 };
 
 /**
- * Trending boards this week (3-column grid), or activity-ordered Trending fallback
+ * Trending boards this week (3-column grid), or a "Most active" fallback (all-time activity)
  * when there are no recent posts but boards have existing activity.
  */
 export function DiscoveryBoardsSection({
@@ -183,8 +183,8 @@ export function DiscoveryBoardsSection({
   if (!showMostActiveFallback || mostActive.length === 0) return null;
 
   return (
-    <Section id={id} title="Trending" action={action}>
-      <CardGrid cols={3} label="Trending products">
+    <Section id={id} title="Most active" action={action}>
+      <CardGrid cols={3} label="Most active products">
         {mostActive.map((b) => (
           <li key={b.id} className="min-w-0">
             <BoardCard board={b} now={now} />
@@ -234,7 +234,7 @@ export function PopularPostsSection({ id = 'disc-popular' }: { id?: string }) {
   return (
     <Section
       id={id}
-      title="Recent feedback"
+      title="Top feedback"
       action={
         <Link to="/feed" className="text-sm font-medium text-ink-secondary no-underline hover:text-ink">
           All feedback →
@@ -256,7 +256,7 @@ export function PopularPostsSection({ id = 'disc-popular' }: { id?: string }) {
             ))}
           </div>
         ) : activeQuery?.isError ? (
-          <LoadError title="We couldn’t load popular posts" onRetry={() => void activeQuery.refetch()} retrying={activeQuery.isRefetching} />
+          <LoadError title="We couldn’t load top feedback" onRetry={() => void activeQuery.refetch()} retrying={activeQuery.isRefetching} />
         ) : posts.length === 0 ? (
           <p className="m-0 rounded-md border border-dashed border-line-strong bg-card px-4 py-6 text-center text-sm text-ink-muted">
             {POPULAR_EMPTY[tab]}

@@ -27,12 +27,12 @@ const STEPS: Array<{ icon: IconName; title: string; body: string }> = [
 
 const PRINCIPLES: Array<{ title: string; body: string }> = [
   {
-    title: 'Public index by default',
+    title: 'Public by default',
     body: 'Product feedback belongs where the next person hitting the same edge case can find it, add context, and avoid filing a duplicate.',
   },
   {
-    title: 'Verified team voice, accountable governance',
-    body: 'Official replies only come from teams verified on the product’s domain. Anyone can report an inaccurate claim for independent staff review.',
+    title: 'Only verified teams speak for a product',
+    body: 'Official replies come only from teams verified on the product’s domain. If a claim looks wrong, anyone can report it and the Publisense team reviews it.',
   },
   {
     title: 'No ad tracking or lock-in',
@@ -63,11 +63,11 @@ export function AboutPage() {
       </div>
 
       <Card>
-        <h2 className="mt-0 mb-2 text-lg font-semibold text-ink">Why we built a public index</h2>
+        <h2 className="mt-0 mb-2 text-lg font-semibold text-ink">Why feedback should be public</h2>
         <p className="m-0 text-base text-ink-secondary">
           Most product feedback disappears into private support inboxes or scattered social threads. Users repeat the same workarounds without
-          knowing whether a bug is already tracked, and product teams lose signal in the noise. Publisense puts every product’s bugs, friction
-          notes, and requests in one open, searchable record.
+          knowing whether a bug is already tracked, and product teams can’t tell which requests matter most. Publisense puts every product’s bugs,
+          friction notes, and requests in one open, searchable record.
         </p>
       </Card>
 

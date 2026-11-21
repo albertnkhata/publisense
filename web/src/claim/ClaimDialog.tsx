@@ -576,7 +576,8 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
         </p>
         <ul className="m-0 mb-4 flex list-none flex-col gap-2 p-0 text-base text-ink">
           <Perk>Reply as the verified team behind your product</Perk>
-          <Perk>Set statuses, reply as the team and run the roadmap</Perk>
+          <Perk>Set statuses and run the public roadmap</Perk>
+          <Perk>Free, with no paywall</Perk>
         </ul>
         <div className="rounded-md border border-line bg-subtle px-3 py-3">
           <h3 className="mt-0 mb-2 text-base font-semibold">How it works</h3>
@@ -653,7 +654,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
         ) : (
           <div className="mt-3 rounded-md border border-line bg-card">
             <EmptyState icon="search" title="No product matches yet">
-              Anyone can start one by posting about it.
+              Add it as a product first. You can claim it here once it’s live.
             </EmptyState>
           </div>
         )}
