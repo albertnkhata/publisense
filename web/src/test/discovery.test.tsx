@@ -806,7 +806,7 @@ describe('landing page & auth handoff', () => {
 
   it('saves pending composer intent on signed-out Share a post click, clears on cancel, and resumes when signed in', async () => {
     const first = renderAt('/landing');
-    fireEvent.click(await screen.findByRole('button', { name: 'Share a post →' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Post it →' }));
     const authDialog = await screen.findByRole('dialog', { name: 'Sign in to Publisense' });
     expect(within(authDialog).getByText(/Sign in to post feedback/)).toBeTruthy();
     expect(window.localStorage.getItem('publisense:pending-composer')).toBeTruthy();
