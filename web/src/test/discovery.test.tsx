@@ -595,7 +595,7 @@ describe('signed-in discovery home', () => {
     expect(await screen.findByRole('heading', { name: 'New this week' })).toBeTruthy();
     expect(screen.getByRole('link', { name: /Figma hub/ }).getAttribute('href')).toBe('/h/figma');
     expect(await screen.findByText('Branching for preview databases')).toBeTruthy();
-    expect(await screen.findByRole('heading', { name: 'Recent feedback' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Top feedback' })).toBeTruthy();
     expect(screen.getByText(/Team replied/)).toBeTruthy();
     const cats = screen.getByRole('list', { name: 'Categories' });
     expect(within(cats).getByText('Code editors')).toBeTruthy();
@@ -619,7 +619,7 @@ describe('signed-in discovery home', () => {
     );
     renderAt('/', true);
     const heading = await screen.findByRole('heading', { name: 'Your products' });
-    const trendingHeading = await screen.findByRole('heading', { name: 'Trending' });
+    const trendingHeading = await screen.findByRole('heading', { name: 'Most active' });
     // Your products appears above Trending in document order.
     expect(heading.compareDocumentPosition(trendingHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByRole('link', { name: 'See posts →' }).getAttribute('href')).toBe('/feed?scope=following');
@@ -638,8 +638,8 @@ describe('signed-in discovery home', () => {
   it('shows Trending fallback on signed-in / without + Add a missing product in the section header', async () => {
     boardsApi.fetchTrending.mockResolvedValue([]);
     renderAt('/', true);
-    expect(await screen.findByRole('heading', { name: 'Trending' })).toBeTruthy();
-    const trendingList = screen.getByRole('list', { name: 'Trending products' });
+    expect(await screen.findByRole('heading', { name: 'Most active' })).toBeTruthy();
+    const trendingList = screen.getByRole('list', { name: 'Most active products' });
     expect(within(trendingList).getAllByRole('article').map((a) => within(a).getAllByRole('link')[0]?.textContent)).toEqual([
       'Cursor',
       'Supabase',
@@ -705,7 +705,7 @@ describe('signed-in discovery home', () => {
     postsApi.fetchPopularByStatus.mockResolvedValue([]);
     renderAt('/', true);
     await screen.findByRole('list', { name: 'Categories' });
-    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Recent feedback' })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Top feedback' })).toBeNull());
   });
 
   it('omits the category chip toolbar under Search and opens category cards on a dedicated page', async () => {
@@ -760,11 +760,11 @@ describe('landing page & auth handoff', () => {
       status === 'open' ? [makePopular({ id: 'p-land', title: 'Landing popular open post', status: 'open' })] : [],
     );
     renderAt('/landing');
-    expect(await screen.findByRole('heading', { name: 'Trending' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Most active' })).toBeTruthy();
     expect(screen.queryByRole('toolbar', { name: 'Categories' })).toBeNull();
-    const active = screen.getByRole('list', { name: 'Trending products' });
+    const active = screen.getByRole('list', { name: 'Most active products' });
     expect(within(active).getAllByRole('article').map((a) => within(a).getAllByRole('link')[0]?.textContent)).toEqual(['Cursor', 'Supabase', 'Figma', 'FigJam']);
-    expect(await screen.findByRole('heading', { name: 'Recent feedback' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Top feedback' })).toBeTruthy();
     expect(screen.getByText('Landing popular open post')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Building one of these products?' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Hubs' })).toBeTruthy();
@@ -789,8 +789,8 @@ describe('landing page & auth handoff', () => {
   it('hides Popular posts on the landing page when every status tab is empty', async () => {
     postsApi.fetchPopularByStatus.mockResolvedValue([]);
     renderAt('/landing');
-    expect(await screen.findByRole('heading', { name: 'Trending' })).toBeTruthy();
-    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Recent feedback' })).toBeNull());
+    expect(await screen.findByRole('heading', { name: 'Most active' })).toBeTruthy();
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Top feedback' })).toBeNull());
   });
 
   it('switches to Trending this week when boards have recent activity', async () => {
@@ -801,7 +801,7 @@ describe('landing page & auth handoff', () => {
     ]);
     renderAt('/landing');
     expect(await screen.findByRole('heading', { name: 'Trending this week' })).toBeTruthy();
-    expect(screen.queryByRole('heading', { name: 'Trending' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Most active' })).toBeNull();
   });
 
   it('saves pending composer intent on signed-out Share a post click, clears on cancel, and resumes when signed in', async () => {
@@ -1097,7 +1097,7 @@ describe('search modal', () => {
     renderAt('/well');
     fireEvent.click(trigger());
     const modal = await screen.findByRole('dialog', { name: 'Search' });
-    const group = await within(modal).findByRole('group', { name: 'Trending products' });
+    const group = await within(modal).findByRole('group', { name: 'Most active products' });
     const options = within(group).getAllByRole('option');
     expect(options.map((o) => o.textContent)).toEqual([
       expect.stringContaining('Alpha'),

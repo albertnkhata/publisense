@@ -46,7 +46,7 @@ describe('right rail boards card', () => {
     renderWith(<RailBoards />);
     expect(await screen.findByRole('heading', { name: 'Recently added' })).toBeTruthy();
     expect(screen.queryByText(/Trending/)).toBeNull();
-    const list = screen.getByRole('list', { name: 'Recently added boards' });
+    const list = screen.getByRole('list', { name: 'Recently added products' });
     const rows = within(list).getAllByRole('link');
     expect(rows.map((a) => a.getAttribute('href'))).toEqual(['/b/notion', '/b/linear']);
     expect(rows.map((a) => a.textContent?.slice(-2))).toEqual(['2d', '2w']);
@@ -79,7 +79,7 @@ describe('right rail boards card', () => {
     renderWith(<RailBoards />);
     expect(await screen.findByRole('heading', { name: 'New this week' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Recently added' })).toBeTruthy();
-    const recent = within(screen.getByRole('list', { name: 'Recently added boards' })).getAllByRole('link');
+    const recent = within(screen.getByRole('list', { name: 'Recently added products' })).getAllByRole('link');
     expect(recent.map((a) => a.getAttribute('href'))).toEqual(['/b/notion', '/b/linear']);
   });
 
@@ -87,11 +87,11 @@ describe('right rail boards card', () => {
     boardsApi.fetchTrending.mockResolvedValue([]);
     boardsApi.fetchBoards.mockResolvedValue([CURSOR, SUPABASE, QUIET_NEW]);
     renderWith(<RailBoards />);
-    expect(await screen.findByRole('heading', { name: 'Trending' })).toBeTruthy();
-    const trending = within(screen.getByRole('list', { name: 'Trending boards' })).getAllByRole('link');
+    expect(await screen.findByRole('heading', { name: 'Most active' })).toBeTruthy();
+    const trending = within(screen.getByRole('list', { name: 'Most active products' })).getAllByRole('link');
     expect(trending.map((a) => a.getAttribute('href'))).toEqual(['/b/cursor', '/b/supabase']);
     expect(screen.getByText('92 posts')).toBeTruthy();
-    const recent = within(screen.getByRole('list', { name: 'Recently added boards' })).getAllByRole('link');
+    const recent = within(screen.getByRole('list', { name: 'Recently added products' })).getAllByRole('link');
     expect(recent.map((a) => a.getAttribute('href'))).toEqual(['/b/notion']);
   });
 });
@@ -114,7 +114,7 @@ describe('discovery home while quiet', () => {
     expect(cats.textContent).not.toMatch(/\b\d+\s+products?\b/);
     expect(within(cats).getByText('Linear, Notion')).toBeTruthy();
     expect(cats.textContent).not.toMatch(/\b0 (posts|followers)\b/);
-    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Recent feedback' })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Top feedback' })).toBeNull());
     expect(screen.queryByText(/No .* posts yet/)).toBeNull();
   });
 

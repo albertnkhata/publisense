@@ -520,7 +520,7 @@ function SearchModalBody({
     featuredGroupTitle = 'Most followed products';
   } else {
     featuredBoards = byActivity.slice(0, 4);
-    featuredGroupTitle = 'Trending products';
+    featuredGroupTitle = 'Most active products';
   }
 
   const wantedPosts = (wantedQuery.data ?? []).slice(0, scope === 'posts' ? 8 : 3);

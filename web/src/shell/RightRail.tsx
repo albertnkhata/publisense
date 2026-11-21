@@ -72,7 +72,7 @@ export function ClaimLine() {
 }
 
 // The activity card's heading is trendingTitle(count): one or two rows are not a ranking.
-export const RAIL = { recent: 'Recently added', empty: 'Boards', emptyText: 'Boards with new posts this week will show here.' };
+export const RAIL = { recent: 'Recently added', empty: 'Products', emptyText: 'Products with new posts this week will show here.' };
 
 function RailHeading({ children }: { children: string }) {
   return <h2 className="mt-0 mb-3 text-sm font-bold text-ink">{children}</h2>;
@@ -93,7 +93,7 @@ export function RailBoards() {
   if (boards.isPending || (boards.isSuccess && boards.data.length > 0 && trending.isPending)) {
     return (
       <Card padding="md">
-        <div className="flex flex-col gap-3" role="status" aria-label="Loading boards" aria-busy="true">
+        <div className="flex flex-col gap-3" role="status" aria-label="Loading products" aria-busy="true">
           <SkeletonBlock className="h-4 w-1/2" />
           <SkeletonBlock className="h-4 w-3/4" />
           <SkeletonBlock className="h-4 w-2/3" />
@@ -129,7 +129,7 @@ export function RailBoards() {
         <Card padding="md">
           <RailHeading>{trendingTitle(hot.length)}</RailHeading>
           <RailList
-            label="Boards with new posts this week"
+            label="Products with new posts this week"
             boards={hot}
             meta={(b) => {
               const n = (b as Board & { recent: number }).recent;
@@ -139,9 +139,9 @@ export function RailBoards() {
         </Card>
       ) : fallback.length ? (
         <Card padding="md">
-          <RailHeading>Trending</RailHeading>
+          <RailHeading>Most active</RailHeading>
           <RailList
-            label="Trending boards"
+            label="Most active products"
             boards={fallback}
             meta={(b) =>
               b.post_count > 0
@@ -154,7 +154,7 @@ export function RailBoards() {
       {newest.length ? (
         <Card padding="md">
           <RailHeading>{RAIL.recent}</RailHeading>
-          <RailList label="Recently added boards" boards={newest} meta={(b) => ({ text: shortAge(b.created_at), title: `Added ${new Date(b.created_at).toLocaleDateString()}` })} />
+          <RailList label="Recently added products" boards={newest} meta={(b) => ({ text: shortAge(b.created_at), title: `Added ${new Date(b.created_at).toLocaleDateString()}` })} />
         </Card>
       ) : null}
     </>
