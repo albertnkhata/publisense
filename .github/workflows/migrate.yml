@@ -1,0 +1,132 @@
+# Manual production database migration runner.
+#
+# Applies pending files from supabase/migrations/NNNN_*.sql that are not yet
+# recorded in supabase_migrations.schema_migrations, then runs the rolled-back
+# live smoke test (supabase/tests/v2_live_smoke.sql).
+#
+# Uses the existing SUPABASE_DB_URL repository secret (same as backup.yml / smoke.yml).
+# Trigger via GitHub Actions UI or:
+#   gh workflow run migrate.yml -f dry_run=true
+#   gh workflow run migrate.yml -f target=0068
+name: Migrate database
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Optional 4-digit migration version to apply (e.g. 0068). Leave empty to apply all pending.'
+        required: false
+        default: ''
+        type: string
+      dry_run:
+        description: 'Preview pending migrations without applying anything'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: migrate-db
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check secret and inputs
+        env:
+          DB: ${{ secrets.SUPABASE_DB_URL }}
+          TARGET: ${{ inputs.target }}
+        run: |
+          set -euo pipefail
+          [ -n "$DB" ] || { echo "::error::SUPABASE_DB_URL secret is not set"; exit 1; }
+          if [ -n "$TARGET" ] && ! printf '%s' "$TARGET" | grep -qE '^[0-9]{4}$'; then
+            echo "::error::target must be a 4-digit version like 0068 (got: $TARGET)"
+            exit 1
+          fi
+
+      - name: Apply pending migrations
+        env:
+          DB: ${{ secrets.SUPABASE_DB_URL }}
+          TARGET: ${{ inputs.target }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          DB=$(printf '%s' "$DB" | tr -d '\r\n')
+
+          echo "Latest recorded versions in supabase_migrations.schema_migrations:"
+          psql "$DB" -v ON_ERROR_STOP=1 -qtA -c \
+            "select version from supabase_migrations.schema_migrations order by version desc limit 10;"
+
+          APPLIED=$(psql "$DB" -v ON_ERROR_STOP=1 -tAc \
+            "select version from supabase_migrations.schema_migrations order by version;")
+
+          HAS_NAME=$(psql "$DB" -v ON_ERROR_STOP=1 -tAc \
+            "select 1 from information_schema.columns where table_schema='supabase_migrations' and table_name='schema_migrations' and column_name='name';")
+
+          applied_count=0
+          pending_count=0
+
+          for f in $(ls supabase/migrations/[0-9][0-9][0-9][0-9]_*.sql | sort); do
+            base=$(basename "$f" .sql)
+            ver="${base%%_*}"
+            name="${base#*_}"
+
+            if [ -n "$TARGET" ] && [ "$ver" != "$TARGET" ]; then
+              continue
+            fi
+
+            if printf '%s\n' "$APPLIED" | grep -qx "$ver"; then
+              if [ -n "$TARGET" ]; then
+                echo "SKIP (already recorded): $f"
+              fi
+              continue
+            fi
+
+            pending_count=$((pending_count + 1))
+
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "WOULD APPLY: $f (version=$ver, name=$name)"
+              continue
+            fi
+
+            echo "--- applying $f"
+            if [ "$HAS_NAME" = "1" ]; then
+              RECORD_SQL="insert into supabase_migrations.schema_migrations (version, name) values (:'ver', :'name') on conflict (version) do nothing;"
+            else
+              RECORD_SQL="insert into supabase_migrations.schema_migrations (version) values (:'ver') on conflict (version) do nothing;"
+            fi
+
+            if grep -qiE '\bCONCURRENTLY\b' "$f"; then
+              psql "$DB" -v ON_ERROR_STOP=1 -f "$f"
+              printf '%s\n' "$RECORD_SQL" | psql "$DB" -v ON_ERROR_STOP=1 -v ver="$ver" -v name="$name" -f -
+            else
+              {
+                cat "$f"
+                printf '\n%s\n' "$RECORD_SQL"
+              } | psql "$DB" -v ON_ERROR_STOP=1 --single-transaction -v ver="$ver" -v name="$name" -f -
+            fi
+
+            echo "OK: applied and recorded $ver ($name)"
+            applied_count=$((applied_count + 1))
+          done
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "Dry run complete: $pending_count pending migration(s)."
+          else
+            echo "Migration run complete: $applied_count applied."
+          fi
+
+      - name: Run live smoke suite (rolled back)
+        if: inputs.dry_run != true
+        env:
+          DB: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          DB=$(printf '%s' "$DB" | tr -d '\r\n')
+          psql "$DB" -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_live_smoke.sql
