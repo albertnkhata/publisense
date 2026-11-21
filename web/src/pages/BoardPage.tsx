@@ -24,13 +24,14 @@ import {
 import { ChoiceMenu, FollowScopeButton, type Choice } from '../boards/parts';
 import { Changelog, Roadmap } from '../boards/Roadmap';
 import { FollowerStat, metaLink, ScopeHeader } from '../boards/ScopeHeader';
+import { VerifiedBadgeButton, VerifiedTeamDialog } from '../boards/VerifiedTeamDialog';
 import { useClaim } from '../claim/ClaimDialog';
 import { cx } from '../lib/cx';
 import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { LoadError, PostList, PostListSkeleton } from '../posts/PostList';
 import { useComposer } from '../shell/composer';
-import { BoardAvatar, Button, EmptyState, Icon, IconButton, Input, Menu, MenuItem, Skeleton, SkeletonBlock, useToast, VerifiedBadge } from '../ui';
+import { BoardAvatar, Button, EmptyState, Icon, IconButton, Input, Menu, MenuItem, Skeleton, SkeletonBlock, useToast } from '../ui';
 import { shareLink } from '../lib/share';
 import { useDebounced } from '../lib/useDebounced';
 import { useSetUrlParams } from '../lib/useUrlParam';
@@ -118,6 +119,9 @@ function Board({ board }: { board: BoardWithHub }) {
   const team = useIsBoardTeam(board.id, viewer?.id ?? null);
   const { toast } = useToast();
   const [emptyFeed, setEmptyFeed] = useState(board.post_count === 0);
+  const [verifiedOpen, setVerifiedOpen] = useState(false);
+  const hubTeam = Boolean(board.hub?.claimed_at);
+  const claimed = Boolean(board.claimed_at || hubTeam);
 
   /** Set URL params; a value equal to its default is removed. Tab changes add a history entry. */
   const update = (changes: Array<[key: string, value: string, fallback: string]>) =>
@@ -149,7 +153,7 @@ function Board({ board }: { board: BoardWithHub }) {
         title={board.name}
         tag={
           <>
-            {board.claimed_at || board.hub?.claimed_at ? <VerifiedBadge size="lg" /> : null}
+            {claimed ? <VerifiedBadgeButton onClick={() => setVerifiedOpen(true)} /> : null}
             <ReviewPill board={board} />
           </>
         }
@@ -226,6 +230,21 @@ function Board({ board }: { board: BoardWithHub }) {
           {tab === 'roadmap' ? <RoadmapTab boardIds={ids} /> : <ChangelogTab boardIds={ids} />}
         </div>
       )}
+      {claimed ? (
+        <VerifiedTeamDialog
+          open={verifiedOpen}
+          onClose={() => setVerifiedOpen(false)}
+          kind="board"
+          requestScope={hubTeam && board.hub ? 'hub' : 'board'}
+          requestScopeId={hubTeam && board.hub ? board.hub.id : board.id}
+          slug={board.slug}
+          orgName={hubTeam && board.hub ? board.hub.name : board.name}
+          domain={hubTeam && board.hub ? (board.hub.primary_domain ?? siteDomain(board.site)) : siteDomain(board.site)}
+          claimedAt={board.claimed_at ?? board.hub?.claimed_at}
+          isTeam={Boolean(team.data)}
+          managePath={`/b/${board.slug}/manage`}
+        />
+      ) : null}
     </section>
   );
 }

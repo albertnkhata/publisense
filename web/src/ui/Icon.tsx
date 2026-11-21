@@ -184,6 +184,12 @@ const PATHS = {
     </>
   ),
   // Not in the mockup (it has no author edit/delete); same grid and stroke.
+  calendar: (
+    <>
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <path d="M16 2v4M8 2v4M3 10h18" />
+    </>
+  ),
   edit: <path d="M17 3a2.85 2.85 0 0 1 4 4L7.5 20.5 3 21l.5-4.5zM15 5l4 4" />,
   trash: <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6M10 11v6M14 11v6" />,
 } satisfies Record<string, ReactNode>;

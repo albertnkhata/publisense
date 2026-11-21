@@ -502,6 +502,21 @@ describe('claim a board', () => {
 });
 
 describe('work-at-hub prompts on a claimed board', () => {
+  it('opens the Verified team modal from the header badge and links into the join flow', async () => {
+    const claimedBoard = { ...CURSOR, claimed_at: '2026-10-15T12:00:00Z' };
+    boardsApi.fetchBoard.mockResolvedValue(claimedBoard);
+    boardsApi.fetchBoards.mockResolvedValue([claimedBoard, FIGJAM, FIGMA]);
+    renderAt('/b/cursor');
+    fireEvent.click(await screen.findByRole('button', { name: 'Verified team' }));
+    const modal = await screen.findByRole('dialog', { name: 'Verified team' });
+    expect(within(modal).getByText(/managed by/)).toBeTruthy();
+    expect(within(modal).getByText('cursor.com')).toBeTruthy();
+    expect(within(modal).getByText('Verified since October 2026.')).toBeTruthy();
+    expect(within(modal).getByRole('link', { name: 'Learn more' }).getAttribute('href')).toBe('/about');
+    fireEvent.click(within(modal).getByRole('button', { name: 'Work at Cursor? Request to join' }));
+    expect(await screen.findByRole('dialog', { name: 'Cursor is already claimed' })).toBeTruthy();
+  });
+
   it('sends a join request straight away when the domain is already proved', async () => {
     boardsApi.fetchBoard.mockResolvedValue(CLAIMED);
     boardsApi.fetchBoards.mockResolvedValue([CLAIMED, FIGJAM, FIGMA]);

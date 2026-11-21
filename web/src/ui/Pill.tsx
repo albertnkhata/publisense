@@ -64,15 +64,23 @@ export function TypePill({ type }: { type: PostType }) {
 export function VerifiedBadge({
   size = 'sm',
   label = 'Verified team',
+  decorative = false,
   className,
 }: {
   size?: 'sm' | 'md' | 'lg';
   label?: string;
+  decorative?: boolean;
   className?: string;
 }) {
   const px = size === 'lg' ? 20 : size === 'md' ? 16 : 14;
   return (
-    <span role="img" aria-label={label} title={label} className={cx('inline-flex shrink-0 items-center text-brand', className)}>
+    <span
+      role={decorative ? undefined : 'img'}
+      aria-label={decorative ? undefined : label}
+      aria-hidden={decorative || undefined}
+      title={decorative ? undefined : label}
+      className={cx('inline-flex shrink-0 items-center text-brand', className)}
+    >
       <svg width={px} height={px} viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path
           fill="currentColor"

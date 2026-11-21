@@ -18,11 +18,12 @@ import {
 } from '../api';
 import { BoardRow, ChoiceMenu, FollowScopeButton, RowItem, RowList } from '../boards/parts';
 import { FollowerStat, ScopeHeader, Stat } from '../boards/ScopeHeader';
+import { VerifiedBadgeButton, VerifiedTeamDialog } from '../boards/VerifiedTeamDialog';
 import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { LoadError, PostList, PostListSkeleton } from '../posts/PostList';
 import { useComposer } from '../shell/composer';
-import { BoardAvatar, Button, EmptyState, HubAvatar, Icon, TabPanel, Tabs, useToast, VerifiedBadge } from '../ui';
+import { BoardAvatar, Button, EmptyState, HubAvatar, Icon, TabPanel, Tabs, useToast } from '../ui';
 import { shareLink } from '../lib/share';
 import { useClaim } from '../claim/ClaimDialog';
 import { actionLink, ClaimLink, HeaderSkeleton, RoadmapTab, ScopeNotFound, SORT_CHOICES } from './BoardPage';
@@ -82,6 +83,7 @@ function HubView({ hub }: { hub: Hub }) {
   const counts = usePostCounts(ids);
   const first = hub.boards[0];
   const [emptyFeed, setEmptyFeed] = useState(() => hub.boards.every((b) => b.post_count === 0));
+  const [verifiedOpen, setVerifiedOpen] = useState(false);
 
   const setParam = (key: string, value: string, fallback: string) => setUrl([[key, value, fallback]], { replace: key !== 'tab' });
 
@@ -92,7 +94,7 @@ function HubView({ hub }: { hub: Hub }) {
         title={hub.name}
         tag={
           <>
-            {hub.claimed_at ? <VerifiedBadge size="lg" /> : null}
+            {hub.claimed_at ? <VerifiedBadgeButton onClick={() => setVerifiedOpen(true)} /> : null}
             <span className="inline-flex items-center gap-1 rounded-sm bg-subtle px-2 text-xs font-medium text-ink-secondary">
               <Icon name="hub" size={12} />
               Hub
@@ -170,6 +172,20 @@ function HubView({ hub }: { hub: Hub }) {
           <RoadmapTab boardIds={ids} showBoard perColumn={8} />
         )}
       </TabPanel>
+      {hub.claimed_at ? (
+        <VerifiedTeamDialog
+          open={verifiedOpen}
+          onClose={() => setVerifiedOpen(false)}
+          kind="hub"
+          requestScopeId={hub.id}
+          slug={hub.slug}
+          orgName={hub.name}
+          domain={hub.primary_domain ?? hub.domains[0] ?? null}
+          claimedAt={hub.claimed_at}
+          isTeam={Boolean(role.data)}
+          managePath={`/h/${hub.slug}/manage`}
+        />
+      ) : null}
     </section>
   );
 }
