@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type { PersonRef } from './posts';
 import {
@@ -159,6 +159,20 @@ export function useMessages(conversationId: string | null) {
     staleTime: 15_000,
     refetchInterval: 60_000,
   });
+}
+
+export function usePrefetchMessages() {
+  const qc = useQueryClient();
+  return useCallback(
+    (conversationId: string) => {
+      void qc.prefetchQuery({
+        queryKey: dmKeys.thread(conversationId),
+        queryFn: () => fetchMessages(conversationId),
+        staleTime: 15_000,
+      });
+    },
+    [qc],
+  );
 }
 
 function useInvalidateDm() {

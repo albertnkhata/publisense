@@ -257,11 +257,40 @@ describe('a conversation', () => {
 });
 
 describe('starting a conversation', () => {
-  it('opens the existing conversation with that person', async () => {
-    people.fetchProfileByHandle.mockResolvedValue({ ...OTHER, bio: '', created_at: iso(100), follower_count: 0 });
+  it('opens the existing conversation immediately by handle without waiting for fetchProfileByHandle', async () => {
     dm.fetchConversations.mockResolvedValue([conv({ unread: 0 })]);
     const { router } = renderAt('/messages/to/jmwamba');
     await waitFor(() => expect(router.state.location.pathname).toBe('/messages/c1'));
+    expect(people.fetchProfileByHandle).not.toHaveBeenCalled();
+  });
+
+  it('fetches messages in parallel with conversations on cold load of /messages/:id', async () => {
+    let resolveList!: (v: Conversation[]) => void;
+    dm.fetchConversations.mockReturnValue(new Promise((r) => (resolveList = r)));
+    dm.fetchMessages.mockResolvedValue([msg('m1', OTHER.id, 'Already loaded')]);
+    renderAt('/messages/c1');
+
+    // fetchMessages starts immediately while dm_conversations is still pending.
+    await waitFor(() => expect(dm.fetchMessages).toHaveBeenCalledWith('c1'));
+    resolveList([conv({ unread: 0 })]);
+    expect(await screen.findByText('Already loaded')).toBeTruthy();
+    expect(dm.fetchMessages).toHaveBeenCalledTimes(1);
+  });
+
+  it('prefetches conversation threads on hover/focus in the list', async () => {
+    dm.fetchConversations.mockResolvedValue([
+      conv({ id: 'c1', unread: 0 }),
+      conv({ id: 'c2', other: STRANGER, unread: 0 }),
+      conv({ id: 'c3', other: { ...OTHER, id: 'x3', handle: 'zed', name: 'Zed' }, unread: 0 }),
+      conv({ id: 'c4', other: { ...OTHER, id: 'x4', handle: 'kai', name: 'Kai' }, unread: 0 }),
+    ]);
+    renderAt('/messages');
+    const inbox = await screen.findByRole('list', { name: 'Inbox' });
+    // Top 3 conversations warm automatically on list load; 4th warms on pointer enter.
+    await waitFor(() => expect(dm.fetchMessages).toHaveBeenCalledWith('c1'));
+    expect(dm.fetchMessages).not.toHaveBeenCalledWith('c4');
+    fireEvent.pointerEnter(within(inbox).getByRole('link', { name: /Kai/ }));
+    await waitFor(() => expect(dm.fetchMessages).toHaveBeenCalledWith('c4'));
   });
 
   it('starts a new one with an immediate optimistic bubble and seeds the thread on navigation', async () => {
@@ -304,7 +333,8 @@ describe('realtime', () => {
     dm.fetchConversations.mockResolvedValue([conv()]);
     dm.fetchMessages.mockResolvedValue([msg('m1', OTHER.id, 'See you there')]);
     renderAt('/messages/c1');
-    expect(await screen.findByText('See you there')).toBeTruthy();
+    const thread = await screen.findByRole('list', { name: 'Messages' });
+    expect(await within(thread).findByText('See you there')).toBeTruthy();
     expect(dm.subscribeToDmMessages).toHaveBeenCalledTimes(1);
     expect(dm.subscribeToDmMessages).toHaveBeenCalledWith(TEST_VIEWER.id, expect.any(Function), expect.any(Function));
     expect(dm.fetchMessages).toHaveBeenCalledTimes(1);

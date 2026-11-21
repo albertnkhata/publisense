@@ -13,6 +13,7 @@ import {
   useMuteConversation,
   usePeopleSearch,
   usePerson,
+  usePrefetchMessages,
   useSendMessage,
   useSetPersonBlocked,
   useStartConversation,
@@ -26,7 +27,23 @@ import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { LoadError } from '../posts/PostList';
 import { useAuthDialog } from '../shell/auth';
-import { Button, Dialog, EmptyState, Icon, IconButton, Input, Menu, MenuItem, MenuSeparator, Spinner, Tabs, Textarea, UserAvatar, useToast } from '../ui';
+import {
+  Button,
+  Dialog,
+  EmptyState,
+  Icon,
+  IconButton,
+  Input,
+  Menu,
+  MenuItem,
+  MenuSeparator,
+  SkeletonBlock,
+  Spinner,
+  Tabs,
+  Textarea,
+  UserAvatar,
+  useToast,
+} from '../ui';
 import { NotFound } from './NotFound';
 
 /*
@@ -217,6 +234,7 @@ function ConversationList({
   onNewChat: () => void;
 }) {
   const list = useConversations(viewerId);
+  const prefetch = usePrefetchMessages();
   const all = list.data ?? [];
   const inbox = all.filter((c) => c.state === 'inbox');
   const requests = all.filter((c) => c.state === 'request');
@@ -229,6 +247,13 @@ function ConversationList({
   }, [activeId, activeState]);
   const shown = tab === 'inbox' ? inbox : requests;
   const unreadInbox = inbox.filter((c) => c.unread > 0).length;
+
+  // Warm the top few threads while the viewer is looking at the list so opening one is instant.
+  const topIds = activeId ? '' : shown.slice(0, 3).map((c) => c.id).join(',');
+  useEffect(() => {
+    if (!topIds) return;
+    for (const id of topIds.split(',')) prefetch(id);
+  }, [topIds, prefetch]);
 
   return (
     <>
@@ -279,7 +304,7 @@ function ConversationList({
             <ul className="m-0 list-none p-0" aria-label={tab === 'inbox' ? 'Inbox' : 'Requests'}>
               {shown.map((c) => (
                 <li key={c.id}>
-                  <ConversationRow c={c} viewerId={viewerId} />
+                  <ConversationRow c={c} viewerId={viewerId} onPrefetch={prefetch} />
                 </li>
               ))}
             </ul>
@@ -290,12 +315,24 @@ function ConversationList({
   );
 }
 
-function ConversationRow({ c, viewerId }: { c: Conversation; viewerId: string }) {
+function ConversationRow({
+  c,
+  viewerId,
+  onPrefetch,
+}: {
+  c: Conversation;
+  viewerId: string;
+  onPrefetch: (id: string) => void;
+}) {
   const unread = c.unread > 0;
   const name = c.other.name || `@${c.other.handle}`;
+  const warm = () => onPrefetch(c.id);
   return (
     <NavLink
       to={`/messages/${c.id}`}
+      onPointerEnter={warm}
+      onPointerDown={warm}
+      onFocus={warm}
       className={({ isActive }) =>
         cx(
           'relative flex items-center gap-3 border-r-2 border-transparent py-3 pr-4 pl-5 text-ink no-underline transition-colors duration-120 hover:bg-subtle',
@@ -340,6 +377,8 @@ export function ConversationPage() {
   const { viewer, ready, enabled } = useGate();
   const list = useConversations(viewer?.id ?? null, enabled);
   const conv = useMemo(() => (list.data ?? []).find((c) => c.id === id) ?? null, [list.data, id]);
+  // Fetch the thread in parallel with dm_conversations on cold loads instead of waiting for <Thread> to mount.
+  const messages = useMessages(viewer && enabled && id && (!list.data || Boolean(conv)) ? id : null);
   usePageTitle(conv ? conv.other.name || `@${conv.other.handle}` : 'Messages');
   if (!ready || !viewer || !enabled || list.isPending) {
     return (
@@ -349,18 +388,37 @@ export function ConversationPage() {
     );
   }
   if (!conv) return <MissingConversation />;
-  return <Thread key={conv.id} conv={conv} viewerId={viewer.id} />;
+  return <Thread key={conv.id} conv={conv} viewerId={viewer.id} messages={messages} />;
 }
 
 /** /messages/to/:handle: the existing conversation with that person, or a new one. */
 export function NewConversationPage() {
   const { handle } = useParams();
   const { viewer, ready, enabled } = useGate();
-  const person = usePerson(handle);
   const list = useConversations(viewer?.id ?? null, enabled);
+  const prefetch = usePrefetchMessages();
+  const existingByHandle = useMemo(() => {
+    if (!handle) return null;
+    const needle = handle.toLowerCase();
+    return (list.data ?? []).find((c) => c.other.handle.toLowerCase() === needle) ?? null;
+  }, [list.data, handle]);
+  const person = usePerson(!list.isPending && !existingByHandle ? handle : undefined);
   const [sending, setSending] = useState<DmMessage | null>(null);
   usePageTitle('New message');
-  if (!ready || !viewer || !enabled || person.isPending || list.isPending) {
+
+  useEffect(() => {
+    if (existingByHandle) prefetch(existingByHandle.id);
+  }, [existingByHandle, prefetch]);
+
+  if (!ready || !viewer || !enabled || list.isPending) {
+    return (
+      <div className="grid flex-1 place-items-center">
+        <Spinner />
+      </div>
+    );
+  }
+  if (existingByHandle) return <Navigate to={`/messages/${existingByHandle.id}`} replace />;
+  if (person.isPending) {
     return (
       <div className="grid flex-1 place-items-center">
         <Spinner />
@@ -446,10 +504,17 @@ function ThreadHeader({ person, muted = false, menu }: { person: PersonRef; mute
   );
 }
 
-function Thread({ conv, viewerId }: { conv: Conversation; viewerId: string }) {
+function Thread({
+  conv,
+  viewerId,
+  messages,
+}: {
+  conv: Conversation;
+  viewerId: string;
+  messages: ReturnType<typeof useMessages>;
+}) {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const messages = useMessages(conv.id);
   const markRead = useMarkConversationRead(viewerId);
   const accept = useAcceptRequest();
   const del = useDeleteConversation();
@@ -521,9 +586,7 @@ function Thread({ conv, viewerId }: { conv: Conversation; viewerId: string }) {
       <ThreadHeader person={conv.other} muted={conv.muted} menu={menu} />
       <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 max-sm:px-3">
         {messages.isPending ? (
-          <div className="grid flex-1 place-items-center">
-            <Spinner />
-          </div>
+          <ThreadSkeleton />
         ) : messages.isError ? (
           <div className="grid flex-1 place-items-center py-4">
             <LoadError title="We couldn’t load these messages" onRetry={() => void messages.refetch()} retrying={messages.isRefetching} />
@@ -564,6 +627,16 @@ function Thread({ conv, viewerId }: { conv: Conversation; viewerId: string }) {
         )}
       </div>
     </section>
+  );
+}
+
+function ThreadSkeleton() {
+  return (
+    <div role="status" aria-label="Loading messages" aria-busy="true" className="mx-auto mt-auto flex w-full max-w-wide flex-col gap-3 py-4">
+      <SkeletonBlock className="h-8 w-2/3 self-start rounded-lg" />
+      <SkeletonBlock className="h-8 w-1/2 self-end rounded-lg" />
+      <SkeletonBlock className="h-8 w-3/5 self-start rounded-lg" />
+    </div>
   );
 }
 
