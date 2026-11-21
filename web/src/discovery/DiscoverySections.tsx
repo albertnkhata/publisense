@@ -215,11 +215,17 @@ export function PopularPostsSection({ id = 'disc-popular' }: { id?: string }) {
   // If every status settled empty with no errors, omit the section entirely so zero-post states don't show an empty box.
   if (!anyPending && !anyError && !firstNonEmpty) return null;
 
-  // Hide status tabs that have settled empty so visitors don't click into dead ends.
+  // Hide status tabs that have settled empty, and omit the tab bar entirely when Open is the only populated status.
   const visibleStatuses = POPULAR_STATUSES.filter((_, i) => {
     const q = popularQueries[i];
     return q?.isPending || q?.isError || (q?.data?.length ?? 0) > 0;
   });
+  const populatedStatuses = POPULAR_STATUSES.filter((_, i) => (popularQueries[i]?.data?.length ?? 0) > 0);
+  const showTabs =
+    populatedStatuses.length > 1 ||
+    (populatedStatuses.length === 1 && populatedStatuses[0] !== 'open') ||
+    (populatedStatuses.length === 0 && anyError);
+
   const candidateTab: PopularStatus = pickedTab ?? firstNonEmpty ?? visibleStatuses[0] ?? 'open';
   const tab: PopularStatus = visibleStatuses.includes(candidateTab) ? candidateTab : (firstNonEmpty ?? visibleStatuses[0] ?? 'open');
   const activeQuery = popularQueries[POPULAR_STATUSES.indexOf(tab)];
@@ -231,38 +237,27 @@ export function PopularPostsSection({ id = 'disc-popular' }: { id?: string }) {
     label: STATUS_META[status].label,
   }));
 
-  return (
-    <Section
-      id={id}
-      title="Top feedback"
-      action={
-        <Link to="/feed" className="text-sm font-medium text-ink-secondary no-underline hover:text-ink">
-          All feedback →
-        </Link>
-      }
-    >
-      <Tabs idBase={id} label="Posts by status" value={tab} onChange={setPickedTab} items={items} className="mb-3" />
-      <TabPanel idBase={id} value={tab}>
-        {waitingForFirst || activeQuery?.isPending ? (
-          <div className="divide-y divide-line rounded-md border border-line bg-card px-4" aria-busy="true">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="flex items-center gap-3 py-3">
-                <SkeletonBlock className="size-8 rounded-sm" />
-                <div className="flex flex-1 flex-col gap-2">
-                  <SkeletonBlock className="h-3 w-3/5" />
-                  <SkeletonBlock className="h-3 w-2/5" />
-                </div>
-              </div>
-            ))}
+  const body =
+    waitingForFirst || activeQuery?.isPending ? (
+      <div className="divide-y divide-line rounded-md border border-line bg-card px-4" aria-busy="true">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="flex items-center gap-3 py-3">
+            <SkeletonBlock className="size-8 rounded-sm" />
+            <div className="flex flex-1 flex-col gap-2">
+              <SkeletonBlock className="h-3 w-3/5" />
+              <SkeletonBlock className="h-3 w-2/5" />
+            </div>
           </div>
-        ) : activeQuery?.isError ? (
-          <LoadError title="We couldn’t load top feedback" onRetry={() => void activeQuery.refetch()} retrying={activeQuery.isRefetching} />
-        ) : posts.length === 0 ? (
-          <p className="m-0 rounded-md border border-dashed border-line-strong bg-card px-4 py-6 text-center text-sm text-ink-muted">
-            {POPULAR_EMPTY[tab]}
-          </p>
-        ) : (
-          <ul aria-label={`${STATUS_META[tab].label} popular posts`} className="m-0 list-none divide-y divide-line rounded-md border border-line bg-card p-0">
+        ))}
+      </div>
+    ) : activeQuery?.isError ? (
+      <LoadError title="We couldn’t load top feedback" onRetry={() => void activeQuery.refetch()} retrying={activeQuery.isRefetching} />
+    ) : posts.length === 0 ? (
+      <p className="m-0 rounded-md border border-dashed border-line-strong bg-card px-4 py-6 text-center text-sm text-ink-muted">
+        {POPULAR_EMPTY[tab]}
+      </p>
+    ) : (
+      <ul aria-label={`${STATUS_META[tab].label} popular posts`} className="m-0 list-none divide-y divide-line rounded-md border border-line bg-card p-0">
             {posts.map((p) => {
               const voteLabel = `${p.voted ? 'Remove upvote' : 'Upvote'}, ${p.vote_count} ${p.vote_count === 1 ? 'vote' : 'votes'}`;
               const boardName = p.board?.name ?? 'Unknown product';
@@ -338,9 +333,29 @@ export function PopularPostsSection({ id = 'disc-popular' }: { id?: string }) {
                 </li>
               );
             })}
-          </ul>
-        )}
-      </TabPanel>
+      </ul>
+    );
+
+  return (
+    <Section
+      id={id}
+      title="Top feedback"
+      action={
+        <Link to="/feed" className="text-sm font-medium text-ink-secondary no-underline hover:text-ink">
+          All feedback →
+        </Link>
+      }
+    >
+      {showTabs ? (
+        <>
+          <Tabs idBase={id} label="Posts by status" value={tab} onChange={setPickedTab} items={items} className="mb-3" />
+          <TabPanel idBase={id} value={tab}>
+            {body}
+          </TabPanel>
+        </>
+      ) : (
+        body
+      )}
     </Section>
   );
 }

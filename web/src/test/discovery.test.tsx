@@ -702,6 +702,15 @@ describe('signed-in discovery home', () => {
     expect(screen.getByRole('link', { name: 'All feedback →' }).getAttribute('href')).toBe('/feed');
     populated.unmount();
 
+    postsApi.fetchPopularByStatus.mockImplementation(async (status: string) =>
+      status === 'open' ? [makePopular({ id: 'p-op-only', title: 'Only open item', status: 'open', vote_count: 0 })] : [],
+    );
+    const openOnly = renderAt('/', true);
+    expect(await screen.findByText('Only open item')).toBeTruthy();
+    expect(screen.queryByRole('tablist', { name: 'Posts by status' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Open' })).toBeNull();
+    openOnly.unmount();
+
     postsApi.fetchPopularByStatus.mockResolvedValue([]);
     renderAt('/', true);
     await screen.findByRole('list', { name: 'Categories' });
