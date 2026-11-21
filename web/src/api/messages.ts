@@ -33,6 +33,27 @@ export interface DmMessage {
   sender: string | null;
   body: string;
   created_at: string;
+  /** Client-only flag while an optimistic send is awaiting server confirmation. */
+  pending?: boolean;
+}
+
+export interface SentMessage {
+  id: string;
+  created_at: string;
+}
+
+export interface StartedConversation {
+  conversation: string;
+  id?: string;
+  created_at?: string;
+}
+
+export interface DmRealtimeRow {
+  conversation_id: string;
+  id?: string;
+  sender?: string | null;
+  body?: string;
+  created_at?: string;
 }
 
 interface ConversationRow {
@@ -114,12 +135,13 @@ export async function fetchMessages(conversationId: string): Promise<DmMessage[]
   return ((data ?? []) as DmMessage[]).reverse();
 }
 
-export async function startConversation(recipientId: string, body: string): Promise<string> {
+export async function startConversation(recipientId: string, body: string): Promise<StartedConversation> {
   const res = await rpc('dm_start', { p_recipient: recipientId, p_body: body });
-  return res.conversation ?? '';
+  return { conversation: res.conversation ?? '', id: res.id, created_at: res.created_at };
 }
-export async function sendMessage(conversationId: string, body: string): Promise<void> {
-  await rpc('dm_send', { p_conversation: conversationId, p_body: body });
+export async function sendMessage(conversationId: string, body: string): Promise<SentMessage> {
+  const res = await rpc('dm_send', { p_conversation: conversationId, p_body: body });
+  return { id: res.id ?? '', created_at: res.created_at ?? new Date().toISOString() };
 }
 export async function acceptRequest(conversationId: string): Promise<void> {
   await rpc('dm_accept', { p_conversation: conversationId });
@@ -168,7 +190,7 @@ export async function fetchBlockedPeople(): Promise<BlockedPerson[]> {
  */
 export function subscribeToDmMessages(
   viewerId: string,
-  onInsert: (row: { conversation_id: string }) => void,
+  onInsert: (row: DmRealtimeRow) => void,
   onReconnect: () => void,
 ): () => void {
   if (!hasSupabaseConfig) return () => {};
@@ -177,8 +199,15 @@ export function subscribeToDmMessages(
   const channel = sb
     .channel(`dm:${viewerId}`)
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dm_message' }, (payload) => {
-      const row = payload.new as { conversation_id?: unknown };
-      if (typeof row.conversation_id === 'string') onInsert({ conversation_id: row.conversation_id });
+      const row = payload.new as Record<string, unknown>;
+      if (typeof row.conversation_id !== 'string') return;
+      onInsert({
+        conversation_id: row.conversation_id,
+        ...(typeof row.id === 'string' ? { id: row.id } : {}),
+        ...(typeof row.sender === 'string' || row.sender === null ? { sender: row.sender as string | null } : {}),
+        ...(typeof row.body === 'string' ? { body: row.body } : {}),
+        ...(typeof row.created_at === 'string' ? { created_at: row.created_at } : {}),
+      });
     })
     .subscribe((status) => {
       if (status !== 'SUBSCRIBED') return;

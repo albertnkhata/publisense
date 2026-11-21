@@ -197,6 +197,35 @@ describe('a conversation', () => {
     fireEvent.change(box, { target: { value: 'hello?' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     expect(await screen.findByText('You can send more once they accept your request.')).toBeTruthy();
+    // Failed optimistic bubble is rolled back and the draft is restored so the user doesn't lose what they typed.
+    const list = await screen.findByRole('list', { name: 'Messages' });
+    await waitFor(() => expect(within(list).queryByText('hello?')).toBeNull());
+    expect((box as HTMLTextAreaElement).value).toBe('hello?');
+  });
+
+  it('appends the message immediately on Send without waiting for the RPC or refetching the thread', async () => {
+    let resolveSend!: (v: { id: string; created_at: string }) => void;
+    dm.sendMessage.mockReturnValue(new Promise((r) => (resolveSend = r)));
+    dm.fetchConversations.mockResolvedValue([conv({ unread: 0 })]);
+    dm.fetchMessages.mockResolvedValue([msg('m1', OTHER.id, 'First thread message')]);
+    renderAt('/messages/c1');
+    expect(await screen.findByText('First thread message')).toBeTruthy();
+    expect(dm.fetchMessages).toHaveBeenCalledTimes(1);
+
+    const box = screen.getByRole('textbox', { name: 'Message' }) as HTMLTextAreaElement;
+    fireEvent.change(box, { target: { value: 'Instant reply' } });
+    fireEvent.keyDown(box, { key: 'Enter' });
+
+    // Cleared and rendered in the thread immediately while the RPC is still in flight.
+    expect(box.value).toBe('');
+    const thread = screen.getByRole('list', { name: 'Messages' });
+    expect(await within(thread).findByText('Instant reply')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Send' }).getAttribute('aria-busy')).toBeNull();
+
+    resolveSend({ id: 'm99', created_at: iso(0) });
+    await waitFor(() => expect(within(thread).getByText('Instant reply').className).not.toContain('opacity-70'));
+    // Reconciled in-place from RPC response: no extra fetchMessages round-trip.
+    expect(dm.fetchMessages).toHaveBeenCalledTimes(1);
   });
 
   it('shows a Muted pill in the thread header, unread count pill in inbox, and retries failed message loads', async () => {
@@ -235,16 +264,22 @@ describe('starting a conversation', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/messages/c1'));
   });
 
-  it('starts a new one with the first message', async () => {
+  it('starts a new one with an immediate optimistic bubble and seeds the thread on navigation', async () => {
+    let resolveStart!: (v: { conversation: string; id: string; created_at: string }) => void;
     people.fetchProfileByHandle.mockResolvedValue({ ...STRANGER, bio: '', created_at: iso(100), follower_count: 0 });
     dm.fetchConversations.mockResolvedValue([]);
-    dm.startConversation.mockResolvedValue('c9');
+    dm.startConversation.mockReturnValue(new Promise((r) => (resolveStart = r)));
     const { router } = renderAt('/messages/to/stranger');
     expect(await screen.findByText(/arrives as a request/)).toBeTruthy();
     fireEvent.change(screen.getByRole('textbox', { name: 'Message' }), { target: { value: 'Hello Sam' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    expect(await screen.findByText('Hello Sam')).toBeTruthy();
     await waitFor(() => expect(dm.startConversation).toHaveBeenCalledWith(STRANGER.id, 'Hello Sam'));
+    resolveStart({ conversation: 'c9', id: 'm1', created_at: iso(0) });
     await waitFor(() => expect(router.state.location.pathname).toBe('/messages/c9'));
+    // Seeded conversation and message render immediately without waiting for fetchMessages.
+    expect(await screen.findByRole('region', { name: 'Conversation with @stranger' })).toBeTruthy();
+    expect(screen.getByText('Hello Sam')).toBeTruthy();
   });
 });
 
@@ -259,8 +294,8 @@ describe('dm error copy', () => {
 });
 
 describe('realtime', () => {
-  it('opens one shared channel and refreshes the thread when a message lands', async () => {
-    let onInsert: (row: { conversation_id: string }) => void = () => {};
+  it('opens one shared channel and merges incoming rows directly without refetching the thread', async () => {
+    let onInsert: (row: { conversation_id: string; id?: string; sender?: string | null; body?: string; created_at?: string }) => void = () => {};
     const stop = vi.fn();
     dm.subscribeToDmMessages.mockImplementation((_viewer: string, ins: typeof onInsert) => {
       onInsert = ins;
@@ -272,10 +307,16 @@ describe('realtime', () => {
     expect(await screen.findByText('See you there')).toBeTruthy();
     expect(dm.subscribeToDmMessages).toHaveBeenCalledTimes(1);
     expect(dm.subscribeToDmMessages).toHaveBeenCalledWith(TEST_VIEWER.id, expect.any(Function), expect.any(Function));
+    expect(dm.fetchMessages).toHaveBeenCalledTimes(1);
 
-    dm.fetchMessages.mockResolvedValue([msg('m1', OTHER.id, 'See you there'), msg('m2', OTHER.id, 'Running late', 0)]);
-    onInsert({ conversation_id: 'c1' });
+    // Full Realtime row appends straight into the cached thread with zero extra fetchMessages calls.
+    onInsert({ conversation_id: 'c1', id: 'm2', sender: OTHER.id, body: 'Running late', created_at: iso(0) });
     expect(await screen.findByText('Running late')).toBeTruthy();
+    expect(dm.fetchMessages).toHaveBeenCalledTimes(1);
+
+    // Re-delivering the same id is a no-op (no duplicate bubble).
+    onInsert({ conversation_id: 'c1', id: 'm2', sender: OTHER.id, body: 'Running late', created_at: iso(0) });
+    expect(screen.getAllByText('Running late')).toHaveLength(1);
   });
 
   it('subscribes for everyone signed in, not only staff (4c)', async () => {

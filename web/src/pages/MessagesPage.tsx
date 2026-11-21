@@ -358,6 +358,7 @@ export function NewConversationPage() {
   const { viewer, ready, enabled } = useGate();
   const person = usePerson(handle);
   const list = useConversations(viewer?.id ?? null, enabled);
+  const [sending, setSending] = useState<DmMessage | null>(null);
   usePageTitle('New message');
   if (!ready || !viewer || !enabled || person.isPending || list.isPending) {
     return (
@@ -373,13 +374,21 @@ export function NewConversationPage() {
   return (
     <section aria-label={`New message to ${p.name || `@${p.handle}`}`} className="flex min-h-0 flex-1 flex-col">
       <ThreadHeader person={p} />
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 overflow-y-auto px-4 text-center">
-        <UserAvatar size="2xl" name={p.name || p.handle} src={avatarSrc(p)} />
-        <p className="m-0 text-lg font-bold text-ink">{p.name || `@${p.handle}`}</p>
-        <p className="m-0 text-sm text-ink-muted">If @{p.handle} doesn’t follow you, your message arrives as a request.</p>
-      </div>
+      {sending ? (
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 max-sm:px-3">
+          <ol className="m-0 mx-auto mt-auto flex w-full max-w-wide list-none flex-col gap-2 p-0 py-4" aria-label="Messages">
+            <Bubble m={sending} mine showTime />
+          </ol>
+        </div>
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 overflow-y-auto px-4 text-center">
+          <UserAvatar size="2xl" name={p.name || p.handle} src={avatarSrc(p)} />
+          <p className="m-0 text-lg font-bold text-ink">{p.name || `@${p.handle}`}</p>
+          <p className="m-0 text-sm text-ink-muted">If @{p.handle} doesn’t follow you, your message arrives as a request.</p>
+        </div>
+      )}
       <div className="shrink-0 border-t border-line px-4 max-sm:px-3">
-        <FirstMessageComposer recipientId={p.id} />
+        <FirstMessageComposer recipient={p} viewerId={viewer.id} onOptimistic={setSending} />
       </div>
     </section>
   );
@@ -441,7 +450,7 @@ function Thread({ conv, viewerId }: { conv: Conversation; viewerId: string }) {
   const { toast } = useToast();
   const navigate = useNavigate();
   const messages = useMessages(conv.id);
-  const markRead = useMarkConversationRead();
+  const markRead = useMarkConversationRead(viewerId);
   const accept = useAcceptRequest();
   const del = useDeleteConversation();
   const block = useSetPersonBlocked();
@@ -550,7 +559,7 @@ function Thread({ conv, viewerId }: { conv: Conversation; viewerId: string }) {
         ) : (
           <>
             {iSentOnlyOne ? <p className="mt-3 mb-0 text-center text-sm text-ink-muted">If @{handle} doesn’t follow you, this is a request until they accept.</p> : null}
-            <ThreadComposer conversationId={conv.id} />
+            <ThreadComposer conversationId={conv.id} viewerId={viewerId} />
           </>
         )}
       </div>
@@ -577,8 +586,9 @@ function Bubble({ m, mine, showTime: time }: { m: DmMessage; mine: boolean; show
       ) : null}
       <p
         className={cx(
-          'm-0 max-w-4/5 rounded-lg px-3 py-2 text-base whitespace-pre-line wrap-break-word',
+          'm-0 max-w-4/5 rounded-lg px-3 py-2 text-base whitespace-pre-line wrap-break-word transition-opacity duration-120',
           mine ? 'bg-brand text-on-brand' : 'bg-subtle text-ink',
+          m.pending && 'opacity-70',
         )}
       >
         {m.body}
@@ -589,7 +599,13 @@ function Bubble({ m, mine, showTime: time }: { m: DmMessage; mine: boolean; show
 
 // ------------------------------------------------------------------ composers
 
-function ComposerForm({ onSend, pending }: { onSend: (body: string, clear: () => void) => void; pending: boolean }) {
+function ComposerForm({
+  onSend,
+  pending = false,
+}: {
+  onSend: (body: string, restore: () => void) => void;
+  pending?: boolean;
+}) {
   const [body, setBody] = useState('');
   const trimmed = body.trim();
   const over = trimmed.length > DM_MAX;
@@ -597,7 +613,9 @@ function ComposerForm({ onSend, pending }: { onSend: (body: string, clear: () =>
   const submit = (e?: FormEvent) => {
     e?.preventDefault();
     if (!trimmed || over || pending) return;
-    onSend(trimmed, () => setBody(''));
+    const text = trimmed;
+    setBody('');
+    onSend(text, () => setBody((cur) => (cur.trim() ? cur : text)));
   };
   // Enter sends, Shift+Enter is a new line (as on X and most chat apps).
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -635,31 +653,61 @@ function ComposerForm({ onSend, pending }: { onSend: (body: string, clear: () =>
   );
 }
 
-function ThreadComposer({ conversationId }: { conversationId: string }) {
+function ThreadComposer({ conversationId, viewerId }: { conversationId: string; viewerId: string }) {
   const { toast } = useToast();
-  const send = useSendMessage(conversationId);
-  return <ComposerForm pending={send.isPending} onSend={(body, clear) => send.mutate(body, { onSuccess: clear, onError: (e) => toast(e.message) })} />;
+  const send = useSendMessage(conversationId, viewerId);
+  return (
+    <ComposerForm
+      onSend={(body, restore) =>
+        send.mutate(body, {
+          onError: (e) => {
+            restore();
+            toast(e.message);
+          },
+        })
+      }
+    />
+  );
 }
 
-function FirstMessageComposer({ recipientId }: { recipientId: string }) {
+function FirstMessageComposer({
+  recipient,
+  viewerId,
+  onOptimistic,
+}: {
+  recipient: PersonRef;
+  viewerId: string;
+  onOptimistic: (m: DmMessage | null) => void;
+}) {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const start = useStartConversation();
+  const start = useStartConversation(viewerId);
   return (
     <ComposerForm
       pending={start.isPending}
-      onSend={(body, clear) =>
+      onSend={(body, restore) => {
+        onOptimistic({
+          id: 'optimistic:first',
+          conversation_id: 'pending',
+          sender: viewerId,
+          body,
+          created_at: new Date().toISOString(),
+          pending: true,
+        });
         start.mutate(
-          { recipientId, body },
+          { recipientId: recipient.id, body, recipient },
           {
-            onSuccess: (id) => {
-              clear();
-              void navigate(`/messages/${id}`, { replace: true });
+            onSuccess: (res) => {
+              void navigate(`/messages/${res.conversation}`, { replace: true });
             },
-            onError: (e) => toast(e.message),
+            onError: (e) => {
+              onOptimistic(null);
+              restore();
+              toast(e.message);
+            },
           },
-        )
-      }
+        );
+      }}
     />
   );
 }
