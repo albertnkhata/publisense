@@ -2,8 +2,8 @@ import { Link, NavLink } from 'react-router';
 import { cx } from '../lib/cx';
 import { useViewer } from '../lib/viewer';
 import { Button, Icon } from '../ui';
-import { AppearanceMenu } from './AppearanceMenu';
 import { BrandSymbol } from './BrandMark';
+import { GuestMenu } from './GuestMenu';
 import { useAuthDialog } from './auth';
 
 const legalLink = ({ isActive }: { isActive: boolean }) =>
@@ -51,10 +51,10 @@ export function SiteHeader() {
             </Link>
           ) : ready ? (
             <>
-              <AppearanceMenu />
               <Button size="sm" variant="secondary" onClick={() => openAuth('signin')}>
                 Sign in
               </Button>
+              <GuestMenu showLegal={false} />
             </>
           ) : null}
         </span>

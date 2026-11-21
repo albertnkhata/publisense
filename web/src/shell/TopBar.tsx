@@ -4,8 +4,8 @@ import { cx } from '../lib/cx';
 import { useShortcut } from '../lib/useShortcut';
 import { useViewer } from '../lib/viewer';
 import { Button, Icon, Tooltip } from '../ui';
-import { AppearanceMenu } from './AppearanceMenu';
 import { BrandSymbol } from './BrandMark';
+import { GuestMenu } from './GuestMenu';
 import { useNavCollapsed } from './NavRail';
 import { SearchWell } from './SearchWell';
 import { UserMenu } from './UserMenu';
@@ -86,10 +86,10 @@ export function TopBar() {
           ) : null}
           {!viewer && ready ? (
             <>
-              <AppearanceMenu className="max-sm:hidden" />
               <Button size="sm" variant="secondary" onClick={() => openAuth('signin')}>
                 Sign in
               </Button>
+              <GuestMenu className="max-sm:hidden" />
             </>
           ) : null}
         </span>
