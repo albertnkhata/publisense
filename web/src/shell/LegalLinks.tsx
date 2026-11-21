@@ -5,7 +5,7 @@ const linkClass = 'text-xs text-ink-muted no-underline hover:text-ink';
 
 /**
  * About · Terms · Privacy · ©. Lives at the foot of the right rail (above lg) and in
- * the TabBar's "You" sheet at sm; signed-in viewers also reach them from the
+ * the TabBar's "You" / "More" sheet at sm; signed-in viewers also reach them from the
  * UserMenu. `inline` puts the © on the same row, for the rail's foot.
  */
 export function LegalLinks({ inline = false, className }: { inline?: boolean; className?: string }) {

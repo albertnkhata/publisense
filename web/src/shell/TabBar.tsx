@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router';
-import { useDmUnread, useIsPlatformAdmin, useMessagesEnabled, useUnreadCount } from '../api';
+import { useIsPlatformAdmin } from '../api';
 import { cx } from '../lib/cx';
 import { THEME_OPTIONS, THEME_SHORT_LABEL } from '../lib/theme';
 import { useTheme } from '../lib/ThemeProvider';
@@ -20,8 +20,12 @@ function isTextInput(el: EventTarget | null): boolean {
   return false;
 }
 
-/** Icon-only tab bar at sm (≤520px), replacing the nav rail, with inline Post action. */
-/** `showPost` is false on full-screen pages (Messages), where the inline composer owns Send. */
+/**
+ * Icon-only 5-item tab bar at sm (≤520px), replacing the nav rail:
+ * Home · Feed · Post (centered) · Search · You (signed in) / More (signed out).
+ * Notifications and Messages stay in TopBar across all widths.
+ * `showPost` is false on full-screen pages (Messages), where the inline composer owns Send.
+ */
 export function TabBar({ showPost = true }: { showPost?: boolean } = {}) {
   const { pathname } = useLocation();
   const { viewer, signOut } = useViewer();
@@ -33,10 +37,7 @@ export function TabBar({ showPost = true }: { showPost?: boolean } = {}) {
   const [sheet, setSheet] = useState(false);
   const [sheetView, setSheetView] = useState<'root' | 'appearance'>('root');
   const [inputFocused, setInputFocused] = useState(() => (typeof document !== 'undefined' ? isTextInput(document.activeElement) : false));
-  const unread = useUnreadCount(viewer?.id ?? null).data ?? 0;
   const staff = useIsPlatformAdmin(viewer?.id ?? null).data ?? false;
-  const messages = useMessagesEnabled(viewer?.id ?? null);
-  const dmUnread = useDmUnread(viewer?.id ?? null);
 
   useEffect(() => {
     const onFocusIn = (e: FocusEvent) => setInputFocused(isTextInput(e.target));
@@ -90,26 +91,9 @@ export function TabBar({ showPost = true }: { showPost?: boolean } = {}) {
             </button>
           </div>
         ) : null}
-        {viewer ? (
-          <NavLink to="/notifications" aria-label={unread > 0 ? `Notifications, ${unread} new` : 'Notifications'} className={tabClass}>
-            {({ isActive }) => (
-              <span className="relative">
-                <TabIcon name="bell" active={isActive} />
-                {unread > 0 ? <span aria-hidden="true" className="absolute top-0 -right-1 size-2 rounded-pill bg-brand ring-2 ring-card" /> : null}
-              </span>
-            )}
-          </NavLink>
-        ) : null}
-        {viewer && messages ? (
-          <NavLink to="/messages" aria-label={dmUnread > 0 ? `Messages, ${dmUnread} unread` : 'Messages'} className={tabClass}>
-            {({ isActive }) => (
-              <span className="relative">
-                <TabIcon name="mail" active={isActive} />
-                {dmUnread > 0 ? <span aria-hidden="true" className="absolute top-0 -right-1 size-2 rounded-pill bg-brand ring-2 ring-card" /> : null}
-              </span>
-            )}
-          </NavLink>
-        ) : null}
+        <NavLink to="/search" aria-label="Search" className={tabClass}>
+          {({ isActive }) => <TabIcon name="search" active={isActive} />}
+        </NavLink>
         {viewer ? (
           <button
             type="button"
@@ -122,71 +106,104 @@ export function TabBar({ showPost = true }: { showPost?: boolean } = {}) {
             <UserAvatar size="sm" src={viewer.avatarUrl ?? null} />
           </button>
         ) : (
-          <button type="button" aria-label="Sign in" onClick={() => openAuth('signin')} className="flex h-8 items-center justify-center border-0 bg-transparent text-ink-muted">
-            <TabIcon name="sign-in" active={false} />
+          <button
+            type="button"
+            aria-label="More"
+            aria-haspopup="dialog"
+            aria-expanded={sheet}
+            onClick={() => setSheet(true)}
+            className={cx('flex h-8 items-center justify-center border-0 bg-transparent', sheet ? 'text-ink' : 'text-ink-muted')}
+          >
+            <TabIcon name="more" active={sheet} />
           </button>
         )}
       </nav>
 
-      {viewer ? (
-        <Dialog open={sheet} onClose={closeSheet} title={sheetView === 'appearance' ? 'Appearance' : viewer.name}>
-          {sheetView === 'appearance' ? (
-            <div className="-mx-2 flex flex-col">
-              <button type="button" onClick={() => setSheetView('root')} className={sheetItem}>
-                <span className="text-ink-secondary">
-                  <Icon name="arrow-left" size={20} strokeWidth={1.75} />
-                </span>
-                Back
-              </button>
-              <div className="my-1 h-px bg-line" />
-              <div role="radiogroup" aria-label="Appearance" className="flex flex-col">
-                {THEME_OPTIONS.map((opt) => {
-                  const checked = pref === opt.value;
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      role="radio"
-                      aria-checked={checked}
-                      onClick={() => {
-                        setPref(opt.value);
-                        closeSheet();
-                      }}
-                      className={cx(sheetItem, 'justify-between', checked && 'font-semibold')}
-                    >
-                      <span>{opt.label}</span>
-                      <span className={cx('text-brand', !checked && 'invisible')}>
-                        <Icon name="check" size={18} strokeWidth={2.25} />
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+      <Dialog open={sheet} onClose={closeSheet} title={sheetView === 'appearance' ? 'Appearance' : viewer ? viewer.name : 'Menu'}>
+        {sheetView === 'appearance' ? (
+          <div className="-mx-2 flex flex-col">
+            <button type="button" onClick={() => setSheetView('root')} className={sheetItem}>
+              <span className="text-ink-secondary">
+                <Icon name="arrow-left" size={20} strokeWidth={1.75} />
+              </span>
+              Back
+            </button>
+            <div className="my-1 h-px bg-line" />
+            <div role="radiogroup" aria-label="Appearance" className="flex flex-col">
+              {THEME_OPTIONS.map((opt) => {
+                const checked = pref === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={checked}
+                    onClick={() => {
+                      setPref(opt.value);
+                      closeSheet();
+                    }}
+                    className={cx(sheetItem, 'justify-between', checked && 'font-semibold')}
+                  >
+                    <span>{opt.label}</span>
+                    <span className={cx('text-brand', !checked && 'invisible')}>
+                      <Icon name="check" size={18} strokeWidth={2.25} />
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-          ) : (
-            <>
-              <div className="-mx-2 flex flex-col">
-                <SheetLink to={`/u/${viewer.handle}`} icon="user" onClick={closeSheet}>
-                  Profile
-                </SheetLink>
-                <SheetLink to="/settings" icon="settings" onClick={closeSheet}>
-                  Settings
-                </SheetLink>
-                {staff ? (
-                  <SheetLink to="/admin" icon="shield" onClick={closeSheet}>
-                    Admin
+          </div>
+        ) : (
+          <>
+            <div className="-mx-2 flex flex-col">
+              {viewer ? (
+                <>
+                  <SheetLink to={`/u/${viewer.handle}`} icon="user" onClick={closeSheet}>
+                    Profile
                   </SheetLink>
-                ) : null}
-                <button type="button" onClick={() => setSheetView('appearance')} className={sheetItem}>
-                  <span className="text-ink-secondary">
-                    <Icon name={theme === 'dark' ? 'moon' : 'sun'} size={20} strokeWidth={1.75} />
-                  </span>
-                  <span className="flex-1">Appearance</span>
-                  <span className="inline-flex items-center gap-1 text-sm font-normal text-ink-muted">
-                    {THEME_SHORT_LABEL[pref]}
-                    <Icon name="chevron-right" size={16} strokeWidth={1.75} />
-                  </span>
-                </button>
+                  <SheetLink to="/categories" icon="hub" onClick={closeSheet}>
+                    Categories
+                  </SheetLink>
+                  <SheetLink to="/settings" icon="settings" onClick={closeSheet}>
+                    Settings
+                  </SheetLink>
+                  {staff ? (
+                    <SheetLink to="/admin" icon="shield" onClick={closeSheet}>
+                      Admin
+                    </SheetLink>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      closeSheet();
+                      openAuth('signin');
+                    }}
+                    className={sheetItem}
+                  >
+                    <span className="text-ink-secondary">
+                      <Icon name="sign-in" size={20} strokeWidth={1.75} />
+                    </span>
+                    Sign in
+                  </button>
+                  <SheetLink to="/categories" icon="hub" onClick={closeSheet}>
+                    Categories
+                  </SheetLink>
+                </>
+              )}
+              <button type="button" onClick={() => setSheetView('appearance')} className={sheetItem}>
+                <span className="text-ink-secondary">
+                  <Icon name={theme === 'dark' ? 'moon' : 'sun'} size={20} strokeWidth={1.75} />
+                </span>
+                <span className="flex-1">Appearance</span>
+                <span className="inline-flex items-center gap-1 text-sm font-normal text-ink-muted">
+                  {THEME_SHORT_LABEL[pref]}
+                  <Icon name="chevron-right" size={16} strokeWidth={1.75} />
+                </span>
+              </button>
+              {viewer ? (
                 <button
                   type="button"
                   onClick={async () => {
@@ -199,14 +216,14 @@ export function TabBar({ showPost = true }: { showPost?: boolean } = {}) {
                   <Icon name="sign-out" size={20} strokeWidth={1.75} />
                   Sign out
                 </button>
-              </div>
-              <div className="mt-2 border-t border-line pt-4">
-                <LegalLinks />
-              </div>
-            </>
-          )}
-        </Dialog>
-      ) : null}
+              ) : null}
+            </div>
+            <div className="mt-2 border-t border-line pt-4">
+              <LegalLinks />
+            </div>
+          </>
+        )}
+      </Dialog>
     </>
   );
 }

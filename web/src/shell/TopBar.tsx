@@ -94,7 +94,7 @@ export function TopBar() {
   );
 }
 
-/** The top-bar bell: visible from sm up (TabBar owns Notifications at sm). */
+/** The top-bar bell: visible at every width. */
 function NotificationBell({ count }: { count: number }) {
   return (
     <NavLink
@@ -103,7 +103,7 @@ function NotificationBell({ count }: { count: number }) {
       title="Notifications"
       className={({ isActive }) =>
         cx(
-          'relative grid size-8 place-items-center rounded-md no-underline transition-colors duration-120 hover:bg-subtle hover:text-ink max-sm:hidden',
+          'relative grid size-8 place-items-center rounded-md no-underline transition-colors duration-120 hover:bg-subtle hover:text-ink',
           isActive ? 'text-brand' : 'text-ink-secondary',
         )
       }
@@ -129,7 +129,7 @@ function MessagesLink({ count }: { count: number }) {
       title="Messages"
       className={({ isActive }) =>
         cx(
-          'relative grid size-8 place-items-center rounded-md no-underline transition-colors duration-120 hover:bg-subtle hover:text-ink max-sm:hidden',
+          'relative grid size-8 place-items-center rounded-md no-underline transition-colors duration-120 hover:bg-subtle hover:text-ink',
           isActive ? 'text-brand' : 'text-ink-secondary',
         )
       }

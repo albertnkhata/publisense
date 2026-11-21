@@ -41,8 +41,12 @@ describe('TopBar', () => {
     );
 
     expect(screen.getByRole('link', { name: 'Publisense home' }).getAttribute('href')).toBe('/');
-    expect(screen.getByRole('link', { name: 'Messages, 2 unread' }).getAttribute('href')).toBe('/messages');
-    expect(screen.getByRole('link', { name: 'Notifications, 4 new' }).getAttribute('href')).toBe('/notifications');
+    const messagesLink = screen.getByRole('link', { name: 'Messages, 2 unread' });
+    const notificationsLink = screen.getByRole('link', { name: 'Notifications, 4 new' });
+    expect(messagesLink.getAttribute('href')).toBe('/messages');
+    expect(notificationsLink.getAttribute('href')).toBe('/notifications');
+    expect(messagesLink.className).not.toContain('max-sm:hidden');
+    expect(notificationsLink.className).not.toContain('max-sm:hidden');
     expect(screen.getByRole('button', { name: `Account menu for ${TEST_VIEWER.name}` })).toBeTruthy();
 
     fireEvent.keyDown(document.body, { key: 'c' });
