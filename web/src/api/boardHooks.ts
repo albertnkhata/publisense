@@ -197,8 +197,12 @@ export function useScopeFollow(viewerId: string | null) {
       for (const [k, v] of ctx.snapshots) qc.setQueryData(k, v);
     },
     onSuccess: () => {
-      // The Following feed covers followed boards and hubs.
+      // The Following feed and profile following counts cover followed boards and hubs.
       void qc.invalidateQueries({ queryKey: ['posts', 'feed', 'following'] });
+      if (viewerId) {
+        void qc.invalidateQueries({ queryKey: ['profile-following-count', viewerId] });
+        void qc.invalidateQueries({ queryKey: ['profile-following-scopes', viewerId] });
+      }
     },
   });
 }

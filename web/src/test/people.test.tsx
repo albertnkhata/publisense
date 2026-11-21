@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes } from 'react-router';
+import { followKey } from '../api/boards';
 import type { PublicProfile } from '../api/people';
 import { ClaimProvider } from '../claim/ClaimDialog';
 import { UserPage } from '../pages/UserPage';
 import { SearchPage } from '../pages/SearchPage';
 import { ComposerProvider } from '../shell/composer';
-import { CURSOR } from './boardFixtures';
+import { CURSOR, SUPABASE } from './boardFixtures';
 import { iso, makePost, ME, OTHER } from './postFixtures';
 import { renderWith, TEST_VIEWER } from './renderApp';
 
@@ -15,13 +16,23 @@ const people = vi.hoisted(() => ({
   fetchUserStats: vi.fn(),
   fetchUserReplies: vi.fn(),
   fetchFollowedUsers: vi.fn(),
+  fetchProfileFollowingCount: vi.fn(),
+  fetchProfileFollowers: vi.fn(),
+  fetchProfileFollowingUsers: vi.fn(),
+  fetchProfileFollowingScopes: vi.fn(),
   setUserFollow: vi.fn(),
   fetchManaged: vi.fn(),
   searchPeople: vi.fn(),
 }));
 const posts = vi.hoisted(() => ({ fetchUserPosts: vi.fn(), fetchUpvotedPosts: vi.fn(), searchPosts: vi.fn() }));
 const mod = vi.hoisted(() => ({ fetchAdminScopes: vi.fn(), fetchBlocksFor: vi.fn(), setBlocked: vi.fn(), reportContent: vi.fn(), fetchIsPlatformAdmin: vi.fn() }));
-const boards = vi.hoisted(() => ({ fetchIsBoardTeam: vi.fn(), fetchBoards: vi.fn(), fetchHubs: vi.fn() }));
+const boards = vi.hoisted(() => ({
+  fetchIsBoardTeam: vi.fn(),
+  fetchBoards: vi.fn(),
+  fetchHubs: vi.fn(),
+  fetchFollowedScopes: vi.fn(),
+  setScopeFollow: vi.fn(),
+}));
 vi.mock('../api/people', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/people')>()), ...people }));
 vi.mock('../api/posts', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/posts')>()), ...posts }));
 vi.mock('../api/moderation', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/moderation')>()), ...mod }));
@@ -53,6 +64,10 @@ beforeEach(() => {
     { id: 'r1', body: 'Pin the working directory, then restart.', created_at: iso(5), post: { id: 'p1', title: 'Terminal loses cwd', board: { id: CURSOR.id, slug: 'cursor', name: 'Cursor', color: CURSOR.color, logo_path: null } } },
   ]);
   people.fetchFollowedUsers.mockResolvedValue(new Set());
+  people.fetchProfileFollowingCount.mockResolvedValue(0);
+  people.fetchProfileFollowers.mockResolvedValue([]);
+  people.fetchProfileFollowingUsers.mockResolvedValue([]);
+  people.fetchProfileFollowingScopes.mockResolvedValue([]);
   people.setUserFollow.mockResolvedValue(undefined);
   people.fetchManaged.mockResolvedValue([]);
   people.searchPeople.mockResolvedValue([]);
@@ -67,10 +82,13 @@ beforeEach(() => {
   boards.fetchIsBoardTeam.mockResolvedValue(false);
   boards.fetchBoards.mockResolvedValue([]);
   boards.fetchHubs.mockResolvedValue([]);
+  boards.fetchFollowedScopes.mockResolvedValue(new Set());
+  boards.setScopeFollow.mockResolvedValue(undefined);
 });
 
 describe('user page', () => {
-  it('shows who they are, their numbers, posts and replies', async () => {
+  it('shows who they are, interactive followers/following stats, posts and replies', async () => {
+    people.fetchProfileFollowingCount.mockResolvedValue(5);
     renderAt('/u/jmwamba');
     expect((await screen.findByRole('heading', { level: 1, name: 'J Mwamba' })).textContent).toBe('J Mwamba');
     expect(screen.getByText('@jmwamba')).toBeTruthy();
@@ -78,8 +96,8 @@ describe('user page', () => {
     expect(await screen.findByText('upvotes received')).toBeTruthy();
     expect(screen.getByText('57')).toBeTruthy();
     expect(screen.getByText('Joined Mar 2026')).toBeTruthy();
-    // Other people's following lists are private, so there is no "following" count.
-    expect(screen.queryByText('following')).toBeNull();
+    expect(screen.getByRole('button', { name: '14 followers' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: '5 following' })).toBeTruthy();
     expect(await screen.findByText('Ghost preview in split windows')).toBeTruthy();
     expect(screen.queryByRole('tab', { name: /Upvoted/ })).toBeNull();
 
@@ -88,13 +106,63 @@ describe('user page', () => {
     expect(screen.getByText('Terminal loses cwd')).toBeTruthy();
   });
 
+  it('opens Followers and Following (Products + People) dialogs from the stat row', async () => {
+    people.fetchProfileFollowingCount.mockResolvedValue(2);
+    people.fetchProfileFollowers.mockResolvedValue([{ ...ME, bio: '', follower_count: 3 }]);
+    people.fetchProfileFollowingScopes.mockResolvedValue([
+      { scope: 'board', id: CURSOR.id, slug: CURSOR.slug, name: CURSOR.name, color: CURSOR.color, logo_path: null, follower_count: 120 },
+    ]);
+    people.fetchProfileFollowingUsers.mockResolvedValue([{ id: 'u9', handle: 'lin', name: 'Lin Wu', avatar_path: null, bio: '', follower_count: 8 }]);
+    boards.fetchFollowedScopes.mockResolvedValue(new Set([followKey('board', CURSOR.id)]));
+
+    renderAt('/u/jmwamba');
+    fireEvent.click(await screen.findByRole('button', { name: '14 followers' }));
+    const followersDialog = await screen.findByRole('dialog', { name: 'Followers' });
+    expect(await within(followersDialog).findByRole('link', { name: /Alice/ })).toBeTruthy();
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+
+    fireEvent.click(await screen.findByRole('button', { name: '2 following' }));
+    const followingDialog = await screen.findByRole('dialog', { name: 'Following' });
+    const productsList = await within(followingDialog).findByRole('list', { name: 'Followed products' });
+    expect(within(productsList).getByRole('link', { name: /Cursor/ }).getAttribute('href')).toBe('/b/cursor');
+    fireEvent.click(await within(productsList).findByRole('button', { name: 'Following' }));
+    await waitFor(() => expect(boards.setScopeFollow).toHaveBeenCalledWith('board', CURSOR.id, TEST_VIEWER.id, false));
+
+    fireEvent.click(within(followingDialog).getByRole('tab', { name: /People/ }));
+    const peopleList = await within(followingDialog).findByRole('list', { name: 'Followed people' });
+    expect(within(peopleList).getByRole('link', { name: /Lin Wu/ }).getAttribute('href')).toBe('/u/lin');
+  });
+
+  it('counts followed products and people together under following on your own profile and hides zero noise', async () => {
+    people.fetchUserStats.mockResolvedValue({ posts: 0, upvotes: 0 });
+    people.fetchUserReplies.mockResolvedValue([]);
+    posts.fetchUserPosts.mockResolvedValue({ items: [], next: null });
+    boards.fetchBoards.mockResolvedValue([CURSOR, SUPABASE]);
+    boards.fetchFollowedScopes.mockResolvedValue(new Set([followKey('board', CURSOR.id), followKey('board', SUPABASE.id)]));
+    people.fetchFollowedUsers.mockResolvedValue(new Set([OTHER.id]));
+
+    renderAt(`/u/${ME.handle}`);
+    // 2 live followed boards + 1 followed user = 3 following
+    expect(await screen.findByRole('button', { name: '3 following' })).toBeTruthy();
+    expect(screen.queryByText(/upvotes received/)).toBeNull();
+    expect(screen.getByRole('tab', { name: 'Posts' }).textContent).toBe('Posts');
+    expect(screen.getByRole('tab', { name: 'Replies' }).textContent).toBe('Replies');
+    expect(screen.getByRole('tab', { name: 'Upvoted' }).textContent).toBe('Upvoted');
+
+    // Fallback shows followed products even if the RPC hasn't returned rows yet.
+    fireEvent.click(screen.getByRole('button', { name: '3 following' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Following' });
+    expect(await within(dialog).findByRole('link', { name: /Cursor/ })).toBeTruthy();
+    expect(within(dialog).getByRole('link', { name: /Supabase/ })).toBeTruthy();
+  });
+
   it('follows and unfollows; the count moves at once', async () => {
     renderAt('/u/jmwamba');
     const follow = await screen.findByRole('button', { name: 'Follow' });
     fireEvent.click(follow);
     await waitFor(() => expect(people.setUserFollow).toHaveBeenCalledWith(JM.id, TEST_VIEWER.id, true));
     expect(await screen.findByText('Following @jmwamba')).toBeTruthy();
-    expect(screen.getByText('15')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '15 followers' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Following' }).getAttribute('aria-pressed')).toBe('true');
   });
 
@@ -148,7 +216,7 @@ describe('user page', () => {
     fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
     expect(await screen.findByText(/3 posts waiting for a status/)).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Manage' }).getAttribute('href')).toBe('/b/cursor/manage');
-    expect(await screen.findByText('following')).toBeTruthy();
+    expect(await screen.findByRole('button', { name: '1 following' })).toBeTruthy();
     fireEvent.click(screen.getByRole('tab', { name: /Upvoted/ }));
     expect(await screen.findByText('Only you can see this')).toBeTruthy();
     expect(await screen.findByText('Sync settings across machines')).toBeTruthy();

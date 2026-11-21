@@ -1,29 +1,41 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import {
   avatarSrc,
+  compactCount,
   dedupePosts,
+  followKey,
   isHandle,
+  isLive,
   joinedLabel,
   logoSrc,
   plural,
-  compactCount,
   shortAge,
   useAdminScopes,
   useBlocksFor,
-  useFollowedUsers,
+  useBoards,
   useDmPolicy,
-  useMessagesEnabled,
+  useFollowedScopes,
+  useFollowedUsers,
   useFollowUser,
+  useHubs,
   useManaged,
+  useMessagesEnabled,
   usePerson,
   usePersonStats,
+  useProfileFollowers,
+  useProfileFollowingCount,
+  useProfileFollowingScopes,
+  useProfileFollowingUsers,
+  useScopeFollow,
   useSetBlocked,
   useUpvotedPosts,
   useUserPosts,
   useUserReplies,
   type AdminScope,
+  type FollowedProduct,
   type Managed,
+  type ProfilePerson,
   type PublicProfile,
 } from '../api';
 import { cx } from '../lib/cx';
@@ -35,21 +47,37 @@ import { PostCard } from '../posts/PostCard';
 import { FEED_LIST, LoadError, PostList, PostListSkeleton } from '../posts/PostList';
 import { ReportDialog } from '../posts/ReportDialog';
 import { useRequireAuth } from '../shell/auth';
-import { BoardAvatar, Button, Card, EmptyState, HubAvatar, Icon, IconButton, Menu, MenuItem, MenuLabel, MenuSeparator, Skeleton, TabPanel, Tabs, UserAvatar, useToast, type IconName } from '../ui';
+import {
+  BoardAvatar,
+  Button,
+  Card,
+  Dialog,
+  EmptyState,
+  HubAvatar,
+  Icon,
+  IconButton,
+  Menu,
+  MenuItem,
+  MenuLabel,
+  MenuSeparator,
+  Skeleton,
+  Spinner,
+  TabPanel,
+  Tabs,
+  UserAvatar,
+  useToast,
+  type IconName,
+} from '../ui';
 import { actionLink } from './BoardPage';
 import { useSetUrlParams } from '../lib/useUrlParam';
 
 /**
- * A person's page (FOUNDATION §9 `/u/:handle`, mockup #user/<handle>): who they
- * are, their posts and replies, and for yourself the boards you manage and what
- * you upvoted (private). Follow, and in the ⋯ menu Share, Report and, for the
- * owners and admins of a board or hub, Block from it (FOUNDATION §6).
- *
- * Left out because nothing backs them (FOUNDATION §10): "Follows you" and other
- * people's following lists (follow rows are private to their owner), Saved, and
- * reply upvotes.
+ * A person's page (FOUNDATION §9 `/u/:handle`): who they are, interactive
+ * followers & following (products + people) lists, their posts and replies,
+ * and for yourself the boards you manage and what you upvoted (private).
  */
 type UserTab = 'posts' | 'replies' | 'upvoted';
+type ConnectionsView = 'followers' | 'following';
 
 export function UserPage() {
   const { handle: raw } = useParams();
@@ -89,6 +117,7 @@ function Profile({ person }: { person: PublicProfile }) {
   const upvoted = useUpvotedPosts(viewer?.id ?? null, self);
   const [params] = useSearchParams();
   const setUrl = useSetUrlParams();
+  const [connections, setConnections] = useState<ConnectionsView | null>(null);
   const allowed: UserTab[] = self ? ['posts', 'replies', 'upvoted'] : ['posts', 'replies'];
   const raw = params.get('tab') as UserTab | null;
   const tab: UserTab = raw && allowed.includes(raw) ? raw : 'posts';
@@ -116,7 +145,7 @@ function Profile({ person }: { person: PublicProfile }) {
             <ProfileActions person={person} self={self} />
           </div>
           {person.bio ? <p className="m-0 text-base text-ink whitespace-pre-line wrap-break-word">{person.bio}</p> : null}
-          <ProfileStats person={person} stats={stats.data} self={self} />
+          <ProfileStats person={person} stats={stats.data} self={self} onOpenConnections={setConnections} />
           {self ? <Manages /> : null}
         </header>
       </Card>
@@ -127,43 +156,300 @@ function Profile({ person }: { person: PublicProfile }) {
         onChange={setTab}
         className="mb-4"
         items={[
-          { value: 'posts', label: 'Posts', ...(stats.data ? { count: stats.data.posts } : {}) },
-          { value: 'replies', label: 'Replies', ...(replies.data ? { count: replies.data.length } : {}) },
-          ...(self ? [{ value: 'upvoted' as const, label: 'Upvoted', ...(upvoted.data ? { count: upvoted.data.length } : {}) }] : []),
+          { value: 'posts', label: 'Posts', ...(stats.data && stats.data.posts > 0 ? { count: stats.data.posts } : {}) },
+          { value: 'replies', label: 'Replies', ...(replies.data && replies.data.length > 0 ? { count: replies.data.length } : {}) },
+          ...(self ? [{ value: 'upvoted' as const, label: 'Upvoted', ...(upvoted.data && upvoted.data.length > 0 ? { count: upvoted.data.length } : {}) }] : []),
         ]}
       />
       <TabPanel idBase="user" value={tab}>
         {tab === 'posts' ? <UserPosts person={person} self={self} /> : tab === 'replies' ? <UserReplies replies={replies} self={self} /> : <Upvoted query={upvoted} />}
       </TabPanel>
+      {connections ? (
+        <ConnectionsDialog person={person} self={self} view={connections} onClose={() => setConnections(null)} />
+      ) : null}
     </section>
   );
 }
 
-function ProfileStats({ person, stats, self }: { person: PublicProfile; stats: { posts: number; upvotes: number } | undefined; self: boolean }) {
+const statButton =
+  'cursor-pointer border-0 bg-transparent p-0 text-sm text-ink-muted transition-colors duration-120 hover:text-ink hover:underline';
+
+function ProfileStats({
+  person,
+  stats,
+  self,
+  onOpenConnections,
+}: {
+  person: PublicProfile;
+  stats: { posts: number; upvotes: number } | undefined;
+  self: boolean;
+  onOpenConnections: (view: ConnectionsView) => void;
+}) {
   const { viewer } = useViewer();
-  const followed = useFollowedUsers(self ? (viewer?.id ?? null) : null);
+  const followedUsers = useFollowedUsers(self ? (viewer?.id ?? null) : null);
+  const followedScopes = useFollowedScopes(self ? (viewer?.id ?? null) : null);
+  const boards = useBoards();
+  const hubs = useHubs();
+  const rpcCount = useProfileFollowingCount(person.id);
+
+  // On your own profile, compute following live from local sets (people + live boards/hubs)
+  // so it updates optimistically at 0ms and stays accurate even before RPC 0068 is deployed.
+  const selfFollowingCount = useMemo(() => {
+    if (!self) return null;
+    if (!followedUsers.data && !followedScopes.data) return null;
+    const peopleCount = followedUsers.data?.size ?? 0;
+    const scopes = followedScopes.data;
+    if (!scopes || scopes.size === 0) return peopleCount;
+    const liveBoards = (boards.data ?? []).filter(isLive);
+    const liveHubs = hubs.data ?? [];
+    if (liveBoards.length > 0 || liveHubs.length > 0) {
+      const boardCount = liveBoards.filter((b) => scopes.has(followKey('board', b.id))).length;
+      const hubCount = liveHubs.filter((h) => scopes.has(followKey('hub', h.id))).length;
+      return peopleCount + boardCount + hubCount;
+    }
+    return peopleCount + scopes.size;
+  }, [self, followedUsers.data, followedScopes.data, boards.data, hubs.data]);
+
+  const followingCount = self ? (selfFollowingCount ?? rpcCount.data ?? null) : (rpcCount.data ?? null);
+
   return (
-    <p className="m-0 flex flex-wrap gap-x-4 gap-y-1 border-t border-line pt-3 text-sm text-ink-muted">
-      <span>
-        <b className="font-semibold text-ink">{compactCount(person.follower_count)}</b> {person.follower_count === 1 ? 'follower' : 'followers'}
-      </span>
-      {self && followed.data ? (
+    <div className="m-0 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line pt-3 text-sm text-ink-muted">
+      <button type="button" onClick={() => onOpenConnections('followers')} className={statButton}>
+        <b className="font-semibold text-ink tabular-nums">{compactCount(person.follower_count)}</b>{' '}
+        {person.follower_count === 1 ? 'follower' : 'followers'}
+      </button>
+      {followingCount !== null ? (
+        <button type="button" onClick={() => onOpenConnections('following')} className={statButton}>
+          <b className="font-semibold text-ink tabular-nums">{compactCount(followingCount)}</b> following
+        </button>
+      ) : null}
+      {stats && stats.upvotes > 0 ? (
         <span>
-          <b className="font-semibold text-ink">{followed.data.size}</b> following
+          <b className="font-semibold text-ink tabular-nums">{compactCount(stats.upvotes)}</b> upvotes received
         </span>
       ) : null}
-      {stats ? (
-        <>
-          <span>
-            <b className="font-semibold text-ink">{compactCount(stats.posts)}</b> {stats.posts === 1 ? 'post' : 'posts'}
-          </span>
-          <span>
-            <b className="font-semibold text-ink">{compactCount(stats.upvotes)}</b> upvotes received
-          </span>
-        </>
-      ) : null}
       <span>{joinedLabel(person.created_at)}</span>
-    </p>
+    </div>
+  );
+}
+
+function ConnectionsDialog({
+  person,
+  self,
+  view,
+  onClose,
+}: {
+  person: PublicProfile;
+  self: boolean;
+  view: ConnectionsView;
+  onClose: () => void;
+}) {
+  const { viewer } = useViewer();
+  const [subTab, setSubTab] = useState<'products' | 'people'>('products');
+  const [pickedSubTab, setPickedSubTab] = useState(false);
+
+  const followers = useProfileFollowers(person.id, view === 'followers');
+  const followingScopes = useProfileFollowingScopes(person.id, view === 'following');
+  const followingUsers = useProfileFollowingUsers(person.id, view === 'following');
+
+  // Load viewer's followed scopes in parallel so product Follow/Following state resolves immediately
+  // (and serves as a pre-migration 0068 fallback on your own profile).
+  const ownScopes = useFollowedScopes(view === 'following' ? (viewer?.id ?? null) : null);
+  const boards = useBoards();
+  const hubs = useHubs();
+
+  const products = useMemo<FollowedProduct[]>(() => {
+    const rpc = followingScopes.data ?? [];
+    if (rpc.length > 0) return rpc;
+    if (!self || !ownScopes.data || ownScopes.data.size === 0) return [];
+    const out: FollowedProduct[] = [];
+    for (const b of (boards.data ?? []).filter(isLive)) {
+      if (ownScopes.data.has(followKey('board', b.id))) {
+        out.push({ scope: 'board', id: b.id, slug: b.slug, name: b.name, color: b.color, logo_path: b.logo_path, follower_count: b.follower_count });
+      }
+    }
+    for (const h of hubs.data ?? []) {
+      if (ownScopes.data.has(followKey('hub', h.id))) {
+        out.push({ scope: 'hub', id: h.id, slug: h.slug, name: h.name, color: '', logo_path: null, follower_count: h.follower_count });
+      }
+    }
+    return out;
+  }, [followingScopes.data, self, ownScopes.data, boards.data, hubs.data]);
+
+  const people = followingUsers.data ?? [];
+
+  // Default to People if they follow people and no products.
+  useEffect(() => {
+    if (view !== 'following' || pickedSubTab) return;
+    if (!followingScopes.isPending && !followingUsers.isPending && products.length === 0 && people.length > 0) {
+      setSubTab('people');
+    }
+  }, [view, pickedSubTab, followingScopes.isPending, followingUsers.isPending, products.length, people.length]);
+
+  const hubsById = useMemo(() => new Map((hubs.data ?? []).map((h) => [h.id, h])), [hubs.data]);
+
+  return (
+    <Dialog open onClose={onClose} title={view === 'followers' ? 'Followers' : 'Following'}>
+      {view === 'followers' ? (
+        followers.isPending ? (
+          <div className="grid place-items-center py-8">
+            <Spinner />
+          </div>
+        ) : followers.isError ? (
+          <LoadError title="We couldn’t load followers" onRetry={() => void followers.refetch()} retrying={followers.isRefetching} />
+        ) : (followers.data ?? []).length === 0 ? (
+          <p className="m-0 py-6 text-center text-sm text-ink-muted">No followers yet.</p>
+        ) : (
+          <ul className="-mx-2 m-0 flex list-none flex-col gap-1 p-0" aria-label="Followers">
+            {(followers.data ?? []).map((p) => (
+              <li key={p.id}>
+                <ConnectionPersonRow person={p} isSelf={p.id === viewer?.id} onNavigate={onClose} />
+              </li>
+            ))}
+          </ul>
+        )
+      ) : (
+        <>
+          <Tabs
+            idBase="following"
+            label="Following categories"
+            value={subTab}
+            onChange={(next) => {
+              setPickedSubTab(true);
+              setSubTab(next);
+            }}
+            className="-mt-2 mb-3"
+            items={[
+              { value: 'products', label: 'Products', ...(products.length > 0 ? { count: products.length } : {}) },
+              { value: 'people', label: 'People', ...(people.length > 0 ? { count: people.length } : {}) },
+            ]}
+          />
+          <TabPanel idBase="following" value={subTab}>
+            {subTab === 'products' ? (
+              followingScopes.isPending && products.length === 0 ? (
+                <div className="grid place-items-center py-8">
+                  <Spinner />
+                </div>
+              ) : followingScopes.isError && products.length === 0 ? (
+                <LoadError title="We couldn’t load followed products" onRetry={() => void followingScopes.refetch()} retrying={followingScopes.isRefetching} />
+              ) : products.length === 0 ? (
+                <p className="m-0 py-6 text-center text-sm text-ink-muted">
+                  {self ? 'You aren’t following any products yet.' : 'Not following any products yet.'}
+                </p>
+              ) : (
+                <ul className="-mx-2 m-0 flex list-none flex-col gap-1 p-0" aria-label="Followed products">
+                  {products.map((item) => (
+                    <li key={`${item.scope}:${item.id}`}>
+                      <ConnectionProductRow item={item} hubBoards={hubsById.get(item.id)?.boards} onNavigate={onClose} />
+                    </li>
+                  ))}
+                </ul>
+              )
+            ) : followingUsers.isPending ? (
+              <div className="grid place-items-center py-8">
+                <Spinner />
+              </div>
+            ) : followingUsers.isError ? (
+              <LoadError title="We couldn’t load followed people" onRetry={() => void followingUsers.refetch()} retrying={followingUsers.isRefetching} />
+            ) : people.length === 0 ? (
+              <p className="m-0 py-6 text-center text-sm text-ink-muted">
+                {self ? 'You aren’t following anyone yet.' : 'Not following anyone yet.'}
+              </p>
+            ) : (
+              <ul className="-mx-2 m-0 flex list-none flex-col gap-1 p-0" aria-label="Followed people">
+                {people.map((p) => (
+                  <li key={p.id}>
+                    <ConnectionPersonRow person={p} isSelf={p.id === viewer?.id} onNavigate={onClose} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </TabPanel>
+        </>
+      )}
+    </Dialog>
+  );
+}
+
+function ConnectionPersonRow({
+  person,
+  isSelf,
+  onNavigate,
+}: {
+  person: ProfilePerson;
+  isSelf: boolean;
+  onNavigate: () => void;
+}) {
+  const name = person.name || `@${person.handle}`;
+  return (
+    <div className="flex items-center gap-3 rounded-md px-2 py-2 transition-colors duration-120 hover:bg-subtle">
+      <Link to={`/u/${person.handle}`} onClick={onNavigate} className="flex min-w-0 flex-1 items-center gap-3 text-ink no-underline">
+        <UserAvatar size="md" name={name} src={avatarSrc(person)} />
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate text-base font-semibold text-ink">{name}</span>
+          <span className="truncate text-sm text-ink-muted">@{person.handle}</span>
+        </span>
+      </Link>
+      {!isSelf ? <FollowPersonButton person={person} size="sm" /> : null}
+    </div>
+  );
+}
+
+function ConnectionProductRow({
+  item,
+  hubBoards,
+  onNavigate,
+}: {
+  item: FollowedProduct;
+  hubBoards?: Array<{ name: string; color: string; logo_path: string | null }>;
+  onNavigate: () => void;
+}) {
+  const { viewer } = useViewer();
+  const requireAuth = useRequireAuth();
+  const { toast } = useToast();
+  const followedScopes = useFollowedScopes(viewer?.id ?? null);
+  const scopeFollow = useScopeFollow(viewer?.id ?? null);
+  const on = Boolean(followedScopes.data?.has(followKey(item.scope, item.id)));
+  const to = item.scope === 'hub' ? `/h/${item.slug}` : `/b/${item.slug}`;
+
+  return (
+    <div className="flex items-center gap-3 rounded-md px-2 py-2 transition-colors duration-120 hover:bg-subtle">
+      <Link to={to} onClick={onNavigate} className="flex min-w-0 flex-1 items-center gap-3 text-ink no-underline">
+        {item.scope === 'hub' ? (
+          <HubAvatar
+            name={`${item.name} hub`}
+            size="md"
+            boards={(hubBoards ?? []).map((b) => ({ name: b.name, color: b.color, logoSrc: logoSrc(b) }))}
+          />
+        ) : (
+          <BoardAvatar name={item.name} color={item.color} logoSrc={logoSrc(item)} size="md" decorative />
+        )}
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate text-base font-semibold text-ink">{item.name}</span>
+          <span className="truncate text-sm text-ink-muted">
+            {item.scope === 'hub' ? 'Hub' : 'Product'}
+            {item.follower_count > 0 ? ` · ${compactCount(item.follower_count)} ${item.follower_count === 1 ? 'follower' : 'followers'}` : ''}
+          </span>
+        </span>
+      </Link>
+      <Button
+        size="sm"
+        variant={on ? 'secondary' : 'primary'}
+        aria-pressed={on}
+        onClick={() => {
+          if (!requireAuth('follow products')) return;
+          scopeFollow.mutate(
+            { target: item.scope, id: item.id, on: !on },
+            {
+              onSuccess: () => toast(on ? `Unfollowed ${item.name}` : `Following ${item.name}`),
+              onError: (e) => toast(e instanceof Error ? e.message : 'Something went wrong. Try again.'),
+            },
+          );
+        }}
+      >
+        {on ? 'Following' : 'Follow'}
+      </Button>
+    </div>
   );
 }
 

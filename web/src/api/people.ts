@@ -82,7 +82,68 @@ export async function fetchUserReplies(userId: string, limit = 30): Promise<User
     .map(({ post, ...r }) => ({ ...r, post: post ? { id: post.id, title: post.title, board: post.board } : null }));
 }
 
-// ------------------------------------------------------------------ following people
+// ------------------------------------------------------------------ following people & public follow lists
+
+export interface ProfilePerson extends PersonRef {
+  bio: string;
+  follower_count: number;
+}
+
+export interface FollowedProduct {
+  scope: Scope;
+  id: string;
+  slug: string;
+  name: string;
+  color: string;
+  logo_path: string | null;
+  follower_count: number;
+}
+
+function isMissingRpc(error: { code?: string; message?: string } | null | undefined): boolean {
+  const code = error?.code ?? '';
+  const msg = (error?.message ?? '').toLowerCase();
+  return code === 'PGRST202' || code === '42883' || msg.includes('could not find the function');
+}
+
+/** Combined count of people, live products, and live hubs this person follows (0068). */
+export async function fetchProfileFollowingCount(userId: string): Promise<number | null> {
+  const { data, error } = await getSupabase().rpc('profile_following_count', { p_user: userId });
+  if (error) {
+    if (isMissingRpc(error)) return null;
+    throw error;
+  }
+  return typeof data === 'number' ? data : null;
+}
+
+/** People following `userId`, newest first (0068). */
+export async function fetchProfileFollowers(userId: string, limit = 100): Promise<ProfilePerson[]> {
+  const { data, error } = await getSupabase().rpc('profile_followers', { p_user: userId, p_limit: limit });
+  if (error) {
+    if (isMissingRpc(error)) return [];
+    throw error;
+  }
+  return (data ?? []) as ProfilePerson[];
+}
+
+/** People followed by `userId`, newest first (0068). */
+export async function fetchProfileFollowingUsers(userId: string, limit = 100): Promise<ProfilePerson[]> {
+  const { data, error } = await getSupabase().rpc('profile_following_users', { p_user: userId, p_limit: limit });
+  if (error) {
+    if (isMissingRpc(error)) return [];
+    throw error;
+  }
+  return (data ?? []) as ProfilePerson[];
+}
+
+/** Live boards and hubs followed by `userId`, newest first (0068). */
+export async function fetchProfileFollowingScopes(userId: string, limit = 100): Promise<FollowedProduct[]> {
+  const { data, error } = await getSupabase().rpc('profile_following_scopes', { p_user: userId, p_limit: limit });
+  if (error) {
+    if (isMissingRpc(error)) return [];
+    throw error;
+  }
+  return (data ?? []) as FollowedProduct[];
+}
 
 export async function fetchFollowsUser(viewerId: string, userId: string): Promise<boolean> {
   const { data, error } = await getSupabase()

@@ -1,5 +1,18 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchFollowedUsers, fetchManaged, fetchProfileByHandle, fetchUserReplies, fetchUserStats, searchPeople, setUserFollow, type PublicProfile } from './people';
+import {
+  fetchFollowedUsers,
+  fetchManaged,
+  fetchProfileByHandle,
+  fetchProfileFollowers,
+  fetchProfileFollowingCount,
+  fetchProfileFollowingScopes,
+  fetchProfileFollowingUsers,
+  fetchUserReplies,
+  fetchUserStats,
+  searchPeople,
+  setUserFollow,
+  type PublicProfile,
+} from './people';
 import { fetchUpvotedPosts, fetchUserPosts } from './posts';
 
 /* TanStack Query hooks for step 8: profiles and following people. */
@@ -12,6 +25,10 @@ export const peopleKeys = {
   upvoted: (viewerId: string | null) => ['posts', 'upvoted', viewerId ?? 'anon'] as const,
   replies: (id: string) => ['person-replies', id] as const,
   followed: (viewerId: string | null) => ['followed-users', viewerId ?? 'anon'] as const,
+  followingCount: (id: string) => ['profile-following-count', id] as const,
+  followers: (id: string) => ['profile-followers', id] as const,
+  followingUsers: (id: string) => ['profile-following-users', id] as const,
+  followingScopes: (id: string) => ['profile-following-scopes', id] as const,
   managed: (viewerId: string | null) => ['managed', viewerId ?? 'anon'] as const,
   search: (q: string) => ['people-search', q] as const,
 };
@@ -46,6 +63,42 @@ export function useFollowedUsers(viewerId: string | null) {
   return useQuery({ queryKey: peopleKeys.followed(viewerId), queryFn: () => fetchFollowedUsers(viewerId ?? ''), enabled: Boolean(viewerId), staleTime: 60_000 });
 }
 
+export function useProfileFollowingCount(userId: string | undefined) {
+  return useQuery({
+    queryKey: peopleKeys.followingCount(userId ?? ''),
+    queryFn: () => fetchProfileFollowingCount(userId ?? ''),
+    enabled: Boolean(userId),
+    staleTime: 30_000,
+  });
+}
+
+export function useProfileFollowers(userId: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: peopleKeys.followers(userId ?? ''),
+    queryFn: () => fetchProfileFollowers(userId ?? ''),
+    enabled: enabled && Boolean(userId),
+    staleTime: 30_000,
+  });
+}
+
+export function useProfileFollowingUsers(userId: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: peopleKeys.followingUsers(userId ?? ''),
+    queryFn: () => fetchProfileFollowingUsers(userId ?? ''),
+    enabled: enabled && Boolean(userId),
+    staleTime: 30_000,
+  });
+}
+
+export function useProfileFollowingScopes(userId: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: peopleKeys.followingScopes(userId ?? ''),
+    queryFn: () => fetchProfileFollowingScopes(userId ?? ''),
+    enabled: enabled && Boolean(userId),
+    staleTime: 30_000,
+  });
+}
+
 /** Follow or unfollow a person; their follower count moves at once. */
 export function useFollowUser(viewerId: string | null) {
   const qc = useQueryClient();
@@ -69,6 +122,13 @@ export function useFollowUser(viewerId: string | null) {
       if (!ctx) return;
       qc.setQueryData(peopleKeys.followed(viewerId), ctx.before);
       for (const [k, p] of ctx.people) qc.setQueryData(k, p);
+    },
+    onSuccess: (_res, { userId }) => {
+      void qc.invalidateQueries({ queryKey: peopleKeys.followers(userId) });
+      if (viewerId) {
+        void qc.invalidateQueries({ queryKey: peopleKeys.followingCount(viewerId) });
+        void qc.invalidateQueries({ queryKey: peopleKeys.followingUsers(viewerId) });
+      }
     },
   });
 }
