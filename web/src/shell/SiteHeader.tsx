@@ -2,6 +2,7 @@ import { Link, NavLink } from 'react-router';
 import { cx } from '../lib/cx';
 import { useViewer } from '../lib/viewer';
 import { Button, Icon } from '../ui';
+import { AppearanceMenu } from './AppearanceMenu';
 import { BrandSymbol } from './BrandMark';
 import { useAuthDialog } from './auth';
 
@@ -49,9 +50,12 @@ export function SiteHeader() {
               <Icon name="chevron-right" size={14} strokeWidth={2} />
             </Link>
           ) : ready ? (
-            <Button size="sm" variant="secondary" onClick={() => openAuth('signin')}>
-              Sign in
-            </Button>
+            <>
+              <AppearanceMenu />
+              <Button size="sm" variant="secondary" onClick={() => openAuth('signin')}>
+                Sign in
+              </Button>
+            </>
           ) : null}
         </span>
       </div>

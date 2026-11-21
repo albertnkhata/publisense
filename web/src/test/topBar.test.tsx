@@ -25,6 +25,7 @@ describe('TopBar', () => {
 
     expect(screen.getByRole('link', { name: 'Publisense home' }).getAttribute('href')).toBe('/');
     expect(screen.getByRole('button', { name: 'Search products, posts, hubs' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Appearance' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Sign in' })).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Post feedback' }));

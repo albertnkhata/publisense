@@ -4,6 +4,7 @@ import { ThemeProvider, useTheme } from '../lib/ThemeProvider';
 import { readThemePref, resolveTheme, THEME_KEY, toggledPref, writeThemePref } from '../lib/theme';
 import { ComposerProvider } from '../shell/composer';
 import { TabBar } from '../shell/TabBar';
+import { TopBar } from '../shell/TopBar';
 import { UserMenu } from '../shell/UserMenu';
 import { renderWith, TEST_VIEWER } from './renderApp';
 
@@ -150,5 +151,36 @@ describe('Appearance submenu', () => {
     fireEvent.click(screen.getByRole('radio', { name: 'Dark theme' }));
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
     expect(window.localStorage.getItem(THEME_KEY)).toBe('dark');
+  });
+
+  it('switches theme from the signed-out desktop Appearance menu in TopBar and omits it when signed in', () => {
+    const { unmount } = renderWith(
+      <ComposerProvider>
+        <TopBar />
+      </ComposerProvider>,
+      { viewer: null, path: '/feed' },
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Appearance' });
+    expect(trigger.className).toContain('max-sm:hidden');
+    fireEvent.click(trigger);
+
+    expect(screen.getByRole('menuitemradio', { name: 'Use device theme' }).getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Dark theme' }));
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+    expect(window.localStorage.getItem(THEME_KEY)).toBe('dark');
+
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Use device theme' }));
+    expect(window.localStorage.getItem(THEME_KEY)).toBeNull();
+    unmount();
+
+    renderWith(
+      <ComposerProvider>
+        <TopBar />
+      </ComposerProvider>,
+      { viewer: TEST_VIEWER, path: '/feed' },
+    );
+    expect(screen.queryByRole('button', { name: 'Appearance' })).toBeNull();
   });
 });
