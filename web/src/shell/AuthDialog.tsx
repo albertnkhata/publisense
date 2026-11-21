@@ -244,7 +244,7 @@ export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: Au
   const linkClass = 'border-0 bg-transparent p-0 font-semibold text-ink no-underline hover:underline cursor-pointer';
 
   return (
-    <Dialog open={open} onClose={dismiss} title={c.title} hideTitle initialFocus={focusTarget} mobileFull>
+    <Dialog open={open} onClose={dismiss} title={c.title} hideTitle initialFocus={focusTarget}>
       <form noValidate onSubmit={submit} className="-mt-4 flex flex-col text-center">
         <span className="mb-3 inline-grid place-items-center text-brand" aria-hidden="true">
           <BrandGlyph size={26} />

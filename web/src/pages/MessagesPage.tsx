@@ -158,7 +158,7 @@ function NewChatDialog({ open, onClose, viewerId }: { open: boolean; onClose: ()
   };
 
   return (
-    <Dialog open={open} onClose={onClose} title="New chat" initialFocus={inputRef} mobileFull>
+    <Dialog open={open} onClose={onClose} title="New chat" initialFocus={inputRef}>
       <div className="flex flex-col gap-3">
         <Input
           ref={inputRef}

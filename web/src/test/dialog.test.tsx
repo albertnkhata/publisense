@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { Dialog } from '../ui/Dialog';
 
-function Harness({ onClose, mobileFull }: { onClose?: () => void; mobileFull?: boolean }) {
+function Harness({ onClose }: { onClose?: () => void }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -16,7 +16,6 @@ function Harness({ onClose, mobileFull }: { onClose?: () => void; mobileFull?: b
         }}
         title="Claim a board"
         footer={<button>Continue</button>}
-        mobileFull={mobileFull}
       >
         <input aria-label="Work email" />
       </Dialog>
@@ -66,20 +65,12 @@ describe('Dialog', () => {
     expect(document.activeElement).toBe(opener);
   });
 
-  it('renders full-page at max-sm with natural body-to-footer flow when mobileFull is set', () => {
-    render(<Harness mobileFull />);
+  it('renders as a bottom sheet at max-sm', () => {
+    render(<Harness />);
     act(() => fireEvent.click(screen.getByText('Open')));
     const dialog = screen.getByRole('dialog');
-    expect(dialog.className).toContain('max-sm:h-full');
-    expect(dialog.className).toContain('max-sm:overflow-y-auto');
-    expect(dialog.className).toContain('max-sm:rounded-none');
-    expect(dialog.className).toContain('max-sm:border-0');
-    expect(dialog.parentElement?.className).not.toContain('max-sm:items-end');
-    const body = screen.getByLabelText('Work email').parentElement!;
-    expect(body.className).toContain('max-sm:flex-none');
-    const footer = screen.getByText('Continue').parentElement!;
-    expect(footer.className).toContain('max-sm:sticky');
-    expect(footer.className).toContain('max-sm:bottom-0');
-    expect(footer.className).toContain('max-sm:bg-card');
+    expect(dialog.parentElement?.className).toContain('max-sm:items-end');
+    expect(dialog.className).toContain('max-sm:rounded-b-none');
+    expect(dialog.className).not.toContain('max-sm:h-full');
   });
 });
