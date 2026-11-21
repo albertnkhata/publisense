@@ -66,6 +66,8 @@ describe('TabBar 5-item mobile nav', () => {
     expect(within(sheet).getByRole('link', { name: 'Categories' }).getAttribute('href')).toBe('/categories');
     expect(within(sheet).getByRole('link', { name: 'Settings' }).getAttribute('href')).toBe('/settings');
     expect(within(sheet).getByRole('button', { name: /Appearance/ })).toBeTruthy();
-    expect(within(sheet).getByRole('button', { name: 'Sign out' })).toBeTruthy();
+    const signOutBtn = within(sheet).getByRole('button', { name: 'Sign out' });
+    expect(signOutBtn.className.split(/\s+/)).toContain('text-danger');
+    expect(signOutBtn.className.split(/\s+/)).not.toContain('text-ink');
   });
 });

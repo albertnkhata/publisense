@@ -211,7 +211,7 @@ export function TabBar({ showPost = true }: { showPost?: boolean } = {}) {
                     await signOut();
                     toast('Signed out');
                   }}
-                  className={cx(sheetItem, 'text-danger')}
+                  className={cx(sheetItemBase, 'text-danger')}
                 >
                   <Icon name="sign-out" size={20} strokeWidth={1.75} />
                   Sign out
@@ -228,8 +228,9 @@ export function TabBar({ showPost = true }: { showPost?: boolean } = {}) {
   );
 }
 
-const sheetItem =
-  'flex h-9 w-full items-center gap-3 rounded-md border-0 bg-transparent px-2 text-left text-md font-medium text-ink no-underline active:bg-subtle hover:bg-subtle';
+const sheetItemBase =
+  'flex h-9 w-full items-center gap-3 rounded-md border-0 bg-transparent px-2 text-left text-md font-medium no-underline active:bg-subtle hover:bg-subtle';
+const sheetItem = `${sheetItemBase} text-ink`;
 
 function SheetLink({ to, icon, children, onClick }: { to: string; icon: IconName; children: string; onClick: () => void }) {
   return (
