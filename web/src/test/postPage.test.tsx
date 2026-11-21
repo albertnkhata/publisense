@@ -136,7 +136,7 @@ describe('post page', () => {
     const post = makePost({ title: 'Inline context test' });
     renderPost(post);
     const article = await screen.findByRole('article', { name: post.title });
-    expect(await within(article).findByText('Verified team')).toBeTruthy();
+    expect(await within(article).findByRole('img', { name: 'Verified team' })).toBeTruthy();
     expect(within(article).getByText(/92 posts · 4\.1k followers/)).toBeTruthy();
     const headerText = article.querySelector('.relative.min-w-0')?.textContent ?? '';
     expect(headerText.indexOf('92 posts · 4.1k followers')).toBeLessThan(headerText.indexOf(`@${post.author?.handle}`));
@@ -169,7 +169,7 @@ describe('post page', () => {
     const post = makePost({ title: 'Pending quiet board post', author_id: TEST_VIEWER.id, board: { ...BOARD, name: 'Muse', status: 'pending' } });
     renderPost(post);
     const article = await screen.findByRole('article', { name: post.title });
-    expect(within(article).queryByText(/Verified team/)).toBeNull();
+    expect(within(article).queryByRole('img', { name: 'Verified team' })).toBeNull();
     expect(within(article).queryByText(/0 posts|0 followers/)).toBeNull();
     expect(within(article).queryByRole('button', { name: /Follow Muse/ })).toBeNull();
   });

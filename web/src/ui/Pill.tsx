@@ -60,12 +60,34 @@ export function TypePill({ type }: { type: PostType }) {
   );
 }
 
+/** Scalloped cobalt-blue verified seal placed inline next to a claimed product or hub name. */
+export function VerifiedBadge({
+  size = 'sm',
+  label = 'Verified team',
+  className,
+}: {
+  size?: 'sm' | 'md' | 'lg';
+  label?: string;
+  className?: string;
+}) {
+  const px = size === 'lg' ? 20 : size === 'md' ? 16 : 14;
+  return (
+    <span role="img" aria-label={label} title={label} className={cx('inline-flex shrink-0 items-center text-brand', className)}>
+      <svg width={px} height={px} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path
+          fill="currentColor"
+          d="M15.44 3.69 A3.65 3.65 0 0 1 20.31 8.56 A3.65 3.65 0 0 1 20.31 15.44 A3.65 3.65 0 0 1 15.44 20.31 A3.65 3.65 0 0 1 8.56 20.31 A3.65 3.65 0 0 1 3.69 15.44 A3.65 3.65 0 0 1 3.69 8.56 A3.65 3.65 0 0 1 8.56 3.69 A3.65 3.65 0 0 1 15.44 3.69Z"
+        />
+        <path d="M8.5 12.4 L10.9 14.8 L15.7 9.6" stroke="var(--on-brand)" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </span>
+  );
+}
+
 export function VerifiedPill({ children = 'Verified team' }: { children?: ReactNode }) {
   return (
     <span className="inline-flex items-center gap-1 text-sm font-medium text-ink-secondary">
-      <span className="text-brand">
-        <Icon name="shield" size={13} />
-      </span>
+      <VerifiedBadge size="sm" />
       {children}
     </span>
   );

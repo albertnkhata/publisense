@@ -15,7 +15,7 @@ import {
 import { cx } from '../lib/cx';
 import { useViewer } from '../lib/viewer';
 import { useRequireAuth } from '../shell/auth';
-import { BoardAvatar, HubAvatar, Icon, Menu, MenuItemRadio, MenuLabel, TYPE_META, useToast } from '../ui';
+import { BoardAvatar, HubAvatar, Icon, Menu, MenuItemRadio, MenuLabel, TYPE_META, useToast, VerifiedBadge } from '../ui';
 
 /*
  * Pieces shared by the board, hub, Explore and search screens: the follow
@@ -180,7 +180,10 @@ export function BoardRow({ board, extra }: { board: Board; extra?: ReactNode }) 
       <Link to={`/b/${board.slug}`} className={cx(rowLink, 'min-w-0 flex-1')}>
         <BoardAvatar name={board.name} color={board.color} logoSrc={logoSrc(board)} size="md" decorative />
         <span className="flex min-w-0 flex-col">
-          <span className="truncate text-base font-semibold">{board.name}</span>
+          <span className="flex min-w-0 items-center gap-1 text-base font-semibold">
+            <span className="truncate">{board.name}</span>
+            {board.claimed_at ? <VerifiedBadge size="sm" /> : null}
+          </span>
           <span className="truncate text-sm text-ink-muted">
             {[board.tagline, board.follower_count > 0 ? plural(board.follower_count, 'follower') : ''].filter(Boolean).join(' · ')}
           </span>
@@ -203,7 +206,10 @@ export function HubRow({ hub }: { hub: Hub }) {
         className="min-w-10"
       />
       <span className="flex min-w-0 flex-col">
-        <span className="truncate text-base font-semibold">{hub.name} hub</span>
+        <span className="flex min-w-0 items-center gap-1 text-base font-semibold">
+          <span className="truncate">{hub.name} hub</span>
+          {hub.claimed_at ? <VerifiedBadge size="sm" /> : null}
+        </span>
         <span className="truncate text-sm text-ink-muted">
           {hub.boards.map((b) => b.name).join(', ')}
           {hub.follower_count > 0 ? ` · ${compactCount(hub.follower_count)} ${hub.follower_count === 1 ? 'follower' : 'followers'}` : ''}
@@ -256,9 +262,10 @@ export function BoardCard({ board, now = new Date() }: { board: Board; now?: Dat
         <span className="flex min-w-0 flex-1 flex-col">
           <Link
             to={`/b/${board.slug}`}
-            className="truncate text-md font-semibold text-ink no-underline after:absolute after:inset-0"
+            className="inline-flex min-w-0 items-center gap-1 text-md font-semibold text-ink no-underline after:absolute after:inset-0"
           >
-            {board.name}
+            <span className="truncate">{board.name}</span>
+            {board.claimed_at ? <VerifiedBadge size="sm" /> : null}
           </Link>
           {/* Two lines, not one: the board page shows the tagline in full, and a one-line cut hid
               the second half of most of them (median 35 characters). Only very long marketing
@@ -271,14 +278,6 @@ export function BoardCard({ board, now = new Date() }: { board: Board; now?: Dat
         {board.post_count > 0 ? (
           <span>
             <b className="font-semibold text-ink">{compactCount(board.post_count)}</b> {board.post_count === 1 ? 'post' : 'posts'}
-          </span>
-        ) : null}
-        {board.claimed_at ? (
-          <span className="inline-flex items-center gap-1">
-            <span className="text-success">
-              <Icon name="check" size={12} strokeWidth={2.2} />
-            </span>
-            Verified team
           </span>
         ) : null}
         {added ? <span>{added}</span> : null}

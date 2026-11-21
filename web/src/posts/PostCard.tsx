@@ -6,7 +6,7 @@ import { cx } from '../lib/cx';
 import { sharePost } from '../lib/share';
 import { useViewer } from '../lib/viewer';
 import { useRequireAuth } from '../shell/auth';
-import { BoardAvatar, Icon, StatusPill, TypePill, UserAvatar, useToast } from '../ui';
+import { BoardAvatar, Icon, StatusPill, TypePill, UserAvatar, useToast, VerifiedBadge } from '../ui';
 import { PostImages } from './PostImages';
 import { PostMenu } from './PostMenu';
 import { TeamByline } from './TeamByline';
@@ -288,21 +288,16 @@ function PagePostHead({ post, boardDetail }: { post: Post; boardDetail: BoardWit
       <BoardAvatar name={boardName} color={board?.color} logoSrc={boardLogoSrc(board)} size="md" decorative />
       <div className="min-w-0 flex-1">
         <div className={cx(row, 'min-h-4')}>
-          {board ? (
-            <Link to={`/b/${board.slug}`} className={cx(linkClass, 'font-semibold text-ink')}>
-              {boardName}
-            </Link>
-          ) : (
-            <span className="font-semibold text-ink">{boardName}</span>
-          )}
-          {verified ? (
-            <span className="inline-flex items-center gap-1 text-xs font-medium text-ink-secondary">
-              <span className="text-success" aria-hidden="true">
-                <Icon name="check" size={12} strokeWidth={2.2} />
-              </span>
-              Verified team
-            </span>
-          ) : null}
+          <span className="inline-flex min-w-0 items-center gap-1">
+            {board ? (
+              <Link to={`/b/${board.slug}`} className={cx(linkClass, 'font-semibold text-ink')}>
+                {boardName}
+              </Link>
+            ) : (
+              <span className="font-semibold text-ink">{boardName}</span>
+            )}
+            {verified ? <VerifiedBadge size="sm" /> : null}
+          </span>
           {stats ? <Dot>{stats}</Dot> : null}
         </div>
         <div className={cx(row, 'mt-1')}>

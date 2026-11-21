@@ -507,7 +507,7 @@ describe('work-at-hub prompts on a claimed board', () => {
     boardsApi.fetchBoards.mockResolvedValue([CLAIMED, FIGJAM, FIGMA]);
     teamsApi.fetchVerifiedDomains.mockResolvedValue(['cursor.com']);
     renderAt('/b/cursor');
-    expect(await screen.findByText('Verified team')).toBeTruthy();
+    expect(await screen.findByRole('img', { name: 'Verified team' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Work at Cursor?' }));
     const dialog = await screen.findByRole('dialog', { name: 'Cursor is already claimed' });
     fireEvent.click(within(dialog).getByRole('button', { name: /Request to join the team/ }));

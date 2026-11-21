@@ -22,7 +22,7 @@ import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { LoadError, PostList, PostListSkeleton } from '../posts/PostList';
 import { useComposer } from '../shell/composer';
-import { BoardAvatar, Button, EmptyState, HubAvatar, Icon, TabPanel, Tabs, useToast } from '../ui';
+import { BoardAvatar, Button, EmptyState, HubAvatar, Icon, TabPanel, Tabs, useToast, VerifiedBadge } from '../ui';
 import { shareLink } from '../lib/share';
 import { useClaim } from '../claim/ClaimDialog';
 import { actionLink, ClaimLink, HeaderSkeleton, RoadmapTab, ScopeNotFound, SORT_CHOICES } from './BoardPage';
@@ -91,10 +91,13 @@ function HubView({ hub }: { hub: Hub }) {
         logo={<BoardAvatar name={hub.name} color={first?.color} logoSrc={logoSrc(first)} size="xl" decorative />}
         title={hub.name}
         tag={
-          <span className="inline-flex items-center gap-1 rounded-sm bg-subtle px-2 text-xs font-medium text-ink-secondary">
-            <Icon name="hub" size={12} />
-            Hub
-          </span>
+          <>
+            {hub.claimed_at ? <VerifiedBadge size="lg" /> : null}
+            <span className="inline-flex items-center gap-1 rounded-sm bg-subtle px-2 text-xs font-medium text-ink-secondary">
+              <Icon name="hub" size={12} />
+              Hub
+            </span>
+          </>
         }
         description={hub.description}
         stats={
@@ -183,13 +186,14 @@ function HubVoice({ hub, manages }: { hub: Hub; manages: boolean }) {
   if (hub.claimed_at) {
     return (
       <>
-        <span className="inline-flex items-center gap-1">
-          <span className="text-success">
-            <Icon name="check" size={13} strokeWidth={2.2} />
+        {manages ? (
+          <span className="inline-flex items-center gap-1">
+            <span className="text-success">
+              <Icon name="check" size={13} strokeWidth={2.2} />
+            </span>
+            You manage this hub
           </span>
-          {manages ? 'You manage this hub' : 'Verified team'}
-        </span>
-        {manages ? null : mine.data?.join ? (
+        ) : mine.data?.join ? (
           <span className="text-ink-muted">Request to join pending</span>
         ) : (
           <ClaimLink onClick={() => openClaim({ hub: hub.slug })}>Work here?</ClaimLink>

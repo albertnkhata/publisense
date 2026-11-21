@@ -30,7 +30,7 @@ import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { LoadError, PostList, PostListSkeleton } from '../posts/PostList';
 import { useComposer } from '../shell/composer';
-import { BoardAvatar, Button, EmptyState, Icon, IconButton, Input, Menu, MenuItem, Skeleton, SkeletonBlock, useToast } from '../ui';
+import { BoardAvatar, Button, EmptyState, Icon, IconButton, Input, Menu, MenuItem, Skeleton, SkeletonBlock, useToast, VerifiedBadge } from '../ui';
 import { shareLink } from '../lib/share';
 import { useDebounced } from '../lib/useDebounced';
 import { useSetUrlParams } from '../lib/useUrlParam';
@@ -147,7 +147,12 @@ function Board({ board }: { board: BoardWithHub }) {
       <ScopeHeader
         logo={<BoardAvatar name={board.name} color={board.color} logoSrc={logoSrc(board)} size="xl" decorative />}
         title={board.name}
-        tag={<ReviewPill board={board} />}
+        tag={
+          <>
+            {board.claimed_at || board.hub?.claimed_at ? <VerifiedBadge size="lg" /> : null}
+            <ReviewPill board={board} />
+          </>
+        }
         description={board.tagline || null}
         meta={boardMeta(board)}
         bordered={tab === 'feedback' && board.status !== 'rejected'}
@@ -479,13 +484,14 @@ function ClaimState({ board, team }: { board: BoardWithHub; team: boolean }) {
   if (claimed) {
     return (
       <>
-        <span className="inline-flex items-center gap-1">
-          <span className="text-success">
-            <Icon name="check" size={13} strokeWidth={2.2} />
+        {team ? (
+          <span className="inline-flex items-center gap-1">
+            <span className="text-success">
+              <Icon name="check" size={13} strokeWidth={2.2} />
+            </span>
+            You manage this board
           </span>
-          {team ? 'You manage this board' : 'Verified team'}
-        </span>
-        {team ? null : mine.data?.join ? (
+        ) : mine.data?.join ? (
           <span className="text-ink-muted">Request to join pending</span>
         ) : (
           <ClaimLink onClick={() => openClaim({ board: board.slug })}>{workPrompt}</ClaimLink>

@@ -28,7 +28,7 @@ import { cx } from '../lib/cx';
 import { trapTab } from '../lib/focus';
 import { useViewer } from '../lib/viewer';
 import { useAddProduct } from '../products/AddProductDialog';
-import { BoardAvatar, HubAvatar, Icon, IconButton, StatusPill, TYPE_META, UserAvatar } from '../ui';
+import { BoardAvatar, HubAvatar, Icon, IconButton, StatusPill, TYPE_META, UserAvatar, VerifiedBadge } from '../ui';
 
 /**
  * Search trigger and command-palette modal (FOUNDATION §5).
@@ -567,9 +567,7 @@ function SearchModalBody({
                 <span className="flex items-center gap-1">
                   <span className="truncate font-semibold text-ink">{b.name}</span>
                   {b.claimed_at ? (
-                    <span className="inline-flex shrink-0 items-center text-success" title="Verified team">
-                      <Icon name="check" size={12} strokeWidth={2.5} />
-                    </span>
+                    <VerifiedBadge size="sm" />
                   ) : null}
                 </span>
                 <span className="truncate text-xs text-ink-muted">{b.tagline}</span>
@@ -682,9 +680,7 @@ function SearchModalBody({
                 <span className="flex items-center gap-1">
                   <span className="truncate font-semibold text-ink">{b.name}</span>
                   {b.claimed_at ? (
-                    <span className="inline-flex shrink-0 items-center text-success" title="Verified team">
-                      <Icon name="check" size={12} strokeWidth={2.5} />
-                    </span>
+                    <VerifiedBadge size="sm" />
                   ) : null}
                 </span>
                 <span className="truncate text-xs text-ink-muted">{b.tagline}</span>
@@ -722,7 +718,11 @@ function SearchModalBody({
                   <Icon name="hub" size={15} />
                 </IconCell>
               )}
-              <Text title={`${h.name} hub`} sub={h.boards.map((b) => b.name).join(', ') || h.description} />
+              <Text
+                title={`${h.name} hub`}
+                badge={h.claimed_at ? <VerifiedBadge size="sm" /> : null}
+                sub={h.boards.map((b) => b.name).join(', ') || h.description}
+              />
             </>
           ),
         });
@@ -1013,11 +1013,7 @@ function BoardSpotlightCard({ board }: { board: Board }) {
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex items-center gap-1">
             <span className="truncate text-sm font-semibold text-ink">{board.name}</span>
-            {board.claimed_at ? (
-              <span className="inline-flex shrink-0 items-center text-success" title="Verified team">
-                <Icon name="check" size={12} strokeWidth={2.5} />
-              </span>
-            ) : null}
+            {board.claimed_at ? <VerifiedBadge size="sm" /> : null}
           </div>
           <span className="truncate text-xs text-ink-muted">{board.tagline}</span>
         </div>
@@ -1056,10 +1052,13 @@ function IconCell({ children }: { children: ReactNode }) {
   return <span className="grid size-7 shrink-0 place-items-center rounded-sm bg-subtle text-ink-muted">{children}</span>;
 }
 
-function Text({ title, sub }: { title: string; sub?: string }) {
+function Text({ title, badge, sub }: { title: string; badge?: ReactNode; sub?: string }) {
   return (
     <span className="flex min-w-0 flex-1 flex-col">
-      <span className="truncate font-semibold text-ink">{title}</span>
+      <span className="flex min-w-0 items-center gap-1">
+        <span className="truncate font-semibold text-ink">{title}</span>
+        {badge}
+      </span>
       {sub ? <span className="truncate text-xs text-ink-muted">{sub}</span> : null}
     </span>
   );

@@ -34,6 +34,7 @@ import {
   TypePill,
   UserAvatar,
   useToast,
+  VerifiedBadge,
   VerifiedPill,
   type ButtonVariant,
   type PostStatus,
@@ -408,6 +409,9 @@ function KitContent({ theme }: { theme: string }) {
         <Row>
           <TypePill type="bug" />
           <TypePill type="feature" />
+          <VerifiedBadge size="sm" />
+          <VerifiedBadge size="md" />
+          <VerifiedBadge size="lg" />
           <VerifiedPill />
           <TeamPill />
         </Row>
