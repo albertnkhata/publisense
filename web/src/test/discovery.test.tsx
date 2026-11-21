@@ -595,6 +595,7 @@ describe('signed-in discovery home', () => {
     expect(await screen.findByRole('heading', { name: 'New this week' })).toBeTruthy();
     expect(screen.getByRole('link', { name: /Figma hub/ }).getAttribute('href')).toBe('/h/figma');
     expect(await screen.findByText('Branching for preview databases')).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Recent feedback' })).toBeTruthy();
     expect(screen.getByText(/Team replied/)).toBeTruthy();
     const cats = screen.getByRole('list', { name: 'Categories' });
     expect(within(cats).getByText('Code editors')).toBeTruthy();
@@ -701,7 +702,7 @@ describe('signed-in discovery home', () => {
     postsApi.fetchPopularByStatus.mockResolvedValue([]);
     renderAt('/', true);
     await screen.findByRole('list', { name: 'Categories' });
-    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Popular posts' })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Recent feedback' })).toBeNull());
   });
 
   it('omits the category chip toolbar under Search and opens category cards on a dedicated page', async () => {
@@ -760,7 +761,7 @@ describe('landing page & auth handoff', () => {
     expect(screen.queryByRole('toolbar', { name: 'Categories' })).toBeNull();
     const active = screen.getByRole('list', { name: 'Trending products' });
     expect(within(active).getAllByRole('article').map((a) => within(a).getAllByRole('link')[0]?.textContent)).toEqual(['Cursor', 'Supabase', 'Figma', 'FigJam']);
-    expect(await screen.findByRole('heading', { name: 'Popular posts' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Recent feedback' })).toBeTruthy();
     expect(screen.getByText('Landing popular open post')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Building one of these products?' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Hubs' })).toBeTruthy();
@@ -786,7 +787,7 @@ describe('landing page & auth handoff', () => {
     postsApi.fetchPopularByStatus.mockResolvedValue([]);
     renderAt('/landing');
     expect(await screen.findByRole('heading', { name: 'Trending' })).toBeTruthy();
-    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Popular posts' })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Recent feedback' })).toBeNull());
   });
 
   it('switches to Trending this week when boards have recent activity', async () => {

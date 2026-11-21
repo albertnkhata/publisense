@@ -226,7 +226,7 @@ export function PopularPostsSection({ id = 'disc-popular' }: { id?: string }) {
   }));
 
   return (
-    <Section id={id} title="Popular posts">
+    <Section id={id} title="Recent feedback">
       <Tabs idBase={id} label="Posts by status" value={tab} onChange={setPickedTab} items={items} className="mb-3" />
       <TabPanel idBase={id} value={tab}>
         {waitingForFirst || activeQuery?.isPending ? (

@@ -114,7 +114,7 @@ describe('discovery home while quiet', () => {
     expect(cats.textContent).not.toMatch(/\b\d+\s+products?\b/);
     expect(within(cats).getByText('Linear, Notion')).toBeTruthy();
     expect(cats.textContent).not.toMatch(/\b0 (posts|followers)\b/);
-    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Popular posts' })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Recent feedback' })).toBeNull());
     expect(screen.queryByText(/No .* posts yet/)).toBeNull();
   });
 
