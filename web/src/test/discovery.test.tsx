@@ -697,6 +697,9 @@ describe('signed-in discovery home', () => {
     const populated = renderAt('/', true);
     expect(await screen.findByText('Planned item')).toBeTruthy();
     expect(screen.getByRole('tab', { name: 'Planned' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.queryByRole('tab', { name: 'Open' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Shipped' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'All feedback →' }).getAttribute('href')).toBe('/feed');
     populated.unmount();
 
     postsApi.fetchPopularByStatus.mockResolvedValue([]);

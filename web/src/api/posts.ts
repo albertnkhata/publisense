@@ -781,6 +781,35 @@ export interface PopularPostSummary extends PostSummary {
   following: boolean;
 }
 
+/**
+ * Pick up to `limit` posts while spreading across distinct boards first (1 per board,
+ * then up to `maxPerBoard`), falling back to remaining ranked rows when few boards exist.
+ */
+export function diversifyByBoard<T extends { board_id: string }>(rows: T[], limit: number, maxPerBoard = 2): T[] {
+  if (rows.length <= 1 || limit <= 0) return rows.slice(0, Math.max(0, limit));
+  const picked: T[] = [];
+  const used = new Set<number>();
+  const counts = new Map<string, number>();
+
+  for (let cap = 1; cap <= maxPerBoard && picked.length < limit; cap++) {
+    for (let i = 0; i < rows.length && picked.length < limit; i++) {
+      if (used.has(i)) continue;
+      const row = rows[i]!;
+      const seen = counts.get(row.board_id) ?? 0;
+      if (seen >= cap) continue;
+      used.add(i);
+      counts.set(row.board_id, seen + 1);
+      picked.push(row);
+    }
+  }
+
+  for (let i = 0; i < rows.length && picked.length < limit; i++) {
+    if (used.has(i)) continue;
+    picked.push(rows[i]!);
+  }
+  return picked;
+}
+
 /** Most upvoted live posts in a single team status across all boards, with official-reply and viewer vote flags. */
 export async function fetchPopularByStatus(
   status: PopularStatus,
@@ -796,9 +825,9 @@ export async function fetchPopularByStatus(
     .order('vote_count', { ascending: false })
     .order('created_at', { ascending: false })
     .order('id', { ascending: false })
-    .limit(limit);
+    .limit(limit * 4);
   if (error) throw error;
-  const rows = (data ?? []) as unknown as PostSummary[];
+  const rows = diversifyByBoard((data ?? []) as unknown as PostSummary[], limit);
   if (rows.length === 0) return [];
   const ids = rows.map((r) => r.id);
   const [votes, follows, officials] = await Promise.all([

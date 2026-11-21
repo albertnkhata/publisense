@@ -213,7 +213,7 @@ describe('fetchPopularByStatus', () => {
     expect(has(q, 'eq', 'status', 'planned')).toBe(true);
     expect(has(q, 'is', 'hidden_at', null)).toBe(true);
     expect(has(q, 'order', 'vote_count', { ascending: false })).toBe(true);
-    expect(has(q, 'limit', 6)).toBe(true);
+    expect(has(q, 'limit', 24)).toBe(true);
     expect(has(only('reply'), 'eq', 'is_official', true)).toBe(true);
     expect(has(only('reply'), 'is', 'parent_id', null)).toBe(true);
     expect(db.calls.vote).toBeUndefined();
@@ -222,6 +222,29 @@ describe('fetchPopularByStatus', () => {
       ['p1', false, false, false],
       ['p2', true, false, false],
     ]);
+  });
+
+  it('spreads posts across distinct boards first before taking repeats, and falls back when only one board has posts', async () => {
+    db.rows.post = [
+      { ...row('a1'), board_id: 'b1' },
+      { ...row('a2'), board_id: 'b1' },
+      { ...row('a3'), board_id: 'b1' },
+      { ...row('a4'), board_id: 'b1' },
+      { ...row('b1'), board_id: 'b2' },
+      { ...row('c1'), board_id: 'b3' },
+      { ...row('b2'), board_id: 'b2' },
+    ];
+    const spread = await fetchPopularByStatus('open', null, 5);
+    expect(spread.map((p) => p.id)).toEqual(['a1', 'b1', 'c1', 'a2', 'b2']);
+
+    db.rows.post = [
+      { ...row('s1'), board_id: 'only' },
+      { ...row('s2'), board_id: 'only' },
+      { ...row('s3'), board_id: 'only' },
+      { ...row('s4'), board_id: 'only' },
+    ];
+    const single = await fetchPopularByStatus('open', null, 4);
+    expect(single.map((p) => p.id)).toEqual(['s1', 's2', 's3', 's4']);
   });
 
   it('decorates viewer vote and follow state when signed in', async () => {

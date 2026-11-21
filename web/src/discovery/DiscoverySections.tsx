@@ -21,7 +21,7 @@ import { trendingTitle } from '../lib/trendingCopy';
 import { useViewer } from '../lib/viewer';
 import { LoadError } from '../posts/PostList';
 import { useRequireAuth } from '../shell/auth';
-import { BoardAvatar, HubAvatar, Icon, SkeletonBlock, StatusPill, STATUS_META, TabPanel, Tabs, TYPE_META, useToast } from '../ui';
+import { BoardAvatar, HubAvatar, Icon, SkeletonBlock, StatusPill, STATUS_META, TabPanel, Tabs, TypePill, useToast } from '../ui';
 
 const YOUR_PRODUCTS_LIMIT = 6;
 
@@ -215,25 +215,39 @@ export function PopularPostsSection({ id = 'disc-popular' }: { id?: string }) {
   // If every status settled empty with no errors, omit the section entirely so zero-post states don't show an empty box.
   if (!anyPending && !anyError && !firstNonEmpty) return null;
 
-  const tab: PopularStatus = pickedTab ?? firstNonEmpty ?? 'open';
+  // Hide status tabs that have settled empty so visitors don't click into dead ends.
+  const visibleStatuses = POPULAR_STATUSES.filter((_, i) => {
+    const q = popularQueries[i];
+    return q?.isPending || q?.isError || (q?.data?.length ?? 0) > 0;
+  });
+  const candidateTab: PopularStatus = pickedTab ?? firstNonEmpty ?? visibleStatuses[0] ?? 'open';
+  const tab: PopularStatus = visibleStatuses.includes(candidateTab) ? candidateTab : (firstNonEmpty ?? visibleStatuses[0] ?? 'open');
   const activeQuery = popularQueries[POPULAR_STATUSES.indexOf(tab)];
   const waitingForFirst = pickedTab === null && !firstNonEmpty && anyPending && !allErrored;
   const posts = activeQuery?.data ?? [];
 
-  const items = POPULAR_STATUSES.map((status) => ({
+  const items = visibleStatuses.map((status) => ({
     value: status,
     label: STATUS_META[status].label,
   }));
 
   return (
-    <Section id={id} title="Recent feedback">
+    <Section
+      id={id}
+      title="Recent feedback"
+      action={
+        <Link to="/feed" className="text-sm font-medium text-ink-secondary no-underline hover:text-ink">
+          All feedback →
+        </Link>
+      }
+    >
       <Tabs idBase={id} label="Posts by status" value={tab} onChange={setPickedTab} items={items} className="mb-3" />
       <TabPanel idBase={id} value={tab}>
         {waitingForFirst || activeQuery?.isPending ? (
           <div className="divide-y divide-line rounded-md border border-line bg-card px-4" aria-busy="true">
             {[0, 1, 2].map((i) => (
               <div key={i} className="flex items-center gap-3 py-3">
-                <SkeletonBlock className="h-8 w-8 rounded-sm" />
+                <SkeletonBlock className="size-8 rounded-sm" />
                 <div className="flex flex-1 flex-col gap-2">
                   <SkeletonBlock className="h-3 w-3/5" />
                   <SkeletonBlock className="h-3 w-2/5" />
@@ -251,6 +265,7 @@ export function PopularPostsSection({ id = 'disc-popular' }: { id?: string }) {
           <ul aria-label={`${STATUS_META[tab].label} popular posts`} className="m-0 list-none divide-y divide-line rounded-md border border-line bg-card p-0">
             {posts.map((p) => {
               const voteLabel = `${p.voted ? 'Remove upvote' : 'Upvote'}, ${p.vote_count} ${p.vote_count === 1 ? 'vote' : 'votes'}`;
+              const boardName = p.board?.name ?? 'Unknown product';
               return (
                 <li key={p.id} className="flex items-center gap-3 px-4 py-3 transition-colors duration-120 hover:bg-subtle/35">
                   <button
@@ -271,23 +286,53 @@ export function PopularPostsSection({ id = 'disc-popular' }: { id?: string }) {
                       );
                     }}
                     className={cx(
-                      'inline-flex min-w-8 shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-sm border px-2 py-1 font-mono text-xs leading-none font-semibold tabular-nums transition-colors duration-120',
+                      'inline-flex min-h-8 min-w-8 shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-sm border font-mono text-xs leading-none font-semibold tabular-nums transition-colors duration-120',
+                      p.vote_count > 0 ? 'px-2 py-1' : 'size-8',
                       p.voted
                         ? 'border-brand bg-brand-soft text-brand'
                         : 'border-line-strong bg-card text-ink-secondary hover:border-brand hover:bg-brand-soft hover:text-brand',
                     )}
                   >
-                    <Icon name="arrow-up" size={12} />
+                    <Icon name="arrow-up" size={p.vote_count > 0 ? 12 : 15} strokeWidth={2} />
                     {p.vote_count > 0 ? <span>{compactCount(p.vote_count)}</span> : null}
                   </button>
-                  <Link to={`/post/${p.id}`} className="flex min-w-0 flex-1 flex-col gap-1 no-underline">
-                    <span className="text-base font-semibold text-ink wrap-anywhere hover:text-brand">{p.title}</span>
-                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-muted">
-                      <span>{p.board?.name ?? 'Unknown product'}</span>
-                      <span>· {TYPE_META[p.type].label}</span>
-                      <span>· {shortAge(p.created_at)}</span>
-                      {p.has_official_reply ? <span>· Team replied</span> : null}
+                  <Link
+                    to={`/post/${p.id}`}
+                    className="group flex min-w-0 flex-1 items-center justify-between gap-4 no-underline max-sm:flex-col max-sm:items-start max-sm:gap-2"
+                  >
+                    <span className="flex min-w-0 flex-1 flex-col gap-1">
+                      <span className="text-base font-semibold text-ink wrap-anywhere transition-colors duration-120 group-hover:text-brand">
+                        {p.title}
+                      </span>
+                      <span className="flex flex-wrap items-center gap-x-1 gap-y-1 text-sm text-ink-muted">
+                        <span className="inline-flex items-center gap-1 font-medium text-ink-secondary">
+                          {p.board ? (
+                            <BoardAvatar name={boardName} color={p.board.color} logoSrc={logoSrc(p.board)} size="xs" decorative />
+                          ) : null}
+                          <span>{boardName}</span>
+                        </span>
+                        <span aria-hidden="true">·</span>
+                        <span>{shortAge(p.created_at)}</span>
+                        {p.has_official_reply ? (
+                          <>
+                            <span aria-hidden="true">·</span>
+                            <span className="font-medium text-brand">Team replied</span>
+                          </>
+                        ) : null}
+                      </span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-3 whitespace-nowrap">
+                      {p.reply_count > 0 ? (
+                        <span
+                          aria-label={`${p.reply_count} ${p.reply_count === 1 ? 'reply' : 'replies'}`}
+                          className="inline-flex items-center gap-1 font-mono text-xs text-ink-muted tabular-nums"
+                        >
+                          <Icon name="reply" size={13} strokeWidth={1.8} />
+                          <span>{compactCount(p.reply_count)}</span>
+                        </span>
+                      ) : null}
                       {p.status === 'shipped' ? <StatusPill status="shipped" /> : null}
+                      <TypePill type={p.type} />
                     </span>
                   </Link>
                 </li>
