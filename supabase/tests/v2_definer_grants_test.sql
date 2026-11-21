@@ -36,6 +36,10 @@ insert into anon_ok values
   ('v2_hub_visible(uuid)'),
   -- public client RPCs
   ('apply_inbound_webhook(uuid,uuid,v2_post_status,text)'), -- token-authenticated inbound issue sync (0065)
+  ('profile_followers(uuid,integer)'),     -- public profile followers list (0068)
+  ('profile_following_count(uuid)'),       -- public profile following count: people + live scopes (0068)
+  ('profile_following_scopes(uuid,integer)'), -- public profile followed boards/hubs list (0068)
+  ('profile_following_users(uuid,integer)'),  -- public profile followed people list (0068)
   ('record_event(uuid,text,text,uuid,uuid,text,jsonb)'), -- anonymous first-party analytics (0054)
   ('resolve_hub_slug(text)'),
   ('unsubscribe(uuid,v2_notification_kind)'),
