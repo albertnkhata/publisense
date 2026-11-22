@@ -1,13 +1,14 @@
-# Nightly logical backup of the production database (Supabase free tier has no
-# backups of its own; PITR is off). The repo is PUBLIC, so the dump is
-# encrypted (AES-256, gpg symmetric) before it is stored as an artifact:
-# without BACKUP_PASSPHRASE an artifact is useless to anyone who downloads it.
+# Nightly logical backup of the production database AND Supabase Storage media
+# (Supabase free tier has no backups of its own; PITR is off). The repo is PUBLIC,
+# so both archives are encrypted (AES-256, gpg symmetric) before being stored as
+# an artifact: without BACKUP_PASSPHRASE an artifact is useless to anyone who
+# downloads it.
 #
 # Needs two repository secrets (Settings → Secrets and variables → Actions):
 #   SUPABASE_DB_URL     Session pooler connection string, with the DB password
 #   BACKUP_PASSPHRASE   long random passphrase; keep a copy outside GitHub
 #
-# Restore: see docs/backup.md
+# Restore & drill: see docs/backup.md and scripts/restore-drill.sh (#319)
 name: Nightly backup
 
 on:
@@ -49,7 +50,7 @@ jobs:
           sudo apt-get install -y -qq postgresql-client-17
           /usr/lib/postgresql/17/bin/pg_dump --version
 
-      - name: Dump and encrypt
+      - name: Dump database and encrypt
         env:
           DB: ${{ secrets.SUPABASE_DB_URL }}
           PASS: ${{ secrets.BACKUP_PASSPHRASE }}
@@ -74,10 +75,104 @@ jobs:
           shred -u db.dump
           sha256sum "publisense-$stamp.dump.gpg"
 
+      - name: Backup Storage media and encrypt (#319)
+        env:
+          DB: ${{ secrets.SUPABASE_DB_URL }}
+          PASS: ${{ secrets.BACKUP_PASSPHRASE }}
+          STAMP: ${{ env.STAMP }}
+        run: |
+          set -euo pipefail
+          DB=$(printf '%s' "$DB" | tr -d '\r\n')
+          umask 077
+
+          mkdir -p storage-backup
+          psql "$DB" -v ON_ERROR_STOP=1 -tAF $'\t' \
+            -c "select bucket_id, name from storage.objects where bucket_id in ('avatars', 'board-logos', 'post-images') order by bucket_id, name;" \
+            > storage-objects.tsv
+
+          python3 - "$DB" storage-objects.tsv storage-backup <<'PY'
+          import hashlib, os, re, sys, time, urllib.parse, urllib.request
+
+          db_url, list_path, out_dir = sys.argv[1], sys.argv[2], sys.argv[3]
+          parsed = urllib.parse.urlparse(db_url)
+          user = urllib.parse.unquote(parsed.username or '')
+          host = parsed.hostname or ''
+
+          ref = None
+          if user.startswith('postgres.') and len(user.split('.', 1)[1]) >= 8:
+              ref = user.split('.', 1)[1]
+          else:
+              m = re.match(r'^db\.([a-z0-9]+)\.supabase\.co$', host)
+              if m:
+                  ref = m.group(1)
+
+          if not ref:
+              print('::error::Could not derive Supabase project ref from SUPABASE_DB_URL', file=sys.stderr)
+              sys.exit(1)
+
+          base = f'https://{ref}.supabase.co/storage/v1/object/public'
+          rows = []
+          with open(list_path, 'r', encoding='utf-8') as fh:
+              for raw in fh:
+                  line = raw.rstrip('\r\n')
+                  if not line or '\t' not in line:
+                      continue
+                  bucket, name = line.split('\t', 1)
+                  rows.append((bucket, name))
+
+          manifest_tsv = os.path.join(out_dir, 'manifest.tsv')
+          manifest_sha = os.path.join(out_dir, 'manifest.sha256')
+          total_bytes = 0
+
+          with open(manifest_tsv, 'w', encoding='utf-8') as tsv, open(manifest_sha, 'w', encoding='utf-8') as sha_out:
+              tsv.write('bucket_id\tname\tsize_bytes\tsha256\n')
+              for bucket, name in rows:
+                  rel = os.path.normpath(os.path.join(bucket, name))
+                  if rel.startswith('..') or os.path.isabs(rel):
+                      raise RuntimeError(f'Unsafe object path: {bucket}/{name}')
+                  dest = os.path.join(out_dir, rel)
+                  os.makedirs(os.path.dirname(dest), exist_ok=True)
+                  url = f'{base}/{urllib.parse.quote(bucket, safe="")}/{urllib.parse.quote(name, safe="/")}'
+
+                  data = None
+                  last_err = None
+                  for attempt in range(3):
+                      try:
+                          req = urllib.request.Request(url, headers={'User-Agent': 'publisense-backup/1'})
+                          with urllib.request.urlopen(req, timeout=30) as resp:
+                              if resp.status != 200:
+                                  raise RuntimeError(f'HTTP {resp.status}')
+                              data = resp.read()
+                              break
+                      except Exception as exc:
+                          last_err = exc
+                          time.sleep(1 + attempt)
+                  if data is None:
+                      raise RuntimeError(f'Failed downloading {bucket}/{name}: {last_err}')
+
+                  with open(dest, 'wb') as out_f:
+                      out_f.write(data)
+                  digest = hashlib.sha256(data).hexdigest()
+                  total_bytes += len(data)
+                  tsv.write(f'{bucket}\t{name}\t{len(data)}\t{digest}\n')
+                  sha_out.write(f'{digest}  {bucket}/{name}\n')
+
+          print(f'storage objects backed up: {len(rows)} ({total_bytes} bytes)')
+          PY
+
+          tar -czf storage.tar.gz -C storage-backup .
+          printf '%s' "$PASS" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --symmetric --cipher-algo AES256 --output "publisense-storage-$STAMP.tar.gz.gpg" storage.tar.gz
+          shred -u storage.tar.gz storage-objects.tsv
+          rm -rf storage-backup
+          sha256sum "publisense-storage-$STAMP.tar.gz.gpg"
+
       - name: Store (30 days)
         uses: actions/upload-artifact@v4
         with:
           name: publisense-db-${{ env.STAMP }}
-          path: publisense-*.dump.gpg
+          path: |
+            publisense-*.dump.gpg
+            publisense-storage-*.tar.gz.gpg
           retention-days: 30
           if-no-files-found: error

@@ -11,7 +11,9 @@ docs/
 ├── README.md               # This index
 ├── foundation.md           # The active architecture & design system contract
 ├── deferred.md             # Canonical register of deferred decisions (D-xxx)
-├── backup.md               # Production database backup and recovery runbook
+├── backup.md               # Production database & Storage backup and restore drill runbook (#319)
+├── runbook.md              # Launch-day support and incident response runbook (#320)
+├── launch-scorecard.md     # Daily launch scorecard and Jan 25 exit-gate tracker (#318)
 │
 ├── design/                 # UI/UX, page archetypes, and design system proposals
 │   └── page-refinement.md  # Comprehensive site page taxonomy & UI/UX refinement plan
