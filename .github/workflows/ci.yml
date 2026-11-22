@@ -300,6 +300,15 @@ jobs:
           PGPASSWORD: postgres
         run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_dm_email_test.sql
 
+      # Weekly digest (0070, #308): Shipped this week and Rising on your boards, never an
+      # empty digest, the digest setting and one-click unsubscribe, reserved domains, the
+      # daily cap, and one send per person per ISO week. Stubs pg_net and Vault in a
+      # rolled-back transaction; needs the CI database.
+      - name: v2 weekly digest tests
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_weekly_digest_test.sql
+
       # Post images (0060): the bucket and its policies, the four-image cap and path
       # shape, own uploads only, and the edit window. Rolled back.
       - name: v2 post image tests

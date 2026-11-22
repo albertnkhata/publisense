@@ -32,8 +32,9 @@ export const KIND_COPY: Record<NotificationKind, { label: string; hint: string }
 /**
  * 'message' (0059) is email-only and set from the Messages section of Settings
  * (DMs are still staff only), so it stays out of NOTIFICATION_KINDS and the table.
+ * 'weekly_digest' (0070) is email-only too: one toggle under the table.
  */
-export type PrefKind = NotificationKind | 'message';
+export type PrefKind = NotificationKind | 'message' | 'weekly_digest';
 
 export interface PrefRow {
   kind: PrefKind;
@@ -42,12 +43,13 @@ export interface PrefRow {
 }
 
 /** Absent row = enabled (0016_v2_schema.sql). */
-export type PrefMap = Record<`${NotificationKind}:${Channel}` | 'message:email', boolean>;
+export type PrefMap = Record<`${NotificationKind}:${Channel}` | 'message:email' | 'weekly_digest:email', boolean>;
 
 export function toPrefMap(rows: PrefRow[]): PrefMap {
   const map = {} as PrefMap;
   for (const k of NOTIFICATION_KINDS) for (const c of CHANNELS) map[`${k}:${c}`] = true;
   map['message:email'] = true;
+  map['weekly_digest:email'] = true;
   for (const r of rows) {
     const key = `${r.kind}:${r.channel}`;
     if (key in map) map[key as keyof PrefMap] = r.enabled;
