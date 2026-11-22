@@ -343,13 +343,15 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
         setStep('code');
         return;
       }
+      // #310: prefill work email when the signed-in account already uses the product's domain.
+      setEmail(viewer?.email && t.domain && !workEmailError(viewer.email, t.domain) ? viewer.email : '');
       if (taken) setStep('taken');
       else if (viewerId && (wantDns || (t.domain && pendingDns.data?.includes(t.domain)))) {
         setStep('dns');
         if (t.domain) void startDnsCheck(t.domain).then(setToken, (e: unknown) => setError(e instanceof Error ? e.message : 'Something went wrong.'));
       } else setStep('intro');
     },
-    [hubs.data, pendingDns.data, viewerId],
+    [hubs.data, pendingDns.data, viewer?.email, viewerId],
   );
 
   useEffect(() => {
@@ -369,11 +371,14 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
   // Resume a taken-board action ("Request to join" / "Report the wrong owner") once the visitor signs in.
   useEffect(() => {
     if (viewer) clearClaimIntent();
+    if (viewer?.email && target?.domain && !workEmailError(viewer.email, target.domain)) {
+      setEmail((cur) => cur || viewer.email || '');
+    }
     if (viewer && pendingStep.current) {
       setStep(pendingStep.current);
       pendingStep.current = null;
     }
-  }, [viewer]);
+  }, [viewer, target?.domain]);
 
   const domain = target?.domain ?? '';
   const isVerified = covered(verified.data, target?.domain ?? null);

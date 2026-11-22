@@ -78,7 +78,8 @@ const FIGJAM_SITE = { ...FIGJAM, site: 'figma.com/figjam' };
 const HUB_SITES = { ...FIGMA_HUB, boards: [FIGJAM_SITE, FIGMA_SITE] };
 const FIGMA_WITH_HUB = { ...FIGMA_SITE, hub: { id: FIGMA_HUB.id, slug: 'figma', name: 'Figma', claimed_at: null, primary_domain: 'figma.com' } };
 
-function renderAt(path: string, signedIn = true) {
+function renderAt(path: string, signedIn: boolean | typeof TEST_VIEWER = true) {
+  const viewer = typeof signedIn === 'boolean' ? (signedIn ? TEST_VIEWER : null) : signedIn;
   return renderWith(
     <ComposerProvider>
       <ClaimProvider>
@@ -91,7 +92,7 @@ function renderAt(path: string, signedIn = true) {
         </Routes>
       </ClaimProvider>
     </ComposerProvider>,
-    { viewer: signedIn ? TEST_VIEWER : null, path },
+    { viewer, path },
   );
 }
 
@@ -502,6 +503,13 @@ describe('claim a board', () => {
 });
 
 describe('work-at-hub prompts on a claimed board', () => {
+  it('prefills Your work email when the signed-in account already uses the board domain (#310)', async () => {
+    renderAt('/b/cursor', { ...TEST_VIEWER, email: 'founder@cursor.com' });
+    fireEvent.click(await screen.findByRole('button', { name: 'Work at Cursor?' }));
+    const input = (await screen.findByLabelText('Your work email')) as HTMLInputElement;
+    expect(input.value).toBe('founder@cursor.com');
+  });
+
   it('opens the Verified team modal from the header badge and links into the join flow', async () => {
     const claimedBoard = { ...CURSOR, claimed_at: '2026-10-15T12:00:00Z' };
     boardsApi.fetchBoard.mockResolvedValue(claimedBoard);
