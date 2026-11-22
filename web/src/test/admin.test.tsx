@@ -3,7 +3,21 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes } from 'react-router';
 import type { DisputeRow, ReportGroup } from '../api/moderation';
 import type { CommandCentreData } from '../api/analytics';
-import { CLAIM_VERIFY_FAIL_REASONS, claimFailReason, externalReferrerHost, getVisitId, loggableSearchTerm, looksPersonal } from '../api/analytics';
+import {
+  beforeSendVercelAnalytics,
+  CLAIM_VERIFY_FAIL_REASONS,
+  claimFailReason,
+  externalReferrerHost,
+  getDeviceAnalyticsExcluded,
+  getVisitId,
+  isAnalyticsExcluded,
+  isTestEmail,
+  loggableSearchTerm,
+  looksPersonal,
+  setDeviceAnalyticsExcluded,
+  setSessionAnalyticsExcluded,
+  syncAnalyticsExclusionFromUrl,
+} from '../api/analytics';
 import { AdminDisputesPage, AdminOverviewPage, AdminReportsPage, AdminTeamPage } from '../pages/AdminPages';
 import { iso, ME, OTHER } from './postFixtures';
 import { renderWith, TEST_VIEWER } from './renderApp';
@@ -440,6 +454,42 @@ describe('command centre (/admin)', () => {
     expect(externalReferrerHost('https://publisense.app/explore', 'publisense.app')).toBeNull();
     expect(externalReferrerHost('https://localhost:3001/b/cursor', 'localhost')).toBeNull();
     expect(externalReferrerHost('not-a-url', 'publisense.app')).toBeNull();
+  });
+
+  it('excludes test emails, opted-out browsers, session-excluded viewers and /admin paths from analytics (#309)', () => {
+    setDeviceAnalyticsExcluded(false);
+    setSessionAnalyticsExcluded(false);
+    try {
+      expect(isTestEmail('qa@sandbox.test')).toBe(true);
+      expect(isTestEmail('user@publisense.invalid')).toBe(true);
+      expect(isTestEmail('demo@foo.example')).toBe(true);
+      expect(isTestEmail('dev@localhost')).toBe(true);
+      expect(isTestEmail('alice@gmail.com')).toBe(false);
+
+      expect(isAnalyticsExcluded()).toBe(false);
+      expect(beforeSendVercelAnalytics({ type: 'pageview', url: 'https://publisense.app/explore' })).toEqual({
+        type: 'pageview',
+        url: 'https://publisense.app/explore',
+      });
+      expect(beforeSendVercelAnalytics({ type: 'pageview', url: 'https://publisense.app/admin' })).toBeNull();
+      expect(beforeSendVercelAnalytics({ type: 'pageview', url: 'https://publisense.app/admin/reports' })).toBeNull();
+
+      syncAnalyticsExclusionFromUrl('?analytics=off');
+      expect(getDeviceAnalyticsExcluded()).toBe(true);
+      expect(isAnalyticsExcluded()).toBe(true);
+      expect(beforeSendVercelAnalytics({ type: 'pageview', url: 'https://publisense.app/explore' })).toBeNull();
+
+      syncAnalyticsExclusionFromUrl('?analytics=on');
+      expect(getDeviceAnalyticsExcluded()).toBe(false);
+      expect(isAnalyticsExcluded()).toBe(false);
+
+      setSessionAnalyticsExcluded(true);
+      expect(isAnalyticsExcluded()).toBe(true);
+      expect(beforeSendVercelAnalytics({ type: 'pageview', url: 'https://publisense.app/b/cursor' })).toBeNull();
+    } finally {
+      setDeviceAnalyticsExcluded(false);
+      setSessionAnalyticsExcluded(false);
+    }
   });
 
   it('shows a structured loading skeleton for the command centre while pending', async () => {

@@ -159,11 +159,96 @@ export interface RecordEventOptions {
   meta?: Record<string, unknown>;
 }
 
+// ------------------------------------------------------------------ internal/admin/test exclusion (#309)
+
+/** Persistent localStorage flag so owner/admin devices stay excluded even when signed out. */
+export const ANALYTICS_EXCLUDED_KEY = 'publisense:analytics_excluded';
+
+let sessionExcluded = false;
+
+/** True for reserved test domains (.test, .example, .invalid, localhost). Mirrors 0069. */
+export function isTestEmail(email: string | null | undefined): boolean {
+  const e = (email ?? '').trim().toLowerCase();
+  return e.length > 0 && /(\.test|\.example|\.invalid|@localhost)$/.test(e);
+}
+
+/** True in headless/automated browsers (e.g. Playwright E2E smoke runs). */
+export function isAutomatedBrowser(): boolean {
+  return typeof navigator !== 'undefined' && navigator.webdriver === true;
+}
+
+/** Whether this browser has been opted out of analytics (auto-set for admins or via ?analytics=off). */
+export function getDeviceAnalyticsExcluded(): boolean {
+  try {
+    return typeof window !== 'undefined' && window.localStorage?.getItem(ANALYTICS_EXCLUDED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function setDeviceAnalyticsExcluded(excluded: boolean): void {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    if (excluded) window.localStorage.setItem(ANALYTICS_EXCLUDED_KEY, '1');
+    else window.localStorage.removeItem(ANALYTICS_EXCLUDED_KEY);
+  } catch {
+    /* ignore blocked storage */
+  }
+}
+
+/** Sync ?analytics=off / ?analytics=on query toggles into localStorage on boot. */
+export function syncAnalyticsExclusionFromUrl(search?: string): void {
+  try {
+    const raw = search ?? (typeof window !== 'undefined' ? window.location.search : '');
+    if (!raw) return;
+    const param = new URLSearchParams(raw).get('analytics')?.toLowerCase();
+    if (param === 'off' || param === '0' || param === 'false') setDeviceAnalyticsExcluded(true);
+    else if (param === 'on' || param === '1' || param === 'true') setDeviceAnalyticsExcluded(false);
+  } catch {
+    /* ignore malformed query */
+  }
+}
+
+/** Set in-memory exclusion for the current signed-in viewer (admin, admin +alias, or test account). */
+export function setSessionAnalyticsExcluded(excluded: boolean): void {
+  sessionExcluded = excluded;
+}
+
+/** True when this visit must be excluded from both Vercel Web Analytics and Command Centre. */
+export function isAnalyticsExcluded(): boolean {
+  return sessionExcluded || getDeviceAnalyticsExcluded() || isAutomatedBrowser();
+}
+
+/** Vercel Web Analytics beforeSend hook: drops /admin pages and excluded own/admin/test visits. */
+export function beforeSendVercelAnalytics<T extends { url: string }>(event: T): T | null {
+  if (isAnalyticsExcluded()) return null;
+  try {
+    const { pathname } = new URL(event.url, 'https://publisense.app');
+    if (pathname === '/admin' || pathname.startsWith('/admin/')) return null;
+  } catch {
+    /* keep event if URL cannot be parsed */
+  }
+  return event;
+}
+
+/** Server-side exclusion check for signed-in users (platform_admin, admin +tag QA aliases, reserved test domains). */
+export async function fetchIsAnalyticsExcluded(): Promise<boolean> {
+  if (!hasSupabaseConfig) return false;
+  try {
+    const { data, error } = await getSupabase().rpc('is_analytics_excluded');
+    if (error) return false;
+    return data === true;
+  } catch {
+    return false;
+  }
+}
+
 /** Fire-and-forget first-party event logger. Never throws. */
 export function recordEvent(kind: AnalyticsKind, opts: RecordEventOptions = {}): void {
-  if (!hasSupabaseConfig) return;
+  if (!hasSupabaseConfig || isAnalyticsExcluded()) return;
   try {
     const path = opts.path ?? (typeof window !== 'undefined' ? window.location.pathname : null);
+    if (path && (path === '/admin' || path.startsWith('/admin/'))) return;
     const referrerHost =
       opts.referrerHost !== undefined
         ? opts.referrerHost
@@ -314,6 +399,7 @@ export interface CommandCentreData {
 
 export const analyticsKeys = {
   commandCentre: (days: CommandCentreWindow) => ['admin-command-centre', days] as const,
+  excluded: (viewerId: string | null) => ['analytics-excluded', viewerId] as const,
 };
 
 export function useCommandCentre(days: CommandCentreWindow = 30, enabled = true) {
@@ -322,5 +408,14 @@ export function useCommandCentre(days: CommandCentreWindow = 30, enabled = true)
     queryFn: () => fetchCommandCentre(days),
     enabled,
     staleTime: 30_000,
+  });
+}
+
+export function useIsAnalyticsExcluded(viewerId: string | null) {
+  return useQuery({
+    queryKey: analyticsKeys.excluded(viewerId),
+    queryFn: fetchIsAnalyticsExcluded,
+    enabled: Boolean(viewerId),
+    staleTime: 5 * 60_000,
   });
 }

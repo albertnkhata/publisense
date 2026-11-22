@@ -1,12 +1,13 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { getSupabase, hasSupabaseConfig } from './api';
+import { beforeSendVercelAnalytics, getSupabase, hasSupabaseConfig, syncAnalyticsExclusionFromUrl } from './api';
 import { App } from './App';
 import { Providers } from './Providers';
 import { initMonitoring, rootErrorOptions } from './lib/monitoring';
 import { Analytics } from '@vercel/analytics/react';
 import './styles/app.css';
 
+syncAnalyticsExclusionFromUrl();
 initMonitoring();
 
 // Create the client before React mounts, so a reset link's #type=recovery is seen
@@ -21,6 +22,6 @@ createRoot(root, rootErrorOptions).render(
     <Providers>
       <App />
     </Providers>
-    <Analytics />
+    <Analytics beforeSend={beforeSendVercelAnalytics} />
   </StrictMode>,
 );

@@ -405,4 +405,62 @@ select pg_temp.expect('0056: rolled-up visit total leaves out the unfurl',
   (select visits = 1 from private.analytics_daily
     where kind = 'visit' and day = ((now() - interval '35 days') at time zone 'UTC')::date));
 
+-- ------------------------------------------------------------ 0069: exclude admins, admin +aliases, test domains & /admin paths (#309)
+
+select pg_temp.expect('0069: anon cannot execute is_analytics_excluded',
+  not has_function_privilege('anon', 'public.is_analytics_excluded()', 'execute'));
+select pg_temp.expect('0069: authenticated cannot execute private.is_excluded_analytics_user',
+  not has_function_privilege('authenticated', 'private.is_excluded_analytics_user(uuid)', 'execute'));
+
+delete from private.analytics_event;
+
+create temp table f69 as
+  select gen_random_uuid() as owner_admin,
+         gen_random_uuid() as owner_plus_qa,
+         gen_random_uuid() as test_domain_user,
+         gen_random_uuid() as real_member,
+         gen_random_uuid() as visit_ok;
+grant select on f69 to anon, authenticated;
+
+insert into auth.users (id, email, email_confirmed_at, raw_user_meta_data)
+select owner_admin, 'owner-cc69@publisense-qa.org', now(), '{"full_name":"Owner"}'::jsonb from f69
+union all
+select owner_plus_qa, 'owner-cc69+p@publisense-qa.org', now(), '{"full_name":"QA Plus"}'::jsonb from f69
+union all
+select test_domain_user, 'qa-cc69@sandbox.test', now(), '{"full_name":"QA Test"}'::jsonb from f69
+union all
+select real_member, 'real-cc69@publisense-qa.org', now(), '{"full_name":"Real"}'::jsonb from f69;
+
+insert into public.platform_admin (user_id, granted_by)
+select owner_admin, owner_admin from f69;
+
+-- Admin is excluded
+select pg_temp.as_user((select owner_admin from f69));
+select pg_temp.expect('0069: platform_admin is_analytics_excluded() is true', public.is_analytics_excluded());
+select public.record_event((select visit_ok from f69), 'page_view', '/explore', null, null, null, '{}'::jsonb);
+
+-- Admin +tag QA alias is excluded
+select pg_temp.as_user((select owner_plus_qa from f69));
+select pg_temp.expect('0069: admin +tag alias is_analytics_excluded() is true', public.is_analytics_excluded());
+select public.record_event((select visit_ok from f69), 'page_view', '/explore', null, null, null, '{}'::jsonb);
+
+-- Reserved .test domain account is excluded
+select pg_temp.as_user((select test_domain_user from f69));
+select pg_temp.expect('0069: .test account is_analytics_excluded() is true', public.is_analytics_excluded());
+select public.record_event((select visit_ok from f69), 'page_view', '/explore', null, null, null, '{}'::jsonb);
+
+-- /admin path is excluded even for anon
+select pg_temp.as_user(null);
+select public.record_event((select visit_ok from f69), 'page_view', '/admin', null, null, null, '{}'::jsonb);
+select public.record_event((select visit_ok from f69), 'page_view', '/admin/queue', null, null, null, '{}'::jsonb);
+
+-- Real non-admin member is NOT excluded
+select pg_temp.as_user((select real_member from f69));
+select pg_temp.expect('0069: real member is_analytics_excluded() is false', not public.is_analytics_excluded());
+select public.record_event((select visit_ok from f69), 'page_view', '/explore', null, null, null, '{}'::jsonb);
+
+select pg_temp.as_owner();
+select pg_temp.expect('0069: only the real member page_view was recorded',
+  (select count(*) = 1 from private.analytics_event where visit_id = (select visit_ok from f69)));
+
 rollback;

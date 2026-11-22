@@ -2,8 +2,10 @@ import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import {
   categoryLabel,
+  getDeviceAnalyticsExcluded,
   logoSrc,
   plural,
+  setDeviceAnalyticsExcluded,
   shortAge,
   useCommandCentre,
   type ClaimVerifyFailReason,
@@ -217,6 +219,7 @@ function FunnelList({ title, rows }: { title: string; rows: Array<{ label: strin
 
 export function AdminOverview() {
   const [days, setDays] = useState<CommandCentreWindow>(30);
+  const [browserExcluded, setBrowserExcluded] = useState(getDeviceAnalyticsExcluded);
   const query = useCommandCentre(days);
   const addProduct = useAddProduct();
 
@@ -297,6 +300,18 @@ export function AdminOverview() {
             </>
           ) : null}
           {queues.pending_joins > 0 ? ` · ${plural(queues.pending_joins, 'team join request')} waiting on boards` : ''}
+          {' · '}
+          <button
+            type="button"
+            onClick={() => {
+              const next = !browserExcluded;
+              setDeviceAnalyticsExcluded(next);
+              setBrowserExcluded(next);
+            }}
+            className="cursor-pointer border-0 bg-transparent p-0 text-sm text-ink-muted underline decoration-line-strong underline-offset-2 hover:text-ink"
+          >
+            {browserExcluded ? 'This browser excluded from analytics' : 'Exclude this browser from analytics'}
+          </button>
         </span>
         <div className="flex items-center gap-2">
           <div role="toolbar" aria-label="Time window" className="flex items-center gap-1">
