@@ -61,16 +61,18 @@ describe('notification preferences', () => {
     expect(map['reply:email']).toBe(false);
     expect(map['reply:in_app']).toBe(true);
     expect(map['join:email']).toBe(true);
-    expect(Object.keys(map)).toHaveLength(19);
+    expect(Object.keys(map)).toHaveLength(20);
     expect(map['message:email']).toBe(true);
+    expect(map['weekly_digest:email']).toBe(true);
   });
 
   it('shows every kind × channel and saves a toggle as an upsert', async () => {
     db.rows.notification_pref = [{ kind: 'reply', channel: 'email', enabled: false }];
     renderWith(<SettingsPage />, { viewer: TEST_VIEWER, path: '/settings' });
     const replyEmail = (await screen.findByRole('checkbox', { name: 'Replies: Email' })) as HTMLInputElement;
-    // 18 in the kind × channel table, plus the unread-message email toggle under Messages (4c).
-    expect(screen.getAllByRole('checkbox')).toHaveLength(19);
+    // 18 in the kind × channel table, the weekly digest toggle under it (0070), plus the
+    // unread-message email toggle under Messages (4c).
+    expect(screen.getAllByRole('checkbox')).toHaveLength(20);
     expect(screen.getByRole('checkbox', { name: 'Email me about unread messages' })).toBeTruthy();
     expect(replyEmail.checked).toBe(false);
     const mentionEmail = screen.getByRole('checkbox', { name: 'Mentions: Email' }) as HTMLInputElement;
@@ -80,6 +82,17 @@ describe('notification preferences', () => {
     await waitFor(() => expect(db.upserts).toHaveLength(1));
     expect(db.upserts[0]).toEqual({ user_id: TEST_VIEWER.id, kind: 'mention', channel: 'email', enabled: false });
     expect(mentionEmail.checked).toBe(false);
+  });
+
+  it('saves the weekly digest toggle as an email-only preference', async () => {
+    db.rows.notification_pref = [{ kind: 'weekly_digest', channel: 'email', enabled: false }];
+    renderWith(<SettingsPage />, { viewer: TEST_VIEWER, path: '/settings' });
+    const digest = (await screen.findByRole('checkbox', { name: /Email me a weekly digest/ })) as HTMLInputElement;
+    expect(digest.checked).toBe(false);
+    fireEvent.click(digest);
+    await waitFor(() => expect(db.upserts).toHaveLength(1));
+    expect(db.upserts[0]).toEqual({ user_id: TEST_VIEWER.id, kind: 'weekly_digest', channel: 'email', enabled: true });
+    expect(digest.checked).toBe(true);
   });
 
   it('puts a refused toggle back and says so', async () => {

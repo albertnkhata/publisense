@@ -27,7 +27,7 @@ _derived from `docs/archive/BUILD.md` checkbox state · one PR per step, see `do
 - [x] 8. Moderation and people
 - [x] 9. Cutover
 
-- v2 web tests (`web/src/**/*.test.ts(x)`): **57** files, **730** declared cases
+- v2 web tests (`web/src/**/*.test.ts(x)`): **57** files, **731** declared cases
 
 ### Open decisions and risks
 
@@ -81,6 +81,7 @@ _CI steps read from `.github/workflows/ci.yml`; v2 test counts are under v2 buil
 - CI · v2 product decision tests: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_product_decision_test.sql`
 - CI · v2 direct message tests: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_direct_messages_test.sql`
 - CI · v2 DM email tests: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_dm_email_test.sql`
+- CI · v2 weekly digest tests: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_weekly_digest_test.sql`
 - CI · v2 post image tests: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_post_images_test.sql`
 - CI · v2 post draft tests: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_post_drafts_test.sql`
 - CI · v2 duplicate source item tests: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_duplicate_source_items_test.sql`

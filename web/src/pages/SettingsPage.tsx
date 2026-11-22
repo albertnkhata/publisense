@@ -364,6 +364,25 @@ function NotificationsSection({ viewer }: { viewer: Viewer }) {
             </tbody>
           </table>
         )}
+        {prefs.data && (
+          <label className="flex cursor-pointer items-center gap-3 border-t border-line px-5 py-3 transition-colors duration-120 hover:bg-subtle max-sm:px-4">
+            <input
+              type="checkbox"
+              className="size-4 cursor-pointer accent-brand"
+              checked={prefs.data['weekly_digest:email']}
+              onChange={(e) =>
+                setPref.mutate(
+                  { kind: 'weekly_digest', channel: 'email', enabled: e.target.checked },
+                  { onError: () => toast('Couldn’t save that change. Try again.') },
+                )
+              }
+            />
+            <span>
+              <span className="block text-base font-medium text-ink">Email me a weekly digest</span>
+              <span className="block text-sm text-ink-muted">On Mondays: what shipped and what’s rising on boards you follow</span>
+            </span>
+          </label>
+        )}
       </Card>
     </Section>
   );
