@@ -6,6 +6,7 @@ import {
   DiscoveryBoardsSection,
   HubsSection,
   PopularPostsSection,
+  RecentlyAddedSection,
   YourProductsSection,
 } from '../discovery/DiscoverySections';
 import { usePageTitle } from '../lib/usePageTitle';
@@ -19,7 +20,8 @@ import { LandingPage } from './LandingPage';
 /**
  * Home (`/`): signed-out visitors see LandingPage; signed-in members see the
  * unified discovery directory (Search, Your products when following ≥1 board
- * or hub, Trending, Popular posts by status, Hubs, Categories, and Add a product).
+ * or hub, Trending, Popular posts by status, Recently added, Hubs, Categories,
+ * and Add a product).
  * Legacy `/?scope=following` links redirect to `/feed?scope=following`.
  */
 export function HomePage() {
@@ -82,6 +84,7 @@ function Discover({ boards, hubs, followed }: { boards: Board[]; hubs: Hub[]; fo
       <YourProductsSection id="home-your-products" boards={boards} hubs={hubs} followed={followed} />
       <DiscoveryBoardsSection id="home-trending" boards={boards} trending={trending.data ?? []} now={now} />
       <PopularPostsSection id="home-popular" />
+      <RecentlyAddedSection id="home-recent" boards={boards} trending={trending.data ?? []} now={now} />
       <HubsSection id="home-hubs" hubs={hubs} />
       <CategoriesSection id="home-categories" boards={boards} />
     </>

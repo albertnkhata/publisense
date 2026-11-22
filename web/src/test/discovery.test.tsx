@@ -761,6 +761,23 @@ describe('signed-in discovery home', () => {
     await screen.findByRole('list', { name: 'Categories' });
     expect(screen.queryByRole('heading', { name: 'Hubs' })).toBeNull();
   });
+
+  it('shows Recently added products on Home and Landing, newest first, without repeating Trending or Most active', async () => {
+    const newest = makeBoard({ id: 'b-new-1', slug: 'linear', name: 'Linear', post_count: 0, follower_count: 0, created_at: '2026-11-22T10:00:00.000Z' });
+    const olderNew = makeBoard({ id: 'b-new-2', slug: 'raycast', name: 'Raycast', post_count: 0, follower_count: 0, created_at: '2026-11-20T10:00:00.000Z' });
+    boardsApi.fetchBoards.mockResolvedValue([CURSOR, SUPABASE, FIGMA, FIGJAM, olderNew, newest]);
+
+    const signedIn = renderAt('/', true);
+    expect(await screen.findByRole('heading', { name: 'Recently added' })).toBeTruthy();
+    const homeList = screen.getByRole('list', { name: 'Recently added products' });
+    expect(within(homeList).getAllByRole('article').map((a) => within(a).getAllByRole('link')[0]?.textContent)).toEqual(['Linear', 'Raycast']);
+    signedIn.unmount();
+
+    renderAt('/landing');
+    expect(await screen.findByRole('heading', { name: 'Recently added' })).toBeTruthy();
+    const landingList = screen.getByRole('list', { name: 'Recently added products' });
+    expect(within(landingList).getAllByRole('article').map((a) => within(a).getAllByRole('link')[0]?.textContent)).toEqual(['Linear', 'Raycast']);
+  });
 });
 
 describe('landing page & auth handoff', () => {

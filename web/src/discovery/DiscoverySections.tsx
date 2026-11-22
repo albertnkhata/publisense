@@ -136,6 +136,14 @@ const POPULAR_EMPTY: Record<PopularStatus, string> = {
   shipped: 'No shipped posts yet',
 };
 
+function pickMostActiveBoards(boards: Board[], limit = 6): Board[] {
+  return boards
+    .filter((b) => isLive(b) && (b.post_count > 0 || b.follower_count > 0))
+    .slice()
+    .sort((a, b) => b.post_count - a.post_count || b.follower_count - a.follower_count || a.name.localeCompare(b.name))
+    .slice(0, limit);
+}
+
 /**
  * Trending boards this week (3-column grid), or a "Most active" fallback (all-time activity)
  * when there are no recent posts but boards have existing activity.
@@ -155,15 +163,7 @@ export function DiscoveryBoardsSection({
   action?: ReactNode;
   id?: string;
 }) {
-  const mostActive = useMemo(
-    () =>
-      boards
-        .filter((b) => isLive(b) && (b.post_count > 0 || b.follower_count > 0))
-        .slice()
-        .sort((a, b) => b.post_count - a.post_count || b.follower_count - a.follower_count || a.name.localeCompare(b.name))
-        .slice(0, 6),
-    [boards],
-  );
+  const mostActive = useMemo(() => pickMostActiveBoards(boards, 6), [boards]);
 
   if (trending.length > 0) {
     const items = trending.slice(0, 6);
@@ -186,6 +186,53 @@ export function DiscoveryBoardsSection({
     <Section id={id} title="Most active" action={action}>
       <CardGrid cols={3} label="Most active products">
         {mostActive.map((b) => (
+          <li key={b.id} className="min-w-0">
+            <BoardCard board={b} now={now} />
+          </li>
+        ))}
+      </CardGrid>
+    </Section>
+  );
+}
+
+/**
+ * Newest live boards (3-column grid, up to 6), skipping any board already
+ * shown in Trending / Most active above so Home never repeats the same card.
+ */
+export function RecentlyAddedSection({
+  boards,
+  trending = [],
+  now,
+  excludeMostActive = true,
+  id = 'disc-recent',
+}: {
+  boards: Board[];
+  trending?: Array<Board & { recent: number }>;
+  now?: Date;
+  excludeMostActive?: boolean;
+  id?: string;
+}) {
+  const recent = useMemo(() => {
+    const featured =
+      trending.length > 0
+        ? trending.slice(0, 6)
+        : excludeMostActive
+          ? pickMostActiveBoards(boards, 6)
+          : [];
+    const skip = new Set(featured.map((b) => b.id));
+    return boards
+      .filter((b) => isLive(b) && !skip.has(b.id))
+      .slice()
+      .sort((a, b) => b.created_at.localeCompare(a.created_at) || a.name.localeCompare(b.name))
+      .slice(0, 6);
+  }, [boards, trending, excludeMostActive]);
+
+  if (recent.length === 0) return null;
+
+  return (
+    <Section id={id} title="Recently added">
+      <CardGrid cols={3} label="Recently added products">
+        {recent.map((b) => (
           <li key={b.id} className="min-w-0">
             <BoardCard board={b} now={now} />
           </li>

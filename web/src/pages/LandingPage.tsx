@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { isLive, isProductFamily, useBoards, useHubs, useTrending } from '../api';
 import { useClaim } from '../claim/ClaimDialog';
-import { CategoriesSection, DiscoveryBoardsSection, HubsSection, PopularPostsSection } from '../discovery/DiscoverySections';
+import { CategoriesSection, DiscoveryBoardsSection, HubsSection, PopularPostsSection, RecentlyAddedSection } from '../discovery/DiscoverySections';
 import { usePageTitle } from '../lib/usePageTitle';
 import { LoadError } from '../posts/PostList';
 import { BrandSymbol } from '../shell/BrandMark';
@@ -187,6 +187,7 @@ export function LandingPage() {
 
         {boards.isSuccess && hubs.isSuccess ? (
           <>
+            <RecentlyAddedSection id="landing-recent" boards={liveBoards} trending={trending.data ?? []} now={now} />
             <HubsSection hubs={liveHubs} />
             <CategoriesSection boards={liveBoards} />
           </>
