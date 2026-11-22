@@ -112,7 +112,7 @@ export function LandingPage() {
             Find any product. Shape what ships next.
           </h1>
           <p className="mt-3 mb-6 max-w-hero text-md text-balance text-ink-secondary">
-            Product feedback ranked by the people who use the software, answered by the teams who build it.
+            Public feedback boards for the products you use. Report issues, upvote requests, and follow updates in one place.
           </p>
           <div id="hero-search-anchor" className="w-full max-w-dialog-lg">
             <SearchWell triggerClassName="h-9 border-line-strong text-md" />
