@@ -34,14 +34,14 @@ export function HomePage() {
     return <Navigate to={`/feed?${next.toString()}`} replace />;
   }
 
-  if (!viewer) {
-    return ready ? <LandingPage /> : null;
+  if (!viewer && ready) {
+    return <LandingPage />;
   }
 
-  return <SignedInHome viewerId={viewer.id} />;
+  return <SignedInHome viewerId={viewer?.id ?? null} ready={ready} />;
 }
 
-function SignedInHome({ viewerId }: { viewerId: string }) {
+function SignedInHome({ viewerId, ready = true }: { viewerId: string | null; ready?: boolean }) {
   usePageTitle(null);
   const boards = useBoards();
   const hubs = useHubs();
@@ -56,7 +56,7 @@ function SignedInHome({ viewerId }: { viewerId: string }) {
         Home
       </h1>
       <SearchWell className="mb-6" triggerClassName="h-9 border-line-strong text-md" />
-      {boards.isPending || hubs.isPending ? (
+      {!ready || boards.isPending || hubs.isPending ? (
         <HomeSkeleton />
       ) : boards.isError || hubs.isError ? (
         <LoadError
@@ -70,7 +70,7 @@ function SignedInHome({ viewerId }: { viewerId: string }) {
       ) : (
         <Discover boards={liveBoards} hubs={liveHubs} followed={follows.data} />
       )}
-      {boards.isSuccess && hubs.isSuccess ? <MissingProduct /> : null}
+      {ready && boards.isSuccess && hubs.isSuccess ? <MissingProduct /> : null}
     </section>
   );
 }

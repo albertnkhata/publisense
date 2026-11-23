@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient, type SupabaseClientOptions } from '@supabase/supabase-js';
-import { isRecoveryRedirect, recoverySignal, shouldDetectSessionInUrl } from './recovery';
+import { isRecoveryRedirect, recoverySignal, shouldDetectSessionInUrl, stripTrailingHash } from './recovery';
 
 /**
  * The one place v2 talks to Supabase (FOUNDATION §2: components never call
@@ -26,7 +26,11 @@ export const authClientOptions: SupabaseClientOptions<'public'> = {
     autoRefreshToken: true,
     detectSessionInUrl: (_url: URL, params: Record<string, string>) => {
       if (isRecoveryRedirect(params)) recoverySignal.mark();
-      return shouldDetectSessionInUrl(params);
+      const detect = shouldDetectSessionInUrl(params);
+      if (detect && typeof window !== 'undefined') {
+        window.addEventListener('hashchange', () => stripTrailingHash(), { once: true });
+      }
+      return detect;
     },
   },
 };
@@ -43,6 +47,7 @@ export function getSupabase(): SupabaseClient {
     // Subscribe the moment the client exists so an early PASSWORD_RECOVERY is never missed.
     client.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') recoverySignal.mark();
+      stripTrailingHash();
     });
   }
   return client;

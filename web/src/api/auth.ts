@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { AuthError, Session } from '@supabase/supabase-js';
+import { shouldDetectSessionInUrl, stripTrailingHash } from './recovery';
 import { getSupabase, hasSupabaseConfig, SUPABASE_ANON_KEY, SUPABASE_URL } from './supabase';
 
 /*
@@ -140,7 +141,7 @@ export async function requestPasswordReset(email: string): Promise<AuthResult> {
 export async function signInWithGoogle(): Promise<AuthResult> {
   const { error } = await getSupabase().auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: typeof window === 'undefined' ? undefined : window.location.href },
+    options: { redirectTo: typeof window === 'undefined' ? undefined : window.location.href.replace(/#$/, '') },
   });
   return { error: error ? explainAuthError(error) : null };
 }
@@ -201,17 +202,39 @@ export interface SessionState {
   ready: boolean;
 }
 
+/**
+ * Is there an OAuth/magic-link callback in the URL or a persisted session token in
+ * localStorage? When neither exists, the visitor is synchronously known to be signed
+ * out on first render, so `/` can paint `LandingPage` without waiting a turn.
+ */
+export function hasPendingSession(win: Window | undefined = typeof window === 'undefined' ? undefined : window): boolean {
+  if (!hasSupabaseConfig || !win) return false;
+  try {
+    const hashParams = Object.fromEntries(new URLSearchParams(win.location.hash.replace(/^#/, '')));
+    const searchParams = Object.fromEntries(new URLSearchParams(win.location.search));
+    if (shouldDetectSessionInUrl(hashParams) || shouldDetectSessionInUrl(searchParams) || Boolean(searchParams.code)) {
+      return true;
+    }
+    const host = new URL(SUPABASE_URL).hostname.split('.')[0];
+    return Boolean(host && win.localStorage.getItem(`sb-${host}-auth-token`));
+  } catch {
+    return true;
+  }
+}
+
 /** Live Supabase session. Without config there is never a session. */
 export function useSession(): SessionState {
-  const [state, setState] = useState<SessionState>({ session: null, ready: !hasSupabaseConfig });
+  const [state, setState] = useState<SessionState>(() => ({ session: null, ready: !hasPendingSession() }));
   useEffect(() => {
     if (!hasSupabaseConfig) return;
     const sb = getSupabase();
     let alive = true;
     sb.auth.getSession().then(({ data }) => {
+      stripTrailingHash();
       if (alive) setState({ session: data.session, ready: true });
     });
     const { data } = sb.auth.onAuthStateChange((_event, session) => {
+      stripTrailingHash();
       if (alive) setState({ session, ready: true });
     });
     return () => {
@@ -234,6 +257,14 @@ export interface AuthCapabilities {
 export const FALLBACK_CAPABILITIES: AuthCapabilities = { google: false, confirmEmail: true };
 
 /**
+ * Optimistic capabilities while `/auth/v1/settings` is still in flight on a configured
+ * project, so opening the sign-in dialog early never shifts the form downward when
+ * `Continue with Google` resolves. If the project does not have Google enabled (or the
+ * settings fetch fails), `fetchAuthCapabilities` resolves to `FALLBACK_CAPABILITIES`.
+ */
+const PENDING_CAPABILITIES: AuthCapabilities = { google: true, confirmEmail: true };
+
+/**
  * Render only the sign-in methods the project has enabled (FOUNDATION §1,
  * authCapabilities). `/auth/v1/settings` is public with the anon key.
  */
@@ -251,7 +282,7 @@ export async function fetchAuthCapabilities(): Promise<AuthCapabilities> {
 
 export function useAuthCapabilities(enabled = true): AuthCapabilities {
   const q = useQuery({ queryKey: ['auth', 'capabilities'], queryFn: fetchAuthCapabilities, staleTime: Infinity, enabled });
-  return q.data ?? FALLBACK_CAPABILITIES;
+  return q.data ?? (hasSupabaseConfig ? PENDING_CAPABILITIES : FALLBACK_CAPABILITIES);
 }
 
 /** Forget the handle asked for at sign-up, once the user has kept or changed what they got. */

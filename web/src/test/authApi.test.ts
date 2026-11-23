@@ -13,6 +13,7 @@ const profileQuery = vi.hoisted(() => {
 
 const auth = vi.hoisted(() => ({
   signInWithPassword: vi.fn(),
+  signInWithOAuth: vi.fn(),
   signUp: vi.fn(),
   resetPasswordForEmail: vi.fn(),
   updateUser: vi.fn(),
@@ -27,7 +28,8 @@ vi.mock('../api/supabase', () => ({
   publicStorageUrl: () => null,
 }));
 
-const { AUTH_COPY, changePassword, completePasswordReset, isHandleTaken, explainAuthError, requestPasswordReset, signInWithPassword, signUp } = await import('../api/auth');
+const { AUTH_COPY, changePassword, completePasswordReset, hasPendingSession, isHandleTaken, explainAuthError, requestPasswordReset, signInWithGoogle, signInWithPassword, signUp } = await import('../api/auth');
+const { stripTrailingHash } = await import('../api/recovery');
 
 const authError = (code: string, message = code) => Object.assign(new Error(message), { code });
 
@@ -113,4 +115,46 @@ describe('auth api', () => {
     profileQuery.result = { data: null as unknown as unknown[], error: new Error('offline') };
     expect(await isHandleTaken('nia')).toBeNull();
   });
+
+  it('strips a bare trailing # left by OAuth hash clearing without touching non-empty hashes', () => {
+    window.history.replaceState({ k: 1 }, '', '/#');
+    expect(window.location.href.endsWith('#')).toBe(true);
+    stripTrailingHash();
+    expect(window.location.href.endsWith('#')).toBe(false);
+    expect(window.history.state).toEqual({ k: 1 });
+
+    window.history.replaceState(null, '', '/#main');
+    stripTrailingHash();
+    expect(window.location.hash).toBe('#main');
+    window.history.replaceState(null, '', '/');
+  });
+
+  it('passes a clean redirectTo without a trailing # when starting Google OAuth', async () => {
+    auth.signInWithOAuth.mockResolvedValue({ error: null });
+    window.history.replaceState(null, '', '/#');
+    expect(await signInWithGoogle()).toEqual({ error: null });
+    expect(auth.signInWithOAuth).toHaveBeenCalledWith({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/` },
+    });
+    window.history.replaceState(null, '', '/');
+  });
+
+  it('detects a pending session only when an OAuth callback or stored token exists', () => {
+    window.localStorage.clear();
+    window.history.replaceState(null, '', '/');
+    expect(hasPendingSession()).toBe(false);
+
+    window.history.replaceState(null, '', '/#access_token=tok&token_type=bearer');
+    expect(hasPendingSession()).toBe(true);
+
+    window.history.replaceState(null, '', '/?code=pkce_code');
+    expect(hasPendingSession()).toBe(true);
+
+    window.history.replaceState(null, '', '/');
+    window.localStorage.setItem('sb-example-auth-token', '{"access_token":"tok"}');
+    expect(hasPendingSession()).toBe(true);
+    window.localStorage.clear();
+  });
 });
+

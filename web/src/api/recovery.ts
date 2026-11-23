@@ -61,3 +61,16 @@ export function isRecoveryRedirect(params: Record<string, string | undefined>): 
 export function shouldDetectSessionInUrl(params: Record<string, string | undefined>): boolean {
   return Boolean(params.access_token || params.error || params.error_description || params.error_code);
 }
+
+/**
+ * `@supabase/auth-js` clears an implicit-grant fragment (`#access_token=…`) with
+ * `window.location.hash = ''`, which leaves a bare trailing `#` in the address bar.
+ * Replace the URL without the empty hash so OAuth redirects leave a clean URL.
+ */
+export function stripTrailingHash(win: Pick<Window, 'location' | 'history'> | undefined = typeof window === 'undefined' ? undefined : window): void {
+  if (!win) return;
+  if (win.location.href.endsWith('#')) {
+    win.history.replaceState(win.history.state, '', win.location.href.slice(0, -1));
+  }
+}
+

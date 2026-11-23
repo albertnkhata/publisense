@@ -65,6 +65,12 @@ describe('AuthDialog: sign in', () => {
     expect(screen.queryByRole('button', { name: 'Continue with Google' })).toBeNull();
   });
 
+  it('preloads auth capabilities while closed so opening Sign in does not shift the form', () => {
+    api.fetchAuthCapabilities.mockReturnValue({ google: true, confirmEmail: true });
+    renderWith(<AuthDialog open={false} onClose={vi.fn()} />);
+    expect(api.fetchAuthCapabilities).toHaveBeenCalled();
+  });
+
   it('validates in the mockup order before calling the api', async () => {
     open();
     submit('Sign in');

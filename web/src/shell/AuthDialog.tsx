@@ -70,7 +70,7 @@ export interface AuthDialogProps {
 
 export function AuthDialog({ open, onClose, initialMode = 'signin', reason }: AuthDialogProps) {
   const { toast } = useToast();
-  const caps = useAuthCapabilities(open);
+  const caps = useAuthCapabilities();
   const [mode, setModeState] = useState<AuthMode>(initialMode);
   const [keepReason, setKeepReason] = useState(Boolean(reason));
   const [name, setName] = useState('');
