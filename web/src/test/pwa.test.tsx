@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { PwaWatcher, PWA_COPY } from '../shell/PwaWatcher';
@@ -16,6 +17,38 @@ describe('PwaWatcher', () => {
     act(() => void window.dispatchEvent(new Event('offline')));
     expect(screen.getByText(PWA_COPY.offline)).toBeTruthy();
     act(() => void window.dispatchEvent(new Event('online')));
+    expect(screen.queryByText(PWA_COPY.offline)).toBeNull();
+  });
+
+  it('does not show a false offline pill on boot when navigator.onLine reports false', () => {
+    const spy = vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(false);
+    try {
+      render(
+        <ToastProvider>
+          <PwaWatcher register={false} />
+        </ToastProvider>,
+      );
+      expect(screen.queryByText(PWA_COPY.offline)).toBeNull();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('clears the offline pill as soon as a query or mutation succeeds', async () => {
+    const client = new QueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <ToastProvider>
+          <PwaWatcher register={false} />
+        </ToastProvider>
+      </QueryClientProvider>,
+    );
+    act(() => void window.dispatchEvent(new Event('offline')));
+    expect(screen.getByText(PWA_COPY.offline)).toBeTruthy();
+
+    await act(async () => {
+      await client.fetchQuery({ queryKey: ['probe'], queryFn: async () => 'ok', networkMode: 'always' });
+    });
     expect(screen.queryByText(PWA_COPY.offline)).toBeNull();
   });
 });
