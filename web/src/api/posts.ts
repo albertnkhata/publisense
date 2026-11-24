@@ -757,11 +757,14 @@ export function groupChangelog(posts: Array<PostSummary & { shipped_at: string }
   return out;
 }
 
-/** Most upvoted open and under-review requests across every board (Explore "Most wanted"). */
+const LIVE_SUMMARY_SELECT = `id, board_id, title, type, status, vote_count, reply_count, created_at, board:board!board_id!inner(${BOARD})`;
+
+/** Most upvoted open and under-review requests across live boards (Home "Most wanted"). */
 export async function fetchWanted(limit = 20): Promise<PostSummary[]> {
   const { data, error } = await getSupabase()
     .from('post')
-    .select(SUMMARY_SELECT)
+    .select(LIVE_SUMMARY_SELECT)
+    .eq('board.status', 'live')
     .in('status', ['open', 'under_review'])
     .is('hidden_at', null)
     .order('vote_count', { ascending: false })
@@ -810,7 +813,7 @@ export function diversifyByBoard<T extends { board_id: string }>(rows: T[], limi
   return picked;
 }
 
-/** Most upvoted live posts in a single team status across all boards, with official-reply and viewer vote flags. */
+/** Most upvoted live posts in a single team status across live boards, with official-reply and viewer vote flags. */
 export async function fetchPopularByStatus(
   status: PopularStatus,
   viewerId: string | null,
@@ -819,7 +822,8 @@ export async function fetchPopularByStatus(
   const sb = getSupabase();
   const { data, error } = await sb
     .from('post')
-    .select(SUMMARY_SELECT)
+    .select(LIVE_SUMMARY_SELECT)
+    .eq('board.status', 'live')
     .eq('status', status)
     .is('hidden_at', null)
     .order('vote_count', { ascending: false })

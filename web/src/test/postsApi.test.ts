@@ -210,6 +210,7 @@ describe('fetchPopularByStatus', () => {
 
     const out = await fetchPopularByStatus('planned', null, 6);
     const q = only('post');
+    expect(has(q, 'eq', 'board.status', 'live')).toBe(true);
     expect(has(q, 'eq', 'status', 'planned')).toBe(true);
     expect(has(q, 'is', 'hidden_at', null)).toBe(true);
     expect(has(q, 'order', 'vote_count', { ascending: false })).toBe(true);
