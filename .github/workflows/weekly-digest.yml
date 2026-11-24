@@ -68,27 +68,27 @@ jobs:
           DB=$(printf '%s' "$DB" | tr -d '\r\n')
 
           echo "=== Target ISO week ==="
-          psql "$DB" -v ON_ERROR_STOP=1 -v offset_days="$OFFSET_DAYS" -c "
+          psql "$DB" -v ON_ERROR_STOP=1 -v offset_days="$OFFSET_DAYS" <<'SQL'
             select now() at time zone 'UTC' as utc_now,
-                   to_char((now() + (:'offset_days' || ' days')::interval) at time zone 'UTC', 'IYYY-\"W\"IW') as target_iso_week;
-          "
+                   to_char((now() + (:'offset_days' || ' days')::interval) at time zone 'UTC', 'IYYY-"W"IW') as target_iso_week;
+          SQL
 
           echo "=== Live QA fixture boards (slug like 'qa-%') ==="
-          psql "$DB" -v ON_ERROR_STOP=1 -c "
+          psql "$DB" -v ON_ERROR_STOP=1 <<'SQL'
             select slug, status, post_count, created_at
               from public.board
              where slug like 'qa-%'
              order by created_at desc;
-          "
+          SQL
 
           echo "=== Aggregate weekly digest audience for target ISO week ==="
-          psql "$DB" -v ON_ERROR_STOP=1 -v offset_days="$OFFSET_DAYS" -c "
+          psql "$DB" -v ON_ERROR_STOP=1 -v offset_days="$OFFSET_DAYS" <<'SQL'
             with params as (
-              select to_char((now() + (:'offset_days' || ' days')::interval) at time zone 'UTC', 'IYYY-\"W\"IW') as wk
+              select to_char((now() + (:'offset_days' || ' days')::interval) at time zone 'UTC', 'IYYY-"W"IW') as wk
             ),
             base as (
               select u.id,
-                     u.email ~* '@([a-z0-9-]+\\.)*(invalid|test|example|localhost)$' as is_reserved,
+                     u.email ~* '@([a-z0-9-]+\.)*(invalid|test|example|localhost)$' as is_reserved,
                      exists (select 1 from public.notification_pref p
                               where p.user_id = u.id and p.kind = 'weekly_digest' and p.channel = 'email' and not p.enabled) as opted_out,
                      exists (select 1 from public.email_log l, params
@@ -104,10 +104,10 @@ jobs:
                    count(*) filter (where logged_this_week) as already_logged_for_week,
                    count(*) filter (where not opted_out and not logged_this_week and not is_reserved) as eligible_non_reserved
               from base;
-          "
+          SQL
 
           echo "=== pg_cron schedule & recent runs (if readable) ==="
-          psql "$DB" -v ON_ERROR_STOP=0 -c "
+          psql "$DB" -v ON_ERROR_STOP=0 <<'SQL' || true
             select jobid, jobname, schedule, active
               from cron.job
              where jobname = 'v2-weekly-digest';
@@ -117,10 +117,10 @@ jobs:
              where j.jobname = 'v2-weekly-digest'
              order by r.start_time desc
              limit 5;
-          " || true
+          SQL
 
           echo "=== Recent v2_weekly_digest email_log rows (recipients redacted) ==="
-          psql "$DB" -v ON_ERROR_STOP=1 -c "
+          psql "$DB" -v ON_ERROR_STOP=1 <<'SQL'
             select created_at,
                    split_part(notification_id, ':', 2) as iso_week,
                    left(md5(lower(coalesce(recipient, ''))), 6) || '@' || split_part(coalesce(recipient, ''), '@', 2) as recipient_redacted,
@@ -131,7 +131,7 @@ jobs:
              where kind = 'v2_weekly_digest'
              order by created_at desc
              limit 20;
-          "
+          SQL
 
       - name: Run v2_weekly_digest_send (mode=send only)
         if: inputs.mode == 'send'
@@ -149,12 +149,14 @@ jobs:
             exit 1
           fi
 
-          SENT=$(psql "$DB" -v ON_ERROR_STOP=1 -v offset_days="$OFFSET_DAYS" -tAc \
-            "select public.v2_weekly_digest_send(now() + (:'offset_days' || ' days')::interval);")
+          SENT=$(psql "$DB" -v ON_ERROR_STOP=1 -v offset_days="$OFFSET_DAYS" -tA <<'SQL'
+            select public.v2_weekly_digest_send(now() + (:'offset_days' || ' days')::interval);
+          SQL
+          )
           echo "v2_weekly_digest_send() queued: $SENT"
 
           echo "=== Updated v2_weekly_digest email_log rows (recipients redacted) ==="
-          psql "$DB" -v ON_ERROR_STOP=1 -c "
+          psql "$DB" -v ON_ERROR_STOP=1 <<'SQL'
             select created_at,
                    split_part(notification_id, ':', 2) as iso_week,
                    left(md5(lower(coalesce(recipient, ''))), 6) || '@' || split_part(coalesce(recipient, ''), '@', 2) as recipient_redacted,
@@ -165,4 +167,4 @@ jobs:
              where kind = 'v2_weekly_digest'
              order by created_at desc
              limit 20;
-          "
+          SQL
