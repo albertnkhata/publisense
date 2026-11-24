@@ -244,29 +244,32 @@ function ThreadNode({
 }
 
 /**
- * Reply text with @mentions as links: the board's slug goes to the board (its
- * team is notified), any other @handle to that person's profile.
+ * Reply text with @mentions as links: the board's slug (and hyphenated board
+ * slugs, since user handles never contain hyphens) goes to `/b/<slug>`, any
+ * other @handle to that person's profile. Mirrors `v2_reply_after` (0050).
  */
 function ReplyBody({ post, body }: { post: Post; body: string }) {
   const parts: ReactNode[] = [];
-  const re = /(^|[^A-Za-z0-9_@./-])@([A-Za-z0-9_]{1,40})/g;
+  const re = /(^|[^A-Za-z0-9_@./-])@([A-Za-z0-9_][A-Za-z0-9_-]{0,59})/g;
   let last = 0;
   let m: RegExpExecArray | null;
   while ((m = re.exec(body))) {
+    const raw = (m[2] ?? '').replace(/-+$/, '');
+    if (!raw) continue;
     const start = m.index + (m[1]?.length ?? 0);
-    const handle = (m[2] ?? '').toLowerCase();
+    const handle = raw.toLowerCase();
     parts.push(body.slice(last, start));
-    const toBoard = post.board && handle === post.board.slug;
+    const toBoard = Boolean((post.board && handle === post.board.slug) || (handle.includes('-') && !handle.includes('_')));
     parts.push(
       <Link
         key={start}
         to={toBoard ? `/b/${handle}` : `/u/${handle}`}
         className="font-medium text-brand no-underline hover:underline hover:underline-offset-2"
       >
-        @{m[2]}
+        @{raw}
       </Link>,
     );
-    last = start + 1 + (m[2]?.length ?? 0);
+    last = start + 1 + raw.length;
   }
   parts.push(body.slice(last));
   return (

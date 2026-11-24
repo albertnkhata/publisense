@@ -788,6 +788,40 @@ describe('team management', () => {
     expect(screen.queryByRole('button', { name: 'Remove J Mwamba' })).toBeNull();
   });
 
+  it('lets a non-owner member leave the board team after confirming, and navigates back to the board (Check 5.10)', async () => {
+    boardsApi.fetchBoard.mockResolvedValue(CLAIMED);
+    teamsApi.fetchScopeRole.mockResolvedValue('member');
+    teamsApi.fetchTeam.mockResolvedValue([
+      member({ user_id: OTHER.id, role: 'owner', profile: OTHER }),
+      member({ user_id: ME.id, role: 'member', profile: ME }),
+    ]);
+    teamsApi.removeMember.mockResolvedValue(undefined);
+    const { router } = renderAt('/b/cursor/manage?tab=team');
+
+    const leaveBtn = await screen.findByRole('button', { name: 'Leave team' });
+    fireEvent.click(leaveBtn);
+    const dialog = await screen.findByRole('dialog', { name: 'Leave the Cursor team?' });
+    expect(within(dialog).getByText(/won’t be able to edit official team replies/)).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(teamsApi.removeMember).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Leave team' }));
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Leave team' }));
+    await waitFor(() => expect(teamsApi.removeMember).toHaveBeenCalledWith('board', CURSOR.id, ME.id));
+    expect(await screen.findByText('You left the Cursor team')).toBeTruthy();
+    await waitFor(() => expect(router.state.location.pathname).toBe('/b/cursor'));
+  });
+
+  it('does not show Leave team for a board owner', async () => {
+    boardsApi.fetchBoard.mockResolvedValue(CLAIMED);
+    teamsApi.fetchScopeRole.mockResolvedValue('owner');
+    teamsApi.fetchTeam.mockResolvedValue(team());
+    renderAt('/b/cursor/manage?tab=team');
+    expect(await screen.findByText('Alice Banda (you)')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Leave team' })).toBeNull();
+  });
+
   it('approves a join request and adds a teammate by email', async () => {
     teamsApi.fetchScopeRole.mockResolvedValue('owner');
     teamsApi.fetchTeam.mockResolvedValue(team());

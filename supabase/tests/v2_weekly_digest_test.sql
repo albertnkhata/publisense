@@ -125,7 +125,9 @@ select pg_temp.expect('0070: post links use /post/<id>',
 select pg_temp.expect('0070: one-click unsubscribe headers and a settings link',
   (select b -> 'headers' ->> 'List-Unsubscribe-Post' = 'List-Unsubscribe=One-Click'
       and b -> 'headers' ->> 'List-Unsubscribe' = '<https://publisense.app/api/unsubscribe?token='
-          || (select token from public.email_token where user_id = (select ann from f))::text || '>'
+          || (select token from public.email_token where user_id = (select ann from f))::text || '&kind=weekly_digest>'
+      and b ->> 'html' like '%https://publisense.app/unsubscribe?token='
+          || (select token from public.email_token where user_id = (select ann from f))::text || '&kind=weekly_digest%'
       and b ->> 'html' like '%https://publisense.app/settings#notifications%'
      from (select pg_temp.last_digest((select ann from f)) b) s));
 select pg_temp.expect('0070: the send is logged once for this ISO week',

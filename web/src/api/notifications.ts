@@ -102,22 +102,50 @@ export function useSetNotificationPref(userId: string) {
 
 export type UnsubscribeOutcome = 'done' | 'invalid' | 'offline';
 
+export const PREF_KINDS = [...NOTIFICATION_KINDS, 'message', 'weekly_digest'] as const;
+const PREF_KIND_SET = new Set<string>(PREF_KINDS);
+
+export function isPrefKind(value: string | null | undefined): value is PrefKind {
+  return Boolean(value && PREF_KIND_SET.has(value));
+}
+
+export const UNSUBSCRIBE_LABELS: Record<PrefKind, string> = {
+  reply: 'reply emails',
+  mention: 'mention emails',
+  followed_post: 'followed-post emails',
+  status_change: 'status update emails',
+  upvote_milestone: 'upvote milestone emails',
+  follow: 'new follower emails',
+  new_post: 'new post emails',
+  claim: 'board claim emails',
+  join: 'team request emails',
+  product: 'product approval emails',
+  message: 'unread message emails',
+  weekly_digest: 'the weekly digest',
+};
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * One-click unsubscribe from every email (FOUNDATION §9). The RPC answers a quiet
- * `false` for an unknown token; a malformed one gets the same answer without a
- * round trip, so the page never says which tokens exist.
+ * One-click unsubscribe from one email category (`kind`) or every email when `kind`
+ * is null/omitted (FOUNDATION §9). The RPC answers a quiet `false` for an unknown
+ * token; a malformed one gets the same answer without a round trip, so the page
+ * never says which tokens exist.
  */
-export async function unsubscribeAll(token: string | null): Promise<UnsubscribeOutcome> {
+export async function unsubscribe(token: string | null, kind?: PrefKind | null): Promise<UnsubscribeOutcome> {
   if (!token || !UUID_RE.test(token.trim())) return 'invalid';
   try {
-    const { data, error } = await getSupabase().rpc('unsubscribe', { p_token: token.trim() });
+    const args = kind ? { p_token: token.trim(), p_kind: kind } : { p_token: token.trim() };
+    const { data, error } = await getSupabase().rpc('unsubscribe', args);
     if (error) return /fetch|network/i.test(error.message) ? 'offline' : 'invalid';
     return data === true ? 'done' : 'invalid';
   } catch {
     return 'offline';
   }
+}
+
+export function unsubscribeAll(token: string | null): Promise<UnsubscribeOutcome> {
+  return unsubscribe(token, null);
 }
 
 // ------------------------------------------------------------------ the notification list (step 8)

@@ -156,6 +156,7 @@ export function BoardManagePage() {
 }
 
 function BoardManage({ board, role }: { board: BoardWithHub; role: Role }) {
+  const navigate = useNavigate();
   const { viewer } = useViewer();
   const viewerId = viewer?.id ?? null;
   const admin = canManage(role);
@@ -254,7 +255,7 @@ function BoardManage({ board, role }: { board: BoardWithHub; role: Role }) {
                 )
               }
             >
-              <TeamList scope="board" scopeId={board.id} myRole={role} scopeName={board.name} />
+              <TeamList scope="board" scopeId={board.id} myRole={role} scopeName={board.name} onLeft={() => void navigate(`/b/${board.slug}`)} />
             </Section>
             {admin ? (
               <Section title="Invite teammates" note={`They need an @${siteDomain(board.site) ?? 'company'} address and a Publisense account.`}>
@@ -447,6 +448,7 @@ export function HubManagePage() {
 }
 
 function HubManage({ hub, role }: { hub: Hub; role: Role }) {
+  const navigate = useNavigate();
   const { viewer } = useViewer();
   const admin = canManage(role);
   const tabs = admin ? (['inbox', 'boards', 'team', 'settings'] as const) : (['inbox', 'boards', 'team'] as const);
@@ -541,7 +543,7 @@ function HubManage({ hub, role }: { hub: Hub; role: Role }) {
           <>
             {admin ? <JoinRequests scopes={[{ scope: 'hub', id: hub.id }, ...hub.boards.map((b) => ({ scope: 'board' as const, id: b.id }))]} names={names} /> : null}
             <Section title="Members" note="Members reply with the verified badge and set statuses on every board in the hub. Admins also manage settings and the team.">
-              <TeamList scope="hub" scopeId={hub.id} myRole={role} scopeName={`${hub.name} hub`} />
+              <TeamList scope="hub" scopeId={hub.id} myRole={role} scopeName={`${hub.name} hub`} onLeft={() => void navigate(`/h/${hub.slug}`)} />
             </Section>
             {admin ? (
               <Section

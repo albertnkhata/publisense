@@ -385,6 +385,24 @@ describe('replies', () => {
     expect(screen.getByRole('link', { name: '@someone' }).getAttribute('href')).toBe('/u/someone');
   });
 
+  it('keeps hyphenated @<board-slug> mentions intact and links them to /b/<slug> (Check 4.4)', async () => {
+    const post = makePost({
+      reply_count: 1,
+      board: { id: 'b-qa', slug: 'qa-launch-fixture-2026-11-22', name: 'QA Fixture', color: '#0047AB', logo_path: null },
+    });
+    const r0 = makeReply(post, {
+      body: 'Looping in @qa-launch-fixture-2026-11-22 and @alice_dev- plus foo@example-domain.com',
+      created_at: iso(5),
+    });
+    renderPost(post, { replies: [r0] });
+    const boardLink = await screen.findByRole('link', { name: '@qa-launch-fixture-2026-11-22' });
+    expect(boardLink.getAttribute('href')).toBe('/b/qa-launch-fixture-2026-11-22');
+    expect(screen.queryByRole('link', { name: '@qa' })).toBeNull();
+    const userLink = screen.getByRole('link', { name: '@alice_dev' });
+    expect(userLink.getAttribute('href')).toBe('/u/alice_dev');
+    expect(screen.queryByRole('link', { name: /@example-domain/ })).toBeNull();
+  });
+
   it('someone outside the team never sees Reply as and replies personally', async () => {
     const post = makePost({ reply_count: 0 });
     renderPost(post);

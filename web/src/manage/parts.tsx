@@ -275,8 +275,20 @@ export function canManage(role: Role | null | undefined) {
   return role === 'owner' || role === 'admin';
 }
 
-/** Members of one scope, with role selects and remove for admins (owners for owners). */
-export function TeamList({ scope, scopeId, myRole, scopeName }: { scope: Scope; scopeId: string; myRole: Role | null; scopeName: string }) {
+/** Members of one scope, with role selects and remove for admins (owners for owners), plus Leave team for non-owner members. */
+export function TeamList({
+  scope,
+  scopeId,
+  myRole,
+  scopeName,
+  onLeft,
+}: {
+  scope: Scope;
+  scopeId: string;
+  myRole: Role | null;
+  scopeName: string;
+  onLeft?: () => void;
+}) {
   const { viewer } = useViewer();
   const team = useTeam(scope, scopeId);
   const members = useMemo(() => sortMembers(team.data ?? [], viewer?.id ?? null), [team.data, viewer?.id]);
@@ -302,14 +314,14 @@ export function TeamList({ scope, scopeId, myRole, scopeName }: { scope: Scope; 
     <ul className="m-0 flex list-none flex-col p-0" aria-label={`${scopeName} team`}>
       {members.map((m) => (
         <li key={m.user_id} className="border-t border-line first:border-t-0">
-          <MemberRow member={m} myRole={myRole} />
+          <MemberRow member={m} myRole={myRole} scopeName={scopeName} onLeft={onLeft} />
         </li>
       ))}
     </ul>
   );
 }
 
-function MemberRow({ member, myRole }: { member: Member; myRole: Role | null }) {
+function MemberRow({ member, myRole, scopeName, onLeft }: { member: Member; myRole: Role | null; scopeName: string; onLeft?: () => void }) {
   const { viewer } = useViewer();
   const { toast } = useToast();
   const setRole = useSetMemberRole();
@@ -319,6 +331,7 @@ function MemberRow({ member, myRole }: { member: Member; myRole: Role | null }) 
   const name = p?.name || p?.handle || 'Deleted user';
   // Admins change members and admins; only owners touch owners or grant ownership.
   const editable = !you && canManage(myRole) && (member.role !== 'owner' || myRole === 'owner');
+  const canLeave = you && member.role !== 'owner';
   const roles: Role[] = myRole === 'owner' ? ['member', 'admin', 'owner'] : ['member', 'admin'];
 
   const onRole = (role: Role) =>
@@ -342,6 +355,18 @@ function MemberRow({ member, myRole }: { member: Member; myRole: Role | null }) 
           toast(`Removed ${name}`);
         },
         onError: (e) => setRemoveError(e instanceof Error ? e.message : 'We couldn’t remove them.'),
+      },
+    );
+  const onLeave = () =>
+    remove.mutate(
+      { scope: member.scope, id: member.scope_id, userId: member.user_id },
+      {
+        onSuccess: () => {
+          setConfirming(false);
+          toast(`You left the ${scopeName} team`);
+          onLeft?.();
+        },
+        onError: (e) => setRemoveError(e instanceof Error ? e.message : 'We couldn’t remove you from the team.'),
       },
     );
 
@@ -377,6 +402,24 @@ function MemberRow({ member, myRole }: { member: Member; myRole: Role | null }) 
             onClose={() => setConfirming(false)}
           >
             {`${name} loses team access straight away. You can add them back later.`}
+          </ConfirmDialog>
+        </span>
+      ) : canLeave ? (
+        <span className="flex shrink-0 items-center gap-2 max-sm:w-full max-sm:justify-end">
+          <span className="inline-flex h-5 items-center rounded-pill border border-line bg-subtle px-2 text-xs font-medium text-ink-secondary">{ROLE_LABEL[member.role]}</span>
+          <Button size="sm" variant="secondary" onClick={askRemove} disabled={remove.isPending}>
+            Leave team
+          </Button>
+          <ConfirmDialog
+            open={confirming}
+            title={`Leave the ${scopeName} team?`}
+            confirmLabel="Leave team"
+            busy={remove.isPending}
+            error={removeError}
+            onConfirm={onLeave}
+            onClose={() => setConfirming(false)}
+          >
+            You’ll lose team access straight away and won’t be able to edit official team replies unless you rejoin.
           </ConfirmDialog>
         </span>
       ) : (

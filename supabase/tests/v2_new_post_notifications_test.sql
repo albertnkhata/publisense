@@ -149,7 +149,8 @@ select pg_temp.expect('0071: emails are queued for eligible teammates with subje
         where s.body ->> 'subject' = 'New post on NP71 Live: Login modal shifts on load'
           and s.body ->> 'text' like 'Pat Poster posted “Login modal shifts on load” on NP71 Live:%Clicking Create an account misses.%'
           and s.body ->> 'text' like '%https://publisense.app/post/' || p_live.id::text || '%'
-          and s.body -> 'headers' ->> 'List-Unsubscribe-Post' = 'List-Unsubscribe=One-Click') = 3);
+          and s.body -> 'headers' ->> 'List-Unsubscribe-Post' = 'List-Unsubscribe=One-Click'
+          and s.body -> 'headers' ->> 'List-Unsubscribe' like '%&kind=new_post>') = 3);
 
 select pg_temp.expect('0071: email opt-out suppresses email while keeping the in-app notification',
   not exists (select 1 from public.email_log l join public.notification n on n.id::text = l.notification_id, p_live, f

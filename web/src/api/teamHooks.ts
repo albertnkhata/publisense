@@ -89,7 +89,7 @@ export function useManageStats(boardIds: string[], enabled = true) {
 
 /** Everything a claim, a join or a role change can alter. */
 function invalidateTeamState(qc: QueryClient) {
-  for (const key of [['board'], ['boards'], ['hub'], ['hubs'], ['board-team'], ['scope-role'], ['team'], ['join-requests'], ['own-requests'], ['verified-domains'], ['pending-dns']]) {
+  for (const key of [['board'], ['boards'], ['hub'], ['hubs'], ['board-team'], ['scope-role'], ['team'], ['join-requests'], ['own-requests'], ['verified-domains'], ['pending-dns'], ['managed']]) {
     void qc.invalidateQueries({ queryKey: key });
   }
 }

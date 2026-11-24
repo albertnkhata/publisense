@@ -81,7 +81,9 @@ select pg_temp.expect('0059: ... with the count of the others and the reply link
 select pg_temp.expect('0059: ... subject names the sender',
   (select body ->> 'subject' = 'Ann (@' || (select handle from public.profile where id = (select ann from f)) || ') sent you a message' from net.sent order by id desc limit 1));
 select pg_temp.expect('0059: ... one-click unsubscribe headers',
-  (select body -> 'headers' ->> 'List-Unsubscribe-Post' = 'List-Unsubscribe=One-Click' from net.sent order by id desc limit 1));
+  (select body -> 'headers' ->> 'List-Unsubscribe-Post' = 'List-Unsubscribe=One-Click'
+      and body -> 'headers' ->> 'List-Unsubscribe' like '%&kind=message>'
+     from net.sent order by id desc limit 1));
 select pg_temp.expect('0059: ... logged and counted toward the daily cap',
   exists (select 1 from public.email_log where kind = 'v2_notify_message' and status = 'queued'));
 select pg_temp.expect('0059: requests are never emailed', pg_temp.mails((select cal from f)) = 0);
