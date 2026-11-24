@@ -18,7 +18,6 @@ import {
   CategoriesPage,
   CategoryPage,
   ConversationPage,
-  ExplorePage,
   FeedPage,
   HomePage,
   HubManagePage,
@@ -55,7 +54,6 @@ export const routes = [
     children: [
       { index: true, handle: EXPLORE_PAGE, element: <HomePage /> },
       { path: 'feed', element: <FeedPage /> },
-      { path: 'explore', handle: EXPLORE_PAGE, element: <ExplorePage /> },
       { path: 'categories', handle: EXPLORE_PAGE, element: <CategoriesPage /> },
       { path: 'c/:category', handle: EXPLORE_PAGE, element: <CategoryPage /> },
       { path: 'search', element: <SearchPage /> },

@@ -112,12 +112,12 @@ beforeEach(() => {
   boardsApi.fetchBoards.mockResolvedValue([CURSOR, FIGJAM, FIGMA]);
   boardsApi.fetchHub.mockResolvedValue(FIGMA_HUB);
   boardsApi.fetchHubs.mockResolvedValue([FIGMA_HUB]);
-  boardsApi.fetchPostCounts.mockResolvedValue({ posts: 1, roadmap: 0 });
+  boardsApi.fetchPostCounts.mockResolvedValue({ posts: 1, roadmap: 0, shipped: 0 });
   boardsApi.fetchIsBoardTeam.mockResolvedValue(false);
   boardsApi.fetchFollowedScopes.mockResolvedValue(new Set());
   boardsApi.fetchTrending.mockResolvedValue([]);
   postsApi.fetchPostList.mockResolvedValue(page([makePost({ title: 'Indexing stalls on monorepos' })]));
-  postsApi.fetchRoadmap.mockResolvedValue({ planned: [], in_progress: [], shipped: [] });
+  postsApi.fetchRoadmap.mockResolvedValue({ under_review: [], planned: [], in_progress: [], shipped: [] });
   postsApi.fetchChangelog.mockResolvedValue([]);
   postsApi.setPostFollow.mockResolvedValue(undefined);
   teamsApi.fetchVerifiedDomains.mockResolvedValue([]);

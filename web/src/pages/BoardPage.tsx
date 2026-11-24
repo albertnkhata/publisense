@@ -31,17 +31,17 @@ import { usePageTitle } from '../lib/usePageTitle';
 import { useViewer } from '../lib/viewer';
 import { LoadError, PostList, PostListSkeleton } from '../posts/PostList';
 import { useComposer } from '../shell/composer';
-import { BoardAvatar, Button, EmptyState, Icon, IconButton, Input, Menu, MenuItem, Skeleton, SkeletonBlock, useToast } from '../ui';
+import { BoardAvatar, Button, EmptyState, Icon, IconButton, Input, Skeleton, SkeletonBlock, TabPanel, Tabs, useToast } from '../ui';
 import { shareLink } from '../lib/share';
 import { useDebounced } from '../lib/useDebounced';
 import { useSetUrlParams } from '../lib/useUrlParam';
 
 /**
- * Board page (FOUNDATION §9 `/b/:board`): header, then Feedback (filters by
- * type and status, Top / New) with no tab bar; Roadmap and Changelog open from
- * the ⋯ menu at the top right, each with a way back to feedback. The view and the
- * filters live in the URL (`?tab=roadmap`, `?type=bug&status=planned&sort=new`)
- * so Back and shared links return to the same view.
+ * Board page (FOUNDATION §9 `/b/:board`): header, conditional Feedback · Roadmap ·
+ * Changelog tabs (Roadmap shown when at least 1 public post is under_review, planned
+ * or in_progress; Changelog shown when at least 1 public post is shipped; hidden when
+ * both are 0 so untracked boards stay clean). The view and filters live in the URL
+ * (`?tab=roadmap`, `?type=bug&status=planned&sort=new`).
  */
 export type BoardTab = 'feedback' | 'roadmap' | 'changelog';
 
@@ -115,39 +115,37 @@ function Board({ board }: { board: BoardWithHub }) {
   const tabParam = params.get('tab');
   const tab: BoardTab = tabParam === 'roadmap' || tabParam === 'changelog' ? tabParam : 'feedback';
   const ids = useMemo(() => [board.id], [board.id]);
-  const counts = usePostCounts(ids, SHOW_MORE_MENU);
+  const counts = usePostCounts(ids);
   const team = useIsBoardTeam(board.id, viewer?.id ?? null);
   const { toast } = useToast();
   const [emptyFeed, setEmptyFeed] = useState(board.post_count === 0);
   const [verifiedOpen, setVerifiedOpen] = useState(false);
   const hubTeam = Boolean(board.hub?.claimed_at);
   const claimed = Boolean(board.claimed_at || hubTeam);
+  const roadmapCount = counts.data?.roadmap ?? 0;
+  const shippedCount = counts.data?.shipped ?? 0;
+  const showRoadmap = roadmapCount > 0 || tab === 'roadmap';
+  const showChangelog = shippedCount > 0 || tab === 'changelog';
+  const showTabs = showRoadmap || showChangelog;
 
   /** Set URL params; a value equal to its default is removed. Tab changes add a history entry. */
   const update = (changes: Array<[key: string, value: string, fallback: string]>) =>
     setUrl(changes, { replace: !changes.some(([k]) => k === 'tab') });
   const setParam = (key: string, value: string, fallback: string) => update([[key, value, fallback]]);
 
+  const feedbackEl = (
+    <Feedback
+      board={board}
+      params={params}
+      setParam={setParam}
+      update={update}
+      onEmptyChange={setEmptyFeed}
+      clear={() => update([['q', '', ''], ['type', 'all', 'all'], ['status', 'all', 'all'], ['platform', 'all', 'all'], ['device', 'all', 'all']])}
+    />
+  );
+
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
-      {SHOW_MORE_MENU ? (
-        <div className="mb-4 flex items-center justify-end gap-2">
-          <div className="flex items-center gap-1">
-            <Menu label={`More from ${board.name}`} align="end" trigger={(p) => <IconButton {...p} icon="more" label="More" />}>
-              <MenuItem
-                icon="status-planned"
-                description={counts.data ? `${counts.data.roadmap} planned or in progress` : 'What’s planned and in progress'}
-                onSelect={() => setParam('tab', 'roadmap', 'feedback')}
-              >
-                Roadmap
-              </MenuItem>
-              <MenuItem icon="check-circle" description="What’s shipped" onSelect={() => setParam('tab', 'changelog', 'feedback')}>
-                Changelog
-              </MenuItem>
-            </Menu>
-          </div>
-        </div>
-      ) : null}
       <ScopeHeader
         logo={<BoardAvatar name={board.name} color={board.color} logoSrc={logoSrc(board)} size="xl" decorative />}
         title={board.name}
@@ -159,7 +157,7 @@ function Board({ board }: { board: BoardWithHub }) {
         }
         description={board.tagline || null}
         meta={boardMeta(board)}
-        bordered={tab === 'feedback' && board.status !== 'rejected'}
+        bordered={!showTabs && tab === 'feedback' && board.status !== 'rejected'}
         stats={
           <>
             <FollowerStat count={board.follower_count} />
@@ -200,35 +198,38 @@ function Board({ board }: { board: BoardWithHub }) {
           </p>
         </div>
       ) : null}
-      {tab === 'feedback' ? (
-        <Feedback board={board} params={params} setParam={setParam} update={update} onEmptyChange={setEmptyFeed} clear={() => update([['q', '', ''], ['type', 'all', 'all'], ['status', 'all', 'all'], ['platform', 'all', 'all'], ['device', 'all', 'all']])} />
-      ) : (
-        <div className="flex flex-col">
-          <div className="mb-4 flex items-center justify-between gap-3 border-b border-line pb-3">
-            <h2 className="m-0 text-lg font-semibold text-ink">{tab === 'roadmap' ? 'Roadmap' : 'Changelog'}</h2>
-            <div className="flex items-center gap-4">
-              {tab === 'changelog' && board.status === 'live' ? (
-                <a
-                  href={`/b/${board.slug}/changelog.xml`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-sm font-medium text-ink-muted no-underline hover:text-ink"
-                >
-                  Atom feed
-                </a>
-              ) : null}
-              <button
-                type="button"
-                onClick={() => setParam('tab', 'feedback', 'feedback')}
-                className="inline-flex items-center gap-2 text-sm font-medium text-ink-muted hover:text-ink"
+      {showTabs ? (
+        <>
+          <div className={cx('flex items-center justify-between gap-3 border-b border-line', tab !== 'feedback' && 'mb-4')}>
+            <Tabs
+              idBase="board"
+              label={board.name}
+              value={tab}
+              onChange={(v) => setParam('tab', v, 'feedback')}
+              bordered={false}
+              items={[
+                { value: 'feedback', label: 'Feedback', ...(counts.data && counts.data.posts > 0 ? { count: counts.data.posts } : {}) },
+                ...(showRoadmap ? [{ value: 'roadmap' as const, label: 'Roadmap', ...(roadmapCount > 0 ? { count: roadmapCount } : {}) }] : []),
+                ...(showChangelog ? [{ value: 'changelog' as const, label: 'Changelog', ...(shippedCount > 0 ? { count: shippedCount } : {}) }] : []),
+              ]}
+            />
+            {tab === 'changelog' && board.status === 'live' ? (
+              <a
+                href={`/b/${board.slug}/changelog.xml`}
+                target="_blank"
+                rel="noreferrer"
+                className="shrink-0 text-sm font-medium text-ink-muted no-underline hover:text-ink"
               >
-                <Icon name="arrow-left" size={14} />
-                Back to feedback
-              </button>
-            </div>
+                Atom feed
+              </a>
+            ) : null}
           </div>
-          {tab === 'roadmap' ? <RoadmapTab boardIds={ids} /> : <ChangelogTab boardIds={ids} />}
-        </div>
+          <TabPanel idBase="board" value={tab}>
+            {tab === 'feedback' ? feedbackEl : tab === 'roadmap' ? <RoadmapTab boardIds={ids} /> : <ChangelogTab boardIds={ids} />}
+          </TabPanel>
+        </>
+      ) : (
+        feedbackEl
       )}
       {claimed ? (
         <VerifiedTeamDialog
@@ -421,13 +422,6 @@ function Feedback({
 
 /** "Added by @handle" is hidden for now (Oct 2026); created_by is still stored. Flip to bring it back. */
 const SHOW_ADDED_BY = false;
-
-/**
- * The board's ⋯ menu only holds Roadmap and Changelog, which are deferred, so it is
- * hidden for now (Oct 31, 2026). The ?tab=roadmap and ?tab=changelog views still render
- * when linked directly. Flip this back on when those features ship.
- */
-const SHOW_MORE_MENU = false;
 
 /**
  * The line under the tagline: the product's own site (new tab), the company that makes

@@ -451,7 +451,7 @@ describe('command centre (/admin)', () => {
     expect(first).toMatch(/^[0-9a-f-]{36}$/i);
 
     expect(externalReferrerHost('https://www.News.YCombinator.com/item?id=1', 'publisense.app')).toBe('news.ycombinator.com');
-    expect(externalReferrerHost('https://publisense.app/explore', 'publisense.app')).toBeNull();
+    expect(externalReferrerHost('https://publisense.app/categories', 'publisense.app')).toBeNull();
     expect(externalReferrerHost('https://localhost:3001/b/cursor', 'localhost')).toBeNull();
     expect(externalReferrerHost('not-a-url', 'publisense.app')).toBeNull();
   });
@@ -467,9 +467,9 @@ describe('command centre (/admin)', () => {
       expect(isTestEmail('alice@gmail.com')).toBe(false);
 
       expect(isAnalyticsExcluded()).toBe(false);
-      expect(beforeSendVercelAnalytics({ type: 'pageview', url: 'https://publisense.app/explore' })).toEqual({
+      expect(beforeSendVercelAnalytics({ type: 'pageview', url: 'https://publisense.app/categories' })).toEqual({
         type: 'pageview',
-        url: 'https://publisense.app/explore',
+        url: 'https://publisense.app/categories',
       });
       expect(beforeSendVercelAnalytics({ type: 'pageview', url: 'https://publisense.app/admin' })).toBeNull();
       expect(beforeSendVercelAnalytics({ type: 'pageview', url: 'https://publisense.app/admin/reports' })).toBeNull();
@@ -477,7 +477,7 @@ describe('command centre (/admin)', () => {
       syncAnalyticsExclusionFromUrl('?analytics=off');
       expect(getDeviceAnalyticsExcluded()).toBe(true);
       expect(isAnalyticsExcluded()).toBe(true);
-      expect(beforeSendVercelAnalytics({ type: 'pageview', url: 'https://publisense.app/explore' })).toBeNull();
+      expect(beforeSendVercelAnalytics({ type: 'pageview', url: 'https://publisense.app/categories' })).toBeNull();
 
       syncAnalyticsExclusionFromUrl('?analytics=on');
       expect(getDeviceAnalyticsExcluded()).toBe(false);

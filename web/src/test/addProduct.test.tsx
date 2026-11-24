@@ -141,12 +141,12 @@ beforeEach(() => {
   boardsApi.fetchBoard.mockImplementation(async (slug: string) => (slug === 'acme-notes' ? ACME : slug === 'cursor' ? CURSOR : null));
   boardsApi.fetchBoards.mockResolvedValue([CURSOR, SUPABASE]);
   boardsApi.fetchHubs.mockResolvedValue([]);
-  boardsApi.fetchPostCounts.mockResolvedValue({ posts: 0, roadmap: 0 });
+  boardsApi.fetchPostCounts.mockResolvedValue({ posts: 0, roadmap: 0, shipped: 0 });
   boardsApi.fetchTrending.mockResolvedValue([]);
   boardsApi.fetchIsBoardTeam.mockResolvedValue(false);
   boardsApi.fetchFollowedScopes.mockResolvedValue(new Set());
   postsApi.fetchPostList.mockResolvedValue({ items: [], next: null });
-  postsApi.fetchRoadmap.mockResolvedValue({ planned: [], in_progress: [], shipped: [] });
+  postsApi.fetchRoadmap.mockResolvedValue({ under_review: [], planned: [], in_progress: [], shipped: [] });
   postsApi.fetchChangelog.mockResolvedValue([]);
   postsApi.fetchPopularByStatus.mockResolvedValue([]);
   postsApi.fetchWanted.mockResolvedValue([]);

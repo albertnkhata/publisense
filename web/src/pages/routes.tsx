@@ -12,7 +12,6 @@ export { BoardPage } from './BoardPage';
 export { HubPage } from './HubPage';
 export { CategoriesPage } from './CategoriesPage';
 export { CategoryPage } from './CategoryPage';
-export { ExplorePage } from './ExplorePage';
 export { SearchPage } from './SearchPage';
 
 // Step 7: claiming and teams.

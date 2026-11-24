@@ -9,7 +9,6 @@ import type { FeedPage, PopularPostSummary, Post } from '../api/posts';
 import { BoardPage } from '../pages/BoardPage';
 import { CategoriesPage } from '../pages/CategoriesPage';
 import { CategoryPage } from '../pages/CategoryPage';
-import { ExplorePage } from '../pages/ExplorePage';
 import { HomePage } from '../pages/HomePage';
 import { HubPage } from '../pages/HubPage';
 import { LandingFooter, LandingHeader, LandingPage } from '../pages/LandingPage';
@@ -51,7 +50,7 @@ vi.mock('../api/boards', async (importOriginal) => ({ ...(await importOriginal<t
 vi.mock('../api/posts', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/posts')>()), ...postsApi }));
 
 const page = (items: Post[], next: number | null = null): FeedPage => ({ items, next });
-const emptyRoadmap = { planned: [], in_progress: [], shipped: [] };
+const emptyRoadmap = { under_review: [], planned: [], in_progress: [], shipped: [] };
 const makePopular = (over: Partial<PopularPostSummary> = {}): PopularPostSummary => ({
   ...makeSummary({ status: 'under_review' }),
   has_official_reply: false,
@@ -71,7 +70,6 @@ function renderAt(path: string, signedIn = false, client?: QueryClient) {
             <Route path="/h/:hub" element={<HubPage />} />
             <Route path="/categories" element={<CategoriesPage />} />
             <Route path="/c/:category" element={<CategoryPage />} />
-            <Route path="/explore" element={<ExplorePage />} />
             <Route path="/feed" element={<h1>Feed page</h1>} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/well" element={<SearchWell />} />
@@ -98,7 +96,7 @@ beforeEach(() => {
   boardsApi.fetchBoards.mockResolvedValue([CURSOR, FIGJAM, FIGMA, SUPABASE]);
   boardsApi.fetchHub.mockResolvedValue(FIGMA_HUB);
   boardsApi.fetchHubs.mockResolvedValue([FIGMA_HUB]);
-  boardsApi.fetchPostCounts.mockResolvedValue({ posts: 2, roadmap: 1 });
+  boardsApi.fetchPostCounts.mockResolvedValue({ posts: 2, roadmap: 0, shipped: 0 });
   boardsApi.fetchTrending.mockResolvedValue([]);
   boardsApi.fetchIsBoardTeam.mockResolvedValue(false);
   boardsApi.fetchFollowedScopes.mockResolvedValue(new Set());
@@ -118,15 +116,17 @@ describe('board page', () => {
     await waitFor(() => expect(document.title).toBe(`${CURSOR.name} · Publisense`));
   });
 
-  it('shows the header, tab counts and the board’s feed', async () => {
+  it('shows the header and feed, hiding Roadmap and Changelog tabs when counts are 0', async () => {
     renderAt('/b/cursor');
     expect(await screen.findByRole('heading', { level: 1, name: 'Cursor' })).toBeTruthy();
     expect(screen.getByText('The AI code editor')).toBeTruthy();
     expect(screen.queryByText('92')).toBeNull(); // no post count, followers only
     expect(screen.getByText('4.1k')).toBeTruthy();
     expect(await screen.findByText('Composer drops edits')).toBeTruthy();
-    // No tab bar, and no ⋯ menu while Roadmap and Changelog are deferred.
+    // Both tabs stay hidden when roadmap and shipped counts are 0.
     expect(screen.queryByRole('tab', { name: /Feedback/ })).toBeNull();
+    expect(screen.queryByRole('tab', { name: /Roadmap/ })).toBeNull();
+    expect(screen.queryByRole('tab', { name: /Changelog/ })).toBeNull();
     expect(screen.queryByRole('button', { name: 'More' })).toBeNull();
     // Share is its own button beside Follow.
     expect(within(document.querySelector('header')!).getByRole('button', { name: 'Share' })).toBeTruthy();
@@ -254,7 +254,9 @@ describe('board page', () => {
   });
 
   it('shows the roadmap columns from ?tab=roadmap', async () => {
+    boardsApi.fetchPostCounts.mockResolvedValue({ posts: 4, roadmap: 2, shipped: 0 });
     postsApi.fetchRoadmap.mockResolvedValue({
+      under_review: [],
       planned: [makeSummary({ title: 'Inline diff review' })],
       in_progress: [makeSummary({ title: 'Faster indexing', status: 'in_progress', vote_count: 40 })],
       shipped: [],
@@ -266,8 +268,57 @@ describe('board page', () => {
     expect(screen.getByText('Nothing here yet.')).toBeTruthy();
     expect(screen.getByRole('link', { name: /Faster indexing/ }).getAttribute('href')).toMatch(/^\/post\//);
     expect(postsApi.fetchPostList).not.toHaveBeenCalled();
-    expect(screen.getByRole('heading', { level: 2, name: 'Roadmap' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Back to feedback' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: /Roadmap/ }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('tab', { name: /Feedback/ })).toBeTruthy();
+    expect(screen.queryByRole('tab', { name: /Changelog/ })).toBeNull();
+  });
+
+  it('exposes the Roadmap tab to both signed-out and signed-in visitors when roadmap count >= 1 (including under_review)', async () => {
+    boardsApi.fetchPostCounts.mockResolvedValue({ posts: 3, roadmap: 1, shipped: 0 });
+    postsApi.fetchRoadmap.mockResolvedValue({
+      under_review: [makeSummary({ title: 'Better multi-root workspace support', status: 'under_review' })],
+      planned: [],
+      in_progress: [],
+      shipped: [],
+    });
+
+    for (const signedIn of [false, true]) {
+      const view = renderAt('/b/cursor', signedIn);
+      const roadmapTab = await screen.findByRole('tab', { name: /Roadmap\s*1/ });
+      expect(screen.getByRole('tab', { name: /Feedback\s*3/ })).toBeTruthy();
+      expect(screen.queryByRole('tab', { name: /Changelog/ })).toBeNull();
+
+      fireEvent.click(roadmapTab);
+      await waitFor(() => expect(view.router.state.location.search).toBe('?tab=roadmap'));
+      expect(await screen.findByText('Better multi-root workspace support')).toBeTruthy();
+      expect(screen.getByRole('heading', { level: 3, name: /Under review/ })).toBeTruthy();
+      view.unmount();
+    }
+  });
+
+  it('exposes only the Changelog tab alongside Feedback when only shipped posts exist', async () => {
+    boardsApi.fetchPostCounts.mockResolvedValue({ posts: 2, roadmap: 0, shipped: 1 });
+    renderAt('/b/cursor');
+    expect(await screen.findByRole('tab', { name: /Changelog\s*1/ })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: /Feedback\s*2/ })).toBeTruthy();
+    expect(screen.queryByRole('tab', { name: /Roadmap/ })).toBeNull();
+  });
+
+  it('exposes both Roadmap and Changelog tabs when both counts >= 1 and switches between them', async () => {
+    const at = '2026-10-21T10:00:00Z';
+    boardsApi.fetchPostCounts.mockResolvedValue({ posts: 5, roadmap: 2, shipped: 1 });
+    postsApi.fetchChangelog.mockResolvedValue([
+      { day: '2026-10-21', at, posts: [{ ...makeSummary({ title: 'Split view', status: 'shipped', vote_count: 12 }), shipped_at: at }] },
+    ]);
+    const { router } = renderAt('/b/cursor');
+    expect(await screen.findByRole('tab', { name: /Feedback\s*5/ })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: /Roadmap\s*2/ })).toBeTruthy();
+    const changelogTab = screen.getByRole('tab', { name: /Changelog\s*1/ });
+
+    fireEvent.click(changelogTab);
+    await waitFor(() => expect(router.state.location.search).toBe('?tab=changelog'));
+    expect(await screen.findByText('Split view')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Atom feed' }).getAttribute('href')).toBe('/b/cursor/changelog.xml');
   });
 
   it('shows the changelog, or says nothing shipped yet', async () => {
@@ -727,25 +778,7 @@ describe('signed-in discovery home', () => {
     expect(screen.getByText('1 product')).toBeTruthy();
   });
 
-  it('redirects legacy /explore, /explore?cat=, and /explore?q= links cleanly', async () => {
-    const root = renderAt('/explore', true);
-    await waitFor(() => expect(root.router.state.location.pathname).toBe('/'));
-    expect(await screen.findByRole('heading', { level: 1, name: 'Home' })).toBeTruthy();
-    root.unmount();
-
-    const first = renderAt('/explore?cat=dev');
-    await waitFor(() => expect(first.router.state.location.pathname).toBe('/c/dev'));
-    expect(await screen.findByRole('heading', { level: 1, name: 'Dev platforms' })).toBeTruthy();
-    first.unmount();
-
-    boardsApi.searchAll.mockResolvedValue({ boards: [FIGMA, FIGJAM], hubs: [], posts: [] });
-    const search = renderAt('/explore?q=fig');
-    await waitFor(() => {
-      expect(search.router.state.location.pathname).toBe('/search');
-      expect(search.router.state.location.search).toBe('?q=fig');
-    });
-    search.unmount();
-
+  it('renders empty and unknown category pages cleanly', async () => {
     const empty = renderAt('/c/travel');
     expect(await screen.findByRole('heading', { level: 1, name: 'Travel' })).toBeTruthy();
     expect(await screen.findByText('No products in this category yet.')).toBeTruthy();
@@ -1030,7 +1063,7 @@ describe('search modal', () => {
           <Route path="*" element={<h1>Page</h1>} />
         </Routes>
       </>,
-      { path: '/explore' },
+      { path: '/categories' },
     );
     fireEvent.click(trigger());
     const modal = await screen.findByRole('dialog', { name: 'Search' });

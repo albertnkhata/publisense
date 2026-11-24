@@ -667,13 +667,13 @@ export interface PostSummary {
 
 const SUMMARY_SELECT = `id, board_id, title, type, status, vote_count, reply_count, created_at, board:board!board_id(${BOARD})`;
 
-export const ROADMAP_STATUSES = ['planned', 'in_progress', 'shipped'] as const;
+export const ROADMAP_STATUSES = ['under_review', 'planned', 'in_progress', 'shipped'] as const;
 export type RoadmapStatus = (typeof ROADMAP_STATUSES)[number];
 export type Roadmap = Record<RoadmapStatus, PostSummary[]>;
 
-/** Planned, In progress and Shipped columns, most upvoted first. */
+/** Under review, Planned, In progress and Shipped columns, most upvoted first. */
 export async function fetchRoadmap(boardIds: string[], perColumn = 50): Promise<Roadmap> {
-  const empty: Roadmap = { planned: [], in_progress: [], shipped: [] };
+  const empty: Roadmap = { under_review: [], planned: [], in_progress: [], shipped: [] };
   if (boardIds.length === 0) return empty;
   const { data, error } = await getSupabase()
     .from('post')

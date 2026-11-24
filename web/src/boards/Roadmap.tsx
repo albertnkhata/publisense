@@ -5,20 +5,29 @@ import { Icon, TYPE_META, type IconName } from '../ui';
 import { VoteCount } from './parts';
 
 /**
- * Roadmap (FOUNDATION §5): Planned, In progress and Shipped columns, most
- * upvoted first. On a hub each item names its board.
+ * Roadmap (FOUNDATION §5): Under review (when populated), Planned, In progress
+ * and Shipped columns, most upvoted first. On a hub each item names its board.
  */
-const COLUMNS: Array<{ key: RoadmapStatus; title: string; icon: IconName }> = [
+const ALL_COLUMNS: Array<{ key: RoadmapStatus; title: string; icon: IconName }> = [
+  { key: 'under_review', title: 'Under review', icon: 'status-review' },
   { key: 'planned', title: 'Planned', icon: 'status-planned' },
   { key: 'in_progress', title: 'In progress', icon: 'status-progress' },
   { key: 'shipped', title: 'Shipped', icon: 'check' },
 ];
 
 export function Roadmap({ data, showBoard = false, perColumn }: { data: RoadmapData; showBoard?: boolean; perColumn?: number }) {
+  const hasUnderReview = (data.under_review?.length ?? 0) > 0;
+  const hasShipped = data.shipped.length > 0;
+  const columns = ALL_COLUMNS.filter((c) => {
+    if (c.key === 'under_review') return hasUnderReview;
+    if (c.key === 'shipped') return !hasUnderReview || hasShipped;
+    return true;
+  });
   return (
-    <div className="grid grid-cols-3 gap-3 max-md:grid-cols-1">
-      {COLUMNS.map((c) => {
-        const items = perColumn ? data[c.key].slice(0, perColumn) : data[c.key];
+    <div className={cx('grid gap-3 max-md:grid-cols-1', columns.length === 4 ? 'grid-cols-2' : 'grid-cols-3')}>
+      {columns.map((c) => {
+        const list = data[c.key] ?? [];
+        const items = perColumn ? list.slice(0, perColumn) : list;
         const headingId = `roadmap-${c.key}`;
         return (
           <section key={c.key} aria-labelledby={headingId} className="min-w-0 rounded-md border border-line bg-card p-3">
@@ -27,7 +36,7 @@ export function Roadmap({ data, showBoard = false, perColumn }: { data: RoadmapD
                 <Icon name={c.icon} size={13} strokeWidth={2.2} />
               </span>
               {c.title}
-              <span className="ml-auto text-xs font-medium text-ink-muted">{data[c.key].length}</span>
+              <span className="ml-auto text-xs font-medium text-ink-muted">{list.length}</span>
             </h3>
             {items.length ? (
               <ul className="m-0 list-none p-0">

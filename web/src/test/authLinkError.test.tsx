@@ -50,7 +50,7 @@ describe('withoutAuthLinkError', () => {
   });
 
   it('keeps anything else in the URL', () => {
-    expect(withoutAuthLinkError('https://publisense.app/explore?q=a#error=x&keep=1')).toBe('https://publisense.app/explore?q=a#keep=1');
+    expect(withoutAuthLinkError('https://publisense.app/categories?q=a#error=x&keep=1')).toBe('https://publisense.app/categories?q=a#keep=1');
   });
 });
 
@@ -83,10 +83,10 @@ describe('AuthLinkErrorWatcher', () => {
   });
 
   it('strips all three error params from the query string too, keeping anything else', async () => {
-    window.history.replaceState(null, '', '/explore?error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired&cat=dev');
+    window.history.replaceState(null, '', '/categories?error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired&cat=dev');
     renderWith(<AuthLinkErrorWatcher initial={null} />);
     expect(await screen.findByRole('dialog', { name: 'That link has expired' })).toBeTruthy();
-    expect(window.location.pathname).toBe('/explore');
+    expect(window.location.pathname).toBe('/categories');
     expect(window.location.search).toBe('?cat=dev');
     expect(window.location.href).not.toMatch(/error/);
   });

@@ -88,9 +88,9 @@ describe('routes', () => {
     expect(document.getElementById('main')!.className).toContain('max-w-content');
   });
 
-  it('legacy /explore redirects to /', () => {
+  it('removed /explore path renders NotFound', () => {
     renderAt('/explore');
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Find any product. Shape what ships next.');
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Page not found');
   });
 
   it('/?scope=following redirects to /feed?scope=following and keeps the TopBar + NavRail shell for the sign-in gate', () => {
@@ -270,9 +270,10 @@ describe('vercel.json SPA rewrites and security headers', () => {
   it('rewrites public site and app entry paths to /index.html without exposing /dev/kit', async () => {
     const { default: vercel } = await import('../../vercel.json');
     const spaSources = new Set(vercel.rewrites.filter((r) => r.destination === '/index.html').map((r) => r.source));
-    for (const path of ['/feed', '/explore', '/categories', '/c/:category', '/search', '/notifications', '/messages', '/settings', '/about', '/privacy', '/terms', '/unsubscribe', '/auth/reset']) {
+    for (const path of ['/feed', '/categories', '/c/:category', '/search', '/notifications', '/messages', '/settings', '/about', '/privacy', '/terms', '/unsubscribe', '/auth/reset']) {
       expect(spaSources.has(path)).toBe(true);
     }
+    expect(spaSources.has('/explore')).toBe(false);
     expect(spaSources.has('/dev/kit')).toBe(false);
 
     const globalHeaders = vercel.headers.find((h) => h.source === '/(.*)')?.headers ?? [];

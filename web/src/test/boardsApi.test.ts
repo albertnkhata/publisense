@@ -130,14 +130,17 @@ describe('board and hub reads', () => {
     expect(JSON.stringify(only('board'))).toContain('hub:hub!hub_id');
   });
 
-  it('counts live posts and roadmap items for the tabs', async () => {
+  it('counts live posts, roadmap items and shipped items for the tabs', async () => {
     db.count = 7;
     const counts = await fetchPostCounts(['b1']);
-    expect(counts).toEqual({ posts: 7, roadmap: 7 });
-    const [all, roadmap] = [only('post', 0), only('post', 1)];
+    expect(counts).toEqual({ posts: 7, roadmap: 7, shipped: 7 });
+    const [all, roadmap, shipped] = [only('post', 0), only('post', 1), only('post', 2)];
     expect(has(all, 'neq', 'status', 'merged')).toBe(true);
-    expect(has(roadmap, 'in', 'status', ['planned', 'in_progress'])).toBe(true);
+    expect(has(roadmap, 'in', 'status', ['under_review', 'planned', 'in_progress'])).toBe(true);
+    expect(has(shipped, 'eq', 'status', 'shipped')).toBe(true);
     expect(has(all, 'is', 'hidden_at', null)).toBe(true);
+    expect(has(roadmap, 'is', 'hidden_at', null)).toBe(true);
+    expect(has(shipped, 'is', 'hidden_at', null)).toBe(true);
   });
 });
 
@@ -169,16 +172,18 @@ describe('board feed', () => {
 describe('roadmap and changelog', () => {
   it('splits roadmap posts into their columns', async () => {
     db.rows.post = [
+      { id: 'r', status: 'under_review' },
       { id: 'a', status: 'planned' },
       { id: 'b', status: 'shipped' },
       { id: 'c', status: 'in_progress' },
       { id: 'd', status: 'planned' },
     ];
     const r = await fetchRoadmap(['b1']);
+    expect(r.under_review.map((p) => p.id)).toEqual(['r']);
     expect(r.planned.map((p) => p.id)).toEqual(['a', 'd']);
     expect(r.in_progress.map((p) => p.id)).toEqual(['c']);
     expect(r.shipped.map((p) => p.id)).toEqual(['b']);
-    expect(has(only('post'), 'in', 'status', ['planned', 'in_progress', 'shipped'])).toBe(true);
+    expect(has(only('post'), 'in', 'status', ['under_review', 'planned', 'in_progress', 'shipped'])).toBe(true);
   });
 
   it('dates shipped posts by their latest move to Shipped', async () => {

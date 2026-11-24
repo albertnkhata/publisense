@@ -341,15 +341,20 @@ function sortHubBoards(h: RawHub): Hub {
   };
 }
 
-/** Live posts and roadmap items on a set of boards, for the tab counts. */
-export async function fetchPostCounts(boardIds: string[]): Promise<{ posts: number; roadmap: number }> {
-  if (boardIds.length === 0) return { posts: 0, roadmap: 0 };
+/** Live posts, roadmap items (under_review, planned, in_progress) and shipped items on a set of boards, for the tab counts. */
+export async function fetchPostCounts(boardIds: string[]): Promise<{ posts: number; roadmap: number; shipped: number }> {
+  if (boardIds.length === 0) return { posts: 0, roadmap: 0, shipped: 0 };
   const sb = getSupabase();
   const live = () => sb.from('post').select('id', { count: 'exact', head: true }).in('board_id', boardIds).is('hidden_at', null);
-  const [all, roadmap] = await Promise.all([live().neq('status', 'merged'), live().in('status', ['planned', 'in_progress'])]);
+  const [all, roadmap, shipped] = await Promise.all([
+    live().neq('status', 'merged'),
+    live().in('status', ['under_review', 'planned', 'in_progress']),
+    live().eq('status', 'shipped'),
+  ]);
   if (all.error) throw all.error;
   if (roadmap.error) throw roadmap.error;
-  return { posts: all.count ?? 0, roadmap: roadmap.count ?? 0 };
+  if (shipped.error) throw shipped.error;
+  return { posts: all.count ?? 0, roadmap: roadmap.count ?? 0, shipped: shipped.count ?? 0 };
 }
 
 /**

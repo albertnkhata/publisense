@@ -46,8 +46,9 @@ jobs:
             got=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "https://publisense.app$1")
             if [ "$got" = "$2" ]; then echo "ok   $1 -> $got"; else echo "::error::$1 returned $got, expected $2"; fail=1; fi
           }
-          for p in / /explore /b/cursor /h/figma /privacy /robots.txt /sitemap.xml /og.png; do check "$p" 200; done
-          check /explore/ 308
+          for p in / /categories /b/cursor /h/figma /privacy /robots.txt /sitemap.xml /og.png; do check "$p" 200; done
+          check /categories/ 308
+          check /explore 404
           check /smoke-test-missing-page 404
           n=$(curl -s --max-time 20 https://publisense.app/sitemap.xml | grep -c '<loc>' || true)
           if [ "$n" -ge 10 ]; then echo "ok   sitemap lists $n URLs"; else echo "::error::sitemap lists only $n URLs"; fail=1; fi
