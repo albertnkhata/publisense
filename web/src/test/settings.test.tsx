@@ -60,8 +60,10 @@ describe('notification preferences', () => {
     const map = toPrefMap([{ kind: 'reply', channel: 'email', enabled: false }]);
     expect(map['reply:email']).toBe(false);
     expect(map['reply:in_app']).toBe(true);
+    expect(map['new_post:in_app']).toBe(true);
+    expect(map['new_post:email']).toBe(true);
     expect(map['join:email']).toBe(true);
-    expect(Object.keys(map)).toHaveLength(20);
+    expect(Object.keys(map)).toHaveLength(22);
     expect(map['message:email']).toBe(true);
     expect(map['weekly_digest:email']).toBe(true);
   });
@@ -70,9 +72,11 @@ describe('notification preferences', () => {
     db.rows.notification_pref = [{ kind: 'reply', channel: 'email', enabled: false }];
     renderWith(<SettingsPage />, { viewer: TEST_VIEWER, path: '/settings' });
     const replyEmail = (await screen.findByRole('checkbox', { name: 'Replies: Email' })) as HTMLInputElement;
-    // 18 in the kind × channel table, the weekly digest toggle under it (0070), plus the
+    // 20 in the kind × channel table, the weekly digest toggle under it (0070), plus the
     // unread-message email toggle under Messages (4c).
-    expect(screen.getAllByRole('checkbox')).toHaveLength(20);
+    expect(screen.getAllByRole('checkbox')).toHaveLength(22);
+    expect(screen.getByRole('checkbox', { name: 'New posts on your boards: In app' })).toBeTruthy();
+    expect(screen.getByRole('checkbox', { name: 'New posts on your boards: Email' })).toBeTruthy();
     expect(screen.getByRole('checkbox', { name: 'Email me about unread messages' })).toBeTruthy();
     expect(replyEmail.checked).toBe(false);
     const mentionEmail = screen.getByRole('checkbox', { name: 'Mentions: Email' }) as HTMLInputElement;

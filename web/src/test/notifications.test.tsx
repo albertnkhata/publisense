@@ -72,6 +72,11 @@ describe('notification copy', () => {
       [note({ kind: 'claim', target_type: 'board', data: { scope: 'board', slug: 'cursor', name: 'Cursor' } }), 'You’re now managing Cursor’s board. Your replies show as verified.', '/b/cursor'],
       [note({ kind: 'claim', target_type: 'board', data: { scope: 'board', slug: 'linear', name: 'Linear', dispute: 'approved' } }), 'We upheld your report about Linear. You now manage it.'],
       [
+        note({ kind: 'new_post', target_type: 'post', target_id: 'p1', post_id: 'p1' }),
+        '@jmwamba posted Composer drops edits on rebase on Cursor',
+        '/post/p1',
+      ],
+      [
         note({ kind: 'join', target_type: 'board', data: { status: 'pending' }, scope: { name: 'Cursor', slug: 'cursor', color: null } }),
         '@jmwamba asked to join the Cursor team',
         '/b/cursor/manage?tab=team',

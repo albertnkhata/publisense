@@ -179,6 +179,22 @@ export function describeNotification(n: AppNotification, viewerId: string | null
         badge: 'follow',
         followBack: Boolean(n.actor),
       };
+    case 'new_post':
+      return {
+        text: (
+          <>
+            {who} posted <B>{title}</B>
+            {board ? (
+              <>
+                {' '}
+                on <B>{board.name}</B>
+              </>
+            ) : null}
+          </>
+        ),
+        href: postHref,
+        badge: 'team',
+      };
     case 'claim': {
       const scope = d.scope === 'hub' ? 'hub' : 'board';
       const name = String(d.name ?? n.scope?.name ?? 'the board');
