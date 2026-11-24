@@ -32,7 +32,10 @@ export function registerServiceWorker(onUpdate: (apply: () => void) => void): vo
           if (w.state === 'installed') offer(w);
         });
       });
-      // Long-lived tabs: look for a new deploy hourly.
+      // Check for a new deploy when the tab returns to foreground and hourly for long-lived tabs.
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') void reg.update().catch(() => undefined);
+      });
       window.setInterval(() => void reg.update().catch(() => undefined), 60 * 60 * 1000);
     } catch {
       // No service worker: the app works exactly as before.

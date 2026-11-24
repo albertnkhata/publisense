@@ -1,24 +1,36 @@
-import { copyFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { copyFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 // App client. Contract in docs/foundation.md.
-// Vercel serves dist/404.html, with a real 404 status, for any URL that no
-// file or rewrite in vercel.json matches. It is the app itself, which then
-// renders its NotFound page.
-const notFoundPage = (): Plugin => ({
-  name: 'publisense-404-html',
+// 1. Vercel serves dist/404.html, with a real 404 status, for any URL that no
+//    file or rewrite in vercel.json matches. It is the app itself, which then
+//    renders its NotFound page.
+// 2. Stamp dist/sw.js with a build hash so every deploy produces a byte-different
+//    worker and triggers the "New version available · Refresh" prompt.
+const postBuildAssets = (): Plugin => ({
+  name: 'publisense-post-build',
   apply: 'build',
   closeBundle() {
     const out = fileURLToPath(new URL('./dist/', import.meta.url));
     copyFileSync(`${out}index.html`, `${out}404.html`);
+    const html = readFileSync(`${out}index.html`, 'utf8');
+    const stamp = createHash('sha256')
+      .update(html)
+      .update(process.env.VERCEL_GIT_COMMIT_SHA ?? '')
+      .digest('hex')
+      .slice(0, 8);
+    const swPath = `${out}sw.js`;
+    const sw = readFileSync(swPath, 'utf8').replace("const VERSION = 'v1';", `const VERSION = 'v1-${stamp}';`);
+    writeFileSync(swPath, sw);
   },
 });
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), notFoundPage()],
+  plugins: [react(), tailwindcss(), postBuildAssets()],
   build: {
     outDir: 'dist',
     sourcemap: true,
