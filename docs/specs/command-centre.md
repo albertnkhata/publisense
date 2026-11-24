@@ -68,7 +68,7 @@ A lightweight append-only table in the `private` schema (never directly readable
 | `kind` | `text not null` | Checked against an explicit allow-list (see §3) |
 | `board_id` | `uuid references public.board(id) on delete set null` | Optional board context (live boards only) |
 | `hub_id` | `uuid references public.hub(id) on delete set null` | Optional hub context |
-| `path` | `text` | Route path (`/` · `/explore` · `/b/:slug` · `/h/:slug` · `/post/:id`) |
+| `path` | `text` | Route path (`/` · `/categories` · `/b/:slug` · `/h/:slug` · `/post/:id`) |
 | `referrer_host` | `text` | External hostname only (e.g. `news.ycombinator.com`, `google.com`, `x.com`), stripped of paths and query strings; `null` for same-origin or direct |
 | `meta` | `jsonb not null default '{}'::jsonb` | Whitelisted by `record_event`: only `q` on `search_empty` (max 60 chars), `trigger` on `auth_open` (max 40 chars), `method` on `claim_verify_started` (strict enum, see below) and `reason` on `claim_verify_failed` (strict enum, see below); every other key and value is stripped. Payloads over 512 bytes are dropped |
 | `at` | `timestamptz not null default now()` | Indexed by `(at desc)` and `(kind, at desc)` |

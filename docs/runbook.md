@@ -98,7 +98,7 @@ Operational runbook for Publisense (`publisense.app`) covering the 72-hour launc
 - **Check:**
   1. Check Vercel Dashboard → **Deployments** & **Logs** (confirm serverless `/api/*` functions like `/api/share`, `/api/og`, `/api/badge` aren't timing out).
   2. Check Supabase Dashboard → **Reports → Database** (CPU, connections, disk I/O).
-  3. Run `gh workflow run smoke.yml` to verify all public routes (`/`, `/explore`, `/b/cursor`, `/h/figma`, `/sitemap.xml`, `/og.png`).
+  3. Run `gh workflow run smoke.yml` to verify all public routes (`/`, `/categories`, `/b/cursor`, `/h/figma`, `/sitemap.xml`, `/og.png`).
 - **Safe mitigation:**
   - Confirm Supabase Pro (#316) is enabled before launch day.
   - If an individual serverless endpoint (`/api/og` or `/api/share`) spikes, roll back the last Vercel deployment if it introduced a regression.

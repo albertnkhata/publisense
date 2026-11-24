@@ -148,7 +148,7 @@ Enforced in RLS and `security definer` RPCs; the UI mirrors it but is never the 
 
 ## 9. Routes
 
-`/` home (signed-out discovery landing, or signed-in feed) · `/explore` · `/c/:category` · `/search?q=` · `/b/:board` (tabs `?tab=roadmap|changelog`) · `/b/:board/manage` · `/h/:hub` · `/h/:hub/manage` · `/post/:id` · `/u/:handle` · `/notifications` · `/settings` · `/about` · `/privacy` · `/terms` · `/auth/reset` · `/unsubscribe?token=` (one click, no sign-in) · `/admin/products` (new products waiting for review, 0024) · `/admin/companies` (companies and their domains, 0026) · `/admin/reports` · `/admin/disputes` · `/admin/team` (platform admins only: pick a user by handle, grant or revoke, see the log).
+`/` home (discovery landing when signed out, Home when signed in) · `/feed` · `/categories` · `/c/:category` · `/search?q=` · `/b/:board` (tabs `?tab=roadmap|changelog`) · `/b/:board/manage` · `/h/:hub` · `/h/:hub/manage` · `/post/:id` · `/u/:handle` · `/notifications` · `/settings` · `/about` · `/privacy` · `/terms` · `/auth/reset` · `/unsubscribe?token=` (one click, no sign-in) · `/admin/products` (new products waiting for review, 0024) · `/admin/companies` (companies and their domains, 0026) · `/admin/reports` · `/admin/disputes` · `/admin/team` (platform admins only: pick a user by handle, grant or revoke, see the log).
 
 ## 10. Mockup shortcuts that do not carry over
 

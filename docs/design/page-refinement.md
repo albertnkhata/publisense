@@ -51,11 +51,11 @@ Pages in the same archetype share:
 
 ### Group 2: Core Product & Community Discovery (The "Browsing" Archetype)
 * **Group 2A — Wide Discovery Directory (`EXPLORE_PAGE`):**
-  - **Routes:** [`/explore`](../../web/src/pages/ExplorePage.tsx), [`/c/:category`](../../web/src/pages/CategoryPage.tsx).
+  - **Routes:** [`/`](../../web/src/pages/HomePage.tsx) (Home), [`/categories`](../../web/src/pages/CategoriesPage.tsx), [`/c/:category`](../../web/src/pages/CategoryPage.tsx).
   - **Layout Handle:** `EXPLORE_PAGE` (`rail: false`, `width: 'wide'` 1024px, `topBar: false` on desktop). Keeps `NavRail` + mobile `TopBar`/`TabBar` while dropping the right rail so the 3-column category and product grids share the same discovery layout as Landing without the hero.
 * **Group 2B — Feed, Search & Scopes (Default `AppShell`):**
   - **Routes:**
-    - Home feed: [`/`](../../web/src/pages/HomePage.tsx) (signed in, or `?scope=following`)
+    - Feed: [`/feed`](../../web/src/pages/FeedPage.tsx) (signed in, or `?scope=following`)
     - Search: [`/search?q=`](../../web/src/pages/SearchPage.tsx)
     - Board & Tabs: [`/b/:board`](../../web/src/pages/BoardPage.tsx) (Feedback, Roadmap, Changelog)
     - Company Hub: [`/h/:hub`](../../web/src/pages/HubPage.tsx) (aggregates product boards)
