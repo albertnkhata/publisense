@@ -35,6 +35,11 @@ on:
         options:
           - '0'
           - '7'
+      reset_current_week:
+        description: 'Clear v2_weekly_digest email_log rows for the target ISO week before sending (QA testing only; default: false)'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -139,6 +144,7 @@ jobs:
           DB: ${{ secrets.SUPABASE_DB_URL }}
           ALLOW_QA: ${{ inputs.allow_qa_boards }}
           OFFSET_DAYS: ${{ inputs.week_offset_days }}
+          RESET_WEEK: ${{ inputs.reset_current_week }}
         run: |
           set -euo pipefail
           DB=$(printf '%s' "$DB" | tr -d '\r\n')
@@ -147,6 +153,20 @@ jobs:
           if [ "$LIVE_QA" -gt 0 ] && [ "$ALLOW_QA" != "true" ]; then
             echo "::error::Refusing to send: $LIVE_QA live qa-* board(s) still exist. Clean up QA fixtures first (or pass allow_qa_boards=true)."
             exit 1
+          fi
+
+          if [ "$RESET_WEEK" = "true" ]; then
+            CLEARED=$(psql "$DB" -v ON_ERROR_STOP=1 -v offset_days="$OFFSET_DAYS" -tA <<'SQL'
+              with deleted as (
+                delete from public.email_log
+                 where kind = 'v2_weekly_digest'
+                   and split_part(notification_id, ':', 2) = to_char((now() + (:'offset_days' || ' days')::interval) at time zone 'UTC', 'IYYY-"W"IW')
+                returning 1
+              )
+              select count(*) from deleted;
+          SQL
+            )
+            echo "Cleared $CLEARED v2_weekly_digest email_log row(s) for target ISO week"
           fi
 
           SENT=$(psql "$DB" -v ON_ERROR_STOP=1 -v offset_days="$OFFSET_DAYS" -tA <<'SQL'
