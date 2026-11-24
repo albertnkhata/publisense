@@ -1,0 +1,168 @@
+# Manual weekly digest inspection & test trigger (Appendix A check 7.6).
+#
+# Modes:
+#   - inspect (default, read-only): checks pg_cron schedule/recent runs, whether any
+#     live qa-* fixture boards exist, aggregate eligible/opted-out counts for the
+#     current ISO week, and recent v2_weekly_digest email_log rows (PII redacted).
+#   - send: invokes public.v2_weekly_digest_send(). Refuses to run while any `qa-*`
+#     board is still status = 'live' unless allow_qa_boards is explicitly true.
+#
+# Note: this repository is public, so logs MUST NEVER print raw emails, user IDs,
+# or unsubscribe tokens.
+name: Weekly digest (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Action: inspect (read-only) or send (run v2_weekly_digest_send)'
+        required: true
+        default: 'inspect'
+        type: choice
+        options:
+          - inspect
+          - send
+      allow_qa_boards:
+        description: 'Allow send even if live qa-* fixture boards exist (default: false)'
+        required: false
+        default: false
+        type: boolean
+      week_offset_days:
+        description: 'Days to add to now() for p_now (0 = current ISO week, 7 = next ISO week)'
+        required: false
+        default: '0'
+        type: choice
+        options:
+          - '0'
+          - '7'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weekly-digest-manual
+  cancel-in-progress: false
+
+jobs:
+  weekly-digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check secret and inputs
+        env:
+          DB: ${{ secrets.SUPABASE_DB_URL }}
+          MODE: ${{ inputs.mode }}
+          OFFSET_DAYS: ${{ inputs.week_offset_days }}
+        run: |
+          set -euo pipefail
+          [ -n "$DB" ] || { echo "::error::SUPABASE_DB_URL secret is not set"; exit 1; }
+          case "$MODE" in inspect|send) ;; *) echo "::error::invalid mode: $MODE"; exit 1 ;; esac
+          case "$OFFSET_DAYS" in 0|7) ;; *) echo "::error::invalid week_offset_days: $OFFSET_DAYS"; exit 1 ;; esac
+
+      - name: Inspect weekly digest state (read-only, PII redacted)
+        env:
+          DB: ${{ secrets.SUPABASE_DB_URL }}
+          OFFSET_DAYS: ${{ inputs.week_offset_days }}
+        run: |
+          set -euo pipefail
+          DB=$(printf '%s' "$DB" | tr -d '\r\n')
+
+          echo "=== Target ISO week ==="
+          psql "$DB" -v ON_ERROR_STOP=1 -v offset_days="$OFFSET_DAYS" -c "
+            select now() at time zone 'UTC' as utc_now,
+                   to_char((now() + (:'offset_days' || ' days')::interval) at time zone 'UTC', 'IYYY-\"W\"IW') as target_iso_week;
+          "
+
+          echo "=== Live QA fixture boards (slug like 'qa-%') ==="
+          psql "$DB" -v ON_ERROR_STOP=1 -c "
+            select slug, status, post_count, created_at
+              from public.board
+             where slug like 'qa-%'
+             order by created_at desc;
+          "
+
+          echo "=== Aggregate weekly digest audience for target ISO week ==="
+          psql "$DB" -v ON_ERROR_STOP=1 -v offset_days="$OFFSET_DAYS" -c "
+            with params as (
+              select to_char((now() + (:'offset_days' || ' days')::interval) at time zone 'UTC', 'IYYY-\"W\"IW') as wk
+            ),
+            base as (
+              select u.id,
+                     u.email ~* '@([a-z0-9-]+\\.)*(invalid|test|example|localhost)$' as is_reserved,
+                     exists (select 1 from public.notification_pref p
+                              where p.user_id = u.id and p.kind = 'weekly_digest' and p.channel = 'email' and not p.enabled) as opted_out,
+                     exists (select 1 from public.email_log l, params
+                              where l.kind = 'v2_weekly_digest' and l.notification_id = u.id::text || ':' || params.wk and l.status <> 'error') as logged_this_week
+                from auth.users u
+               where u.email_confirmed_at is not null and u.deleted_at is null and coalesce(u.email, '') <> ''
+                 and exists (select 1 from public.follow f join public.board b on b.id = f.target_id and b.status = 'live'
+                              where f.user_id = u.id and f.target = 'board')
+            )
+            select count(*) as following_live_boards,
+                   count(*) filter (where opted_out) as opted_out_weekly_digest,
+                   count(*) filter (where is_reserved) as reserved_test_domains,
+                   count(*) filter (where logged_this_week) as already_logged_for_week,
+                   count(*) filter (where not opted_out and not logged_this_week and not is_reserved) as eligible_non_reserved
+              from base;
+          "
+
+          echo "=== pg_cron schedule & recent runs (if readable) ==="
+          psql "$DB" -v ON_ERROR_STOP=0 -c "
+            select jobid, jobname, schedule, active
+              from cron.job
+             where jobname = 'v2-weekly-digest';
+            select r.runid, r.status, r.return_message, r.start_time, r.end_time
+              from cron.job_run_details r
+              join cron.job j on j.jobid = r.jobid
+             where j.jobname = 'v2-weekly-digest'
+             order by r.start_time desc
+             limit 5;
+          " || true
+
+          echo "=== Recent v2_weekly_digest email_log rows (recipients redacted) ==="
+          psql "$DB" -v ON_ERROR_STOP=1 -c "
+            select created_at,
+                   split_part(notification_id, ':', 2) as iso_week,
+                   left(md5(lower(coalesce(recipient, ''))), 6) || '@' || split_part(coalesce(recipient, ''), '@', 2) as recipient_redacted,
+                   status,
+                   detail,
+                   (request_id is not null) as has_request_id
+              from public.email_log
+             where kind = 'v2_weekly_digest'
+             order by created_at desc
+             limit 20;
+          "
+
+      - name: Run v2_weekly_digest_send (mode=send only)
+        if: inputs.mode == 'send'
+        env:
+          DB: ${{ secrets.SUPABASE_DB_URL }}
+          ALLOW_QA: ${{ inputs.allow_qa_boards }}
+          OFFSET_DAYS: ${{ inputs.week_offset_days }}
+        run: |
+          set -euo pipefail
+          DB=$(printf '%s' "$DB" | tr -d '\r\n')
+
+          LIVE_QA=$(psql "$DB" -v ON_ERROR_STOP=1 -tAc "select count(*) from public.board where slug like 'qa-%' and status = 'live';")
+          if [ "$LIVE_QA" -gt 0 ] && [ "$ALLOW_QA" != "true" ]; then
+            echo "::error::Refusing to send: $LIVE_QA live qa-* board(s) still exist. Clean up QA fixtures first (or pass allow_qa_boards=true)."
+            exit 1
+          fi
+
+          SENT=$(psql "$DB" -v ON_ERROR_STOP=1 -v offset_days="$OFFSET_DAYS" -tAc \
+            "select public.v2_weekly_digest_send(now() + (:'offset_days' || ' days')::interval);")
+          echo "v2_weekly_digest_send() queued: $SENT"
+
+          echo "=== Updated v2_weekly_digest email_log rows (recipients redacted) ==="
+          psql "$DB" -v ON_ERROR_STOP=1 -c "
+            select created_at,
+                   split_part(notification_id, ':', 2) as iso_week,
+                   left(md5(lower(coalesce(recipient, ''))), 6) || '@' || split_part(coalesce(recipient, ''), '@', 2) as recipient_redacted,
+                   status,
+                   detail,
+                   (request_id is not null) as has_request_id
+              from public.email_log
+             where kind = 'v2_weekly_digest'
+             order by created_at desc
+             limit 20;
+          "
