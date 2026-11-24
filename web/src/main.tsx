@@ -1,10 +1,9 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { beforeSendVercelAnalytics, getSupabase, hasSupabaseConfig, syncAnalyticsExclusionFromUrl } from './api';
+import { getSupabase, hasSupabaseConfig, syncAnalyticsExclusionFromUrl } from './api';
 import { App } from './App';
 import { Providers } from './Providers';
 import { initMonitoring, rootErrorOptions } from './lib/monitoring';
-import { Analytics } from '@vercel/analytics/react';
 import './styles/app.css';
 
 syncAnalyticsExclusionFromUrl();
@@ -19,9 +18,8 @@ if (!root) throw new Error('#root missing from index.html');
 
 createRoot(root, rootErrorOptions).render(
   <StrictMode>
-    <Providers>
+    <Providers analytics>
       <App />
     </Providers>
-    <Analytics beforeSend={beforeSendVercelAnalytics} />
   </StrictMode>,
 );

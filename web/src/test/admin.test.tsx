@@ -464,6 +464,7 @@ describe('command centre (/admin)', () => {
       expect(isTestEmail('user@publisense.invalid')).toBe(true);
       expect(isTestEmail('demo@foo.example')).toBe(true);
       expect(isTestEmail('dev@localhost')).toBe(true);
+      expect(isTestEmail('support@publisense.app')).toBe(true);
       expect(isTestEmail('alice@gmail.com')).toBe(false);
 
       expect(isAnalyticsExcluded()).toBe(false);

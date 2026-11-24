@@ -454,13 +454,45 @@ select pg_temp.as_user(null);
 select public.record_event((select visit_ok from f69), 'page_view', '/admin', null, null, null, '{}'::jsonb);
 select public.record_event((select visit_ok from f69), 'page_view', '/admin/queue', null, null, null, '{}'::jsonb);
 
+-- 0073: @publisense.app internal accounts, explicit analytics_excluded_user rows, and Gmail dot/+tag aliases are excluded
+create temp table f73 as
+  select gen_random_uuid() as support_acct,
+         gen_random_uuid() as flagged_base,
+         gen_random_uuid() as flagged_plus_m,
+         gen_random_uuid() as flagged_plus_r;
+grant select on f73 to anon, authenticated;
+
+insert into auth.users (id, email, email_confirmed_at, raw_user_meta_data)
+select support_acct, 'support@publisense.app', now(), '{"full_name":"Support"}'::jsonb from f73
+union all
+select flagged_base, 'qa.owner73@gmail.com', now(), '{"full_name":"QA Base"}'::jsonb from f73
+union all
+select flagged_plus_m, 'qa.owner73+launch-m@gmail.com', now(), '{"full_name":"QA M"}'::jsonb from f73
+union all
+select flagged_plus_r, 'qaowner73+launch-r@gmail.com', now(), '{"full_name":"QA R"}'::jsonb from f73;
+
+insert into private.analytics_excluded_user (user_id, reason)
+select flagged_base, 'test base' from f73;
+
+select pg_temp.as_user((select support_acct from f73));
+select pg_temp.expect('0073: @publisense.app account is_analytics_excluded() is true', public.is_analytics_excluded());
+select public.record_event((select visit_ok from f69), 'page_view', '/b/cursor', null, null, null, '{}'::jsonb);
+
+select pg_temp.as_user((select flagged_plus_m from f73));
+select pg_temp.expect('0073: +launch-m alias of excluded account is_analytics_excluded() is true', public.is_analytics_excluded());
+select public.record_event((select visit_ok from f69), 'page_view', '/b/cursor', null, null, null, '{}'::jsonb);
+
+select pg_temp.as_user((select flagged_plus_r from f73));
+select pg_temp.expect('0073: Gmail dot-variant +launch-r alias is_analytics_excluded() is true', public.is_analytics_excluded());
+select public.record_event((select visit_ok from f69), 'page_view', '/b/cursor', null, null, null, '{}'::jsonb);
+
 -- Real non-admin member is NOT excluded
 select pg_temp.as_user((select real_member from f69));
 select pg_temp.expect('0069: real member is_analytics_excluded() is false', not public.is_analytics_excluded());
-select public.record_event((select visit_ok from f69), 'page_view', '/explore', null, null, null, '{}'::jsonb);
+select public.record_event((select visit_ok from f69), 'page_view', '/categories', null, null, null, '{}'::jsonb);
 
 select pg_temp.as_owner();
-select pg_temp.expect('0069: only the real member page_view was recorded',
+select pg_temp.expect('0069/0073: only the real member page_view was recorded',
   (select count(*) = 1 from private.analytics_event where visit_id = (select visit_ok from f69)));
 
 rollback;

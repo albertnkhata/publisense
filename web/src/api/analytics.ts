@@ -166,10 +166,10 @@ export const ANALYTICS_EXCLUDED_KEY = 'publisense:analytics_excluded';
 
 let sessionExcluded = false;
 
-/** True for reserved test domains (.test, .example, .invalid, localhost). Mirrors 0069. */
+/** True for reserved test domains (.test, .example, .invalid, localhost) and internal @publisense.app addresses. Mirrors 0069/0073. */
 export function isTestEmail(email: string | null | undefined): boolean {
   const e = (email ?? '').trim().toLowerCase();
-  return e.length > 0 && /(\.test|\.example|\.invalid|@localhost)$/.test(e);
+  return e.length > 0 && /(\.test|\.example|\.invalid|@localhost|@publisense\.app)$/.test(e);
 }
 
 /** True in headless/automated browsers (e.g. Playwright E2E smoke runs). */
