@@ -455,6 +455,7 @@ select public.record_event((select visit_ok from f69), 'page_view', '/admin', nu
 select public.record_event((select visit_ok from f69), 'page_view', '/admin/queue', null, null, null, '{}'::jsonb);
 
 -- 0073: @publisense.app internal accounts, explicit analytics_excluded_user rows, and Gmail dot/+tag aliases are excluded
+select pg_temp.as_owner();
 create temp table f73 as
   select gen_random_uuid() as support_acct,
          gen_random_uuid() as flagged_base,
