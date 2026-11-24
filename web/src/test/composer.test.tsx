@@ -141,6 +141,20 @@ describe('composer', () => {
     expect(within(dialog).queryByText(/follow this post automatically/i)).toBeNull();
   });
 
+  it('keeps Cancel and Post right-aligned when the title blocker text disappears', async () => {
+    renderComposer();
+    const dialog = await open();
+    await chooseSupabase(dialog);
+    expect(within(dialog).getByText('Add a title to post.')).toBeTruthy();
+    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Title' }), { target: { value: 'Valid title' } });
+    expect(within(dialog).queryByText('Add a title to post.')).toBeNull();
+    const postBtn = within(dialog).getByRole('button', { name: 'Post' });
+    const actionsRow = postBtn.parentElement!;
+    const footerRow = actionsRow.parentElement!;
+    expect(actionsRow.className).toContain('ml-auto');
+    expect(footerRow.className).toContain('justify-end');
+  });
+
   it('asks whether to save or delete a draft, from Escape, the X or Cancel', async () => {
     renderComposer();
     const dialog = await open();

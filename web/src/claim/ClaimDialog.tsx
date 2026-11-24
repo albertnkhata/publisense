@@ -251,7 +251,8 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
   const [joinMessage, setJoinMessage] = useState('');
   const [token, setToken] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [busyAction, setBusyAction] = useState<'primary' | 'dns' | 'resend' | null>(null);
+  const busy = busyAction !== null;
   const [copied, setCopied] = useState(false);
   const [claimed, setClaimed] = useState<{ names: string[]; hub: string | null }>({ names: [], hub: null });
   const [invite, setInvite] = useState('');
@@ -408,16 +409,16 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
     setStep('sent');
   };
 
-  const run = async (fn: () => Promise<void>) => {
+  const run = async (fn: () => Promise<void>, which: 'primary' | 'dns' | 'resend' = 'primary') => {
     if (busy) return;
-    setBusy(true);
+    setBusyAction(which);
     setError(null);
     try {
       await fn();
     } catch (e) {
       fail(e);
     } finally {
-      setBusy(false);
+      setBusyAction(null);
     }
   };
 
@@ -466,7 +467,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
       setResumed(false);
       setCode('');
       toast('New code sent');
-    });
+    }, 'resend');
 
   const toDns = () =>
     run(async () => {
@@ -475,7 +476,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
       recordEvent('claim_verify_started', { boardId: target?.board?.id ?? null, meta: { method: 'dns' } });
       setStep('dns');
       void qc.invalidateQueries({ queryKey: ['pending-dns'] });
-    });
+    }, 'dns');
 
   const checkNow = () =>
     run(async () => {
@@ -727,11 +728,13 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
       <Button onClick={() => signUpToClaim(target.scope === 'hub' ? { hub: target.slug } : { board: target.slug })} block>Get started</Button>
     ) : (
       <Actions>
-        <Button type="submit" form="claim-form" loading={busy}>
+        <Button type="submit" form="claim-form" loading={busyAction === 'primary'} disabled={busy}>
           {isVerified ? (target.scope === 'hub' ? `Claim the ${target.name} hub` : `Claim ${target.name}`) : 'Send code'}
         </Button>
         {!isVerified ? (
-          <Alt onClick={() => void toDns()}>No company email? Verify with a DNS record</Alt>
+          <Alt onClick={() => void toDns()} loading={busyAction === 'dns'} disabled={busy}>
+            No company email? Verify with a DNS record
+          </Alt>
         ) : null}
       </Actions>
     );
@@ -777,7 +780,7 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
     );
     footer = (
       <Actions>
-        <Button type="submit" form="claim-form" loading={busy}>
+        <Button type="submit" form="claim-form" loading={busyAction === 'primary'} disabled={busy}>
           Verify
         </Button>
         {resendLeft > 0 ? (
@@ -785,9 +788,12 @@ function ClaimDialog({ opts, onClose }: { opts: ClaimOptions; onClose: () => voi
             Resend code in <Countdown seconds={resendLeft} />
           </span>
         ) : (
-          <Alt onClick={() => void resend()}>{resumed ? 'Send a new code' : 'Resend code'}</Alt>
+          <Alt onClick={() => void resend()} loading={busyAction === 'resend'} disabled={busy}>
+            {resumed ? 'Send a new code' : 'Resend code'}
+          </Alt>
         )}
         <Alt
+          disabled={busy}
           onClick={() => {
             clearPendingCode();
             setResumed(false);
@@ -1141,9 +1147,26 @@ function Countdown({ seconds }: { seconds: number }) {
   );
 }
 
-function Alt({ children, onClick }: { children: ReactNode; onClick: () => void }) {
+function Alt({
+  children,
+  onClick,
+  loading = false,
+  disabled = false,
+}: {
+  children: ReactNode;
+  onClick: () => void;
+  loading?: boolean;
+  disabled?: boolean;
+}) {
   return (
-    <button type="button" onClick={onClick} className="rounded-sm border-0 bg-transparent px-2 py-1 text-sm font-medium text-ink-secondary hover:text-ink hover:underline">
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
+      className="inline-flex items-center gap-2 rounded-sm border-0 bg-transparent px-2 py-1 text-sm font-medium text-ink-secondary enabled:hover:text-ink enabled:hover:underline disabled:cursor-default disabled:opacity-45 aria-busy:cursor-progress"
+    >
+      {loading ? <Spinner /> : null}
       {children}
     </button>
   );

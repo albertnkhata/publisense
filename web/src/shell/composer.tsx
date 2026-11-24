@@ -393,7 +393,7 @@ function Composer({ opts, onClose, onOpenDraft }: { opts: ComposerOptions; onClo
       dismissable={!create.isPending}
       footer={
         showDrafts ? undefined : (
-        <div className="flex w-full items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch max-sm:gap-2">
+        <div className="flex w-full items-center justify-end gap-3 max-sm:flex-col max-sm:items-stretch max-sm:gap-2">
           {blocker ? (
             <span id={blockerId} role="status" className="mr-auto text-sm text-ink-muted max-sm:mr-0 max-sm:text-center">
               {blocker}
@@ -401,7 +401,7 @@ function Composer({ opts, onClose, onOpenDraft }: { opts: ComposerOptions; onClo
           ) : footNote ? (
             <span className="mr-auto text-sm text-ink-muted max-sm:hidden">{footNote}</span>
           ) : null}
-          <div className="flex shrink-0 items-center gap-2 max-sm:w-full max-sm:*:flex-1">
+          <div className="ml-auto flex shrink-0 items-center gap-2 max-sm:ml-0 max-sm:w-full max-sm:*:flex-1">
             <Button variant="secondary" onClick={requestClose} disabled={create.isPending}>
               Cancel
             </Button>

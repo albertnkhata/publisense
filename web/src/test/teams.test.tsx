@@ -443,13 +443,19 @@ describe('claim a board', () => {
     await waitFor(() => expect(analyticsApi.recordEvent).toHaveBeenCalledWith('claim_verify_failed', { boardId: CURSOR.id, meta: { reason: 'other' } }));
   });
 
-  it('offers DNS when there is no company email', async () => {
-    teamsApi.startDnsCheck.mockResolvedValue('publisense-verify=abc123');
+  it('offers DNS when there is no company email and shows loading on the DNS option rather than Send code', async () => {
+    let resolveDns!: (token: string) => void;
+    teamsApi.startDnsCheck.mockImplementation(() => new Promise<string>((r) => { resolveDns = r; }));
     teamsApi.checkDns.mockResolvedValue(undefined);
     renderAt('/b/cursor');
     fireEvent.click(await screen.findByRole('button', { name: 'Work at Cursor?' }));
     const dialog = await screen.findByRole('dialog', { name: 'Claim Cursor' });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'No company email? Verify with a DNS record' }));
+    const sendCodeBtn = within(dialog).getByRole('button', { name: 'Send code' });
+    const dnsBtn = within(dialog).getByRole('button', { name: 'No company email? Verify with a DNS record' });
+    fireEvent.click(dnsBtn);
+    expect(dnsBtn.getAttribute('aria-busy')).toBe('true');
+    expect(sendCodeBtn.getAttribute('aria-busy')).toBeNull();
+    resolveDns('publisense-verify=abc123');
     expect(await within(dialog).findByText('publisense-verify=abc123')).toBeTruthy();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Check now' }));
     await waitFor(() => expect(teamsApi.checkDns).toHaveBeenCalledWith('cursor.com'));

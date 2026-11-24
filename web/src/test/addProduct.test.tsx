@@ -397,18 +397,18 @@ describe('entry points', () => {
     expect((within(dialog).getByLabelText(/^Name/) as HTMLInputElement).value).toBe('Acme Notes');
   });
 
-  it('replaces a name carried over from search with the site’s own once a link is in', async () => {
+  it('keeps a prefilled name when a link is entered, while still autofilling description', async () => {
     boardsApi.searchAll.mockResolvedValue({ boards: [], hubs: [], posts: [] });
     renderApp('/well');
     fireEvent.click(screen.getByRole('button', { name: 'Search products, posts, hubs' }));
     const input = within(await screen.findByRole('dialog', { name: 'Search' })).getByRole('combobox', { name: /Search products/ });
-    fireEvent.change(input, { target: { value: 'acme' } });
+    fireEvent.change(input, { target: { value: 'Publisense QA Test' } });
     fireEvent.click(await screen.findByRole('option', { name: /Can’t find it\? Add it/ }));
     const dialog = await screen.findByRole('dialog', { name: 'Add a product' });
-    expect((within(dialog).getByLabelText(/^Name/) as HTMLInputElement).value).toBe('acme');
+    expect((within(dialog).getByLabelText(/^Name/) as HTMLInputElement).value).toBe('Publisense QA Test');
     fireEvent.change(within(dialog).getByLabelText('Link'), { target: { value: 'acme-notes.dev' } });
-    await waitFor(() => expect((within(dialog).getByLabelText(/^Name/) as HTMLInputElement).value).toBe('Acme Notes'));
-    expect((within(dialog).getByLabelText(/^Description/) as HTMLInputElement).value).toBe('Notes for small teams');
+    await waitFor(() => expect((within(dialog).getByLabelText(/^Description/) as HTMLInputElement).value).toBe('Notes for small teams'));
+    expect((within(dialog).getByLabelText(/^Name/) as HTMLInputElement).value).toBe('Publisense QA Test');
   });
 
   it('the composer’s product picker offers to add one, and lists only live boards plus your own pending ones', async () => {
