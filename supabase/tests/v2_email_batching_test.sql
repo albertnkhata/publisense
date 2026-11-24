@@ -154,10 +154,11 @@ select pg_temp.expect('headers: the visible body link goes to /unsubscribe with 
   (select bool_and(body ->> 'text' ~ 'https://publisense\.app/unsubscribe\?token=[0-9a-f-]{36}&kind=[a-z_]+') from net.sent));
 
 -- 0072: per-category unsubscribe turns off only that kind on email, leaving other email kinds and in_app enabled.
+select pg_temp.expect('0072: per-category unsubscribe returns true',
+  public.unsubscribe((select token from public.email_token where user_id = (select follower from f)), 'status_change'));
 select pg_temp.expect('0072: per-category unsubscribe turns off only status_change email',
-  public.unsubscribe((select token from public.email_token where user_id = (select follower from f)), 'status_change')
-  and exists (select 1 from public.notification_pref
-               where user_id = (select follower from f) and kind = 'status_change' and channel = 'email' and not enabled)
+  exists (select 1 from public.notification_pref
+           where user_id = (select follower from f) and kind = 'status_change' and channel = 'email' and not enabled)
   and not exists (select 1 from public.notification_pref
                    where user_id = (select follower from f) and kind <> 'status_change' and channel = 'email' and not enabled)
   and not exists (select 1 from public.notification_pref
