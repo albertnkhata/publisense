@@ -391,6 +391,13 @@ jobs:
           PGPASSWORD: postgres
         run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_new_post_notifications_test.sql
 
+      # Credited handle search (0074): seeded posts' source_author is indexed in
+      # public.post.search both with and without '@' or 'u/'. Rolled back.
+      - name: v2 credited handle search tests
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_search_source_author_test.sql
+
       - name: Report public read-policy count
         env:
           PGPASSWORD: postgres

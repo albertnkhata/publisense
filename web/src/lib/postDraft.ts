@@ -104,6 +104,17 @@ export function consumePendingComposerIntent(): PendingComposerOpts | null {
   }
 }
 
+export function hasPendingComposerIntent(): boolean {
+  try {
+    const raw = window.localStorage.getItem(PENDING_INTENT_KEY);
+    if (!raw) return false;
+    const parsed = JSON.parse(raw) as Partial<PendingComposerOpts & { ts: number }>;
+    return typeof parsed.ts === 'number' && Date.now() - parsed.ts <= PENDING_INTENT_TTL_MS;
+  } catch {
+    return false;
+  }
+}
+
 export function clearPendingComposerIntent(): void {
   try {
     window.localStorage.removeItem(PENDING_INTENT_KEY);

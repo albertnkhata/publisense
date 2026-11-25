@@ -143,6 +143,8 @@ describe('post page', () => {
     // Board name appears once in the header rather than duplicated in a separate card.
     expect(within(article).getAllByRole('link', { name: BOARD.name })).toHaveLength(1);
     const followBoard = within(article).getByRole('button', { name: `Follow ${BOARD.name}` });
+    expect(followBoard.textContent).toBe(`Follow ${BOARD.name}`);
+    expect(within(article).getByRole('button', { name: 'Follow post' }).textContent).toBe('Follow post');
     fireEvent.click(followBoard);
     await waitFor(() => expect(boardsApi.setScopeFollow).toHaveBeenCalledWith('board', BOARD.id, TEST_VIEWER.id, true));
   });
@@ -252,7 +254,7 @@ describe('post page', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Upvote, 1 vote/ }));
     expect(await screen.findByRole('button', { name: /Upvote, 2 votes/ })).toBeTruthy();
     // Voting follows the post.
-    expect(screen.getByRole('button', { name: 'Following' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Following post' }).getAttribute('aria-pressed')).toBe('true');
   });
 
   it('renders related posts as full standard feedback cards', async () => {

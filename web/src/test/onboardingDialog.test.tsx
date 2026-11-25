@@ -99,6 +99,13 @@ describe('OnboardingDialog', () => {
     fireEvent.change(screen.getByRole('searchbox', { name: ONBOARDING_COPY.search }), { target: { value: 'zzz' } });
     expect(screen.getByText(ONBOARDING_COPY.none)).toBeTruthy();
   });
+
+  it('defers while a pending composer intent is waiting after sign-up', () => {
+    window.localStorage.setItem('publisense:pending-composer', JSON.stringify({ board: 'cursor', ts: Date.now() }));
+    renderWith(<OnboardingDialog />, { viewer: viewer(true) });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    window.localStorage.clear();
+  });
 });
 
 describe('onboardingBoards', () => {

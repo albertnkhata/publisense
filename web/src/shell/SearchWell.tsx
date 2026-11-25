@@ -738,7 +738,10 @@ function SearchModalBody({
           render: () => (
             <>
               <BoardAvatar name={p.board?.name ?? '?'} color={p.board?.color} logoSrc={logoSrc(p.board)} size="md" decorative />
-              <Text title={p.title} sub={[p.board?.name ?? '', TYPE_META[p.type].label, shortAge(p.created_at)].filter(Boolean).join(' · ')} />
+              <Text
+                title={p.title}
+                sub={[p.board?.name ?? '', TYPE_META[p.type].label, p.source_author ?? '', shortAge(p.created_at)].filter(Boolean).join(' · ')}
+              />
               {p.status !== 'open' ? <StatusPill status={p.status} /> : null}
               <VoteBadge count={p.vote_count} />
             </>

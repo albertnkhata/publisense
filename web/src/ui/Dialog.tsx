@@ -112,20 +112,20 @@ export function Dialog({
         aria-describedby={description ? descId : undefined}
         tabIndex={-1}
         className={cx(
-          'relative flex max-h-full w-full animate-rise-in flex-col rounded-lg border border-line bg-card text-ink shadow-overlay outline-none',
+          'relative z-10 flex max-h-full w-full animate-rise-in flex-col overflow-hidden rounded-lg border border-line bg-card text-ink shadow-overlay outline-none',
           'max-sm:max-w-none max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 max-sm:pb-4',
           size === 'lg' ? 'max-w-dialog-lg' : 'max-w-dialog',
         )}
       >
         <div aria-hidden="true" className="mx-auto mt-2 hidden h-1 w-8 rounded-pill bg-line-strong max-sm:block" />
-        <header className={cx('flex shrink-0 items-center gap-2 py-3 pr-3 pl-5', !hideTitle && 'border-b border-line')}>
+        <header className={cx('flex shrink-0 items-center gap-2 bg-card py-3 pr-3 pl-5', !hideTitle && 'border-b border-line')}>
           <h2 id={titleId} className={cx('m-0 flex-1 text-md font-semibold text-ink', hideTitle && 'sr-only')}>
             {title}
           </h2>
           {headerAction}
           <IconButton icon="close" label="Close" onClick={() => onCloseRef.current()} data-dialog-close="true" />
         </header>
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div className="flex-1 overflow-y-auto bg-card px-5 py-4">
           {description ? (
             <p id={descId} className="mt-0 mb-4 text-base text-ink-secondary">
               {description}
@@ -134,7 +134,7 @@ export function Dialog({
           {children}
         </div>
         {footer ? (
-          <footer className="flex shrink-0 items-center justify-end gap-2 border-t border-line px-5 py-3">{footer}</footer>
+          <footer className="flex shrink-0 items-center justify-end gap-2 border-t border-line bg-card px-5 py-3">{footer}</footer>
         ) : null}
       </div>
     </div>,

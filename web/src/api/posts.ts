@@ -1153,14 +1153,23 @@ export async function deleteSeededPost(id: string): Promise<void> {
 
 // ------------------------------------------------------------------ search
 
+const HANDLE_QUERY_RE = /^@?(?:u\/)?[a-z0-9._-]{2,}$/i;
+
+function escapeIlike(s: string): string {
+  return s.replace(/[\\%_]/g, '\\$&');
+}
+
 /**
- * Posts matching a search: Postgres full-text search over title and body
- * (`websearch` syntax: words, "quoted phrases", -exclusions), most upvoted first.
+ * Posts matching a search: Postgres full-text search over title, body and
+ * credited source_author (`websearch` syntax: words, "quoted phrases",
+ * -exclusions), plus partial handle matching on `source_author` (with or
+ * without `@` / `u/`) so credited authors can find their posts as they type.
  */
 export async function searchPosts(q: string, viewerId: string | null, limit = 30): Promise<Post[]> {
   const term = q.trim();
   if (term.length < 2) return [];
-  const { data, error } = await getSupabase()
+  const sb = getSupabase();
+  const fts = sb
     .from('post')
     .select(POST_SELECT)
     .is('hidden_at', null)
@@ -1169,8 +1178,37 @@ export async function searchPosts(q: string, viewerId: string | null, limit = 30
     .order('vote_count', { ascending: false })
     .order('created_at', { ascending: false })
     .limit(limit);
-  if (error) throw error;
-  return decorate((data ?? []) as unknown as PostRow[], viewerId);
+
+  const handleNeedle = HANDLE_QUERY_RE.test(term) ? term.replace(/^(@|u\/)/i, '') : '';
+  if (handleNeedle.length < 2) {
+    const { data, error } = await fts;
+    if (error) throw error;
+    return decorate((data ?? []) as unknown as PostRow[], viewerId);
+  }
+
+  const byAuthor = sb
+    .from('post')
+    .select(POST_SELECT)
+    .is('hidden_at', null)
+    .neq('status', 'merged')
+    .ilike('source_author', `%${escapeIlike(handleNeedle)}%`)
+    .order('vote_count', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  const [ftsRes, authorRes] = await Promise.all([fts, byAuthor]);
+  if (ftsRes.error) throw ftsRes.error;
+  if (authorRes.error) throw authorRes.error;
+
+  const seen = new Set<string>();
+  const merged: PostRow[] = [];
+  for (const r of [...((ftsRes.data ?? []) as unknown as PostRow[]), ...((authorRes.data ?? []) as unknown as PostRow[])]) {
+    if (seen.has(r.id)) continue;
+    seen.add(r.id);
+    merged.push(r);
+  }
+  merged.sort((a, b) => (b.vote_count ?? 0) - (a.vote_count ?? 0) || (b.created_at ?? '').localeCompare(a.created_at ?? ''));
+  return decorate(merged.slice(0, limit), viewerId);
 }
 
 // ------------------------------------------------------------------ step 8: people

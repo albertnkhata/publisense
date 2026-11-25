@@ -121,7 +121,7 @@
     ],
     "webTests": {
       "files": 57,
-      "cases": 750
+      "cases": 754
     },
     "gates": [
       {
@@ -375,6 +375,13 @@
         "name": "v2 new-post notification tests",
         "runs": [
           "psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_new_post_notifications_test.sql"
+        ],
+        "scripted": false
+      },
+      {
+        "name": "v2 credited handle search tests",
+        "runs": [
+          "psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_search_source_author_test.sql"
         ],
         "scripted": false
       },

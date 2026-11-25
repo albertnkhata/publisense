@@ -60,7 +60,7 @@ vi.mock('../api/supabase', () => {
     let queued: Result | undefined;
     const take = () => (queued ??= db.queue[table]?.shift() ?? { data: db.errors[table] ? null : (db.rows[table] ?? []), error: db.errors[table] ?? null, count: db.count });
     const b: Record<string, unknown> = {};
-    for (const m of ['select', 'eq', 'neq', 'is', 'in', 'or', 'order', 'range', 'limit', 'insert', 'update', 'delete', 'textSearch', 'gte']) {
+    for (const m of ['select', 'eq', 'neq', 'is', 'in', 'or', 'order', 'range', 'limit', 'insert', 'update', 'delete', 'textSearch', 'ilike', 'gte']) {
       b[m] = (...args: unknown[]) => (calls.push([m, ...args]), b);
     }
     b.maybeSingle = () => {
@@ -313,6 +313,19 @@ describe('search', () => {
     expect(q.some((c) => c[0] === 'textSearch' && c[2] === 'dark mode' && JSON.stringify(c[3]).includes('websearch'))).toBe(true);
     expect(has(q, 'is', 'hidden_at', null)).toBe(true);
     expect(r.posts.map((p) => p.id)).toEqual(['p1']);
+  });
+
+  it('also matches credited source_author handles with and without @ or u/', async () => {
+    db.rows.post = [row('p1')];
+    const r1 = await searchAll('@jeff_weinstein', { boards, hubs });
+    expect(db.calls.post).toHaveLength(2);
+    expect(db.calls.post?.[0]?.some((c) => c[0] === 'textSearch' && c[2] === '@jeff_weinstein')).toBe(true);
+    expect(db.calls.post?.[1]?.some((c) => c[0] === 'ilike' && c[1] === 'source_author' && c[2] === '%jeff\\_weinstein%')).toBe(true);
+    expect(r1.posts.map((p) => p.id)).toEqual(['p1']);
+
+    db.calls = {};
+    await searchAll('u/Gokuseens', { boards, hubs });
+    expect(db.calls.post?.[1]?.some((c) => c[0] === 'ilike' && c[1] === 'source_author' && c[2] === '%Gokuseens%')).toBe(true);
   });
 
   it('does not search a single character', async () => {

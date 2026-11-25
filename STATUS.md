@@ -27,7 +27,7 @@ _derived from `docs/archive/BUILD.md` checkbox state · one PR per step, see `do
 - [x] 8. Moderation and people
 - [x] 9. Cutover
 
-- v2 web tests (`web/src/**/*.test.ts(x)`): **57** files, **750** declared cases
+- v2 web tests (`web/src/**/*.test.ts(x)`): **57** files, **754** declared cases
 
 ### Open decisions and risks
 
@@ -93,6 +93,7 @@ _CI steps read from `.github/workflows/ci.yml`; v2 test counts are under v2 buil
 - CI · v2 trimmed text tests: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_trimmed_text_test.sql`
 - CI · v2 reply team edit tests: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_reply_team_edit_test.sql`
 - CI · v2 new-post notification tests: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_new_post_notifications_test.sql`
+- CI · v2 credited handle search tests: `psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_search_source_author_test.sql`
 - CI · Report public read-policy count: inline script
 
 <!-- status:repo-derived:end -->

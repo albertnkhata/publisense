@@ -5,7 +5,7 @@ import { usePageTitle } from '../lib/usePageTitle';
 import { useSetUrlParams } from '../lib/useUrlParam';
 import { useViewer } from '../lib/viewer';
 import { LoadError, PostList, PostListSkeleton } from '../posts/PostList';
-import { useAuthDialog, useRequireAuth } from '../shell/auth';
+import { useAuthDialog } from '../shell/auth';
 import { useComposer } from '../shell/composer';
 import { Button, EmptyState, Icon, Menu, MenuItemRadio, MenuLabel, Tabs } from '../ui';
 
@@ -104,7 +104,6 @@ function SortMenu({ sort, onChange }: { sort: FeedSort; onChange: (s: FeedSort) 
 function Feed({ scope, sort, viewerId }: { scope: FeedScope; sort: FeedSort; viewerId: string | null }) {
   const feed = useFeed(scope, sort, viewerId);
   const { openComposer } = useComposer();
-  const requireAuth = useRequireAuth();
   const posts = useMemo(() => dedupePosts(feed.data?.pages ?? []), [feed.data]);
 
   if (feed.isPending) return <PostListSkeleton />;
@@ -127,15 +126,7 @@ function Feed({ scope, sort, viewerId }: { scope: FeedScope; sort: FeedSort; vie
         <EmptyState
           icon="reply"
           title="No posts yet"
-          action={
-            <Button
-              onClick={() => {
-                if (requireAuth('post feedback')) openComposer();
-              }}
-            >
-              Post feedback
-            </Button>
-          }
+          action={<Button onClick={() => openComposer()}>Post feedback</Button>}
         >
           Be the first to share what’s slowing you down, or what you wish a product did.
         </EmptyState>

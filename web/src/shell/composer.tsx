@@ -87,8 +87,30 @@ export interface ComposerOptions {
   draft?: SavedDraft;
 }
 
+/** Infer board or hub prefill when the global Post feedback button is clicked on a board or hub route. */
+export function routeComposerScope(pathname: string): Pick<ComposerOptions, 'board' | 'hub'> {
+  const boardMatch = /^\/b\/([^/]+)/.exec(pathname);
+  if (boardMatch?.[1]) {
+    try {
+      return { board: decodeURIComponent(boardMatch[1]) };
+    } catch {
+      return { board: boardMatch[1] };
+    }
+  }
+  const hubMatch = /^\/h\/([^/]+)/.exec(pathname);
+  if (hubMatch?.[1]) {
+    try {
+      return { hub: decodeURIComponent(hubMatch[1]) };
+    } catch {
+      return { hub: hubMatch[1] };
+    }
+  }
+  return {};
+}
+
 interface ComposerCtx {
   openComposer: (opts?: ComposerOptions) => void;
+  composerOpen: boolean;
 }
 
 const ComposerContext = createContext<ComposerCtx | null>(null);
@@ -124,7 +146,7 @@ export function ComposerProvider({ children }: { children: ReactNode }) {
   const close = useCallback(() => setState((s) => ({ ...s, open: false })), []);
   // Picking a draft starts a fresh composer on it.
   const openDraft = useCallback((draft: SavedDraft) => setState((s) => ({ open: true, opts: { draft }, key: s.key + 1 })), []);
-  const value = useMemo(() => ({ openComposer }), [openComposer]);
+  const value = useMemo(() => ({ openComposer, composerOpen: state.open }), [openComposer, state.open]);
   return (
     <ComposerContext.Provider value={value}>
       {children}
@@ -137,6 +159,11 @@ export function useComposer() {
   const ctx = useContext(ComposerContext);
   if (!ctx) throw new Error('useComposer must be used inside <ComposerProvider>');
   return ctx;
+}
+
+/** True while the composer modal is open; safe outside <ComposerProvider> for isolated component tests. */
+export function useComposerOpen(): boolean {
+  return useContext(ComposerContext)?.composerOpen ?? false;
 }
 
 const TYPES: Array<{ value: PostType; desc: string }> = [
@@ -177,7 +204,7 @@ function Composer({ opts, onClose, onOpenDraft }: { opts: ComposerOptions; onClo
   const deleteDraftMut = useDeleteDraft(viewer?.id ?? null);
   const [view, setView] = useState<'compose' | 'drafts'>('compose');
   const [deleting, setDeleting] = useState<SavedDraft | null>(null);
-  const [boardSlug, setBoardSlug] = useState<string | null>(draft?.board ?? opts.board ?? null);
+  const [boardSlug, setBoardSlug] = useState<string | null>(opts.board ?? draft?.board ?? null);
   // Preselected so a post is never blocked on it; Bug is the most common kind of feedback.
   const [type, setType] = useState<PostType | null>(draft ? draft.type : 'bug');
   const [platform, setPlatform] = useState<Platform | null>(draft?.platform ?? null);

@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { boardKeys, compactCount, isLive, logoSrc, markOnboarded, matchesAll, setScopeFollow, useBoards, type Board } from '../api';
 import { cx } from '../lib/cx';
+import { hasPendingComposerIntent } from '../lib/postDraft';
 import { useViewer } from '../lib/viewer';
 import { BoardAvatar, Button, Dialog, Icon, Input, SkeletonBlock, useToast } from '../ui';
+import { useComposerOpen } from './composer';
 
 /** Boards shown before anything is typed: the most active ones. */
 export const ONBOARDING_SHOWN = 12;
@@ -37,10 +39,11 @@ export function onboardingBoards(boards: Board[], q: string): Board[] {
  */
 export function OnboardingDialog() {
   const { viewer, refresh } = useViewer();
+  const composerOpen = useComposerOpen();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { toast } = useToast();
-  const open = Boolean(viewer?.onboard);
+  const open = Boolean(viewer?.onboard) && !composerOpen && !hasPendingComposerIntent();
   const boards = useBoards();
   const [done, setDone] = useState(false);
   const [q, setQ] = useState('');

@@ -308,7 +308,7 @@ function PagePostHead({ post, boardDetail }: { post: Post; boardDetail: BoardWit
         </div>
         {credit ? <div className={cx(row, 'mt-1')}>{credit}</div> : null}
       </div>
-      {canFollowBoard && board ? <FollowScopeButton target="board" id={board.id} name={board.name} size="sm" className="shrink-0" /> : null}
+      {canFollowBoard && board ? <FollowScopeButton target="board" id={board.id} name={board.name} size="sm" showName className="shrink-0" /> : null}
     </div>
   );
 }
@@ -390,6 +390,7 @@ function FollowButton({ post, className }: { post: Post; className: string }) {
       type="button"
       className={className}
       aria-pressed={post.following}
+      title={post.following ? 'Stop receiving updates on this post' : 'Get notified of status changes and replies'}
       onClick={() => {
         if (!requireAuth('follow posts')) return;
         const on = !post.following;
@@ -403,7 +404,7 @@ function FollowButton({ post, className }: { post: Post; className: string }) {
       }}
     >
       <Icon name="bell" size={16} strokeWidth={1.8} />
-      <span className="max-sm:sr-only">{post.following ? 'Following' : 'Follow'}</span>
+      <span className="max-sm:sr-only">{post.following ? 'Following post' : 'Follow post'}</span>
     </button>
   );
 }

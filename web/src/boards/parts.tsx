@@ -15,7 +15,7 @@ import {
 import { cx } from '../lib/cx';
 import { useViewer } from '../lib/viewer';
 import { useRequireAuth } from '../shell/auth';
-import { BoardAvatar, HubAvatar, Icon, Menu, MenuItemRadio, MenuLabel, TYPE_META, useToast, VerifiedBadge } from '../ui';
+import { BoardAvatar, HubAvatar, Icon, Menu, MenuItemRadio, MenuLabel, Tooltip, TYPE_META, useToast, VerifiedBadge } from '../ui';
 
 /*
  * Pieces shared by the board, hub, Explore and search screens: the follow
@@ -30,6 +30,7 @@ export function FollowScopeButton({
   name,
   boardCount,
   size = 'md',
+  showName = false,
   className,
 }: {
   target: FollowTarget;
@@ -38,6 +39,8 @@ export function FollowScopeButton({
   /** For the hub toast: "all 3 boards, plus any added later". */
   boardCount?: number;
   size?: 'sm' | 'md';
+  /** Show the product name inside the button (e.g. "Follow Cursor") when a post-level Follow sits nearby. */
+  showName?: boolean;
   className?: string;
 }) {
   const { viewer } = useViewer();
@@ -45,8 +48,9 @@ export function FollowScopeButton({
   const { toast } = useToast();
   const on = useIsFollowing(viewer?.id ?? null, target, id);
   const follow = useScopeFollow(viewer?.id ?? null);
-  const idle = target === 'hub' ? 'Follow hub' : 'Follow';
-  return (
+  const idle = target === 'hub' ? 'Follow hub' : showName ? `Follow ${name}` : 'Follow';
+  const active = showName ? `Following ${name}` : 'Following';
+  const button = (
     <button
       type="button"
       aria-pressed={on}
@@ -75,12 +79,19 @@ export function FollowScopeButton({
       className={cx(
         'inline-flex shrink-0 items-center justify-center rounded-md border font-semibold whitespace-nowrap transition-colors duration-120 hover:bg-subtle',
         size === 'sm' ? 'h-7 px-3 text-sm' : 'h-8 px-4 text-base',
+        showName && 'max-w-menu',
         on ? 'border-line bg-subtle font-medium text-ink-secondary' : 'border-line-strong bg-card text-ink',
         className,
       )}
     >
-      {on ? 'Following' : idle}
+      {showName ? <span className="truncate">{on ? active : idle}</span> : on ? active : idle}
     </button>
+  );
+  if (!showName) return button;
+  return (
+    <Tooltip content={on ? `Unfollow ${name}` : `Follow ${name} for new posts and updates`} side="bottom">
+      {button}
+    </Tooltip>
   );
 }
 

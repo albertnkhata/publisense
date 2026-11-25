@@ -9,8 +9,8 @@ import { GuestMenu } from './GuestMenu';
 import { useNavCollapsed } from './NavRail';
 import { SearchWell } from './SearchWell';
 import { UserMenu } from './UserMenu';
-import { useAuthDialog, useRequireAuth } from './auth';
-import { useComposer } from './composer';
+import { useAuthDialog } from './auth';
+import { routeComposerScope, useComposer } from './composer';
 
 /**
  * Full-width sticky TopBar seated above the left NavRail and main column.
@@ -22,7 +22,6 @@ export function TopBar() {
   const { pathname } = useLocation();
   const { viewer, ready } = useViewer();
   const { openAuth } = useAuthDialog();
-  const requireAuth = useRequireAuth();
   const { openComposer } = useComposer();
   const { collapsed, toggle } = useNavCollapsed();
   const unread = useUnreadCount(viewer?.id ?? null).data ?? 0;
@@ -30,7 +29,7 @@ export function TopBar() {
   const dmUnread = useDmUnread(viewer?.id ?? null);
 
   const onPost = () => {
-    if (requireAuth('post feedback')) openComposer();
+    openComposer(routeComposerScope(pathname));
   };
   useShortcut('c', onPost);
   useShortcut('[', toggle);

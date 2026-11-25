@@ -73,4 +73,16 @@ describe('Dialog', () => {
     expect(dialog.className).toContain('max-sm:rounded-b-none');
     expect(dialog.className).not.toContain('max-sm:h-full');
   });
+
+  it('uses solid bg-card surfaces and z-10 layering across panel, header, body, and footer', () => {
+    render(<Harness />);
+    act(() => fireEvent.click(screen.getByText('Open')));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.className).toContain('bg-card');
+    expect(dialog.className).toContain('z-10');
+    expect(dialog.className).toContain('overflow-hidden');
+    expect(dialog.querySelector('header')?.className).toContain('bg-card');
+    expect(dialog.querySelector('.overflow-y-auto')?.className).toContain('bg-card');
+    expect(dialog.querySelector('footer')?.className).toContain('bg-card');
+  });
 });

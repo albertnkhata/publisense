@@ -35,7 +35,7 @@
   /* Supporting values the mockup uses that §3 does not name (see PR notes). */
   --on-brand: #FFFFFF;                    /* text on cobalt and on board tiles */
   --bg-glass: rgba(255, 255, 255, 0.9);   /* sticky top bar and tab bar */
-  --overlay: rgba(0, 0, 0, 0.36);         /* dialog backdrop */
+  --overlay: rgba(0, 0, 0, 0.48);         /* dialog backdrop */
   --shadow-overlay-value: 0 16px 40px -12px rgba(0, 0, 0, 0.22);
   --hero-glow-value: radial-gradient(65% 90% at 50% 0%, rgba(0, 71, 171, 0.06) 0%, rgba(0, 71, 171, 0) 75%);
 
@@ -196,7 +196,7 @@
     from { opacity: 0; }
   }
   @keyframes rise-in {
-    from { opacity: 0; transform: translateY(8px); }
+    from { transform: translateY(8px); }
   }
 }
 

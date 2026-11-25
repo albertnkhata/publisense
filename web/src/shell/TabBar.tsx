@@ -6,8 +6,8 @@ import { THEME_OPTIONS, THEME_SHORT_LABEL } from '../lib/theme';
 import { useTheme } from '../lib/ThemeProvider';
 import { useViewer } from '../lib/viewer';
 import { Dialog, Icon, UserAvatar, useToast, type IconName } from '../ui';
-import { useAuthDialog, useRequireAuth } from './auth';
-import { useComposer } from './composer';
+import { useAuthDialog } from './auth';
+import { routeComposerScope, useComposer } from './composer';
 import { LegalLinks } from './LegalLinks';
 
 const NON_TEXT_INPUT_TYPES = new Set(['button', 'checkbox', 'color', 'file', 'hidden', 'image', 'radio', 'range', 'reset', 'submit']);
@@ -32,7 +32,6 @@ export function TabBar({ showPost = true }: { showPost?: boolean } = {}) {
   const { openAuth } = useAuthDialog();
   const { toast } = useToast();
   const { openComposer } = useComposer();
-  const requireAuth = useRequireAuth();
   const { theme, pref, setPref } = useTheme();
   const [sheet, setSheet] = useState(false);
   const [sheetView, setSheetView] = useState<'root' | 'appearance'>('root');
@@ -82,9 +81,7 @@ export function TabBar({ showPost = true }: { showPost?: boolean } = {}) {
             <button
               type="button"
               aria-label="Post feedback"
-              onClick={() => {
-                if (requireAuth('post feedback')) openComposer();
-              }}
+              onClick={() => openComposer(routeComposerScope(pathname))}
               className="grid size-8 cursor-pointer place-items-center rounded-md border-0 bg-brand text-on-brand transition-colors duration-120 active:bg-brand-hover"
             >
               <Icon name="plus" size={20} strokeWidth={2.2} />
