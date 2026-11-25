@@ -80,7 +80,7 @@ insert into public.follow (user_id, target, target_id)
   select other_u, 'post'::public.v2_follow_target, p_regular from f
   on conflict do nothing;
 
-insert into public.status_event (post_id, from_status, to_status, actor_id, note)
+insert into public.status_event (post_id, "from", "to", actor_id, note)
   select p_regular, 'open'::public.v2_post_status, 'under_review'::public.v2_post_status, admin_u, 'Looking into it' from f;
 
 update public.post p
@@ -88,8 +88,8 @@ update public.post p
   from f
  where p.id = f.p_merged_src;
 
-insert into public.merge_record (source_post_id, target_post_id, merged_by)
-  select p_merged_src, p_regular, admin_u from f;
+insert into public.merge_record (source_post_id, target_post_id, prev_status, merged_by)
+  select p_merged_src, p_regular, 'open'::public.v2_post_status, admin_u from f;
 
 insert into public.report (target, target_id, reason, reporter)
 select 'post'::public.v2_report_target, p_regular, 'Off-topic spam report', other_u from f
