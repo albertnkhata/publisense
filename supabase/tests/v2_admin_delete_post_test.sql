@@ -40,6 +40,7 @@ create temp table f as
          gen_random_uuid() as p_seeded,
          gen_random_uuid() as r_root,
          gen_random_uuid() as r_child;
+grant select on f to authenticated, anon;
 
 insert into auth.users (id, email, raw_user_meta_data, email_confirmed_at)
 select admin_u,  'admin-del-'  || left(admin_u::text, 8)  || '@example.test', '{"full_name":"Admin"}'::jsonb,  now() from f
