@@ -27,16 +27,16 @@ insert into public.board (id, hub_id, slug, name, status)
   select board, hub, 'search-credit-board-' || left(board::text, 8), 'Search Credit Board', 'live' from f;
 
 insert into public.post (id, board_id, author_id, source_url, source_author, type, title, body)
-select p_x, board, null, 'https://x.com/jeff_weinstein/status/1', '@jeff_weinstein', 'feature',
+select p_x, board, null::uuid, 'https://x.com/jeff_weinstein/status/1', '@jeff_weinstein', 'feature'::public.v2_post_type,
        'Stripe Checkout invoice export', 'Need a CSV button.' from f
 union all
-select p_x_single, board, null, 'https://x.com/ChaseMc67/status/2', '@ChaseMc67', 'bug',
+select p_x_single, board, null::uuid, 'https://x.com/ChaseMc67/status/2', '@ChaseMc67', 'bug'::public.v2_post_type,
        'Tab switcher freezes on wake', 'Happens after sleep.' from f
 union all
-select p_reddit, board, null, 'https://www.reddit.com/r/app/comments/3', 'u/Gokuseens', 'friction',
+select p_reddit, board, null::uuid, 'https://www.reddit.com/r/app/comments/3', 'u/Gokuseens', 'friction'::public.v2_post_type,
        'Onboarding tooltip blocks toolbar', 'Hard to dismiss.' from f
 union all
-select p_hyphen, board, null, 'https://www.reddit.com/r/app/comments/4', 'u/MarcN-Apps', 'feature',
+select p_hyphen, board, null::uuid, 'https://www.reddit.com/r/app/comments/4', 'u/MarcN-Apps', 'feature'::public.v2_post_type,
        'Keyboard navigation for settings', 'Arrows would help.' from f;
 
 select pg_temp.expect(
