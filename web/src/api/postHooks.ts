@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData, type QueryClient } from '@tanstack/react-query';
 import {
+  adminDeletePost,
   createReply,
   deletePost,
   deleteReply,
@@ -214,14 +215,20 @@ export function useEditSeededPost(viewerId: string | null) {
 export function useDeletePost() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: string | { id: string; seeded: true }) => (typeof v === 'string' ? deletePost(v) : deleteSeededPost(v.id)),
+    mutationFn: (v: string | { id: string; admin?: true; seeded?: true }) =>
+      typeof v === 'string' ? deletePost(v) : v.admin ? adminDeletePost(v.id) : deleteSeededPost(v.id),
     onSuccess: (_d, v) => {
       const id = typeof v === 'string' ? v : v.id;
-      // Drop it from every feed; the post page shows "not found" if it is still open.
+      // Drop it from every feed and board list in place; the post page redirects to its board.
       patchPost(qc, id, () => null);
       qc.setQueriesData<PostCache>({ queryKey: ['posts', 'detail', id] }, () => null);
       qc.removeQueries({ queryKey: postKeys.replies(id) });
       void qc.invalidateQueries({ queryKey: ['related'] });
+      void qc.invalidateQueries({ queryKey: ['post-counts'] });
+      void qc.invalidateQueries({ queryKey: ['boards'] });
+      void qc.invalidateQueries({ queryKey: ['board'] });
+      void qc.invalidateQueries({ queryKey: ['roadmap'] });
+      void qc.invalidateQueries({ queryKey: ['changelog'] });
     },
   });
 }

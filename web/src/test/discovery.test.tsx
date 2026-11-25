@@ -43,11 +43,14 @@ const postsApi = vi.hoisted(() => ({
   fetchWanted: vi.fn(),
   fetchSimilar: vi.fn(),
   createPost: vi.fn(),
+  adminDeletePost: vi.fn(),
   setVote: vi.fn(),
   setPostFollow: vi.fn(),
 }));
+const modApi = vi.hoisted(() => ({ fetchIsPlatformAdmin: vi.fn(async () => false) }));
 vi.mock('../api/boards', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/boards')>()), ...boardsApi }));
 vi.mock('../api/posts', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/posts')>()), ...postsApi }));
+vi.mock('../api/moderation', async (importOriginal) => ({ ...(await importOriginal<typeof import('../api/moderation')>()), ...modApi }));
 
 const page = (items: Post[], next: number | null = null): FeedPage => ({ items, next });
 const emptyRoadmap = { under_review: [], planned: [], in_progress: [], shipped: [] };
@@ -108,6 +111,7 @@ beforeEach(() => {
   postsApi.fetchWanted.mockResolvedValue([]);
   postsApi.fetchSimilar.mockResolvedValue([]);
   postsApi.setVote.mockResolvedValue(undefined);
+  modApi.fetchIsPlatformAdmin.mockResolvedValue(false);
 });
 
 describe('board page', () => {
@@ -251,6 +255,27 @@ describe('board page', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Post feedback' });
     expect(await within(dialog).findByText('Cursor')).toBeTruthy();
     expect(within(dialog).getByRole('button', { name: 'Change' })).toBeTruthy();
+  });
+
+  it('removes a post card in place when an admin deletes it from a board list (0075)', async () => {
+    modApi.fetchIsPlatformAdmin.mockResolvedValue(true);
+    postsApi.adminDeletePost.mockResolvedValue(undefined);
+    const target = makePost({ id: 'p-remove', title: 'Spam post to remove' });
+    const keep = makePost({ id: 'p-keep', title: 'Legitimate feedback' });
+    postsApi.fetchPostList.mockResolvedValue(page([target, keep]));
+
+    const { router } = renderAt('/b/cursor', true);
+    const card = (await screen.findByRole('article', { name: target.title }));
+    fireEvent.click(within(card).getByRole('button', { name: 'More options' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Delete post' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Delete this post?' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete post' }));
+
+    await waitFor(() => expect(postsApi.adminDeletePost).toHaveBeenCalledWith(target.id));
+    await waitFor(() => expect(screen.queryByRole('article', { name: target.title })).toBeNull());
+    expect(screen.getByRole('article', { name: keep.title })).toBeTruthy();
+    expect(router.state.location.pathname).toBe('/b/cursor');
+    expect(screen.getByText('Post deleted')).toBeTruthy();
   });
 
   it('shows the roadmap columns from ?tab=roadmap', async () => {

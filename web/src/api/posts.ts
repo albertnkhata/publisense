@@ -1151,6 +1151,13 @@ export async function deleteSeededPost(id: string): Promise<void> {
   if (error || !res.ok) throw failed('We couldn’t delete this post. Try again.');
 }
 
+/** Platform admin only (0075 admin_delete_post): permanently delete any post (regular or seeded). */
+export async function adminDeletePost(id: string): Promise<void> {
+  const { data, error } = await getSupabase().rpc('admin_delete_post', { p_post: id });
+  const res = (data ?? { ok: false }) as { ok: boolean };
+  if (error || !res.ok) throw failed('We couldn’t delete this post. Try again.');
+}
+
 // ------------------------------------------------------------------ search
 
 const HANDLE_QUERY_RE = /^@?(?:u\/)?[a-z0-9._-]{2,}$/i;

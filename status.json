@@ -121,7 +121,7 @@
     ],
     "webTests": {
       "files": 57,
-      "cases": 754
+      "cases": 757
     },
     "gates": [
       {
@@ -382,6 +382,13 @@
         "name": "v2 credited handle search tests",
         "runs": [
           "psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_search_source_author_test.sql"
+        ],
+        "scripted": false
+      },
+      {
+        "name": "v2 admin delete post tests",
+        "runs": [
+          "psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_admin_delete_post_test.sql"
         ],
         "scripted": false
       },

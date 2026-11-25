@@ -63,7 +63,12 @@ function PostBody({ post }: { post: Post }) {
           Hidden. Only its author, the {post.board?.name ?? 'board'} team and Publisense moderators can see it.
         </p>
       ) : null}
-      <PostCard post={post} variant="page" boardDetail={board.data ?? null} onDeleted={() => void navigate('/', { replace: true })} />
+      <PostCard
+        post={post}
+        variant="page"
+        boardDetail={board.data ?? null}
+        onDeleted={() => void navigate(post.board?.slug ? `/b/${post.board.slug}` : '/', { replace: true })}
+      />
       {events.data && events.data.length > 0 ? <StatusTimeline post={post} events={events.data} /> : null}
       <ReplySection post={post} />
       <Related post={post} viewerId={viewer?.id ?? null} />

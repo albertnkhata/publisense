@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { deletePost, editSeededPost, fetchFeed, fetchPopularByStatus, fetchPost, fetchRelated, seedPost, setVote, updatePost, updateReply, FEED_PAGE_SIZE, POST_SELECT } from '../api/posts';
+import { adminDeletePost, deletePost, editSeededPost, fetchFeed, fetchPopularByStatus, fetchPost, fetchRelated, seedPost, setVote, updatePost, updateReply, FEED_PAGE_SIZE, POST_SELECT } from '../api/posts';
 
 /*
  * The api layer against a recording stand-in for the Supabase query builder:
@@ -183,6 +183,13 @@ describe('fetchPost and writes', () => {
     await expect(deletePost('p1')).rejects.toThrow('We couldn’t delete this post. Try again.');
     db.rows.post = [{ id: 'p1' }];
     await expect(deletePost('p1')).resolves.toBeUndefined();
+  });
+
+  it('calls admin_delete_post RPC and reports non-ok responses as a failure (0075)', async () => {
+    db.rpcData = { ok: false, error: 'not_allowed' };
+    await expect(adminDeletePost('p1')).rejects.toThrow('We couldn’t delete this post. Try again.');
+    db.rpcData = { ok: true };
+    await expect(adminDeletePost('p1')).resolves.toBeUndefined();
   });
 
   it('explains the exact duplicate rule for seeded create and edit', async () => {

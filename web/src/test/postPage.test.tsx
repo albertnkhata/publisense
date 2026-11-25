@@ -29,6 +29,7 @@ const api = vi.hoisted(() => ({
   deleteReply: vi.fn(),
   updatePost: vi.fn(),
   deletePost: vi.fn(),
+  adminDeletePost: vi.fn(),
   editSeededPost: vi.fn(),
   deleteSeededPost: vi.fn(),
 }));
@@ -50,6 +51,7 @@ function renderPost(post: Post, { replies = [] as Reply[], events = [] as Status
   return renderWith(
     <Routes>
       <Route path="/" element={<h1>Home page</h1>} />
+      <Route path="/b/:board" element={<h1>Board page</h1>} />
       <Route path="/post/:id" element={<PostPage />} />
     </Routes>,
     { viewer: signedIn ? TEST_VIEWER : null, path: `/post/${post.id}${at}` },
@@ -621,13 +623,14 @@ describe('author edit and delete', () => {
     expect(edit.textContent).toContain('Can’t edit once it’s Shipped');
   });
 
-  it('deletes the post after confirming and goes home', async () => {
+  it('deletes the post after confirming and redirects to the parent board', async () => {
     const post = makePost({ author: ME, author_id: ME.id });
     const { router } = renderPost(post);
     api.deletePost.mockResolvedValue(undefined);
     fireEvent.click(await screen.findByRole('button', { name: 'More options' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Delete post' }));
     const dialog = await screen.findByRole('dialog', { name: 'Delete this post?' });
+    expect(dialog.textContent).toContain('permanently deletes the post');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     expect(api.deletePost).not.toHaveBeenCalled();
 
@@ -635,7 +638,7 @@ describe('author edit and delete', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Delete post' }));
     fireEvent.click(within(await screen.findByRole('dialog', { name: 'Delete this post?' })).getByRole('button', { name: 'Delete post' }));
     await waitFor(() => expect(api.deletePost).toHaveBeenCalledWith(post.id));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/'));
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/b/${BOARD.slug}`));
     expect(screen.getByText('Post deleted')).toBeTruthy();
   });
 
@@ -698,13 +701,19 @@ describe('post helpers', () => {
   });
 });
 
-describe('staff and seeded posts (0031)', () => {
+describe('staff and seeded posts (0031, 0075)', () => {
   const seeded = () =>
     makePost({ author: null, author_id: null, source_url: 'https://github.com/acme/notes/issues/7', title: 'Imported title', type: 'bug', created_at: '2025-03-14T12:00:00Z' });
 
-  it('people who aren’t staff can’t edit or delete a seeded post', async () => {
+  it('people who aren’t staff can’t edit or delete a seeded post or someone else’s regular post', async () => {
     modApi.fetchIsPlatformAdmin.mockResolvedValue(false);
-    renderPost(seeded());
+    const first = renderPost(seeded());
+    fireEvent.click(await screen.findByRole('button', { name: 'More options' }));
+    expect(screen.queryByRole('menuitem', { name: 'Edit post' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Delete post' })).toBeNull();
+    first.unmount();
+
+    renderPost(makePost({ author: OTHER, author_id: OTHER.id }));
     fireEvent.click(await screen.findByRole('button', { name: 'More options' }));
     expect(screen.queryByRole('menuitem', { name: 'Edit post' })).toBeNull();
     expect(screen.queryByRole('menuitem', { name: 'Delete post' })).toBeNull();
@@ -749,17 +758,36 @@ describe('staff and seeded posts (0031)', () => {
     expect(api.updatePost).not.toHaveBeenCalled();
   });
 
-  it('staff delete a seeded post', async () => {
+  it('staff permanently delete a seeded post and redirect to its board', async () => {
     modApi.fetchIsPlatformAdmin.mockResolvedValue(true);
-    api.deleteSeededPost.mockResolvedValue(undefined);
+    api.adminDeletePost.mockResolvedValue(undefined);
     const post = seeded();
-    renderPost(post);
+    const { router } = renderPost(post);
     fireEvent.click(await screen.findByRole('button', { name: 'More options' }));
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Delete post' }));
-    const dialog = await screen.findByRole('dialog');
-    fireEvent.click(within(dialog).getByRole('button', { name: /Delete/ }));
-    await waitFor(() => expect(api.deleteSeededPost).toHaveBeenCalledWith(post.id));
+    const dialog = await screen.findByRole('dialog', { name: 'Delete this post?' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete post' }));
+    await waitFor(() => expect(api.adminDeletePost).toHaveBeenCalledWith(post.id));
     expect(api.deletePost).not.toHaveBeenCalled();
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/b/${BOARD.slug}`));
+    expect(screen.getByText('Post deleted')).toBeTruthy();
+  });
+
+  it('staff permanently delete another user’s regular post and redirect to its board (0075)', async () => {
+    modApi.fetchIsPlatformAdmin.mockResolvedValue(true);
+    api.adminDeletePost.mockResolvedValue(undefined);
+    const post = makePost({ author: OTHER, author_id: OTHER.id });
+    const { router } = renderPost(post);
+    fireEvent.click(await screen.findByRole('button', { name: 'More options' }));
+    expect(screen.queryByRole('menuitem', { name: 'Edit post' })).toBeNull();
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Delete post' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Delete this post?' });
+    expect(dialog.textContent).toContain('permanently deletes the post');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete post' }));
+    await waitFor(() => expect(api.adminDeletePost).toHaveBeenCalledWith(post.id));
+    expect(api.deletePost).not.toHaveBeenCalled();
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/b/${BOARD.slug}`));
+    expect(screen.getByText('Post deleted')).toBeTruthy();
   });
 });
 

@@ -398,6 +398,13 @@ jobs:
           PGPASSWORD: postgres
         run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_search_source_author_test.sql
 
+      # Admin post deletion (0075): platform admins can permanently delete any post
+      # (regular or seeded) with dependent cleanup; anon and non-admins are refused. Rolled back.
+      - name: v2 admin delete post tests
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d publisense_ci -v ON_ERROR_STOP=1 -qtA -f supabase/tests/v2_admin_delete_post_test.sql
+
       - name: Report public read-policy count
         env:
           PGPASSWORD: postgres

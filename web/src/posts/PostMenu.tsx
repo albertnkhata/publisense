@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
 import { editLockReason, postKind, useDeletePost, useFollowPost, useHidePost, useIsBoardTeam, useIsPlatformAdmin, type Post } from '../api';
 import { sharePost } from '../lib/share';
 import { useViewer } from '../lib/viewer';
@@ -13,14 +12,14 @@ import { StatusDialog } from './StatusDialog';
 /**
  * The ⋯ menu on a post: Follow/Unfollow, Copy link, Update status and Merge for
  * the board's team, Hide/Unhide for the team and platform admins (everyone else
- * stops seeing it), Report for everyone else, and Edit and Delete for the author.
+ * stops seeing it), Report for everyone else, Edit for the author (and platform
+ * admins on seeded posts), and Delete for the author or platform admins.
  * The mockup's Save is left out until it exists (FOUNDATION §10).
  */
 export function PostMenu({ post, onDeleted }: { post: Post; onDeleted?: () => void }) {
   const { viewer } = useViewer();
   const requireAuth = useRequireAuth();
   const { toast } = useToast();
-  const navigate = useNavigate();
   const follow = useFollowPost(viewer?.id ?? null);
   const del = useDeletePost();
   const team = useIsBoardTeam(post.board_id, viewer?.id ?? null);
@@ -34,13 +33,15 @@ export function PostMenu({ post, onDeleted }: { post: Post; onDeleted?: () => vo
   };
 
   const isAuthor = Boolean(viewer && post.author_id === viewer.id);
-  // Staff look after seeded posts (no author, a source link): edit and delete them (0031).
-  const staffSeeded = Boolean(staff.data) && postKind(post) === 'seeded';
+  const isAdmin = Boolean(staff.data);
+  // Staff look after seeded posts (no author, a source link): edit them (0031).
+  const staffSeeded = isAdmin && postKind(post) === 'seeded';
   // Authors edit within the window and never once Shipped, Closed or Merged (0045; the DB enforces it).
   const lock = staffSeeded ? null : editLockReason(post);
   const showEdit = isAuthor || staffSeeded;
-  const canDelete = isAuthor || staffSeeded;
-  const canHide = Boolean(team.data || staff.data);
+  // Authors can delete their own posts; platform admins can permanently delete any post (0075).
+  const canDelete = isAuthor || isAdmin;
+  const canHide = Boolean(team.data || isAdmin);
 
   const toggleHidden = () => {
     const hidden = !post.hidden_at;
@@ -67,12 +68,11 @@ export function PostMenu({ post, onDeleted }: { post: Post; onDeleted?: () => vo
 
   const confirmDelete = () => {
     setError(null);
-    del.mutate(staffSeeded && !isAuthor ? { id: post.id, seeded: true } : post.id, {
+    del.mutate(isAuthor ? post.id : { id: post.id, admin: true }, {
       onSuccess: () => {
         setDialog(null);
         toast('Post deleted');
-        if (onDeleted) onDeleted();
-        else void navigate('/');
+        onDeleted?.();
       },
       onError: (e) => setError(e instanceof Error ? e.message : 'We couldn’t delete this post. Try again.'),
     });
@@ -165,7 +165,7 @@ export function PostMenu({ post, onDeleted }: { post: Post; onDeleted?: () => vo
         onConfirm={confirmDelete}
         onClose={() => openDialog(null)}
       >
-        This removes the post with its upvotes and replies. You can’t undo this.
+        This permanently deletes the post along with all of its upvotes and replies. You can’t undo this.
       </ConfirmDialog>
     </>
   );
