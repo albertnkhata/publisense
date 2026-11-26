@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-16T06:00:11Z",
+  "generatedAt": "2026-11-26T06:00:13Z",
   "repo": {
     "openDecisions": [],
     "resolved": [
@@ -400,40 +400,40 @@
     ]
   },
   "live": {
-    "generatedAt": "2026-11-16T06:00:11Z",
+    "generatedAt": "2026-11-26T06:00:13Z",
     "site": {
       "status": 200,
-      "bundle": "/assets/index-CNj1wzua.js",
+      "bundle": "/assets/index-BY1UqEZP.js",
       "wwwRedirect": "308 → https://publisense.app/",
-      "checkedAt": "2026-11-16T06:00:11Z"
+      "checkedAt": "2026-11-26T06:00:13Z"
     },
     "data": {
       "counts": {
-        "board": 31,
-        "hub": 20,
-        "post": 191,
+        "board": 45,
+        "hub": 34,
+        "post": 302,
         "reply": 0,
         "vote": 0,
         "follow": "restricted",
-        "profile": 5,
+        "profile": 6,
         "status_event": 0
       },
       "trueCounts": {
-        "board": 32,
-        "hub": 21,
-        "post": 191,
+        "board": 45,
+        "hub": 34,
+        "post": 302,
         "reply": 0,
         "vote": 0,
-        "follow": 10,
-        "profile": 5,
+        "follow": 17,
+        "profile": 6,
         "status_event": 0
       },
       "fixtures": {
-        "posts": 191,
-        "imports": 191,
+        "posts": 302,
+        "imports": 302,
         "fromMembers": 0
       },
-      "authUsers": 5
+      "authUsers": 6
     },
     "auth": {
       "providers": [
@@ -451,13 +451,55 @@
       }
     },
     "github": {
-      "issues": [],
-      "prs": []
+      "issues": [
+        {
+          "number": 320,
+          "title": "Launch: prepare the launch-day support and incident runbook"
+        },
+        {
+          "number": 319,
+          "title": "Launch: run a restore drill that includes Supabase Storage media"
+        },
+        {
+          "number": 318,
+          "title": "Launch: define measurable metrics and track the daily gate"
+        },
+        {
+          "number": 317,
+          "title": "Launch: Show HN + X / Product Hunt — Jan 26 + Feb 2 if gate passes; Feb 2 + Feb 9 if missed"
+        },
+        {
+          "number": 316,
+          "title": "Launch: upgrade Supabase to Pro for launch month"
+        },
+        {
+          "number": 315,
+          "title": "Launch: prepare launch assets"
+        },
+        {
+          "number": 314,
+          "title": "Launch: hit the Jan 25 exit gate"
+        },
+        {
+          "number": 313,
+          "title": "Launch: outreach, users first (Dec 7 to 20), then teams (Jan 4 to 22)"
+        },
+        {
+          "number": 312,
+          "title": "Launch: seed Wave 1 and Wave 2 boards to a 3–5 post floor"
+        }
+      ],
+      "prs": [
+        {
+          "number": 301,
+          "title": "chore: refresh the live status block"
+        }
+      ]
     },
     "deployedCommit": {
-      "sha": "e29a143",
+      "sha": "196d1a1",
       "state": "READY",
-      "createdAt": "2026-11-15T08:02:13.925Z"
+      "createdAt": "2026-11-26T05:03:14.316Z"
     },
     "unitTests": "unknown"
   }

@@ -101,20 +101,20 @@ _CI steps read from `.github/workflows/ci.yml`; v2 test counts are under v2 buil
 
 <!-- status:live:start — refreshed by `node scripts/status.mjs --live`; may lag until the next scheduled refresh -->
 
-_probed 2026-11-16T06:00:11Z · anything that could not be read says `unknown` rather than guessing_
+_probed 2026-11-26T06:00:13Z · anything that could not be read says `unknown` rather than guessing_
 
 ### Production
 
-- https://publisense.app → **200** · served entry bundle `/assets/index-CNj1wzua.js`
+- https://publisense.app → **200** · served entry bundle `/assets/index-BY1UqEZP.js`
 - www → 308 → https://publisense.app/
-- production deployment: `e29a143` (READY, 2026-11-15T08:02:13.925Z)
+- production deployment: `196d1a1` (READY, 2026-11-26T05:03:14.316Z)
 
 ### Data
 
-- board **32** · hub **21** · post **191** · reply **0** · vote **0** · follow **10** · profile **5** · status_event **0**
+- board **45** · hub **34** · post **302** · reply **0** · vote **0** · follow **17** · profile **6** · status_event **0**
 - counted with an authenticated probe; as an anonymous visitor these read: follow = restricted
-- post: **191** total = **191 imported** (no author, sourced elsewhere) + **0 from members**
-- auth users: **5**
+- post: **302** total = **302 imported** (no author, sourced elsewhere) + **0 from members**
+- auth users: **6**
 
 > ⚠️ Imported posts carry no author — each one links to the source it came from (`D-011`). Printed so traction is never claimed without the split.
 
@@ -126,8 +126,8 @@ _probed 2026-11-16T06:00:11Z · anything that could not be read says `unknown` r
 
 ### Work queue
 
-- open issues: none
-- open PRs: none
+- open issues: #320 Launch: prepare the launch-day support and incident runbook · #319 Launch: run a restore drill that includes Supabase Storage media · #318 Launch: define measurable metrics and track the daily gate · #317 Launch: Show HN + X / Product Hunt — Jan 26 + Feb 2 if gate passes; Feb 2 + Feb 9 if missed · #316 Launch: upgrade Supabase to Pro for launch month · #315 Launch: prepare launch assets · #314 Launch: hit the Jan 25 exit gate · #313 Launch: outreach, users first (Dec 7 to 20), then teams (Jan 4 to 22) · #312 Launch: seed Wave 1 and Wave 2 boards to a 3–5 post floor
+- open PRs: #301 chore: refresh the live status block
 
 <!-- status:live:end -->
 
