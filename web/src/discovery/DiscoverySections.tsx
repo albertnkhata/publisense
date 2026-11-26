@@ -15,6 +15,7 @@ import {
   type Hub,
   type PopularStatus,
 } from '../api';
+import { CATEGORY_ICON } from '../boards/categoryIcon';
 import { BoardCard, CardGrid, HubRow, RowItem, RowList, Section } from '../boards/parts';
 import { cx } from '../lib/cx';
 import { trendingTitle } from '../lib/trendingCopy';
@@ -450,7 +451,10 @@ export function CategoriesSection({ boards, id = 'disc-categories' }: { boards: 
               to={`/c/${c.category}`}
               className="flex h-full flex-col gap-1 rounded-md border border-line bg-card p-4 text-ink no-underline transition-colors duration-120 hover:border-line-strong hover:bg-subtle/35"
             >
-              <span className="text-base font-semibold text-ink">{c.label}</span>
+              <span className="flex items-center gap-2 text-base font-semibold text-ink">
+                <Icon name={CATEGORY_ICON[c.category]} size={16} strokeWidth={1.75} className="shrink-0 text-ink-muted" />
+                <span className="truncate">{c.label}</span>
+              </span>
               <span className="truncate text-sm text-ink-muted">{c.examples.join(', ')}</span>
             </Link>
           </li>

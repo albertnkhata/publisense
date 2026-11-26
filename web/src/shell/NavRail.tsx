@@ -13,6 +13,7 @@ import {
   type Board,
   type Hub,
 } from '../api';
+import { CATEGORY_ICON } from '../boards/categoryIcon';
 import { cx } from '../lib/cx';
 import { MQ, useMediaQuery } from '../lib/useMediaQuery';
 import { useViewer } from '../lib/viewer';
@@ -213,7 +214,7 @@ function RailCategories({ collapsed }: { collapsed: boolean }) {
   if (collapsed || categories.length === 0) return null;
 
   return (
-    <nav aria-label="Categories" className="mb-3 flex flex-col border-t border-line pt-3">
+    <nav aria-label="Categories" className="mb-3 flex flex-col gap-1 border-t border-line pt-3">
       <div className="flex items-center justify-between px-3 pb-1">
         <span className="text-xs font-semibold text-ink-muted uppercase">Categories</span>
         <NavLink
@@ -234,11 +235,14 @@ function RailCategories({ collapsed }: { collapsed: boolean }) {
           to={`/c/${c.category}`}
           className={({ isActive }) =>
             cx(
-              'flex h-7 w-full items-center rounded-md px-3 text-sm font-medium whitespace-nowrap no-underline transition-colors duration-120',
+              'relative flex h-8 w-full items-center overflow-hidden rounded-md pr-3 text-sm font-medium whitespace-nowrap no-underline transition-colors duration-120',
               isActive ? 'bg-brand-soft font-semibold text-brand' : 'text-ink-secondary hover:bg-subtle hover:text-ink',
             )
           }
         >
+          <span className="grid h-8 w-gutter shrink-0 place-items-center">
+            <Icon name={CATEGORY_ICON[c.category]} size={16} strokeWidth={1.75} />
+          </span>
           <span className="min-w-0 flex-1 truncate">{c.label}</span>
         </NavLink>
       ))}

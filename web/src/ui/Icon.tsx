@@ -192,6 +192,74 @@ const PATHS = {
   ),
   edit: <path d="M17 3a2.85 2.85 0 0 1 4 4L7.5 20.5 3 21l.5-4.5zM15 5l4 4" />,
   trash: <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6M10 11v6M14 11v6" />,
+  // Category icons (NavRail and category cards); same 24-unit grid and stroke.
+  sparkles: (
+    <>
+      <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
+      <path d="M19 15v4M17 17h4" />
+    </>
+  ),
+  code: <path d="m8 7-5 5 5 5M16 7l5 5-5 5M13.5 5l-3 14" />,
+  layers: <path d="m12 3 9 4.5-9 4.5L3 7.5zM3 12l9 4.5 9-4.5M3 16.5 12 21l9-4.5" />,
+  'pen-tool': (
+    <>
+      <path d="M15.7 21.3 21.3 15.7a1 1 0 0 0 0-1.4l-2.6-2.6-7 7 2.6 2.6a1 1 0 0 0 1.4 0z" />
+      <path d="m18 12.2-1.5-7.5L2 2l2.7 14.5L12.2 18" />
+      <path d="m2 2 7.6 7.6" />
+      <circle cx="11" cy="11" r="1.8" />
+    </>
+  ),
+  zap: <path d="M13 2 4 14h7l-1 8 9-12h-7z" />,
+  messages: (
+    <>
+      <path d="M14 9a2 2 0 0 1-2 2H6l-3 3V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2z" />
+      <path d="M18 9h1a2 2 0 0 1 2 2v10l-3-3h-6a2 2 0 0 1-2-2v-1" />
+    </>
+  ),
+  'at-sign': (
+    <>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8" />
+    </>
+  ),
+  play: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="3" />
+      <path d="m10 9 5 3-5 3z" />
+    </>
+  ),
+  'credit-card': (
+    <>
+      <rect x="2.5" y="5" width="19" height="14" rx="2.5" />
+      <path d="M2.5 10h19M7 15h3" />
+    </>
+  ),
+  'shopping-bag': (
+    <>
+      <path d="M6 7h12l1 13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z" />
+      <path d="M9 7V6a3 3 0 0 1 6 0v1" />
+    </>
+  ),
+  gamepad: (
+    <>
+      <path d="M6 12h4M8 10v4M15 13h.01M18 11h.01" />
+      <path d="M17.3 5H6.7a4 4 0 0 0-3.9 3.2L2 14a3.5 3.5 0 0 0 6.3 2.1L9.5 14h5l1.2 2.1A3.5 3.5 0 0 0 22 14l-.8-5.8A4 4 0 0 0 17.3 5z" />
+    </>
+  ),
+  'book-open': <path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2zM22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z" />,
+  heart: <path d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7z" />,
+  'map-pin': (
+    <>
+      <path d="M20 10c0 5-8 11-8 11s-8-6-8-11a8 8 0 0 1 16 0z" />
+      <circle cx="12" cy="10" r="2.5" />
+    </>
+  ),
+  tag: (
+    <>
+      <path d="M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4z" />
+      <circle cx="7.5" cy="7.5" r="1" />
+    </>
+  ),
 } satisfies Record<string, ReactNode>;
 
 export type IconName = keyof typeof PATHS;

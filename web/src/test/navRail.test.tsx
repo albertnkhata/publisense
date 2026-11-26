@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, within } from '@testing-library/react';
-import { followKey } from '../api';
+import { CATEGORIES, followKey, type BoardCategory } from '../api';
+import { CATEGORY_ICON } from '../boards/categoryIcon';
+import { ICON_NAMES } from '../ui';
 import { NavRail } from '../shell/NavRail';
 import { TopBar } from '../shell/TopBar';
 import { ComposerProvider } from '../shell/composer';
@@ -121,7 +123,9 @@ describe('NavRail links and layout', () => {
     );
     const categoriesNav = screen.getByRole('navigation', { name: 'Categories' });
     expect(within(categoriesNav).getByRole('link', { name: 'All' }).getAttribute('href')).toBe('/categories');
-    expect(within(categoriesNav).getByRole('link', { name: 'Code editors' }).getAttribute('href')).toBe('/c/code');
+    const codeLink = within(categoriesNav).getByRole('link', { name: 'Code editors' });
+    expect(codeLink.getAttribute('href')).toBe('/c/code');
+    expect(codeLink.querySelector('svg')).not.toBeNull();
     expect(screen.queryByRole('navigation', { name: 'Your products' })).toBeNull();
     expect(screen.queryByRole('navigation', { name: 'Popular products' })).toBeNull();
 
@@ -185,6 +189,15 @@ describe('NavRail links and layout', () => {
       expect(rail.getAttribute('data-overlay')).toBeNull();
     } finally {
       window.matchMedia = origMatchMedia;
+    }
+  });
+
+  it('maps every BoardCategory to a valid icon name', () => {
+    const valid = new Set(ICON_NAMES);
+    const categories = CATEGORIES.filter((c): c is { value: BoardCategory; label: string } => c.value !== 'all');
+    expect(categories.length).toBeGreaterThan(0);
+    for (const c of categories) {
+      expect(valid.has(CATEGORY_ICON[c.value])).toBe(true);
     }
   });
 });
