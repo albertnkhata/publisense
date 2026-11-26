@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { Link, Navigate, useParams } from 'react-router';
-import { CATEGORIES, isLive, isProductFamily, plural, useBoards, useHubs, type Board, type BoardCategory } from '../api';
+import { CATEGORIES, isLive, isProductFamily, useBoards, useHubs, type Board, type BoardCategory } from '../api';
 import { BoardCard, CardGrid, HubRow, RowItem, RowList, Section } from '../boards/parts';
 import { usePageTitle } from '../lib/usePageTitle';
 import { LoadError } from '../posts/PostList';
@@ -67,14 +67,9 @@ export function CategoryPage() {
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
-      <div className="mb-6 flex flex-wrap items-baseline gap-3">
-        <h1 id="page-title" className="m-0 text-2xl font-bold text-ink">
-          {meta.label}
-        </h1>
-        {boards.isSuccess && hubs.isSuccess ? (
-          <span className="font-mono text-sm text-ink-muted tabular-nums">{plural(list.length, 'product')}</span>
-        ) : null}
-      </div>
+      <h1 id="page-title" className="m-0 mb-6 text-2xl font-bold text-ink">
+        {meta.label}
+      </h1>
 
       {boards.isPending || hubs.isPending ? (
         <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-2 max-sm:grid-cols-1" aria-busy="true">

@@ -800,7 +800,7 @@ describe('signed-in discovery home', () => {
     fireEvent.click(within(cats).getByRole('link', { name: /Dev platforms/ }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/c/dev'));
     expect(await screen.findByRole('heading', { level: 1, name: 'Dev platforms' })).toBeTruthy();
-    expect(screen.getByText('1 product')).toBeTruthy();
+    expect(screen.queryByText(/\b\d+\s+products?\b/i)).toBeNull();
   });
 
   it('renders empty and unknown category pages cleanly', async () => {
