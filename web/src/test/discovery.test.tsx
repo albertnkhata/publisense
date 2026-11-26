@@ -759,7 +759,7 @@ describe('signed-in discovery home', () => {
     fireEvent.click(screen.getByRole('link', { name: 'All categories →' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/categories'));
     expect(await screen.findByRole('heading', { level: 1, name: 'Categories' })).toBeTruthy();
-    expect(screen.getByText('3 categories')).toBeTruthy();
+    expect(screen.queryByText(/\b\d+\s+categor(?:y|ies)\b/i)).toBeNull();
     const allCats = screen.getByRole('list', { name: 'Categories' });
     expect(within(allCats).getAllByRole('link')).toHaveLength(3);
     expect(within(allCats).getByRole('link', { name: /Dev platforms/ }).getAttribute('href')).toBe('/c/dev');

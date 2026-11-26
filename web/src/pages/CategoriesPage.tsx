@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router';
-import { plural, summarizeCategories, useBoards } from '../api';
+import { summarizeCategories, useBoards } from '../api';
 import { CATEGORY_ICON } from '../boards/categoryIcon';
 import { usePageTitle } from '../lib/usePageTitle';
 import { LoadError } from '../posts/PostList';
@@ -27,16 +27,9 @@ export function CategoriesPage() {
 
   return (
     <section aria-labelledby="page-title" className="flex flex-col">
-      <div className="mb-6 flex flex-wrap items-baseline gap-3">
-        <h1 id="page-title" className="m-0 text-2xl font-bold text-ink">
-          Categories
-        </h1>
-        {boards.isSuccess && categories.length > 0 ? (
-          <span className="font-mono text-sm text-ink-muted tabular-nums">
-            {plural(categories.length, 'category', 'categories')}
-          </span>
-        ) : null}
-      </div>
+      <h1 id="page-title" className="m-0 mb-6 text-2xl font-bold text-ink">
+        Categories
+      </h1>
 
       {boards.isPending ? (
         <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-2 max-sm:grid-cols-1" aria-busy="true">
