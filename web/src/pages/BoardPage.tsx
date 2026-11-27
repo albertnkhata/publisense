@@ -184,7 +184,7 @@ function Board({ board }: { board: BoardWithHub }) {
               </Button>
             ) : null}
             {board.status === 'rejected' || (tab === 'feedback' && emptyFeed) ? null : (
-              <Button size="sm" onClick={() => openComposer({ board: board.slug })}>
+              <Button size="sm" variant="secondary" icon="plus" onClick={() => openComposer({ board: board.slug })}>
                 Post feedback
               </Button>
             )}

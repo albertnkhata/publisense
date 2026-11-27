@@ -63,6 +63,13 @@ function PostBody({ post }: { post: Post }) {
           Hidden. Only its author, the {post.board?.name ?? 'board'} team and Publisense moderators can see it.
         </p>
       ) : null}
+      <Link
+        to={post.board?.slug ? `/b/${post.board.slug}` : '/'}
+        className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-ink-muted no-underline transition-colors duration-120 hover:text-ink"
+      >
+        <Icon name="arrow-left" size={14} />
+        {post.board?.name ? `Back to ${post.board.name}` : 'Back'}
+      </Link>
       <PostCard
         post={post}
         variant="page"
