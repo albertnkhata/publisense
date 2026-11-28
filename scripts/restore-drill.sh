@@ -74,8 +74,13 @@ else
   echo "manifest.sha256 is empty (0 objects in snapshot)."
 fi
 
-echo "=== 3. Restoring public schema data into isolated DB ==="
-pg_restore --no-owner --no-privileges --schema=public --data-only --disable-triggers -d "$TARGET_DB_URL" "$WORK/db.dump"
+echo "=== 3. Restoring auth.users and public schema data into isolated DB ==="
+{
+  echo "SET session_replication_role = replica;"
+  pg_restore --no-owner --no-privileges --data-only --schema=auth --table=users "$WORK/db.dump"
+  pg_restore --no-owner --no-privileges --data-only --schema=public "$WORK/db.dump"
+  echo "SET session_replication_role = origin;"
+} | psql "$TARGET_DB_URL" -v ON_ERROR_STOP=1
 
 echo "=== 4. Uploading Storage objects and verifying HTTP 200 + SHA-256 ==="
 python3 - "$WORK/storage" "$TARGET_SUPABASE_URL" "$TARGET_SERVICE_ROLE_KEY" <<'PY'
