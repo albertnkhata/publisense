@@ -43,6 +43,7 @@ Add one row per day. Each row records: **Date**, **Current vs target/baseline**,
 | Date (UTC) | Pipeline (W1/W2 list · seeded · outreach · replies) | Exit gate: Claimed boards (target 10+) | Exit gate: Team-replied Shipped (target 5+) | Delta (vs prior day) | Readiness: Open launch issues · Backup / Smoke | Source | Owner | Blocker | Next action |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | 2026-11-22 | List 0/35 · 0/40 · Seeded 0/75 · Outreach 0 · Replies 0 *(32 existing live boards, 191 imported posts)* | 0 / 10+ *(baseline)* | 0 / 5+ *(baseline)* | Baseline | Open: #306, #308, #310–#320 · Backup #44996354011 ✓ · Smoke #44996358001 ✓ · E2E #44996360489 ✓ | `STATUS.md`, GitHub Actions, `gh issue list` | Albert | Pre-launch ops (#319 drill, #306 QA, #308 inbox check) | Finish runbook/Storage backup, run #319 drill & #306 QA, start #311 founder list |
+| 2026-11-28 | List 35/35 · 0/40 · Seeded 35/75 (W1 35/35 done) · Outreach 0 · Replies 0 | 0 / 10+ | 0 / 5+ | +35 W1 seeded; closed #306, #308, #310, #311, #319, #320 | Open: #312–#318 · Backup #46123660431 ✓ · Smoke #45975248190 ✓ · E2E #45975860959 ✓ · Drill #46126492607 ✓ | `publisense.app/c/code`, GitHub Actions, `gh issue list` | Albert | None (all pre-outreach ops cleared) | Compile Wave 1 credited-author outreach list & start Phase 1A user outreach (#313) |
 
 ---
 
