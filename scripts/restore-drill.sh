@@ -77,8 +77,8 @@ fi
 echo "=== 3. Restoring auth.users and public schema data into isolated DB ==="
 {
   echo "SET session_replication_role = replica;"
-  pg_restore --no-owner --no-privileges --data-only --schema=auth --table=users "$WORK/db.dump"
-  pg_restore --no-owner --no-privileges --data-only --schema=public "$WORK/db.dump"
+  pg_restore -f - --no-owner --no-privileges --data-only --schema=auth --table=users "$WORK/db.dump"
+  pg_restore -f - --no-owner --no-privileges --data-only --schema=public "$WORK/db.dump"
   echo "SET session_replication_role = origin;"
 } | psql "$TARGET_DB_URL" -v ON_ERROR_STOP=1
 
