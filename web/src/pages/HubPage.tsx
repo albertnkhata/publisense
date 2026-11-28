@@ -126,7 +126,7 @@ function HubView({ hub }: { hub: Hub }) {
               Share
             </Button>
             {tab === 'feedback' && emptyFeed ? null : (
-              <Button size="sm" onClick={() => openComposer({ hub: hub.slug })}>
+              <Button size="sm" variant="secondary" icon="plus" onClick={() => openComposer({ hub: hub.slug })}>
                 Post feedback
               </Button>
             )}
