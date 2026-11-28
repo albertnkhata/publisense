@@ -49,4 +49,4 @@ The script:
 3. Verifies every Storage file against `manifest.sha256`.
 4. Restores `public` data into the isolated scratch database.
 5. Uploads every Storage object to the scratch project's buckets and re-fetches each public URL to verify HTTP `200`, byte size, and SHA-256 match.
-6. Prints referenced media counts (`board.logo_path`, `profile.avatar_path`, `post_image.path`) and total elapsed seconds so you can record the drill evidence on #319.
+6. Prints referenced media counts (`board.logo_path`, `profile.avatar_path`, `post.images`) and total elapsed seconds so you can record the drill evidence on #319.

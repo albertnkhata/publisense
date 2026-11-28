@@ -138,7 +138,7 @@ psql "$TARGET_DB_URL" -v ON_ERROR_STOP=1 -c "
   union all
   select 'avatars', count(*) from public.profile where avatar_path is not null
   union all
-  select 'post_images', count(*) from public.post_image;
+  select 'post_images', coalesce(sum(cardinality(images)), 0) from public.post;
 "
 
 END_TS=$(date +%s)
