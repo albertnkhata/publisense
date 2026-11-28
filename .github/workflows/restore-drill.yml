@@ -1,0 +1,125 @@
+# Isolated non-production restore drill for BOTH Postgres data and Supabase Storage media (#319).
+# Spins up an ephemeral local Supabase stack (Postgres + Storage API) on the runner,
+# downloads the latest encrypted nightly backup artifact from backup.yml, decrypts it
+# with BACKUP_PASSPHRASE, and runs scripts/restore-drill.sh end to end.
+name: Restore drill (isolated)
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Optional backup.yml workflow run ID (defaults to latest successful Nightly backup)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: restore-drill
+  cancel-in-progress: false
+
+jobs:
+  restore-drill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check secrets
+        env:
+          PASS: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          [ -n "$PASS" ] || { echo "::error::BACKUP_PASSPHRASE secret is not set"; exit 1; }
+
+      - name: Install postgresql-client-17
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+          /usr/lib/postgresql/17/bin/pg_restore --version
+
+      - name: Download latest Nightly backup artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_RUN_ID: ${{ inputs.run_id }}
+        run: |
+          set -euo pipefail
+          RUN_ID="$INPUT_RUN_ID"
+          if [ -z "$RUN_ID" ]; then
+            RUN_ID=$(gh run list --workflow backup.yml --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+          fi
+          [ -n "$RUN_ID" ] && [ "$RUN_ID" != "null" ] || { echo "::error::No successful backup.yml run found"; exit 1; }
+          echo "Using Nightly backup run ID: $RUN_ID"
+          mkdir -p /tmp/backup-artifact
+          gh run download "$RUN_ID" --dir /tmp/backup-artifact
+          DB_GPG=$(find /tmp/backup-artifact -name 'publisense-*.dump.gpg' | head -n 1)
+          STORAGE_GPG=$(find /tmp/backup-artifact -name 'publisense-storage-*.tar.gz.gpg' | head -n 1)
+          [ -n "$DB_GPG" ] || { echo "::error::Missing DB dump .gpg file in artifact"; exit 1; }
+          [ -n "$STORAGE_GPG" ] || { echo "::error::Missing Storage archive .gpg file in artifact"; exit 1; }
+          echo "DB_GPG=$DB_GPG" >> "$GITHUB_ENV"
+          echo "STORAGE_GPG=$STORAGE_GPG" >> "$GITHUB_ENV"
+          ls -lh "$DB_GPG" "$STORAGE_GPG"
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start isolated local Supabase stack
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/scratch-supabase
+          cd /tmp/scratch-supabase
+          supabase init --force
+          supabase start -x studio,imgproxy,edge-runtime,logflare,vector
+          supabase status -o env > /tmp/supabase.env
+          cat /tmp/supabase.env | grep -E '^(API_URL|DB_URL)='
+
+      - name: Apply schema & migrations and clear seed rows
+        run: |
+          set -euo pipefail
+          set -a
+          source /tmp/supabase.env
+          set +a
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/schema.sql
+          for f in $(ls supabase/migrations/*.sql | sort); do
+            echo "--- applying $f"
+            psql "$DB_URL" -v ON_ERROR_STOP=1 -f "$f"
+          done
+          # Clear any migration-seeded rows in public.* so pg_restore --data-only loads the snapshot cleanly
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -c "
+            do \$\$
+            declare r record;
+            begin
+              for r in (select tablename from pg_tables where schemaname = 'public') loop
+                execute format('truncate table public.%I cascade', r.tablename);
+              end loop;
+            end
+            \$\$;
+          "
+
+      - name: Run scripts/restore-drill.sh
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          set -a
+          source /tmp/supabase.env
+          set +a
+          bash scripts/restore-drill.sh \
+            --db-gpg "$DB_GPG" \
+            --storage-gpg "$STORAGE_GPG" \
+            --target-db-url "$DB_URL" \
+            --target-supabase-url "$API_URL" \
+            --target-service-role-key "$SERVICE_ROLE_KEY" \
+            --prod-ref "wyjfgrgxmhumyzwcrywj"
+
+      - name: Stop isolated local Supabase stack
+        if: always()
+        run: |
+          cd /tmp/scratch-supabase && supabase stop --no-backup || true
