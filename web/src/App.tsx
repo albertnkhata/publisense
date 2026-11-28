@@ -39,12 +39,11 @@ const DevKit = import.meta.env.DEV ? lazy(() => import('./pages/DevKit')) : null
 
 /**
  * FOUNDATION §9 route table. Real paths; the mockup's #hash routes do not carry over.
- * Browsing pages (home, feed, categories, search, boards, hubs, posts, profiles,
- * notifications, settings, 404) use the TopBar shell (`nav: 'top'`), with RightRail
- * on reading/feed routes and wide/narrow columns on directory and utility pages.
- * Operational workspaces (/b/:board/manage, /h/:hub/manage, /messages, /admin)
- * use the left NavRail (`nav: 'rail'`). Standalone links (about, terms, privacy,
- * password reset, unsubscribe) use SITE_PAGE.
+ * App routes share the unified AppShell (TopBar + left NavRail + mobile TabBar),
+ * with RightRail on feed/board/hub/post/profile/search/404 routes and wide/narrow
+ * no-rail columns (with LandingFooter when `!fill`) on directory, utility, manage,
+ * and admin pages. Standalone links (about, terms, privacy, password reset,
+ * unsubscribe) use SITE_PAGE.
  */
 export const routes = [
   {
@@ -80,7 +79,7 @@ export const routes = [
       { path: 'terms', handle: SITE_PAGE, element: <TermsPage /> },
       { path: 'auth/reset', handle: SITE_PAGE, element: <AuthResetPage /> },
       { path: 'unsubscribe', handle: SITE_PAGE, element: <UnsubscribePage /> },
-      // Staff Command Centre: no right rail, full-width content, no top bar on desktop (shell/layout.ts).
+      // Staff Command Centre: no right rail, wide content column (shell/layout.ts).
       {
         path: 'admin',
         handle: STAFF_PAGE,

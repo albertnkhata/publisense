@@ -25,24 +25,24 @@ Pages in the same archetype share:
 ├──────────────────────┬───────────────────────┬──────────────────────────────┤
 │ Group                │ Shell / Layout        │ Primary Purpose & Mindset    │
 ├──────────────────────┼───────────────────────┼──────────────────────────────┤
-│ 0. Discovery Landing │ LandingHeader/Footer  │ Signed-out entry & discovery │
+│ 0. Discovery Landing │ TopBar + Nav + Wide   │ Signed-out entry & discovery │
 │ 1. Public & Info     │ Minimal SiteHeader    │ Long-form reading, trust     │
-│ 2A. Wide Discovery   │ Nav + Wide (no rail)  │ Uncluttered product directory│
-│ 2B. Core Browsing    │ Nav + Feed + Rail     │ Fast scanning, voting, search│
+│ 2A. Wide Discovery   │ TopBar + Nav + Wide   │ Uncluttered product directory│
+│ 2B. Core Browsing    │ TopBar+Nav+Feed+Rail  │ Fast scanning, voting, search│
 │ 3. User Workspace    │ Distraction-free      │ Personal utility, messaging  │
 │ 4. Maker Ops         │ Wide workbench        │ Domain proof, team management│
 │ 5. Staff Admin       │ High-density table    │ Moderation triage & audit    │
 └──────────────────────┴───────────────────────┴──────────────────────────────┘
 ```
 
-### Group 0: Signed-out Discovery Landing (The "Landing" Mode)
-* **Routes:** [`/`](../../web/src/pages/LandingPage.tsx) when signed out (`isLanding` in [`AppShell`](../../web/src/shell/AppShell.tsx), unless `?scope=following` is set).
-* **Layout:** Dedicated full-width container (`max-w-landing`, 1200px) with sticky [`LandingHeader`](../../web/src/pages/LandingPage.tsx) (brand, scroll-revealed search, `Sign in`) and [`LandingFooter`](../../web/src/pages/LandingPage.tsx). No `NavRail`, `TabBar`, or `RightRail`.
-* **Content Rhythm:** Hero (`Find any product. Shape what ships next.`, search trigger, `Share a post →`), shared discovery sections (`Trending`, `Popular posts` by status, `Hubs`, `Categories`), plus the mid-page signed-out maker CTA (`Claim your product`).
+### Group 0: Signed-out Discovery Landing (Signed-out `/` Variant)
+* **Routes:** [`/`](../../web/src/pages/HomePage.tsx) renders [`LandingPage`](../../web/src/pages/LandingPage.tsx) when signed out (`?scope=following` redirects to `/feed?scope=following`).
+* **Layout:** Shares the unified `EXPLORE_PAGE` shell (`TopBar`, `NavRail`, mobile `TabBar`, `max-w-wide` 1088px, no `RightRail`) with [`LandingFooter`](../../web/src/pages/LandingPage.tsx) rendered by [`AppShell`](../../web/src/shell/AppShell.tsx) on all `!rail && !fill` app routes.
+* **Content Rhythm:** Hero (`Find any product. Shape what ships next.`, search trigger, `Share a post →`), shared discovery sections (`Trending`, `Popular posts` by status, `Recently added`, `Hubs`, `Categories`), plus the mid-page signed-out maker CTA (`Claim your product`).
 
 ### Group 1: Public Marketing, Informational & Legal (The "Site" Archetype)
 * **Routes:** [`/about`](../../web/src/pages/AboutPage.tsx), [`/terms`](../../web/src/pages/LegalPages.tsx), [`/privacy`](../../web/src/pages/LegalPages.tsx), [`/auth/reset`](../../web/src/pages/AuthResetPage.tsx), [`/unsubscribe`](../../web/src/pages/UnsubscribePage.tsx).
-* **Layout Handle:** `SITE_PAGE` (`chrome: 'site'`, `rail: false`, `width: 'narrow'`, centered 680px column). Uses [`SiteHeader`](../../web/src/shell/SiteHeader.tsx) and [`SiteFooter`](../../web/src/shell/SiteHeader.tsx).
+* **Layout Handle:** `SITE_PAGE` (`chrome: 'site'`, `rail: false`, `width: 'narrow'`, centered `max-w-content` 728px column). Uses [`SiteHeader`](../../web/src/shell/SiteHeader.tsx) and [`SiteFooter`](../../web/src/shell/SiteHeader.tsx).
 * **UX/UI Refinement Goals:**
   - Establish a clean, readable typographic rhythm (line height, heading hierarchy, subheadings).
   - Explain public feedback boards and domain-verified creator claiming on `/about`.
@@ -52,7 +52,7 @@ Pages in the same archetype share:
 ### Group 2: Core Product & Community Discovery (The "Browsing" Archetype)
 * **Group 2A — Wide Discovery Directory (`EXPLORE_PAGE`):**
   - **Routes:** [`/`](../../web/src/pages/HomePage.tsx) (Home), [`/categories`](../../web/src/pages/CategoriesPage.tsx), [`/c/:category`](../../web/src/pages/CategoryPage.tsx).
-  - **Layout Handle:** `EXPLORE_PAGE` (`rail: false`, `width: 'wide'` 1024px, `topBar: false` on desktop). Keeps `NavRail` + mobile `TopBar`/`TabBar` while dropping the right rail so the 3-column category and product grids share the same discovery layout as Landing without the hero.
+  - **Layout Handle:** `EXPLORE_PAGE` (`rail: false`, `width: 'wide'` 1088px). Uses the unified `TopBar` + `NavRail` + mobile `TabBar` + `LandingFooter` while dropping the right rail so the 3-column category and product grids share the same wide discovery column as Landing.
 * **Group 2B — Feed, Search & Scopes (Default `AppShell`):**
   - **Routes:**
     - Feed: [`/feed`](../../web/src/pages/FeedPage.tsx) (signed in, or `?scope=following`)
@@ -60,7 +60,8 @@ Pages in the same archetype share:
     - Board & Tabs: [`/b/:board`](../../web/src/pages/BoardPage.tsx) (Feedback, Roadmap, Changelog)
     - Company Hub: [`/h/:hub`](../../web/src/pages/HubPage.tsx) (aggregates product boards)
     - Thread permalink: [`/post/:id`](../../web/src/pages/PostPage.tsx)
-  - **Layout Handle:** Default AppShell (3-column layout: left `NavRail`, central feed `max-w-content`, and contextual `RightRail` with search well, board list, and claim CTA).
+    - Fallback 404: `*` ([`NotFound`](../../web/src/pages/NotFound.tsx))
+  - **Layout Handle:** Default AppShell (`TopBar` + left `NavRail`, central column `max-w-content` 728px, and contextual `RightRail` with search well, board list, and claim CTA).
 * **UX/UI Refinement Goals:**
   - Visual hierarchy of cards ([`PostCard`](../../web/src/posts/PostCard.tsx), vote buttons, status pills, author bylines).
   - Clean transitions between board views (Feedback vs. Roadmap vs. Changelog).
@@ -75,8 +76,8 @@ Pages in the same archetype share:
   - Settings: [`/settings`](../../web/src/pages/SettingsPage.tsx) (profile, email, notifications, export/delete)
 * **Layout Handle:**
   - Default `AppShell` for Public Profile (`/u/:handle`).
-  - `NO_RAIL_NARROW` (`rail: false`, `width: 'narrow'`) for Settings and Notifications.
-  - `MESSAGES_PAGE` (`rail: false`, `width: 'wide'`, `topBar: false`, `fill: true`) for DMs (full-height split pane with sticky composer).
+  - `NO_RAIL_NARROW` (`rail: false`, `width: 'narrow'` 728px, with `TopBar`, `NavRail`, and `LandingFooter`) for Settings and Notifications.
+  - `MESSAGES_PAGE` (`rail: false`, `width: 'wide'`, `fill: true`, with `TopBar` and `NavRail`, no footer) for DMs (full-height split pane with sticky composer).
 * **UX/UI Refinement Goals:**
   - Clear distinction between viewing one's own profile vs. another user's profile.
   - Grouped setting sections with clear save indicators and destructive action confirmations.
@@ -88,7 +89,7 @@ Pages in the same archetype share:
   - Board Manage: [`/b/:board/manage`](../../web/src/manage/ManagePage.tsx)
   - Hub Manage: [`/h/:hub/manage`](../../web/src/manage/ManagePage.tsx)
   - Overlays: Claim Dialog (DNS TXT / work email verification), Add Product Dialog.
-* **Layout Handle:** `NO_RAIL_WIDE` (`rail: false`, `width: 'wide'`).
+* **Layout Handle:** `MANAGE_PAGE` (`rail: false`, `width: 'wide'` 1088px, with `TopBar`, `NavRail`, and `LandingFooter`).
 * **UX/UI Refinement Goals:**
   - Stepper clarity for DNS and domain verification (copy button, polling feedback, troubleshooting hints).
   - Team member table ergonomics (roles, invite inputs, ownership transfer safety).
@@ -96,7 +97,7 @@ Pages in the same archetype share:
 
 ### Group 5: Platform Governance (The "Staff Admin" Archetype)
 * **Routes:** [`/admin`](../../web/src/pages/AdminPages.tsx) (overview, products queue, companies queue, reports queue, disputes queue, staff team).
-* **Layout Handle:** `STAFF_PAGE` (`rail: false`, `width: 'wide'`, `topBar: false`).
+* **Layout Handle:** `STAFF_PAGE` (`rail: false`, `width: 'wide'` 1088px, with `TopBar`, `NavRail`, and `LandingFooter`; `topBar: false` is retained on the handle for compatibility while the unified shell keeps `TopBar` across app routes).
 * **UX/UI Refinement Goals:**
   - Rapid triage: high information density, clear queue counters, instant review actions.
   - Mandatory reasoning prompts on rejections and report dismissals.

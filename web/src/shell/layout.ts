@@ -8,10 +8,10 @@ import { useMatches } from 'react-router';
  * - `rail: false` drops the right rail (boards cards, claim line).
  * - `width` sizes the content column when the right rail is off:
  *   - `'wide'` (the default without a rail) widens it to `max-w-wide`
- *     (1024px), for directory views (Home, Categories) and workspaces (/admin, Manage).
- *   - `'narrow'` keeps the reading column (`max-w-content`, 680px), centred
+ *     (1088px), for directory views (Home, Categories) and workspaces (/admin, Manage).
+ *   - `'narrow'` keeps the reading column (`max-w-content`, 728px), centred
  *     for forms, lists and long text (Settings, Notifications, the legal pages).
- *   With the right rail on, the column is always `max-w-content` (680px); `width` is ignored.
+ *   With the right rail on, the column is always `max-w-content` (728px); `width` is ignored.
  * - `topBar` is kept for route handle compatibility (`topBar: false` when a route
  *   opts out, though the unified shell keeps the global TopBar across app routes).
  * - `fill: true` makes the page exactly one screen tall (no page scroll) and the
@@ -20,10 +20,8 @@ import { useMatches } from 'react-router';
  *   foot of the screen. For Messages, whose composer sits at the bottom always.
  * - `chrome` picks the frame around the page:
  *   - `'app'` (the default): full-width TopBar above the left NavRail, content
- *     column (plus RightRail when `rail: true`), and TabBar at sm. (When `/` is
- *     visited signed-out without `?scope=following`, `AppShell` switches at
- *     runtime to the `isLanding` shell: `LandingHeader`, `LandingFooter`,
- *     and `max-w-landing` 1200px, without nav rail or right rail.)
+ *     column (plus RightRail when `rail: true`, or LandingFooter when `!rail && !fill`),
+ *     and TabBar at sm. Signed-out `/` renders `LandingPage` inside the `EXPLORE_PAGE` shell.
  *   - `'site'`: a plain website header (brand, About · Terms · Privacy, Sign in or
  *     back to Publisense) and no nav rail or tab bar, for standalone pages
  *     people land on from a link (about and legal pages). Implies no right
