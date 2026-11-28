@@ -9,12 +9,12 @@ Operational runbook for Publisense (`publisense.app`) covering the 72-hour launc
 | Role | Owner | Primary contact | Backup / fallback |
 | :--- | :--- | :--- | :--- |
 | **Primary responder & Incident Commander** | Albert Nkhata | `support@publisense.app` · `@publisensehq` | Direct phone / SMS (stored offline) |
-| **Backup responder** | _Assign before launch day (name + contact stored offline)_ | _Phone / WhatsApp / Signal_ | Escalate via GitHub issue (`severity:p0`) + email |
+| **Backup / fallback (solo founder)** | Albert Nkhata (sole operator; no secondary responder) | Personal email (`albertnkhata@hotmail.com`) + mobile alerts | Pause launch promotion/outreach immediately on unmitigated P0; log `severity:p0` GitHub issue |
 
 ### 72-hour launch response window (#317)
 - Starts at Show HN + X posting (~16:00 CAT on the active launch date from #317) and runs for 72 hours.
 - **Active monitoring cadence:** check `/admin` Command Centre, `/admin/reports`, `/admin/disputes`, `support@publisense.app`, Sentry (`publisense-web`), and launch threads (Show HN, X, Product Hunt) every 30 minutes during waking hours; keep phone notifications on for P0/P1 alerts.
-- **Pause / resume authority:** Only the **Primary responder (Albert)** (or designated Backup responder if Primary is unreachable during a P0) may pause or resume launch outreach/promotion, post incident status updates, or execute a production rollback.
+- **Pause / resume authority:** Only **Albert Nkhata** (solo founder / Incident Commander) may pause or resume launch outreach/promotion, post incident status updates, or execute a production rollback.
 
 ---
 
@@ -39,7 +39,7 @@ Operational runbook for Publisense (`publisense.app`) covering the 72-hour launc
 
 | Level | Definition | Target first response | Update cadence | Escalation |
 | :--- | :--- | :--- | :--- | :--- |
-| **P0 — Critical** | Site unreachable, auth completely broken, data loss/corruption, or security/RLS leak | ≤ 15 min | Every 30 min until resolved | Pause launch promo immediately; execute rollback; alert backup responder |
+| **P0 — Critical** | Site unreachable, auth completely broken, data loss/corruption, or security/RLS leak | ≤ 15 min | Every 30 min until resolved | Pause launch promo immediately; execute rollback; post status update on launch threads |
 | **P1 — High** | Core flow degraded (posting, voting, claiming, email delivery failing, major 500s) | ≤ 30 min | Every 60 min | Reproduce, isolate (Vercel vs Supabase vs Resend), patch or rollback |
 | **P2 — Medium** | Non-blocking UI bug, single-board issue, delayed email batching, bad OG preview | ≤ 4 hours | Once fixed | Triage into GitHub issue; ship normal fix via CI |
 | **P3 — Low** | Feature question, minor copy tweak, cosmetic polish | ≤ 24 hours (within 72h window) | Reply directly | Log in Publisense's own board or GitHub issues |
